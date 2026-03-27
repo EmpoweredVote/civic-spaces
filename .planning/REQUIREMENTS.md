@@ -15,9 +15,9 @@
 
 ### Slice Assignment
 
-- [ ] **ASMT-01**: Connected user is automatically placed into all 4 slices based on jurisdiction GEOIDs from the accounts API
-- [ ] **ASMT-02**: All slices (Neighborhood, Local, State, Federal) are hard-capped at 6,000 members; overflow creates a new sibling slice of the same type
-- [ ] **ASMT-03**: Slice membership is fetched fresh from the accounts API (never stored locally in profiles — only the assignment mapping is stored)
+- [x] **ASMT-01**: Connected user is automatically placed into all 4 slices based on jurisdiction GEOIDs from the accounts API
+- [x] **ASMT-02**: All slices (Neighborhood, Local, State, Federal) are hard-capped at 6,000 members; overflow creates a new sibling slice of the same type
+- [x] **ASMT-03**: Slice membership is fetched fresh from the accounts API (never stored locally in profiles — only the assignment mapping is stored)
 
 ### Federal Slice Forum
 

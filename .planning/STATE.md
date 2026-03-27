@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** A Connected user can enter their Federal Slice, see posts from their ~6k civic neighbors, and contribute to the conversation — making civic engagement feel like a small town, not an ocean.
-**Current focus:** Phase 1 — Foundation
+**Current focus:** Phase 2 — Core Forum
 
 ## Current Position
 
