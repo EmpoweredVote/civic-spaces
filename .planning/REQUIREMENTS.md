@@ -98,44 +98,44 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HUB-01 | — | Pending |
-| HUB-02 | — | Pending |
-| HUB-03 | — | Pending |
-| HUB-04 | — | Pending |
-| HUB-05 | — | Pending |
-| ASMT-01 | — | Pending |
-| ASMT-02 | — | Pending |
-| ASMT-03 | — | Pending |
-| FEED-01 | — | Pending |
-| FEED-02 | — | Pending |
-| FEED-03 | — | Pending |
-| FEED-04 | — | Pending |
-| FEED-05 | — | Pending |
-| FEED-06 | — | Pending |
-| FEED-07 | — | Pending |
-| FEED-08 | — | Pending |
-| FEED-09 | — | Pending |
-| FEED-10 | — | Pending |
-| SOC-01 | — | Pending |
-| SOC-02 | — | Pending |
-| SOC-03 | — | Pending |
-| SOC-04 | — | Pending |
-| SOC-05 | — | Pending |
-| SOC-06 | — | Pending |
-| SOC-07 | — | Pending |
-| NOTF-01 | — | Pending |
-| NOTF-02 | — | Pending |
-| NOTF-03 | — | Pending |
-| NOTF-04 | — | Pending |
-| MOD-01 | — | Pending |
-| MOD-02 | — | Pending |
-| MOD-03 | — | Pending |
+| HUB-01 | Phase 2 | Pending |
+| HUB-02 | Phase 2 | Pending |
+| HUB-03 | Phase 2 | Pending |
+| HUB-04 | Phase 2 | Pending |
+| HUB-05 | Phase 2 | Pending |
+| ASMT-01 | Phase 1 | Pending |
+| ASMT-02 | Phase 1 | Pending |
+| ASMT-03 | Phase 1 | Pending |
+| FEED-01 | Phase 2 | Pending |
+| FEED-02 | Phase 2 | Pending |
+| FEED-03 | Phase 2 | Pending |
+| FEED-04 | Phase 2 | Pending |
+| FEED-05 | Phase 2 | Pending |
+| FEED-06 | Phase 2 | Pending |
+| FEED-07 | Phase 2 | Pending |
+| FEED-08 | Phase 2 | Pending |
+| FEED-09 | Phase 2 | Pending |
+| FEED-10 | Phase 2 | Pending |
+| SOC-01 | Phase 3 | Pending |
+| SOC-02 | Phase 3 | Pending |
+| SOC-03 | Phase 3 | Pending |
+| SOC-04 | Phase 3 | Pending |
+| SOC-05 | Phase 3 | Pending |
+| SOC-06 | Phase 3 | Pending |
+| SOC-07 | Phase 3 | Pending |
+| NOTF-01 | Phase 4 | Pending |
+| NOTF-02 | Phase 4 | Pending |
+| NOTF-03 | Phase 4 | Pending |
+| NOTF-04 | Phase 4 | Pending |
+| MOD-01 | Phase 5 | Pending |
+| MOD-02 | Phase 5 | Pending |
+| MOD-03 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 31 total
-- Mapped to phases: 0 (populated during roadmap creation)
-- Unmapped: 31 ⚠️
+- v1 requirements: 32 total
+- Mapped to phases: 32 (Phase 1: 3, Phase 2: 15, Phase 3: 7, Phase 4: 4, Phase 5: 3)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-27*
-*Last updated: 2026-03-27 after initial definition*
+*Last updated: 2026-03-27 after roadmap creation — traceability populated*
