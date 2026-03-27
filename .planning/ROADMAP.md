@@ -29,12 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. On login, the slice assignment service calls the accounts API, reads the user's jurisdiction GEOIDs, and upserts the user into all four slice member tables — verifiable by querying `slice_members` directly
   3. When a slice reaches 6,000 members, the DB CHECK constraint prevents the 6,001st insert and a new sibling slice is created automatically — verifiable by seeding test data
   4. All `civic_spaces.*` tables have RLS enabled; a test JWT from a non-member cannot read another slice's posts
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Resolve OIDC path (Third-Party Auth vs. Edge Function token exchange) and implement auth middleware
-- [ ] 01-02: Write full schema DDL — all tables with RLS, indexes, triggers, and cap enforcement
-- [ ] 01-03: Build slice assignment Express service (accounts API call → upsert slice_members on login)
+- [ ] 01-01-PLAN.md — Resolve auth path, verify JWT claims, create current_user_id() helper and Supabase client
+- [ ] 01-02-PLAN.md — Full schema DDL with RLS policies, triggers, cap enforcement, and seed data
+- [ ] 01-03-PLAN.md — Slice assignment Express service (token verify, accounts API, upsert slice_members, overflow handling)
 
 ### Phase 2: Core Forum
 **Goal**: A Connected user can open the hub, navigate to their Federal Slice, read the feed, create a post, and reply to others — the complete read/write loop works end-to-end.
