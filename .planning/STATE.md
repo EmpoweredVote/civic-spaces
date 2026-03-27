@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 ## Current Position
 
 Phase: 1 of 5 (Foundation)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-03-27 — Roadmap created; ready to begin Phase 1 planning
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-03-27 — Completed 01-01-PLAN.md (auth foundation)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 7%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
+- Total plans completed: 1
 - Average duration: —
 - Total execution time: —
 
@@ -27,10 +27,10 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| Phase 1 | 1/3 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: —
+- Last 5 plans: 01-01
 - Trend: —
 
 *Updated after each plan completion*
@@ -42,21 +42,21 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [Pre-Phase 1]: OIDC availability on accounts.empowered.vote is unresolved — determines whether to use Supabase Third-Party Auth natively (RS256 + OIDC discovery) or an Edge Function token exchange. Must resolve before any RLS policy is written.
 - [Pre-Phase 1]: Federal Slice first; other three tabs are visible placeholders in Phase 2, fully active in later work.
 - [Pre-Phase 1]: 6k cap is a DB CHECK constraint (not app logic) — trigger-maintained `current_member_count` on `slices` table.
 - [Pre-Phase 1]: All RLS policies use `auth.jwt() ->> 'sub'` (not `auth.uid()`) — external JWT does not populate `auth.uid()`.
+- [Plan 01-01]: Path B (Edge Function) chosen for auth — Supabase Third-Party Auth only supports named providers; GoTrue cannot issue client credentials for external apps. Auth flow: accounts JWT → exchange-token Edge Function → Supabase HS256 JWT (cs_token). Documented in 01-01-SUMMARY.md.
 
 ### Pending Todos
 
-None yet.
+- **GEOID format:** The format returned by GET /api/account/me on accounts.empowered.vote is unknown. User must provide this before Plan 01-02 executes. (Federal Slice uses GEOID to identify the user's district.)
 
 ### Blockers/Concerns
 
-- **Phase 1 blocker (auth path):** OIDC discovery availability on accounts.empowered.vote is unknown. Plan 01-01 must resolve this before writing any RLS policy. Two known paths: (a) native Supabase Third-Party Auth if RS256 + OIDC endpoint available, (b) Edge Function token exchange if not.
+- **Plan 01-02 gated on GEOID format:** Must know the exact field name and format (e.g., "5-digit FIPS string") before writing the slice assignment service. Not a blocker for other work.
 
 ## Session Continuity
 
 Last session: 2026-03-27
-Stopped at: Roadmap created; STATE.md initialized; REQUIREMENTS.md traceability updated.
+Stopped at: Completed 01-01-PLAN.md
 Resume file: None
