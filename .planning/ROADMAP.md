@@ -41,7 +41,7 @@ Plans:
 **Depends on**: Phase 1
 **Requirements**: HUB-01, HUB-02, HUB-03, HUB-04, HUB-05, FEED-01, FEED-02, FEED-03, FEED-04, FEED-05, FEED-06, FEED-07, FEED-08, FEED-09, FEED-10
 **Success Criteria** (what must be TRUE):
-  1. A Connected user sees a hub with four slice tabs; the Federal tab loads their slice feed and the other three tabs are visible as placeholders — switching tabs preserves scroll position
+  1. A Connected user sees a hub with five slice tabs (Neighborhood, Local, State, Federal, Unified — ordered smallest to biggest); the Federal tab loads their slice feed and the other four tabs are visible but grayed out (dimmed, not tappable) — switching to Federal preserves scroll position
   2. The feed displays topic cards in reverse-chronological order using cursor-based infinite scroll — scrolling to the bottom loads the next page without duplicates or gaps
   3. A Connected user can create a new text post; it appears in the feed immediately after submission
   4. A Connected user can open a post and see the full thread with nested replies in chronological order, then add a reply to the post or to another reply
