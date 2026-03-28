@@ -9,18 +9,18 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation)
-Plan: 3 of 3 in current phase — Phase 1 COMPLETE
-Status: Phase complete
-Last activity: 2026-03-27 — Completed 01-03-PLAN.md (slice assignment service)
+Phase: 2 of 5 (Core Forum)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-03-28 — Completed 02-01-PLAN.md (React app bootstrap, hub shell, tab bar, schema migration)
 
-Progress: [███░░░░░░░] 20%
+Progress: [████░░░░░░] 29%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: —
+- Total plans completed: 4 (3 Phase 1 + 1 Phase 2)
+- Average duration: ~4 min
 - Total execution time: —
 
 **By Phase:**
@@ -28,10 +28,11 @@ Progress: [███░░░░░░░] 20%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | Phase 1 | 3/3 | ~3 min avg | ~3 min |
+| Phase 2 | 1/4 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01, 01-02
-- Trend: —
+- Last 5 plans: 01-01, 01-02, 01-03, 02-01
+- Trend: Stable ~4 min per plan
 
 *Updated after each plan completion*
 
@@ -53,17 +54,21 @@ Recent decisions affecting current work:
 - [Plan 01-03]: Health check at /health placed before verifyToken middleware — unauthenticated probe access for orchestrators/load balancers.
 - [Plan 01-03]: Race conditions on slice creation handled via 23505 re-query pattern (not retry loops).
 - [Plan 01-03]: slice_full retry goes directly to findOrCreateSiblingSlice (skips re-checking the known-full slice).
+- [Plan 02-01]: Used @vitejs/plugin-react@5 (not v6) — v6 requires vite@^8; project uses vite@6.
+- [Plan 02-01]: Two-query pattern in useFederalSlice (slice_members then slices.in()) — no FK constraints for embedded select.
+- [Plan 02-01]: JWT decode uses native atob() — no external library needed for read-only claims extraction.
+- [Plan 02-01]: db: { schema: 'civic_spaces' } added to supabase createClient — all queries default to civic_spaces schema.
 
 ### Pending Todos
 
-None.
+- Apply supabase/migrations/20260327100000_phase2_schema.sql to Supabase project before Phase 2 feed queries go live.
 
 ### Blockers/Concerns
 
-None — Phase 1 complete. Phase 2 (Federal Slice) can proceed. Slice assignment service requires .env file before running.
+None — 02-01 complete. SliceFeedPanel is a placeholder; 02-02 implements the actual post feed. All Phase 2 dependencies installed.
 
 ## Session Continuity
 
-Last session: 2026-03-27T21:49:21Z
-Stopped at: Completed 01-03-PLAN.md (Phase 1 complete)
+Last session: 2026-03-28T02:17:48Z
+Stopped at: Completed 02-01-PLAN.md (app shell plan)
 Resume file: None
