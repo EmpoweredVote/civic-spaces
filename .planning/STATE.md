@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** A Connected user can enter their Federal Slice, see posts from their ~6k civic neighbors, and contribute to the conversation — making civic engagement feel like a small town, not an ocean.
-**Current focus:** Phase 2 complete — Core Forum shipped.
+**Current focus:** Phase 3 in progress — Social Graph foundation complete.
 
 ## Current Position
 
-Phase: 2 of 5 (Core Forum) — COMPLETE
-Plan: 4 of 4 in phase 02 — COMPLETE
-Status: Phase complete
-Last activity: 2026-03-28 — Completed 02-04-PLAN.md (thread view, nested replies, inline reply composer, InformUpgradePrompt)
+Phase: 3 of 5 (Social Graph) — In Progress
+Plan: 1 of 3 in phase 03 — COMPLETE
+Status: In progress
+Last activity: 2026-03-28 — Completed 03-01-PLAN.md (friendships table, follows table, RLS, get_boosted_feed RPC, TypeScript types, friendship utilities)
 
-Progress: [████████░░] 57%
+Progress: [█████████░] 62%
 
 ## Performance Metrics
 
@@ -57,7 +57,7 @@ Recent decisions affecting current work:
 - [Plan 02-01]: Used @vitejs/plugin-react@5 (not v6) — v6 requires vite@^8; project uses vite@6.
 - [Plan 02-01]: Two-query pattern in useFederalSlice (slice_members then slices.in()) — no FK constraints for embedded select.
 - [Plan 02-01]: JWT decode uses native atob() — no external library needed for read-only claims extraction.
-- [Plan 02-01]: db: { schema: 'civic_spaces' } added to supabase createClient — all queries default to civic_spaces schema.
+- [Plan 02-01]: db: { schema: 'civic_spaces' } was initially set on supabase createClient but removed post-execution — replaced with public-schema views (slices, slice_members, posts, replies, connected_profiles) that forward to civic_spaces tables. PostgREST schema exposure config not required.
 - [Plan 02-02]: Composite cursor (created_at + id) for feed pagination — stable under concurrent inserts, no duplicate/skip risk vs. offset.
 - [Plan 02-02]: PostCard onClick defers to console.log — replaced in 02-04 with ThreadView navigation.
 - [Plan 02-02]: Realtime invalidation pattern: one channel per sliceId, invalidates entire feed query on any post change event.
@@ -68,17 +68,21 @@ Recent decisions affecting current work:
 - [Plan 02-04]: Feed hidden (not unmounted) when ThreadView active — preserves IntersectionObserver scroll position.
 - [Plan 02-04]: InformUpgradePrompt is a shared reusable component used in both SliceFeedPanel and ThreadView.
 - [Plan 02-04]: Depth-1 replies rendered with canWrite=false — max nesting depth enforced at render level.
+- [Plan 03-01]: Friendships use single-row normalization (user_low < user_high) — eliminates duplicate-row bugs, simplifies RLS policies to single row operations.
+- [Plan 03-01]: BoostedPostWithAuthor includes tier in author Pick — Phase 3 UI needs tier for EmpoweredBadge rendering (unlike Phase 2 PostWithAuthor).
+- [Plan 03-01]: get_boosted_feed uses SECURITY INVOKER — RLS applies to caller, consistent with project auth model.
+- [Plan 03-01]: (select ...) subquery wrapping on all RLS policies — PostgreSQL caches subquery result within statement, better perf on large tables.
 
 ### Pending Todos
 
-- Apply supabase/migrations/20260327100000_phase2_schema.sql to Supabase project before Phase 2 feed queries go live.
+None.
 
 ### Blockers/Concerns
 
-None — Phase 2 complete. All four plans delivered: app scaffold, feed + PostCard, post CRUD + composer, thread view + replies.
+None — Phase 3 Plan 1 complete. Social graph schema foundation ready for UI work in Plans 02 and 03.
 
 ## Session Continuity
 
-Last session: 2026-03-28T02:38:47Z
-Stopped at: Completed 02-04-PLAN.md (thread view plan) — Phase 2 complete
+Last session: 2026-03-28T16:43:00Z
+Stopped at: Completed 03-01-PLAN.md (social graph foundation) — Phase 3 in progress
 Resume file: None
