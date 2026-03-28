@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** A Connected user can enter their Federal Slice, see posts from their ~6k civic neighbors, and contribute to the conversation — making civic engagement feel like a small town, not an ocean.
-**Current focus:** Phase 2 — Core Forum
+**Current focus:** Phase 2 complete — Core Forum shipped.
 
 ## Current Position
 
-Phase: 2 of 5 (Core Forum)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-03-28 — Completed 02-03-PLAN.md (FAB, PostComposer, create/edit/delete mutations with optimistic updates, tier gating)
+Phase: 2 of 5 (Core Forum) — COMPLETE
+Plan: 4 of 4 in phase 02 — COMPLETE
+Status: Phase complete
+Last activity: 2026-03-28 — Completed 02-04-PLAN.md (thread view, nested replies, inline reply composer, InformUpgradePrompt)
 
-Progress: [██████░░░░] 43%
+Progress: [████████░░] 57%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6 (3 Phase 1 + 3 Phase 2)
+- Total plans completed: 7 (3 Phase 1 + 4 Phase 2)
 - Average duration: ~3-4 min
 - Total execution time: —
 
@@ -28,10 +28,10 @@ Progress: [██████░░░░] 43%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | Phase 1 | 3/3 | ~3 min avg | ~3 min |
-| Phase 2 | 3/4 | ~4 min avg | ~4 min |
+| Phase 2 | 4/4 | ~3-4 min avg | ~3-4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02, 01-03, 02-01, 02-02, 02-03
+- Last 5 plans: 02-01, 02-02, 02-03, 02-04
 - Trend: Stable ~3-4 min per plan
 
 *Updated after each plan completion*
@@ -59,24 +59,26 @@ Recent decisions affecting current work:
 - [Plan 02-01]: JWT decode uses native atob() — no external library needed for read-only claims extraction.
 - [Plan 02-01]: db: { schema: 'civic_spaces' } added to supabase createClient — all queries default to civic_spaces schema.
 - [Plan 02-02]: Composite cursor (created_at + id) for feed pagination — stable under concurrent inserts, no duplicate/skip risk vs. offset.
-- [Plan 02-02]: PostCard onClick defers to console.log — thread/detail view ships in 02-04.
+- [Plan 02-02]: PostCard onClick defers to console.log — replaced in 02-04 with ThreadView navigation.
 - [Plan 02-02]: Realtime invalidation pattern: one channel per sliceId, invalidates entire feed query on any post change event.
 - [Plan 02-03]: PostComposer uses two separate useForm instances (createForm + editForm) with distinct Zod resolvers — cleaner schema isolation.
 - [Plan 02-03]: PostCard refactored from single <button> to <div> wrapper + inner <button> to allow absolutely-positioned menu without nested interactive elements.
-- [Plan 02-03]: Inform-tier upgrade prompt is inline overlay in SliceFeedPanel — proper InformUpgradePrompt component ships in 02-04.
+- [Plan 02-03]: Inform-tier upgrade prompt was inline overlay in SliceFeedPanel — replaced with InformUpgradePrompt component in 02-04.
+- [Plan 02-04]: Reply pagination uses ascending composite cursor (created_at ASC, id ASC) — oldest-first display.
+- [Plan 02-04]: Feed hidden (not unmounted) when ThreadView active — preserves IntersectionObserver scroll position.
+- [Plan 02-04]: InformUpgradePrompt is a shared reusable component used in both SliceFeedPanel and ThreadView.
+- [Plan 02-04]: Depth-1 replies rendered with canWrite=false — max nesting depth enforced at render level.
 
 ### Pending Todos
 
 - Apply supabase/migrations/20260327100000_phase2_schema.sql to Supabase project before Phase 2 feed queries go live.
-- Replace `console.log('Open post', postId)` in PostCard onClick with navigation in 02-04 (thread view).
-- Replace inline inform-tier upgrade prompt in SliceFeedPanel with proper InformUpgradePrompt component in 02-04.
 
 ### Blockers/Concerns
 
-None — 02-03 complete. Post composer and mutations fully wired. Final plan: 02-04 (thread/reply view + InformUpgradePrompt).
+None — Phase 2 complete. All four plans delivered: app scaffold, feed + PostCard, post CRUD + composer, thread view + replies.
 
 ## Session Continuity
 
-Last session: 2026-03-28T02:32:18Z
-Stopped at: Completed 02-03-PLAN.md (post composer plan)
+Last session: 2026-03-28T02:38:47Z
+Stopped at: Completed 02-04-PLAN.md (thread view plan) — Phase 2 complete
 Resume file: None
