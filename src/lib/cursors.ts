@@ -3,6 +3,11 @@ export interface FeedCursor {
   id: string
 }
 
+export interface BoostedFeedCursor {
+  boosted_at: string  // ISO timestamp — the synthetic sort key
+  id: string          // UUID tiebreaker
+}
+
 export function encodeCursor(cursor: FeedCursor): string {
   const json = JSON.stringify(cursor)
   // base64url encode (URL-safe, no padding issues)
