@@ -80,11 +80,11 @@ Plans:
   1. A user who receives a reply to their post or reply sees an unread badge on the notification bell and can open a notification list showing the event — the badge clears when the list is viewed
   2. A user who sends a friend request is notified when it is accepted; a user who receives a friend request sees it in their notification list
   3. Low-priority events are grouped ("5 replies to your post") rather than delivered as individual pings — no per-reaction notifications
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: Notifications table, DB triggers for reply/friend-request/accepted events, batch grouping logic
-- [ ] 04-02: NotificationBell with unread badge, NotificationList, Supabase Realtime delivery, Redis+DB hybrid unread counts
+- [ ] 04-01-PLAN.md — Notifications table, triggers, RLS, grouping index, public view, Realtime publication, TypeScript types
+- [ ] 04-02-PLAN.md — NotificationBell with unread badge, NotificationList, NotificationItem, useNotifications hook, mark-read mutations, AppShell integration
 
 ### Phase 5: Moderation & Safety
 **Goal**: Users can flag harmful content, block other users, and moderators can act on flagged posts — the forum is safe enough to open beyond invite-only testers.
