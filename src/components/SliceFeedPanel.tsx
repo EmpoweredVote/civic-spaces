@@ -18,9 +18,10 @@ interface SliceFeedPanelProps {
   onAuthorTap?: (userId: string) => void
   activePostId: string | null
   onNavigateToThread: (postId: string | null) => void
+  scrollToLatest?: boolean
 }
 
-export default function SliceFeedPanel({ sliceId, onAuthorTap, activePostId, onNavigateToThread }: SliceFeedPanelProps) {
+export default function SliceFeedPanel({ sliceId, onAuthorTap, activePostId, onNavigateToThread, scrollToLatest }: SliceFeedPanelProps) {
   const {
     data,
     fetchNextPage,
@@ -166,6 +167,7 @@ export default function SliceFeedPanel({ sliceId, onAuthorTap, activePostId, onN
             sliceId={sliceId}
             onBack={() => onNavigateToThread(null)}
             onAuthorTap={onAuthorTap}
+            scrollToLatest={scrollToLatest}
           />
         </div>
       )}

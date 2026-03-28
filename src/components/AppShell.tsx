@@ -17,6 +17,7 @@ export default function AppShell() {
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [activePostId, setActivePostId] = useState<string | null>(null)
+  const [activePostScrollToLatest, setActivePostScrollToLatest] = useState(false)
 
   return (
     <div className="flex flex-col h-screen">
@@ -30,7 +31,10 @@ export default function AppShell() {
             {/* Notification bell */}
             <NotificationBell
               onOpenProfile={(uid) => setProfileUserId(uid)}
-              onNavigateToThread={(postId) => setActivePostId(postId)}
+              onNavigateToThread={(postId) => {
+                setActivePostScrollToLatest(true)
+                setActivePostId(postId)
+              }}
             />
 
             {/* Friends icon */}
@@ -117,7 +121,11 @@ export default function AppShell() {
                 sliceId={federalSlice.id}
                 onAuthorTap={setProfileUserId}
                 activePostId={activePostId}
-                onNavigateToThread={setActivePostId}
+                onNavigateToThread={(postId) => {
+                  setActivePostScrollToLatest(false)
+                  setActivePostId(postId)
+                }}
+                scrollToLatest={activePostScrollToLatest}
               />
             </div>
           </>

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import Sheet from 'react-modal-sheet'
-import { useNotifications } from '../hooks/useNotifications'
+import { useNotifications, useMarkAllNotificationsRead } from '../hooks/useNotifications'
 import NotificationList from './NotificationList'
 
 interface NotificationBellProps {
@@ -14,8 +14,17 @@ export default function NotificationBell({
   onNavigateToThread,
 }: NotificationBellProps) {
   const { unreadCount } = useNotifications()
+  const markAllRead = useMarkAllNotificationsRead()
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Auto-clear badge when panel opens (ROADMAP: "badge clears when the list is viewed")
+  useEffect(() => {
+    if (isOpen && unreadCount > 0) {
+      markAllRead.mutate()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 
   // Click-outside close for desktop popover
   useEffect(() => {

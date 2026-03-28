@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { useThread } from '../hooks/useThread'
 import { useAuth } from '../hooks/useAuth'
@@ -14,6 +14,7 @@ interface ThreadViewProps {
   onBack: () => void
   sliceId: string
   onAuthorTap?: (userId: string) => void
+  scrollToLatest?: boolean
 }
 
 interface ReplyTarget {
@@ -21,13 +22,20 @@ interface ReplyTarget {
   authorName: string
 }
 
-export default function ThreadView({ postId, onBack, onAuthorTap }: ThreadViewProps) {
+export default function ThreadView({ postId, onBack, onAuthorTap, scrollToLatest }: ThreadViewProps) {
   const { post, replies, fetchMoreReplies, hasMoreReplies, isLoading } = useThread(postId)
   const { userId } = useAuth()
   const { profile } = useProfile(userId)
 
   const [activeReplyTarget, setActiveReplyTarget] = useState<ReplyTarget | null>(null)
   const [replyComposerOpen, setReplyComposerOpen] = useState(false)
+  const replyListRef = useRef<HTMLDivElement>(null)
+
+  // When opened from a notification, scroll to the end of the reply list so new replies are visible
+  useEffect(() => {
+    if (!scrollToLatest || isLoading || replies.length === 0) return
+    replyListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [scrollToLatest, isLoading, replies.length])
   const [informPromptOpen, setInformPromptOpen] = useState(false)
 
   const canWrite = !!userId && profile?.tier !== 'inform' && !profile?.is_suspended
@@ -187,7 +195,7 @@ export default function ThreadView({ postId, onBack, onAuthorTap }: ThreadViewPr
         )}
 
         {/* Reply tree */}
-        <div className="divide-y divide-gray-100">
+        <div ref={replyListRef} className="divide-y divide-gray-100">
           {rootReplies.map((rootReply) => {
             const children = childMap.get(rootReply.id) ?? []
             const isTargeted = activeReplyTarget?.replyId === rootReply.id
