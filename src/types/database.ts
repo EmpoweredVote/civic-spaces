@@ -20,7 +20,7 @@ export interface ConnectedProfile {
   user_id: string
   display_name: string
   avatar_url: string | null
-  tier: 'connected' | 'inform'
+  tier: 'connected' | 'inform' | 'empowered'
   account_standing: 'active' | 'suspended'
   is_suspended: boolean
   created_at: string
@@ -63,3 +63,31 @@ export type PostWithAuthor = Post & {
 export type ReplyWithAuthor = Reply & {
   author: Pick<ConnectedProfile, 'display_name' | 'avatar_url'>
 }
+
+// ---- Phase 3: Social Graph types ----
+
+export type FriendshipStatus = 'REQ_LOW' | 'REQ_HIGH' | 'FRIEND'
+
+export interface Friendship {
+  user_low: string
+  user_high: string
+  status: FriendshipStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface Follow {
+  follower_id: string
+  target_id: string
+  created_at: string
+}
+
+export type BoostedPost = Post & {
+  boosted_at: string
+}
+
+export type BoostedPostWithAuthor = BoostedPost & {
+  author: Pick<ConnectedProfile, 'display_name' | 'avatar_url' | 'tier'>
+}
+
+export type RelationshipState = 'none' | 'pending_sent' | 'pending_received' | 'friends'
