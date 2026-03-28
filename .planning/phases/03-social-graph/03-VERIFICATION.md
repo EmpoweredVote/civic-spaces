@@ -1,7 +1,7 @@
 ---
 phase: 03-social-graph
 verified: 2026-03-28T00:00:00Z
-status: human_needed
+status: passed
 score: 5/5 must-haves verified in code
 human_verification:
   - test: Friend request flow
