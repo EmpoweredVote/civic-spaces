@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 ## Current Position
 
 Phase: 3 of 5 (Social Graph) — In Progress
-Plan: 1 of 3 in phase 03 — COMPLETE
+Plan: 2 of 3 in phase 03 — COMPLETE
 Status: In progress
-Last activity: 2026-03-28 — Completed 03-01-PLAN.md (friendships table, follows table, RLS, get_boosted_feed RPC, TypeScript types, friendship utilities)
+Last activity: 2026-03-28 — Completed 03-02-PLAN.md (EmpoweredBadge, UserProfileCard, FriendsList, MemberDirectory, all social graph hooks, PostCard/ReplyCard/AppShell integration)
 
-Progress: [█████████░] 62%
+Progress: [█████████░] 69%
 
 ## Performance Metrics
 
@@ -77,12 +77,16 @@ Recent decisions affecting current work:
 
 None.
 
+- [Plan 03-02]: PostWithAuthor and ReplyWithAuthor now include tier in author Pick — EmpoweredBadge in feed/thread without per-card queries.
+- [Plan 03-02]: onAuthorTap propagated AppShell -> SliceFeedPanel -> PostCard/ThreadView -> ReplyCard — AppShell owns UserProfileCard state.
+- [Plan 03-02]: FriendsList and MemberDirectory as fixed full-screen overlays (z-50), not sheets — better for multi-section panels with lists.
+
 ### Blockers/Concerns
 
-None — Phase 3 Plan 1 complete. Social graph schema foundation ready for UI work in Plans 02 and 03.
+None — Phase 3 Plan 2 complete. Social graph UI ready. Plan 3 (03-03) can proceed.
 
 ## Session Continuity
 
-Last session: 2026-03-28T16:43:00Z
-Stopped at: Completed 03-01-PLAN.md (social graph foundation) — Phase 3 in progress
+Last session: 2026-03-28T17:55:08Z
+Stopped at: Completed 03-02-PLAN.md (social graph UI) — Phase 3 in progress
 Resume file: None
