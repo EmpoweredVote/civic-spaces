@@ -7,6 +7,7 @@ import SliceFeedPanel from './SliceFeedPanel'
 import UserProfileCard from './UserProfileCard'
 import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
+import NotificationBell from './NotificationBell'
 
 type ActivePanel = 'friends' | 'directory' | null
 
@@ -15,6 +16,7 @@ export default function AppShell() {
   const { federalSlice, hasJurisdiction, isLoading } = useFederalSlice(userId)
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
+  const [activePostId, setActivePostId] = useState<string | null>(null)
 
   return (
     <div className="flex flex-col h-screen">
@@ -25,6 +27,12 @@ export default function AppShell() {
         {/* Social nav icons — only when authenticated */}
         {isAuthenticated && (
           <div className="flex items-center gap-2">
+            {/* Notification bell */}
+            <NotificationBell
+              onOpenProfile={(uid) => setProfileUserId(uid)}
+              onNavigateToThread={(postId) => setActivePostId(postId)}
+            />
+
             {/* Friends icon */}
             <button
               onClick={() => setActivePanel(activePanel === 'friends' ? null : 'friends')}
@@ -108,6 +116,8 @@ export default function AppShell() {
               <SliceFeedPanel
                 sliceId={federalSlice.id}
                 onAuthorTap={setProfileUserId}
+                activePostId={activePostId}
+                onNavigateToThread={setActivePostId}
               />
             </div>
           </>

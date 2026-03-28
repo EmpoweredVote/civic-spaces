@@ -16,9 +16,11 @@ import type { PostWithAuthor } from '../types/database'
 interface SliceFeedPanelProps {
   sliceId: string
   onAuthorTap?: (userId: string) => void
+  activePostId: string | null
+  onNavigateToThread: (postId: string | null) => void
 }
 
-export default function SliceFeedPanel({ sliceId, onAuthorTap }: SliceFeedPanelProps) {
+export default function SliceFeedPanel({ sliceId, onAuthorTap, activePostId, onNavigateToThread }: SliceFeedPanelProps) {
   const {
     data,
     fetchNextPage,
@@ -38,7 +40,6 @@ export default function SliceFeedPanel({ sliceId, onAuthorTap }: SliceFeedPanelP
   const [composerOpen, setComposerOpen] = useState(false)
   const [editingPost, setEditingPost] = useState<PostWithAuthor | null>(null)
   const [informPromptOpen, setInformPromptOpen] = useState(false)
-  const [activePostId, setActivePostId] = useState<string | null>(null)
 
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -107,7 +108,7 @@ export default function SliceFeedPanel({ sliceId, onAuthorTap }: SliceFeedPanelP
               <PostCard
                 key={post.id}
                 post={post}
-                onClick={(postId) => setActivePostId(postId)}
+                onClick={(postId) => onNavigateToThread(postId)}
                 isOwnPost={!!userId && post.user_id === userId}
                 onEdit={(p) => {
                   setEditingPost(p)
@@ -163,7 +164,7 @@ export default function SliceFeedPanel({ sliceId, onAuthorTap }: SliceFeedPanelP
           <ThreadView
             postId={activePostId}
             sliceId={sliceId}
-            onBack={() => setActivePostId(null)}
+            onBack={() => onNavigateToThread(null)}
             onAuthorTap={onAuthorTap}
           />
         </div>
