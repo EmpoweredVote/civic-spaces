@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 ## Current Position
 
 Phase: 4 of 5 (Notifications) — In progress
-Plan: 1 of 3 in phase 04 — COMPLETE
+Plan: 2 of 3 in phase 04 — COMPLETE
 Status: In progress
-Last activity: 2026-03-28 — Completed 04-01-PLAN.md (notifications table, triggers, RLS, public view, Realtime, TypeScript types)
+Last activity: 2026-03-28 — Completed 04-02-PLAN.md (notification bell UI, useNotifications hook, NotificationBell/List/Item components, AppShell integration)
 
-Progress: [████████████] 80%
+Progress: [█████████████] 85%
 
 ## Performance Metrics
 
@@ -82,6 +82,9 @@ Recent decisions affecting current work:
 - [Plan 04-01]: actor_ids deduplication via CASE WHEN x = ANY(array) — prevents duplicate actor entries when same user acts multiple times in group window.
 - [Plan 04-01]: reference_id is text (not uuid) — covers both post UUIDs (reply events) and user_id strings (friend events) in single column.
 - [Plan 04-01]: Trigger-only inserts for notifications — no INSERT RLS policy; client can only SELECT + UPDATE own rows.
+- [Plan 04-02]: activePostId lifted from SliceFeedPanel to AppShell — notification taps in header bell need to reach ThreadView inside SliceFeedPanel; prop drilling consistent with existing onAuthorTap pattern.
+- [Plan 04-02]: Desktop popover via Tailwind hidden md:block; mobile Sheet always renders but stays closed on desktop — no JS breakpoint detection required.
+- [Plan 04-02]: useMarkAllNotificationsRead adds .eq('recipient_id', userId) alongside RLS scoping — defense-in-depth.
 
 ### Pending Todos
 
@@ -89,10 +92,10 @@ None.
 
 ### Blockers/Concerns
 
-None — Phase 4 Plan 01 complete. Plan 02 (notification bell UI + useNotifications hook) can proceed.
+None — Phase 4 Plans 01 and 02 complete. Plan 03 (notification preferences / delivery settings, if planned) or Phase 5 can proceed.
 
 ## Session Continuity
 
-Last session: 2026-03-28T22:39:03Z
-Stopped at: Completed 04-01-PLAN.md (notifications DB layer) — Phase 4 Plan 01 complete
+Last session: 2026-03-28T22:51:00Z
+Stopped at: Completed 04-02-PLAN.md (notification bell UI) — Phase 4 Plan 02 complete
 Resume file: None
