@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** A Connected user can enter their Federal Slice, see posts from their ~6k civic neighbors, and contribute to the conversation — making civic engagement feel like a small town, not an ocean.
-**Current focus:** Phase 3 complete — Boosted feed live. Ready for Phase 4 (voting).
+**Current focus:** Phase 4 complete — Notification bell, grouped events, Realtime delivery. Ready for Phase 5 (Moderation & Safety).
 
 ## Current Position
 
-Phase: 4 of 5 (Notifications) — In progress
-Plan: 2 of 3 in phase 04 — COMPLETE
-Status: In progress
-Last activity: 2026-03-28 — Completed 04-02-PLAN.md (notification bell UI, useNotifications hook, NotificationBell/List/Item components, AppShell integration)
+Phase: 4 of 5 (Notifications) — COMPLETE
+Plan: 2 of 2 in phase 04 — COMPLETE
+Status: Phase complete
+Last activity: 2026-03-28 — Completed 04-02-PLAN.md (notification bell UI) + gap closure (scrollToLatest, badge auto-clear on open)
 
-Progress: [█████████████] 85%
+Progress: [████████████████] 90%
 
 ## Performance Metrics
 
@@ -92,10 +92,10 @@ None.
 
 ### Blockers/Concerns
 
-None — Phase 4 Plans 01 and 02 complete. Plan 03 (notification preferences / delivery settings, if planned) or Phase 5 can proceed.
+None — Phase 4 complete. Phase 5 (Moderation & Safety) can proceed.
 
 ## Session Continuity
 
-Last session: 2026-03-28T22:51:00Z
-Stopped at: Completed 04-02-PLAN.md (notification bell UI) — Phase 4 Plan 02 complete
+Last session: 2026-03-28
+Stopped at: Phase 4 complete — all 2 plans executed, verified 12/12, gap closure committed
 Resume file: None

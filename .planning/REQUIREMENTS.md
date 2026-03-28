@@ -44,10 +44,10 @@
 
 ### Notifications
 
-- [ ] **NOTF-01**: User is notified when their friend request is accepted
-- [ ] **NOTF-02**: User is notified when someone replies to their post or reply
-- [ ] **NOTF-03**: User is notified when they receive a friend request
-- [ ] **NOTF-04**: Notifications are batched; no per-event pings for low-priority events
+- [x] **NOTF-01**: User is notified when their friend request is accepted
+- [x] **NOTF-02**: User is notified when someone replies to their post or reply
+- [x] **NOTF-03**: User is notified when they receive a friend request
+- [x] **NOTF-04**: Notifications are batched; no per-event pings for low-priority events
 
 ### Moderation & Safety
 
@@ -123,10 +123,10 @@
 | SOC-05 | Phase 3 | Complete |
 | SOC-06 | Phase 3 | Complete |
 | SOC-07 | Phase 3 | Complete |
-| NOTF-01 | Phase 4 | Pending |
-| NOTF-02 | Phase 4 | Pending |
-| NOTF-03 | Phase 4 | Pending |
-| NOTF-04 | Phase 4 | Pending |
+| NOTF-01 | Phase 4 | Complete |
+| NOTF-02 | Phase 4 | Complete |
+| NOTF-03 | Phase 4 | Complete |
+| NOTF-04 | Phase 4 | Complete |
 | MOD-01 | Phase 5 | Pending |
 | MOD-02 | Phase 5 | Pending |
 | MOD-03 | Phase 5 | Pending |
