@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Schema, external JWT auth, and slice assignment working end-to-end
 - [x] **Phase 2: Core Forum** - Hub shell and Federal Slice feed — post, read, reply, paginate
-- [ ] **Phase 3: Social Graph** - Mutual friends and one-directional Empowered follow
+- [x] **Phase 3: Social Graph** - Mutual friends and one-directional Empowered follow
 - [ ] **Phase 4: Notifications** - Re-engagement layer so posting doesn't feel like shouting into a void
 - [ ] **Phase 5: Moderation & Safety** - Flag, block, and moderator queue before public launch
 
@@ -109,6 +109,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-03-27 |
 | 2. Core Forum | 4/4 | Complete | 2026-03-28 |
-| 3. Social Graph | 0/3 | Not started | - |
+| 3. Social Graph | 3/3 | Complete | 2026-03-28 |
 | 4. Notifications | 0/2 | Not started | - |
 | 5. Moderation & Safety | 0/2 | Not started | - |
