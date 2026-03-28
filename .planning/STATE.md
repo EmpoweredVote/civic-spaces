@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** A Connected user can enter their Federal Slice, see posts from their ~6k civic neighbors, and contribute to the conversation — making civic engagement feel like a small town, not an ocean.
-**Current focus:** Phase 3 in progress — Social Graph foundation complete.
+**Current focus:** Phase 3 complete — Boosted feed live. Ready for Phase 4 (voting).
 
 ## Current Position
 
-Phase: 3 of 5 (Social Graph) — In Progress
-Plan: 2 of 3 in phase 03 — COMPLETE
-Status: In progress
-Last activity: 2026-03-28 — Completed 03-02-PLAN.md (EmpoweredBadge, UserProfileCard, FriendsList, MemberDirectory, all social graph hooks, PostCard/ReplyCard/AppShell integration)
+Phase: 3 of 5 (Social Graph) — COMPLETE
+Plan: 3 of 3 in phase 03 — COMPLETE
+Status: Phase complete
+Last activity: 2026-03-28 — Completed 03-03-PLAN.md (BoostedFeedCursor, useBoostedFeed hook, SliceFeedPanel switched to boosted feed)
 
-Progress: [█████████░] 69%
+Progress: [██████████] 75%
 
 ## Performance Metrics
 
@@ -72,21 +72,23 @@ Recent decisions affecting current work:
 - [Plan 03-01]: BoostedPostWithAuthor includes tier in author Pick — Phase 3 UI needs tier for EmpoweredBadge rendering (unlike Phase 2 PostWithAuthor).
 - [Plan 03-01]: get_boosted_feed uses SECURITY INVOKER — RLS applies to caller, consistent with project auth model.
 - [Plan 03-01]: (select ...) subquery wrapping on all RLS policies — PostgreSQL caches subquery result within statement, better perf on large tables.
+- [Plan 03-02]: PostWithAuthor and ReplyWithAuthor now include tier in author Pick — EmpoweredBadge in feed/thread without per-card queries.
+- [Plan 03-02]: onAuthorTap propagated AppShell -> SliceFeedPanel -> PostCard/ThreadView -> ReplyCard — AppShell owns UserProfileCard state.
+- [Plan 03-02]: FriendsList and MemberDirectory as fixed full-screen overlays (z-50), not sheets — better for multi-section panels with lists.
+- [Plan 03-03]: useBoostedFeed owns its own realtime invalidation on ['boosted-feed', sliceId] queryKey — not delegated to useRealtimeInvalidation.
+- [Plan 03-03]: Cursor uses boosted_at (synthetic sort key from RPC), not created_at — critical for correct pagination.
+- [Plan 03-03]: RPC returns author_id (not user_id) — hook uses (p: any) cast; BoostedPostWithAuthor structurally satisfies PostWithAuthor.
 
 ### Pending Todos
 
 None.
 
-- [Plan 03-02]: PostWithAuthor and ReplyWithAuthor now include tier in author Pick — EmpoweredBadge in feed/thread without per-card queries.
-- [Plan 03-02]: onAuthorTap propagated AppShell -> SliceFeedPanel -> PostCard/ThreadView -> ReplyCard — AppShell owns UserProfileCard state.
-- [Plan 03-02]: FriendsList and MemberDirectory as fixed full-screen overlays (z-50), not sheets — better for multi-section panels with lists.
-
 ### Blockers/Concerns
 
-None — Phase 3 Plan 2 complete. Social graph UI ready. Plan 3 (03-03) can proceed.
+None — Phase 3 complete. Phase 4 (voting) can proceed.
 
 ## Session Continuity
 
-Last session: 2026-03-28T17:55:08Z
-Stopped at: Completed 03-02-PLAN.md (social graph UI) — Phase 3 in progress
+Last session: 2026-03-28T17:01:18Z
+Stopped at: Completed 03-03-PLAN.md (boosted feed) — Phase 3 complete
 Resume file: None
