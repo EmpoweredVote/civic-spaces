@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react'
-import { useFeed } from '../hooks/useFeed'
+// import { useFeed } from '../hooks/useFeed' // Fallback: chronological feed
+import { useBoostedFeed } from '../hooks/useBoostedFeed'
 import { useRealtimeInvalidation } from '../hooks/useRealtimeInvalidation'
 import { useAuth } from '../hooks/useAuth'
 import { useProfile } from '../hooks/useProfile'
@@ -26,7 +27,7 @@ export default function SliceFeedPanel({ sliceId, onAuthorTap }: SliceFeedPanelP
     isLoading,
     error,
     refetch,
-  } = useFeed(sliceId)
+  } = useBoostedFeed(sliceId)
 
   useRealtimeInvalidation(sliceId)
 
