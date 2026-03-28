@@ -10,17 +10,17 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 ## Current Position
 
 Phase: 2 of 5 (Core Forum)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-28 — Completed 02-02-PLAN.md (cursor-paginated feed, PostCard, Realtime cache invalidation)
+Last activity: 2026-03-28 — Completed 02-03-PLAN.md (FAB, PostComposer, create/edit/delete mutations with optimistic updates, tier gating)
 
-Progress: [█████░░░░░] 36%
+Progress: [██████░░░░] 43%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5 (3 Phase 1 + 2 Phase 2)
-- Average duration: ~3 min
+- Total plans completed: 6 (3 Phase 1 + 3 Phase 2)
+- Average duration: ~3-4 min
 - Total execution time: —
 
 **By Phase:**
@@ -28,11 +28,11 @@ Progress: [█████░░░░░] 36%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | Phase 1 | 3/3 | ~3 min avg | ~3 min |
-| Phase 2 | 2/4 | ~3 min avg | ~3 min |
+| Phase 2 | 3/4 | ~4 min avg | ~4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01, 01-02, 01-03, 02-01, 02-02
-- Trend: Stable ~3 min per plan
+- Last 5 plans: 01-02, 01-03, 02-01, 02-02, 02-03
+- Trend: Stable ~3-4 min per plan
 
 *Updated after each plan completion*
 
@@ -61,18 +61,22 @@ Recent decisions affecting current work:
 - [Plan 02-02]: Composite cursor (created_at + id) for feed pagination — stable under concurrent inserts, no duplicate/skip risk vs. offset.
 - [Plan 02-02]: PostCard onClick defers to console.log — thread/detail view ships in 02-04.
 - [Plan 02-02]: Realtime invalidation pattern: one channel per sliceId, invalidates entire feed query on any post change event.
+- [Plan 02-03]: PostComposer uses two separate useForm instances (createForm + editForm) with distinct Zod resolvers — cleaner schema isolation.
+- [Plan 02-03]: PostCard refactored from single <button> to <div> wrapper + inner <button> to allow absolutely-positioned menu without nested interactive elements.
+- [Plan 02-03]: Inform-tier upgrade prompt is inline overlay in SliceFeedPanel — proper InformUpgradePrompt component ships in 02-04.
 
 ### Pending Todos
 
 - Apply supabase/migrations/20260327100000_phase2_schema.sql to Supabase project before Phase 2 feed queries go live.
 - Replace `console.log('Open post', postId)` in PostCard onClick with navigation in 02-04 (thread view).
+- Replace inline inform-tier upgrade prompt in SliceFeedPanel with proper InformUpgradePrompt component in 02-04.
 
 ### Blockers/Concerns
 
-None — 02-02 complete. Feed is fully wired. Next: 02-03 (post creation) and 02-04 (thread/reply view).
+None — 02-03 complete. Post composer and mutations fully wired. Final plan: 02-04 (thread/reply view + InformUpgradePrompt).
 
 ## Session Continuity
 
-Last session: 2026-03-28T02:25:08Z
-Stopped at: Completed 02-02-PLAN.md (feed plan)
+Last session: 2026-03-28T02:32:18Z
+Stopped at: Completed 02-03-PLAN.md (post composer plan)
 Resume file: None
