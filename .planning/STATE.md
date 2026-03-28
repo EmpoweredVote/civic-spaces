@@ -10,17 +10,17 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 ## Current Position
 
 Phase: 2 of 5 (Core Forum)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-28 — Completed 02-01-PLAN.md (React app bootstrap, hub shell, tab bar, schema migration)
+Last activity: 2026-03-28 — Completed 02-02-PLAN.md (cursor-paginated feed, PostCard, Realtime cache invalidation)
 
-Progress: [████░░░░░░] 29%
+Progress: [█████░░░░░] 36%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (3 Phase 1 + 1 Phase 2)
-- Average duration: ~4 min
+- Total plans completed: 5 (3 Phase 1 + 2 Phase 2)
+- Average duration: ~3 min
 - Total execution time: —
 
 **By Phase:**
@@ -28,11 +28,11 @@ Progress: [████░░░░░░] 29%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | Phase 1 | 3/3 | ~3 min avg | ~3 min |
-| Phase 2 | 1/4 | 4 min | 4 min |
+| Phase 2 | 2/4 | ~3 min avg | ~3 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01, 01-02, 01-03, 02-01
-- Trend: Stable ~4 min per plan
+- Last 5 plans: 01-01, 01-02, 01-03, 02-01, 02-02
+- Trend: Stable ~3 min per plan
 
 *Updated after each plan completion*
 
@@ -58,17 +58,21 @@ Recent decisions affecting current work:
 - [Plan 02-01]: Two-query pattern in useFederalSlice (slice_members then slices.in()) — no FK constraints for embedded select.
 - [Plan 02-01]: JWT decode uses native atob() — no external library needed for read-only claims extraction.
 - [Plan 02-01]: db: { schema: 'civic_spaces' } added to supabase createClient — all queries default to civic_spaces schema.
+- [Plan 02-02]: Composite cursor (created_at + id) for feed pagination — stable under concurrent inserts, no duplicate/skip risk vs. offset.
+- [Plan 02-02]: PostCard onClick defers to console.log — thread/detail view ships in 02-04.
+- [Plan 02-02]: Realtime invalidation pattern: one channel per sliceId, invalidates entire feed query on any post change event.
 
 ### Pending Todos
 
 - Apply supabase/migrations/20260327100000_phase2_schema.sql to Supabase project before Phase 2 feed queries go live.
+- Replace `console.log('Open post', postId)` in PostCard onClick with navigation in 02-04 (thread view).
 
 ### Blockers/Concerns
 
-None — 02-01 complete. SliceFeedPanel is a placeholder; 02-02 implements the actual post feed. All Phase 2 dependencies installed.
+None — 02-02 complete. Feed is fully wired. Next: 02-03 (post creation) and 02-04 (thread/reply view).
 
 ## Session Continuity
 
-Last session: 2026-03-28T02:17:48Z
-Stopped at: Completed 02-01-PLAN.md (app shell plan)
+Last session: 2026-03-28T02:25:08Z
+Stopped at: Completed 02-02-PLAN.md (feed plan)
 Resume file: None
