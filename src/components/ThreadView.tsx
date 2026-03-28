@@ -6,12 +6,14 @@ import { useProfile } from '../hooks/useProfile'
 import ReplyCard from './ReplyCard'
 import ReplyComposer from './ReplyComposer'
 import InformUpgradePrompt from './InformUpgradePrompt'
+import EmpoweredBadge from './EmpoweredBadge'
 import type { ReplyWithAuthor } from '../types/database'
 
 interface ThreadViewProps {
   postId: string
   onBack: () => void
   sliceId: string
+  onAuthorTap?: (userId: string) => void
 }
 
 interface ReplyTarget {
@@ -19,7 +21,7 @@ interface ReplyTarget {
   authorName: string
 }
 
-export default function ThreadView({ postId, onBack }: ThreadViewProps) {
+export default function ThreadView({ postId, onBack, onAuthorTap }: ThreadViewProps) {
   const { post, replies, fetchMoreReplies, hasMoreReplies, isLoading } = useThread(postId)
   const { userId } = useAuth()
   const { profile } = useProfile(userId)
@@ -104,7 +106,12 @@ export default function ThreadView({ postId, onBack }: ThreadViewProps) {
         {post && (
           <div className="py-4 border-b border-gray-200">
             {/* Author row */}
-            <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onAuthorTap?.(post.user_id)}
+              className="flex items-center gap-3 w-full text-left"
+              aria-label={`View ${post.author.display_name}'s profile`}
+            >
               {post.author.avatar_url ? (
                 <img
                   src={post.author.avatar_url}
@@ -119,7 +126,10 @@ export default function ThreadView({ postId, onBack }: ThreadViewProps) {
                 </div>
               )}
               <div>
-                <p className="text-sm font-semibold text-gray-900">{post.author.display_name}</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-semibold text-gray-900">{post.author.display_name}</p>
+                  {post.author.tier === 'empowered' && <EmpoweredBadge />}
+                </div>
                 <p className="text-xs text-gray-500">
                   {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                   {post.edit_history.length > 0 && (
@@ -127,7 +137,7 @@ export default function ThreadView({ postId, onBack }: ThreadViewProps) {
                   )}
                 </p>
               </div>
-            </div>
+            </button>
 
             {/* Post title */}
             {post.title && (
@@ -189,6 +199,7 @@ export default function ThreadView({ postId, onBack }: ThreadViewProps) {
                   reply={rootReply}
                   canWrite={canWrite}
                   onReply={handleReply}
+                  onAuthorTap={onAuthorTap}
                 />
 
                 {/* Inline composer for this reply */}
@@ -209,6 +220,7 @@ export default function ThreadView({ postId, onBack }: ThreadViewProps) {
                     depth={1}
                     reply={child}
                     canWrite={false}
+                    onAuthorTap={onAuthorTap}
                   />
                 ))}
               </div>

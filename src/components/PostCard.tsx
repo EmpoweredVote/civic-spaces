@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import type { PostWithAuthor } from '../types/database'
 import { isWithinEditWindow } from '../hooks/useEditPost'
+import EmpoweredBadge from './EmpoweredBadge'
 
 interface PostCardProps {
   post: PostWithAuthor
@@ -9,9 +10,10 @@ interface PostCardProps {
   isOwnPost?: boolean
   onEdit?: (post: PostWithAuthor) => void
   onDelete?: (postId: string) => void
+  onAuthorTap?: (userId: string) => void
 }
 
-export default function PostCard({ post, onClick, isOwnPost, onEdit, onDelete }: PostCardProps) {
+export default function PostCard({ post, onClick, isOwnPost, onEdit, onDelete, onAuthorTap }: PostCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -49,29 +51,42 @@ export default function PostCard({ post, onClick, isOwnPost, onEdit, onDelete }:
       >
         {/* Top row: avatar + author info */}
         <div className="flex items-center gap-3">
-          {post.author.avatar_url ? (
-            <img
-              src={post.author.avatar_url}
-              alt={post.author.display_name}
-              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-medium text-gray-600">
-                {post.author.display_name.charAt(0).toUpperCase()}
-              </span>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAuthorTap?.(post.user_id)
+            }}
+            className="flex items-center gap-3 flex-1 min-w-0 text-left"
+            aria-label={`View ${post.author.display_name}'s profile`}
+          >
+            {post.author.avatar_url ? (
+              <img
+                src={post.author.avatar_url}
+                alt={post.author.display_name}
+                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                <span className="text-sm font-medium text-gray-600">
+                  {post.author.display_name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
 
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">
-              {post.author.display_name}
-            </p>
-            <p className="text-xs text-gray-500">
-              {timeAgo}
-              {wasEdited && <span className="text-gray-400"> · edited</span>}
-            </p>
-          </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {post.author.display_name}
+                </p>
+                {post.author.tier === 'empowered' && <EmpoweredBadge />}
+              </div>
+              <p className="text-xs text-gray-500">
+                {timeAgo}
+                {wasEdited && <span className="text-gray-400"> · edited</span>}
+              </p>
+            </div>
+          </button>
 
           {/* Spacer for menu button */}
           {isOwnPost && <div className="w-8 flex-shrink-0" />}

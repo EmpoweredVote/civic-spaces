@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useCreateReply } from '../hooks/useCreateReply'
+import EmpoweredBadge from './EmpoweredBadge'
 
 const replySchema = z.object({
   body: z.string().min(1).max(5000),
@@ -14,6 +15,7 @@ interface ReplyComposerProps {
   userId: string
   parentReplyId?: string
   replyingToName?: string
+  replyingToTier?: string
   onClose: () => void
   onSuccess?: () => void
 }
@@ -23,6 +25,7 @@ export default function ReplyComposer({
   userId,
   parentReplyId,
   replyingToName,
+  replyingToTier,
   onClose,
   onSuccess,
 }: ReplyComposerProps) {
@@ -54,7 +57,10 @@ export default function ReplyComposer({
   return (
     <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
       {replyingToName && (
-        <p className="text-xs text-gray-500 mb-1">Replying to {replyingToName}</p>
+        <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+          Replying to {replyingToName}
+          {replyingToTier === 'empowered' && <EmpoweredBadge />}
+        </p>
       )}
       <form onSubmit={handleSubmit(onSubmit)}>
         <textarea

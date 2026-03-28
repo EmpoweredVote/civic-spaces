@@ -14,9 +14,10 @@ import type { PostWithAuthor } from '../types/database'
 
 interface SliceFeedPanelProps {
   sliceId: string
+  onAuthorTap?: (userId: string) => void
 }
 
-export default function SliceFeedPanel({ sliceId }: SliceFeedPanelProps) {
+export default function SliceFeedPanel({ sliceId, onAuthorTap }: SliceFeedPanelProps) {
   const {
     data,
     fetchNextPage,
@@ -112,6 +113,7 @@ export default function SliceFeedPanel({ sliceId }: SliceFeedPanelProps) {
                   setComposerOpen(true)
                 }}
                 onDelete={(postId) => deletePost.mutate({ postId, sliceId })}
+                onAuthorTap={onAuthorTap}
               />
             ))}
 
@@ -161,6 +163,7 @@ export default function SliceFeedPanel({ sliceId }: SliceFeedPanelProps) {
             postId={activePostId}
             sliceId={sliceId}
             onBack={() => setActivePostId(null)}
+            onAuthorTap={onAuthorTap}
           />
         </div>
       )}

@@ -1,14 +1,16 @@
 import { formatDistanceToNow } from 'date-fns'
 import type { ReplyWithAuthor } from '../types/database'
+import EmpoweredBadge from './EmpoweredBadge'
 
 interface ReplyCardProps {
   reply: ReplyWithAuthor
   depth: 0 | 1
   onReply?: (replyId: string, authorName: string) => void
   canWrite: boolean
+  onAuthorTap?: (userId: string) => void
 }
 
-export default function ReplyCard({ reply, depth, onReply, canWrite }: ReplyCardProps) {
+export default function ReplyCard({ reply, depth, onReply, canWrite, onAuthorTap }: ReplyCardProps) {
   if (reply.is_deleted) {
     return (
       <div
@@ -25,7 +27,12 @@ export default function ReplyCard({ reply, depth, onReply, canWrite }: ReplyCard
   return (
     <div className={`py-3 ${depth === 1 ? 'ml-8 border-l-2 border-blue-200 pl-4' : ''}`}>
       {/* Author row */}
-      <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onAuthorTap?.(reply.user_id)}
+        className="flex items-center gap-2 text-left w-full"
+        aria-label={`View ${reply.author.display_name}'s profile`}
+      >
         {reply.author.avatar_url ? (
           <img
             src={reply.author.avatar_url}
@@ -37,13 +44,14 @@ export default function ReplyCard({ reply, depth, onReply, canWrite }: ReplyCard
             <span className="text-xs font-medium text-gray-600">{initial}</span>
           </div>
         )}
-        <div className="flex items-baseline gap-1 min-w-0">
+        <div className="flex items-center gap-1 min-w-0">
           <span className="text-sm font-semibold text-gray-900 truncate">
             {reply.author.display_name}
           </span>
+          {reply.author.tier === 'empowered' && <EmpoweredBadge />}
           <span className="text-xs text-gray-500 flex-shrink-0">{timeAgo}</span>
         </div>
-      </div>
+      </button>
 
       {/* Body */}
       <p className="mt-1 text-sm text-gray-700">{reply.body}</p>

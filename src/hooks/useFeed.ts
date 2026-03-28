@@ -36,15 +36,15 @@ async function fetchFeedPage(
   // Step 3: Fetch profiles for those users
   const { data: profiles, error: profilesError } = await supabase
     .from('connected_profiles')
-    .select('user_id, display_name, avatar_url')
+    .select('user_id, display_name, avatar_url, tier')
     .in('user_id', userIds)
 
   if (profilesError) throw profilesError
 
   // Step 4: Build O(1) lookup map and merge
-  const profileMap = new Map<string, Pick<ConnectedProfile, 'display_name' | 'avatar_url'>>()
+  const profileMap = new Map<string, Pick<ConnectedProfile, 'display_name' | 'avatar_url' | 'tier'>>()
   for (const p of profiles ?? []) {
-    profileMap.set(p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url })
+    profileMap.set(p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url, tier: p.tier })
   }
 
   return posts.map((post) => ({

@@ -57,11 +57,11 @@ export interface Reply {
 }
 
 export type PostWithAuthor = Post & {
-  author: Pick<ConnectedProfile, 'display_name' | 'avatar_url'>
+  author: Pick<ConnectedProfile, 'display_name' | 'avatar_url' | 'tier'>
 }
 
 export type ReplyWithAuthor = Reply & {
-  author: Pick<ConnectedProfile, 'display_name' | 'avatar_url'>
+  author: Pick<ConnectedProfile, 'display_name' | 'avatar_url' | 'tier'>
 }
 
 // ---- Phase 3: Social Graph types ----
