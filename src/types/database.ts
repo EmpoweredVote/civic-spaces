@@ -91,3 +91,22 @@ export type BoostedPostWithAuthor = BoostedPost & {
 }
 
 export type RelationshipState = 'none' | 'pending_sent' | 'pending_received' | 'friends'
+
+// ---- Phase 4: Notifications types ----
+
+export type NotificationEventType = 'reply' | 'friend_request' | 'friend_accepted'
+
+export interface Notification {
+  id: string
+  recipient_id: string
+  event_type: NotificationEventType
+  actor_id: string
+  actor_ids: string[]
+  reference_id: string
+  reference_excerpt: string | null
+  event_count: number
+  is_read: boolean
+  group_window: string
+  created_at: string
+  updated_at: string
+}
