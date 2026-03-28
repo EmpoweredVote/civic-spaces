@@ -5,9 +5,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // Supabase client reads the exchanged token (not the raw accounts JWT)
 // Call exchangeToken() on login before any Supabase queries
-// db.schema defaults all queries to civic_spaces schema
+// Queries target public-schema views that forward to civic_spaces tables
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  db: { schema: 'civic_spaces' },
   accessToken: async () => localStorage.getItem('cs_token') ?? '',
 })
 

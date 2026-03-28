@@ -98,24 +98,24 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HUB-01 | Phase 2 | Pending |
-| HUB-02 | Phase 2 | Pending |
-| HUB-03 | Phase 2 | Pending |
-| HUB-04 | Phase 2 | Pending |
-| HUB-05 | Phase 2 | Pending |
-| ASMT-01 | Phase 1 | Pending |
-| ASMT-02 | Phase 1 | Pending |
-| ASMT-03 | Phase 1 | Pending |
-| FEED-01 | Phase 2 | Pending |
-| FEED-02 | Phase 2 | Pending |
-| FEED-03 | Phase 2 | Pending |
-| FEED-04 | Phase 2 | Pending |
-| FEED-05 | Phase 2 | Pending |
-| FEED-06 | Phase 2 | Pending |
-| FEED-07 | Phase 2 | Pending |
-| FEED-08 | Phase 2 | Pending |
-| FEED-09 | Phase 2 | Pending |
-| FEED-10 | Phase 2 | Pending |
+| HUB-01 | Phase 2 | Complete |
+| HUB-02 | Phase 2 | Complete |
+| HUB-03 | Phase 2 | Complete |
+| HUB-04 | Phase 2 | Complete |
+| HUB-05 | Phase 2 | Complete |
+| ASMT-01 | Phase 1 | Complete |
+| ASMT-02 | Phase 1 | Complete |
+| ASMT-03 | Phase 1 | Complete |
+| FEED-01 | Phase 2 | Complete |
+| FEED-02 | Phase 2 | Complete |
+| FEED-03 | Phase 2 | Complete |
+| FEED-04 | Phase 2 | Complete |
+| FEED-05 | Phase 2 | Complete |
+| FEED-06 | Phase 2 | Complete |
+| FEED-07 | Phase 2 | Complete |
+| FEED-08 | Phase 2 | Complete |
+| FEED-09 | Phase 2 | Complete |
+| FEED-10 | Phase 2 | Complete |
 | SOC-01 | Phase 3 | Pending |
 | SOC-02 | Phase 3 | Pending |
 | SOC-03 | Phase 3 | Pending |
