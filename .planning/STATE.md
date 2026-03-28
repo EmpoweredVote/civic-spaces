@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 ## Current Position
 
-Phase: 3 of 5 (Social Graph) — COMPLETE
-Plan: 3 of 3 in phase 03 — COMPLETE
-Status: Phase complete
-Last activity: 2026-03-28 — Completed 03-03-PLAN.md (BoostedFeedCursor, useBoostedFeed hook, SliceFeedPanel switched to boosted feed)
+Phase: 4 of 5 (Notifications) — In progress
+Plan: 1 of 3 in phase 04 — COMPLETE
+Status: In progress
+Last activity: 2026-03-28 — Completed 04-01-PLAN.md (notifications table, triggers, RLS, public view, Realtime, TypeScript types)
 
-Progress: [██████████] 75%
+Progress: [████████████] 80%
 
 ## Performance Metrics
 
@@ -78,6 +78,10 @@ Recent decisions affecting current work:
 - [Plan 03-03]: useBoostedFeed owns its own realtime invalidation on ['boosted-feed', sliceId] queryKey — not delegated to useRealtimeInvalidation.
 - [Plan 03-03]: Cursor uses boosted_at (synthetic sort key from RPC), not created_at — critical for correct pagination.
 - [Plan 03-03]: RPC returns author_id (not user_id) — hook uses (p: any) cast; BoostedPostWithAuthor structurally satisfies PostWithAuthor.
+- [Plan 04-01]: SECURITY DEFINER on notification trigger functions — auth.jwt() returns NULL inside trigger context; all actor identification uses NEW.* row data.
+- [Plan 04-01]: actor_ids deduplication via CASE WHEN x = ANY(array) — prevents duplicate actor entries when same user acts multiple times in group window.
+- [Plan 04-01]: reference_id is text (not uuid) — covers both post UUIDs (reply events) and user_id strings (friend events) in single column.
+- [Plan 04-01]: Trigger-only inserts for notifications — no INSERT RLS policy; client can only SELECT + UPDATE own rows.
 
 ### Pending Todos
 
@@ -85,10 +89,10 @@ None.
 
 ### Blockers/Concerns
 
-None — Phase 3 complete. Phase 4 (voting) can proceed.
+None — Phase 4 Plan 01 complete. Plan 02 (notification bell UI + useNotifications hook) can proceed.
 
 ## Session Continuity
 
-Last session: 2026-03-28T17:01:18Z
-Stopped at: Completed 03-03-PLAN.md (boosted feed) — Phase 3 complete
+Last session: 2026-03-28T22:39:03Z
+Stopped at: Completed 04-01-PLAN.md (notifications DB layer) — Phase 4 Plan 01 complete
 Resume file: None
