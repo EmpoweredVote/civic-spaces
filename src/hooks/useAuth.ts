@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react'
 
+const ACCOUNTS_SESSION_URL = 'https://accounts-api.empowered.vote/api/auth/session'
+const LOGIN_URL = `https://accounts.empowered.vote/login?redirect=${encodeURIComponent('https://civicspaces.empowered.vote')}`
+
 interface AuthState {
   userId: string | null
   isAuthenticated: boolean
+  isLoading: boolean
 }
 
 function decodeUserId(token: string): string | null {
   try {
     const parts = token.split('.')
     if (parts.length !== 3) return null
-    // Base64url decode the payload segment
     const payload = parts[1]
     if (!payload) return null
     const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
@@ -22,28 +25,89 @@ function decodeUserId(token: string): string | null {
   }
 }
 
-function getAuthState(): AuthState {
-  const token = localStorage.getItem('cs_token')
-  if (!token) return { userId: null, isAuthenticated: false }
+function storeToken(token: string): string | null {
   const userId = decodeUserId(token)
-  return userId
-    ? { userId, isAuthenticated: true }
-    : { userId: null, isAuthenticated: false }
+  if (userId) {
+    localStorage.setItem('cs_token', token)
+    return userId
+  }
+  return null
 }
 
-export function useAuth(): AuthState {
-  const [authState, setAuthState] = useState<AuthState>(getAuthState)
+export function useAuth(): AuthState & { loginUrl: string } {
+  const [authState, setAuthState] = useState<AuthState>({
+    userId: null,
+    isAuthenticated: false,
+    isLoading: true,
+  })
+
+  useEffect(() => {
+    async function resolveAuth() {
+      // 1. Check hash fragment for token from accounts redirect
+      if (window.location.hash.includes('access_token')) {
+        const hash = new URLSearchParams(window.location.hash.slice(1))
+        const token = hash.get('access_token')
+        if (token) {
+          const userId = storeToken(token)
+          // Clear the hash from the URL
+          history.replaceState(null, '', window.location.pathname + window.location.search)
+          if (userId) {
+            setAuthState({ userId, isAuthenticated: true, isLoading: false })
+            return
+          }
+        }
+      }
+
+      // 2. Check localStorage for existing token
+      const stored = localStorage.getItem('cs_token')
+      if (stored) {
+        const userId = decodeUserId(stored)
+        if (userId) {
+          setAuthState({ userId, isAuthenticated: true, isLoading: false })
+          return
+        }
+        // Token invalid/expired — remove it
+        localStorage.removeItem('cs_token')
+      }
+
+      // 3. Silent SSO check via ev_session cookie
+      try {
+        const res = await fetch(ACCOUNTS_SESSION_URL, { credentials: 'include' })
+        if (res.ok) {
+          const { access_token } = await res.json() as { access_token: string }
+          const userId = storeToken(access_token)
+          if (userId) {
+            setAuthState({ userId, isAuthenticated: true, isLoading: false })
+            return
+          }
+        }
+      } catch {
+        // Network error or CORS — fall through to unauthenticated
+      }
+
+      setAuthState({ userId: null, isAuthenticated: false, isLoading: false })
+    }
+
+    void resolveAuth()
+  }, [])
 
   useEffect(() => {
     function handleStorageChange(event: StorageEvent) {
       if (event.key === 'cs_token') {
-        setAuthState(getAuthState())
+        const token = event.newValue
+        if (token) {
+          const userId = decodeUserId(token)
+          if (userId) {
+            setAuthState({ userId, isAuthenticated: true, isLoading: false })
+            return
+          }
+        }
+        setAuthState({ userId: null, isAuthenticated: false, isLoading: false })
       }
     }
-
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
 
-  return authState
+  return { ...authState, loginUrl: LOGIN_URL }
 }

@@ -14,7 +14,7 @@ import ModeratorQueue from './ModeratorQueue'
 type ActivePanel = 'friends' | 'directory' | null
 
 export default function AppShell() {
-  const { userId, isAuthenticated } = useAuth()
+  const { userId, isAuthenticated, isLoading: authLoading, loginUrl } = useAuth()
   const { federalSlice, hasJurisdiction, isLoading } = useFederalSlice(userId)
   const { data: isModerator } = useIsModerator(userId)
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
@@ -113,9 +113,21 @@ export default function AppShell() {
 
       {/* Content */}
       <main className="flex flex-col flex-1 overflow-hidden">
-        {!isAuthenticated && (
-          <div className="flex flex-1 items-center justify-center text-gray-500 text-sm">
-            Please log in to view your civic community.
+        {authLoading && (
+          <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
+            Loading&hellip;
+          </div>
+        )}
+
+        {!authLoading && !isAuthenticated && (
+          <div className="flex flex-col flex-1 items-center justify-center gap-4">
+            <p className="text-gray-500 text-sm">Log in to view your civic community.</p>
+            <a
+              href={loginUrl}
+              className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
+            >
+              Log in with Empowered Vote
+            </a>
           </div>
         )}
 
