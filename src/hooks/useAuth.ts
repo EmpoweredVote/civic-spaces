@@ -50,7 +50,7 @@ export function useAuth(): AuthState & { loginUrl: string } {
         if (token) {
           const userId = storeToken(token)
           // Clear the hash from the URL
-          history.replaceState(null, '', window.location.pathname + window.location.search)
+          history.replaceState(null, '', window.location.pathname)
           if (userId) {
             setAuthState({ userId, isAuthenticated: true, isLoading: false })
             return
