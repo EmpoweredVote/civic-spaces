@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** A Connected user can enter their Federal Slice, see posts from their ~6k civic neighbors, and contribute to the conversation — making civic engagement feel like a small town, not an ocean.
-**Current focus:** Phase 5 in progress — Moderation & Safety backend complete (05-01). Ready for Phase 5 Plan 2 (Moderation UI).
+**Current focus:** Phase 5 complete (05-02 at human-verify checkpoint). All moderation UI built — awaiting verification.
 
 ## Current Position
 
-Phase: 5 of 5 (Moderation & Safety) — IN PROGRESS
-Plan: 1 of 2 in phase 05 — COMPLETE
-Status: In progress
-Last activity: 2026-03-28 — Completed 05-01-PLAN.md (Phase 5 backend: flags, blocks, moderators, action_log, RPCs, block-aware policies, TypeScript types)
+Phase: 5 of 5 (Moderation & Safety) — AT CHECKPOINT
+Plan: 2 of 2 in phase 05 — AWAITING HUMAN VERIFY
+Status: At human-verify checkpoint
+Last activity: 2026-03-29 — Completed all 3 tasks of 05-02-PLAN.md (moderation UI: hooks, components, integrations). Stopped at human-verify checkpoint.
 
-Progress: [█████████████████░] 95%
+Progress: [██████████████████░] 99% (checkpoint)
 
 ## Performance Metrics
 
@@ -89,6 +89,11 @@ Recent decisions affecting current work:
 - [Plan 05-01]: get_feed_filtered() and get_boosted_feed_filtered() use NOT EXISTS bidirectional block check (both blocker→viewer and viewer→blocker directions).
 - [Plan 05-01]: get_boosted_feed_filtered corrects a latent Phase 3 bug (p.author_id → p.user_id) while returning author_id as alias for API compatibility.
 - [Plan 05-01]: notifications_event_type_check constraint extended to include 'warn' for mod warn notifications.
+- [Plan 05-02]: FlagButton uses e.stopPropagation() to prevent PostCard thread navigation on flag click — placed in bottom action row, not absolute-positioned.
+- [Plan 05-02]: ReplyCard FlagButton uses reply.id as postId — flags.post_id accepts both post and reply UUIDs.
+- [Plan 05-02]: useIsBlockedBy enabled only when userId !== null AND userId !== currentUserId — never self-check.
+- [Plan 05-02]: ModeratorQueue uses 30s polling (refetchInterval) not Realtime — Realtime respects RLS and won't surface mod-only data.
+- [Plan 05-02]: NotificationBell had pre-existing default import bug (Sheet vs named {Sheet}) — fixed as Rule 1 deviation during build verification.
 
 ### Pending Todos
 
@@ -100,6 +105,6 @@ None — Phase 4 complete. Phase 5 (Moderation & Safety) can proceed.
 
 ## Session Continuity
 
-Last session: 2026-03-28
-Stopped at: Completed 05-01-PLAN.md — Phase 5 backend complete
+Last session: 2026-03-29
+Stopped at: 05-02 human-verify checkpoint — all 3 tasks committed (0d4ec06, 532cc80, 4fe650b)
 Resume file: None
