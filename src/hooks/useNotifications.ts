@@ -45,7 +45,7 @@ export function useNotifications(): UseNotificationsResult {
     queryKey: ['notifications', userId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('notifications')
+        .from('civic_notifications')
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(50)
@@ -73,7 +73,7 @@ export function useMarkNotificationRead() {
   return useMutation({
     mutationFn: async (notificationId: string) => {
       const { error } = await supabase
-        .from('notifications')
+        .from('civic_notifications')
         .update({ is_read: true })
         .eq('id', notificationId)
 
@@ -96,7 +96,7 @@ export function useMarkAllNotificationsRead() {
       if (!userId) throw new Error('Not authenticated')
 
       const { error } = await supabase
-        .from('notifications')
+        .from('civic_notifications')
         .update({ is_read: true })
         .eq('is_read', false)
         .eq('recipient_id', userId)
