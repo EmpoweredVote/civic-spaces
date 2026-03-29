@@ -51,9 +51,9 @@
 
 ### Moderation & Safety
 
-- [ ] **MOD-01**: User can flag a post or reply for review
-- [ ] **MOD-02**: User can block another user (private; blocked user cannot see your posts or send friend requests)
-- [ ] **MOD-03**: Moderator role can review flagged content and remove it
+- [x] **MOD-01**: User can flag a post or reply for review
+- [x] **MOD-02**: User can block another user (private; blocked user cannot see your posts or send friend requests)
+- [x] **MOD-03**: Moderator role can review flagged content and remove it
 
 ## v2 Requirements
 
@@ -127,9 +127,9 @@
 | NOTF-02 | Phase 4 | Complete |
 | NOTF-03 | Phase 4 | Complete |
 | NOTF-04 | Phase 4 | Complete |
-| MOD-01 | Phase 5 | Pending |
-| MOD-02 | Phase 5 | Pending |
-| MOD-03 | Phase 5 | Pending |
+| MOD-01 | Phase 5 | Complete |
+| MOD-02 | Phase 5 | Complete |
+| MOD-03 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 32 total
