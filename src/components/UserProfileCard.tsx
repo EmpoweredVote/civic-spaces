@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useProfileById } from '../hooks/useProfileById'
 import { useRelationship, useSendFriendRequest, useAcceptFriendRequest, useRemoveFriend } from '../hooks/useFriendship'
 import { useFollowStatus, useToggleFollow } from '../hooks/useFollow'
+import { useIsBlockedBy, useBlockedUsers, useBlockUser, useUnblockUser } from '../hooks/useBlock'
 import EmpoweredBadge from './EmpoweredBadge'
 
 interface UserProfileCardProps {
@@ -21,12 +22,38 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
   const acceptFriendRequest = useAcceptFriendRequest()
   const removeFriend = useRemoveFriend()
   const toggleFollow = useToggleFollow()
+  const blockUser = useBlockUser()
+  const unblockUser = useUnblockUser()
   const [overflowOpen, setOverflowOpen] = useState(false)
+
+  // Block state checks
+  const { data: isBlockedByUser } = useIsBlockedBy(
+    userId && userId !== currentUserId ? userId : null,
+  )
+  const { data: blockedData } = useBlockedUsers(currentUserId)
+  const isBlocked = blockedData?.blockedSet.has(userId ?? '') ?? false
 
   if (!userId) return null
 
   const isEmpowered = profile?.tier === 'empowered'
   const isSelf = currentUserId === userId
+
+  // If the profile owner has blocked the current viewer, show a generic unavailable sheet
+  if (isBlockedByUser) {
+    return (
+      <Sheet isOpen={isOpen} onClose={onClose} snapPoints={[0.3]} initialSnap={0}>
+        <Sheet.Container>
+          <Sheet.Header />
+          <Sheet.Content>
+            <div className="px-6 pb-8 flex flex-col items-center justify-center py-8">
+              <p className="text-sm text-gray-500">This profile is unavailable.</p>
+            </div>
+          </Sheet.Content>
+        </Sheet.Container>
+        <Sheet.Backdrop onTap={onClose} />
+      </Sheet>
+    )
+  }
 
   const containerStyle = isEmpowered ? { backgroundColor: '#FFF0EE' } : undefined
 
@@ -154,6 +181,27 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
                       </>
                     )}
                   </div>
+                )}
+                {/* Block / Unblock button — non-self only */}
+                {!isSelf && (
+                  <button
+                    onClick={() => {
+                      if (isBlocked) {
+                        unblockUser.mutate({ blocker_id: currentUserId!, blocked_id: userId })
+                      } else {
+                        if (window.confirm("Block this user? They won't be able to see your posts.")) {
+                          blockUser.mutate({ blocker_id: currentUserId!, blocked_id: userId })
+                        }
+                      }
+                    }}
+                    className={`w-full text-sm mt-3 py-1 ${
+                      isBlocked
+                        ? 'text-gray-500 hover:text-gray-700'
+                        : 'text-red-500 hover:text-red-700'
+                    }`}
+                  >
+                    {isBlocked ? 'Unblock' : 'Block'}
+                  </button>
                 )}
               </>
             ) : (

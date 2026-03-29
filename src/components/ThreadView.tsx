@@ -206,6 +206,7 @@ export default function ThreadView({ postId, onBack, onAuthorTap, scrollToLatest
                   depth={0}
                   reply={rootReply}
                   canWrite={canWrite}
+                  currentUserId={userId ?? undefined}
                   onReply={handleReply}
                   onAuthorTap={onAuthorTap}
                 />
@@ -228,6 +229,7 @@ export default function ThreadView({ postId, onBack, onAuthorTap, scrollToLatest
                     depth={1}
                     reply={child}
                     canWrite={false}
+                    currentUserId={userId ?? undefined}
                     onAuthorTap={onAuthorTap}
                   />
                 ))}

@@ -32,6 +32,10 @@ function getNotificationCopy(
     return `${actorName} accepted your friend request`
   }
 
+  if (event_type === 'warn') {
+    return 'Your post was reviewed by a moderator'
+  }
+
   return `${actorName} did something`
 }
 

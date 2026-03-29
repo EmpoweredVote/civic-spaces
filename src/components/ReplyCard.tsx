@@ -1,16 +1,18 @@
 import { formatDistanceToNow } from 'date-fns'
 import type { ReplyWithAuthor } from '../types/database'
 import EmpoweredBadge from './EmpoweredBadge'
+import FlagButton from './FlagButton'
 
 interface ReplyCardProps {
   reply: ReplyWithAuthor
   depth: 0 | 1
   onReply?: (replyId: string, authorName: string) => void
   canWrite: boolean
+  currentUserId?: string
   onAuthorTap?: (userId: string) => void
 }
 
-export default function ReplyCard({ reply, depth, onReply, canWrite, onAuthorTap }: ReplyCardProps) {
+export default function ReplyCard({ reply, depth, onReply, canWrite, currentUserId, onAuthorTap }: ReplyCardProps) {
   if (reply.is_deleted) {
     return (
       <div
@@ -56,15 +58,22 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, onAuthorTap
       {/* Body */}
       <p className="mt-1 text-sm text-gray-700">{reply.body}</p>
 
-      {/* Reply button — only for depth-0 and canWrite */}
-      {canWrite && depth === 0 && onReply && (
-        <button
-          onClick={() => onReply(reply.id, reply.author.display_name)}
-          className="mt-1 text-xs text-blue-600 hover:underline"
-        >
-          Reply
-        </button>
-      )}
+      {/* Bottom row: reply button + flag button */}
+      <div className="mt-1 flex items-center justify-between">
+        {canWrite && depth === 0 && onReply ? (
+          <button
+            onClick={() => onReply(reply.id, reply.author.display_name)}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            Reply
+          </button>
+        ) : (
+          <span />
+        )}
+        {currentUserId && currentUserId !== reply.user_id && (
+          <FlagButton postId={reply.id} userId={currentUserId} />
+        )}
+      </div>
     </div>
   )
 }

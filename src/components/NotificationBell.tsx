@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import Sheet from 'react-modal-sheet'
+import { Sheet } from 'react-modal-sheet'
 import { useNotifications, useMarkAllNotificationsRead } from '../hooks/useNotifications'
 import NotificationList from './NotificationList'
 
