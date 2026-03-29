@@ -94,7 +94,53 @@ export type RelationshipState = 'none' | 'pending_sent' | 'pending_received' | '
 
 // ---- Phase 4: Notifications types ----
 
-export type NotificationEventType = 'reply' | 'friend_request' | 'friend_accepted'
+export type NotificationEventType = 'reply' | 'friend_request' | 'friend_accepted' | 'warn'
+
+// ---- Phase 5: Moderation & Safety types ----
+
+export type FlagCategory = 'spam' | 'harassment' | 'misinformation' | 'other'
+export type FlagStatus = 'pending' | 'resolved' | 'dismissed'
+
+export interface Flag {
+  id: string
+  post_id: string
+  reporter_id: string
+  category: FlagCategory
+  detail: string | null
+  status: FlagStatus
+  created_at: string
+}
+
+export interface Block {
+  blocker_id: string
+  blocked_id: string
+  created_at: string
+}
+
+export interface ModQueueItem {
+  post_id: string
+  body: string
+  title: string | null
+  author_id: string
+  post_created_at: string
+  flag_count: number
+  flag_categories: FlagCategory[]
+  first_flagged_at: string
+  priority: 'high' | 'normal'
+}
+
+export type ModAction = 'remove' | 'dismiss' | 'warn' | 'suspend'
+
+export interface ActionLogEntry {
+  id: string
+  moderator_id: string
+  action: ModAction
+  target_type: 'post' | 'user'
+  target_id: string
+  flag_ids: string[]
+  notes: string | null
+  created_at: string
+}
 
 export interface Notification {
   id: string
