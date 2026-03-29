@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** A Connected user can enter their Federal Slice, see posts from their ~6k civic neighbors, and contribute to the conversation — making civic engagement feel like a small town, not an ocean.
-**Current focus:** Phase 4 complete — Notification bell, grouped events, Realtime delivery. Ready for Phase 5 (Moderation & Safety).
+**Current focus:** Phase 5 in progress — Moderation & Safety backend complete (05-01). Ready for Phase 5 Plan 2 (Moderation UI).
 
 ## Current Position
 
-Phase: 4 of 5 (Notifications) — COMPLETE
-Plan: 2 of 2 in phase 04 — COMPLETE
-Status: Phase complete
-Last activity: 2026-03-28 — Completed 04-02-PLAN.md (notification bell UI) + gap closure (scrollToLatest, badge auto-clear on open)
+Phase: 5 of 5 (Moderation & Safety) — IN PROGRESS
+Plan: 1 of 2 in phase 05 — COMPLETE
+Status: In progress
+Last activity: 2026-03-28 — Completed 05-01-PLAN.md (Phase 5 backend: flags, blocks, moderators, action_log, RPCs, block-aware policies, TypeScript types)
 
-Progress: [████████████████] 90%
+Progress: [█████████████████░] 95%
 
 ## Performance Metrics
 
@@ -85,6 +85,10 @@ Recent decisions affecting current work:
 - [Plan 04-02]: activePostId lifted from SliceFeedPanel to AppShell — notification taps in header bell need to reach ThreadView inside SliceFeedPanel; prop drilling consistent with existing onAuthorTap pattern.
 - [Plan 04-02]: Desktop popover via Tailwind hidden md:block; mobile Sheet always renders but stays closed on desktop — no JS breakpoint detection required.
 - [Plan 04-02]: useMarkAllNotificationsRead adds .eq('recipient_id', userId) alongside RLS scoping — defense-in-depth.
+- [Plan 05-01]: is_moderator() and is_blocked_by() are SECURITY DEFINER — bypasses RLS for controlled lookups; moderator RPCs have explicit guard checks.
+- [Plan 05-01]: get_feed_filtered() and get_boosted_feed_filtered() use NOT EXISTS bidirectional block check (both blocker→viewer and viewer→blocker directions).
+- [Plan 05-01]: get_boosted_feed_filtered corrects a latent Phase 3 bug (p.author_id → p.user_id) while returning author_id as alias for API compatibility.
+- [Plan 05-01]: notifications_event_type_check constraint extended to include 'warn' for mod warn notifications.
 
 ### Pending Todos
 
@@ -97,5 +101,5 @@ None — Phase 4 complete. Phase 5 (Moderation & Safety) can proceed.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Phase 4 complete — all 2 plans executed, verified 12/12, gap closure committed
+Stopped at: Completed 05-01-PLAN.md — Phase 5 backend complete
 Resume file: None
