@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react'
 
 const ACCOUNTS_SESSION_URL = 'https://accounts-api.empowered.vote/api/auth/session'
+const SLICE_ASSIGNMENT_URL = `${import.meta.env.VITE_SLICE_ASSIGNMENT_URL ?? ''}/assign`
 const LOGIN_URL = `https://accounts.empowered.vote/login?redirect=${encodeURIComponent('https://civicspaces.empowered.vote')}`
+
+function triggerSliceAssignment(token: string) {
+  // Fire-and-forget — slice membership will be ready when useFederalSlice queries
+  fetch(SLICE_ASSIGNMENT_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => {
+    // Silently ignore — useFederalSlice will show "no jurisdiction" if it fails
+  })
+}
 
 interface AuthState {
   userId: string | null
@@ -49,9 +60,9 @@ export function useAuth(): AuthState & { loginUrl: string } {
         const token = hash.get('access_token')
         if (token) {
           const userId = storeToken(token)
-          // Clear the hash from the URL
           history.replaceState(null, '', window.location.pathname)
           if (userId) {
+            triggerSliceAssignment(token)
             setAuthState({ userId, isAuthenticated: true, isLoading: false })
             return
           }
@@ -77,6 +88,7 @@ export function useAuth(): AuthState & { loginUrl: string } {
           const { access_token } = await res.json() as { access_token: string }
           const userId = storeToken(access_token)
           if (userId) {
+            triggerSliceAssignment(access_token)
             setAuthState({ userId, isAuthenticated: true, isLoading: false })
             return
           }
