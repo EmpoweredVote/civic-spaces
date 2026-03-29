@@ -94,11 +94,11 @@ Plans:
   1. A Connected user can flag any post or reply for review; the flag is recorded and surfaced to moderators without auto-hiding the content
   2. A Connected user can block another user; the block is private, takes effect immediately, and prevents the blocked user from seeing the blocker's posts or sending friend requests
   3. A moderator can view the flagged content queue, review flagged posts in context, and remove content that violates policy — all moderation actions are recorded in an internal action log
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: Flag schema, moderation queue API, moderator role RLS policies, and action log table
-- [ ] 05-02: FlagButton component, block flow (client-side filter + DB record), moderator queue UI
+- [ ] 05-01-PLAN.md — Schema (flags, blocks, moderators, action_log), RLS, feed filtering RPCs, mod queue + action RPCs, public views
+- [ ] 05-02-PLAN.md — FlagButton/FlagModal, block flow with feed RPC migration, ModeratorQueue UI, warn notification rendering
 
 ## Progress
 
