@@ -295,10 +295,10 @@ CREATE TRIGGER friendship_notification
 -- ============================================================
 -- 6. Public schema view (PostgREST access)
 -- ============================================================
-CREATE OR REPLACE VIEW public.notifications AS
+CREATE OR REPLACE VIEW public.civic_notifications AS
   SELECT * FROM civic_spaces.notifications;
 
-GRANT SELECT, UPDATE ON public.notifications TO authenticated;
+GRANT SELECT, UPDATE ON public.civic_notifications TO authenticated;
 
 
 -- ============================================================

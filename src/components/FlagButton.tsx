@@ -3,20 +3,21 @@ import { useMyFlags } from '../hooks/useFlag'
 import FlagModal from './FlagModal'
 
 interface FlagButtonProps {
-  postId: string
+  contentId: string
+  contentType: 'post' | 'reply'
   userId: string
 }
 
-export default function FlagButton({ postId, userId }: FlagButtonProps) {
+export default function FlagButton({ contentId, contentType, userId }: FlagButtonProps) {
   const [modalOpen, setModalOpen] = useState(false)
-  const { data: flaggedPosts } = useMyFlags(userId)
-  const isFlagged = flaggedPosts?.has(postId) ?? false
+  const { data: flaggedContent } = useMyFlags(userId)
+  const isFlagged = flaggedContent?.has(contentId) ?? false
 
   return (
     <>
       <button
         type="button"
-        aria-label={isFlagged ? 'Already reported' : 'Report this post'}
+        aria-label={isFlagged ? 'Already reported' : `Report this ${contentType}`}
         onClick={(e) => {
           e.stopPropagation()
           if (!isFlagged) setModalOpen(true)
@@ -38,7 +39,8 @@ export default function FlagButton({ postId, userId }: FlagButtonProps) {
         )}
       </button>
       <FlagModal
-        postId={postId}
+        contentId={contentId}
+        contentType={contentType}
         userId={userId}
         open={modalOpen}
         onClose={() => setModalOpen(false)}

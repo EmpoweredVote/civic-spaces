@@ -47,13 +47,15 @@ export function useModAction() {
   return useMutation({
     mutationFn: async (vars: {
       p_action: ModAction
-      p_post_id?: string
+      p_content_id?: string
+      p_content_type?: 'post' | 'reply'
       p_user_id?: string
       p_notes?: string
     }) => {
       const { error } = await supabase.rpc('mod_action', {
         p_action: vars.p_action,
-        p_post_id: vars.p_post_id ?? null,
+        p_content_id: vars.p_content_id ?? null,
+        p_content_type: vars.p_content_type ?? 'post',
         p_user_id: vars.p_user_id ?? null,
         p_notes: vars.p_notes ?? null,
       })

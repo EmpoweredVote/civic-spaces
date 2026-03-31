@@ -4,7 +4,8 @@ import { useFlagPost } from '../hooks/useFlag'
 import type { FlagCategory } from '../types/database'
 
 interface FlagModalProps {
-  postId: string
+  contentId: string
+  contentType: 'post' | 'reply'
   userId: string
   open: boolean
   onClose: () => void
@@ -17,7 +18,7 @@ const CATEGORIES: { value: FlagCategory; label: string }[] = [
   { value: 'other', label: 'Other' },
 ]
 
-export default function FlagModal({ postId, userId, open, onClose }: FlagModalProps) {
+export default function FlagModal({ contentId, contentType, userId, open, onClose }: FlagModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<FlagCategory | null>(null)
   const [detail, setDetail] = useState('')
   const flagPost = useFlagPost()
@@ -26,7 +27,8 @@ export default function FlagModal({ postId, userId, open, onClose }: FlagModalPr
     if (!selectedCategory) return
     flagPost.mutate(
       {
-        post_id: postId,
+        content_id: contentId,
+        content_type: contentType,
         reporter_id: userId,
         category: selectedCategory,
         detail: detail.trim() || null,
@@ -47,7 +49,9 @@ export default function FlagModal({ postId, userId, open, onClose }: FlagModalPr
         <Sheet.Header />
         <Sheet.Content>
           <div className="px-6 pb-8">
-            <h2 className="text-base font-semibold text-gray-900 mb-4">Report this post</h2>
+            <h2 className="text-base font-semibold text-gray-900 mb-4">
+              Report this {contentType}
+            </h2>
 
             <div className="space-y-3">
               {CATEGORIES.map(({ value, label }) => (

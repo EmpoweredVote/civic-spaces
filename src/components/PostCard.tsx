@@ -129,7 +129,7 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
             </span>
           </div>
           {currentUserId && !isOwnPost && (
-            <FlagButton postId={post.id} userId={currentUserId} />
+            <FlagButton contentId={post.id} contentType="post" userId={currentUserId} />
           )}
         </div>
       </button>

@@ -27,7 +27,7 @@ export default function ModeratorQueue({ onClose }: ModeratorQueueProps) {
     const item = data[currentIndex]
     if (!item) return
     modAction.mutate(
-      { p_action: action, p_post_id: item.post_id, p_user_id: item.author_id },
+      { p_action: action, p_content_id: item.content_id, p_content_type: item.content_type, p_user_id: item.author_id },
       {
         onSuccess: () => {
           // Advance to next item, wrap to 0 if at end
@@ -115,9 +115,14 @@ export default function ModeratorQueue({ onClose }: ModeratorQueueProps) {
               </button>
             </div>
 
-            {/* Post card */}
+            {/* Content card */}
             <div className="border-l-4 border-red-500 pl-4 bg-red-50 rounded-r p-3">
-              {item.title && <p className="font-semibold text-gray-900">{item.title}</p>}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-medium bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded capitalize">
+                  {item.content_type}
+                </span>
+                {item.title && <p className="font-semibold text-gray-900">{item.title}</p>}
+              </div>
               <p className="text-sm text-gray-800">{item.body}</p>
               <p className="text-xs text-gray-400 mt-1">
                 by {item.author_id.slice(0, 8)}... · {new Date(item.post_created_at).toLocaleDateString()}

@@ -103,7 +103,8 @@ export type FlagStatus = 'pending' | 'resolved' | 'dismissed'
 
 export interface Flag {
   id: string
-  post_id: string
+  content_id: string
+  content_type: 'post' | 'reply'
   reporter_id: string
   category: FlagCategory
   detail: string | null
@@ -118,7 +119,8 @@ export interface Block {
 }
 
 export interface ModQueueItem {
-  post_id: string
+  content_id: string
+  content_type: 'post' | 'reply'
   body: string
   title: string | null
   author_id: string

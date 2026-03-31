@@ -10,10 +10,10 @@ export function useMyFlags(userId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('flags')
-        .select('post_id')
+        .select('content_id')
         .eq('reporter_id', userId!)
       if (error) throw error
-      return new Set((data ?? []).map((f) => f.post_id))
+      return new Set((data ?? []).map((f) => f.content_id))
     },
   })
 }
@@ -22,7 +22,8 @@ export function useFlagPost() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (vars: {
-      post_id: string
+      content_id: string
+      content_type: 'post' | 'reply'
       reporter_id: string
       category: FlagCategory
       detail: string | null

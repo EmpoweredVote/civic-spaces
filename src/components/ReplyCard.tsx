@@ -71,7 +71,7 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, currentUser
           <span />
         )}
         {currentUserId && currentUserId !== reply.user_id && (
-          <FlagButton postId={reply.id} userId={currentUserId} />
+          <FlagButton contentId={reply.id} contentType="reply" userId={currentUserId} />
         )}
       </div>
     </div>
