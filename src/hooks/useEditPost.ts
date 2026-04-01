@@ -12,6 +12,7 @@ export function useEditPost() {
   return useMutation({
     mutationFn: async ({ postId, body }: { postId: string; body: string }) => {
       const { data, error } = await supabase
+        .schema('civic_spaces')
         .from('posts')
         .update({ body })
         .eq('id', postId)
@@ -28,7 +29,7 @@ export function useEditPost() {
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['feed'] })
+      queryClient.invalidateQueries({ queryKey: ['boosted-feed'] })
     },
   })
 }

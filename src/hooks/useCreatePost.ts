@@ -9,6 +9,7 @@ export function useCreatePost(sliceId: string, userId: string) {
   return useMutation({
     mutationFn: async ({ title, body }: CreatePostInput) => {
       const { data, error } = await supabase
+        .schema('civic_spaces')
         .from('posts')
         .insert({ slice_id: sliceId, user_id: userId, title, body })
         .select()
@@ -19,9 +20,9 @@ export function useCreatePost(sliceId: string, userId: string) {
     },
 
     onMutate: async ({ title, body }: CreatePostInput) => {
-      await queryClient.cancelQueries({ queryKey: ['feed', sliceId] })
+      await queryClient.cancelQueries({ queryKey: ['boosted-feed', sliceId] })
 
-      const snapshot = queryClient.getQueryData<InfiniteData<PostWithAuthor[]>>(['feed', sliceId])
+      const snapshot = queryClient.getQueryData<InfiniteData<PostWithAuthor[]>>(['boosted-feed', sliceId])
 
       const tempPost: PostWithAuthor = {
         id: crypto.randomUUID(),
@@ -38,7 +39,7 @@ export function useCreatePost(sliceId: string, userId: string) {
       }
 
       if (snapshot) {
-        queryClient.setQueryData<InfiniteData<PostWithAuthor[]>>(['feed', sliceId], {
+        queryClient.setQueryData<InfiniteData<PostWithAuthor[]>>(['boosted-feed', sliceId], {
           ...snapshot,
           pages: [
             [tempPost, ...(snapshot.pages[0] ?? [])],
@@ -52,12 +53,12 @@ export function useCreatePost(sliceId: string, userId: string) {
 
     onError: (_err, _vars, context) => {
       if (context?.snapshot) {
-        queryClient.setQueryData(['feed', sliceId], context.snapshot)
+        queryClient.setQueryData(['boosted-feed', sliceId], context.snapshot)
       }
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['feed', sliceId] })
+      queryClient.invalidateQueries({ queryKey: ['boosted-feed', sliceId] })
     },
   })
 }
