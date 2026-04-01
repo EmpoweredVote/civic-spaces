@@ -188,7 +188,7 @@ async function upsertConnectedProfile(
       { onConflict: 'user_id' }
     )
 
-  if (error) throw new Error(`Failed to upsert connected profile: ${error.message}`)
+  if (error) throw new Error(`Failed to upsert connected profile: ${JSON.stringify(error)}`)
 }
 
 export async function assignUserToSlices(
