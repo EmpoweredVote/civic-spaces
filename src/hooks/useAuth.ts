@@ -20,7 +20,7 @@ interface AuthState {
   isLoading: boolean
 }
 
-function decodeUserId(token: string): string | null {
+function decodePayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split('.')
     if (parts.length !== 3) return null
@@ -28,12 +28,25 @@ function decodeUserId(token: string): string | null {
     if (!payload) return null
     const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
     const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
-    const decoded = JSON.parse(atob(padded)) as Record<string, unknown>
-    const sub = decoded['sub']
-    return typeof sub === 'string' ? sub : null
+    return JSON.parse(atob(padded)) as Record<string, unknown>
   } catch {
     return null
   }
+}
+
+function decodeUserId(token: string): string | null {
+  const decoded = decodePayload(token)
+  if (!decoded) return null
+  const sub = decoded['sub']
+  return typeof sub === 'string' ? sub : null
+}
+
+function isTokenExpired(token: string): boolean {
+  const decoded = decodePayload(token)
+  if (!decoded) return true
+  const exp = decoded['exp']
+  if (typeof exp !== 'number') return true
+  return Date.now() / 1000 > exp
 }
 
 function storeToken(token: string): string | null {
@@ -72,12 +85,14 @@ export function useAuth(): AuthState & { loginUrl: string } {
       // 2. Check localStorage for existing token
       const stored = localStorage.getItem('cs_token')
       if (stored) {
-        const userId = decodeUserId(stored)
-        if (userId) {
-          setAuthState({ userId, isAuthenticated: true, isLoading: false })
-          return
+        if (!isTokenExpired(stored)) {
+          const userId = decodeUserId(stored)
+          if (userId) {
+            setAuthState({ userId, isAuthenticated: true, isLoading: false })
+            return
+          }
         }
-        // Token invalid/expired — remove it
+        // Token missing, invalid, or expired — remove it and fall through to SSO
         localStorage.removeItem('cs_token')
       }
 
