@@ -36,7 +36,7 @@ export default function SliceTabBar({ activeTab, federalMemberCount }: SliceTabB
             <span>{tab.label}</span>
             {tab.key === 'federal' && federalMemberCount !== null && (
               <span className="text-xs font-normal text-gray-500 mt-0.5">
-                {federalMemberCount.toLocaleString()} members
+                {federalMemberCount.toLocaleString()} {federalMemberCount === 1 ? 'member' : 'members'}
               </span>
             )}
           </button>

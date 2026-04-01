@@ -17,8 +17,4 @@ app.use(assignmentRouter)
 const port = process.env.PORT || 3001
 app.listen(port, () => {
   console.log(`Slice assignment service listening on port ${port}`)
-  console.log(`SUPABASE_URL: ${process.env.SUPABASE_URL ?? 'NOT SET'}`)
-  console.log(`SUPABASE_SERVICE_ROLE_KEY set: ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`)
-  console.log(`ACCOUNTS_API_URL: ${process.env.ACCOUNTS_API_URL ?? 'NOT SET'}`)
-  console.log(`ACCOUNTS_JWKS_URL: ${process.env.ACCOUNTS_JWKS_URL ?? 'NOT SET'}`)
 })

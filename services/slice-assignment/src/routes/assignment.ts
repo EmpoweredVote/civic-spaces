@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express'
-import { createClient } from '@supabase/supabase-js'
 import { fetchAccountData } from '../services/accountsApi'
 import { assignUserToSlices, upsertConnectedProfile } from '../services/sliceAssigner'
 
@@ -14,14 +13,6 @@ router.post('/assign', async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ error: 'Missing authentication context' })
       return
     }
-
-    // Connection test — simple count query before any writes
-    const testClient = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-    const { count, error: testError } = await testClient
-      .schema('civic_spaces')
-      .from('connected_profiles')
-      .select('*', { count: 'exact', head: true })
-    console.log(`DB test: count=${count} error=${testError ? JSON.stringify(testError) + ' msg=' + testError.message : 'none'}`)
 
     const accountData = await fetchAccountData(rawToken)
 
