@@ -62,7 +62,7 @@ export function useIsBlockedBy(userId: string | null) {
     enabled: !!userId,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('is_blocked_by', { p_user_id: userId! })
+      const { data, error } = await supabase.schema('civic_spaces').rpc('is_blocked_by', { p_user_id: userId! })
       if (error) throw error
       return data as boolean
     },

@@ -16,7 +16,7 @@ export function useModQueue(filters?: { status?: string; category?: string }) {
     staleTime: 0,
     refetchInterval: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_mod_queue', {
+      const { data, error } = await supabase.schema('civic_spaces').rpc('get_mod_queue', {
         p_status: filters?.status ?? 'pending',
         p_category: filters?.category ?? null,
       })
@@ -52,7 +52,7 @@ export function useModAction() {
       p_user_id?: string
       p_notes?: string
     }) => {
-      const { error } = await supabase.rpc('mod_action', {
+      const { error } = await supabase.schema('civic_spaces').rpc('mod_action', {
         p_action: vars.p_action,
         p_content_id: vars.p_content_id ?? null,
         p_content_type: vars.p_content_type ?? 'post',

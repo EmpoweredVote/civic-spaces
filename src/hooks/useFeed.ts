@@ -10,7 +10,7 @@ async function fetchFeedPage(
   cursor: FeedCursor | undefined,
 ): Promise<PostWithAuthor[]> {
   // Step 1: Fetch block-filtered posts via RPC with composite cursor pagination
-  const { data: posts, error: postsError } = await supabase.rpc('get_feed_filtered', {
+  const { data: posts, error: postsError } = await supabase.schema('civic_spaces').rpc('get_feed_filtered', {
     p_slice_id: sliceId,
     p_limit: PAGE_SIZE,
     p_cursor_at: cursor?.created_at ?? null,

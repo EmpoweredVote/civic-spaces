@@ -11,7 +11,7 @@ async function fetchBoostedFeedPage(
   cursor?: BoostedFeedCursor,
 ): Promise<BoostedPostWithAuthor[]> {
   // Call the RPC — returns posts with boosted_at synthetic sort key
-  const { data: posts, error } = await supabase.rpc('get_boosted_feed_filtered', {
+  const { data: posts, error } = await supabase.schema('civic_spaces').rpc('get_boosted_feed_filtered', {
     p_slice_id: sliceId,
     p_limit: PAGE_SIZE,
     p_cursor_at: cursor?.boosted_at ?? null,
