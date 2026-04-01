@@ -16,6 +16,7 @@ export function useRelationship(otherUserId: string | null): {
       if (!userId || !otherUserId) return null
       const key = friendshipKey(userId, otherUserId)
       const { data, error } = await supabase
+        .schema('civic_spaces')
         .from('friendships')
         .select('*')
         .eq('user_low', key.user_low)
@@ -71,6 +72,7 @@ export function useAcceptFriendRequest() {
       const key = friendshipKey(userId, otherUserId)
 
       const { error } = await supabase
+        .schema('civic_spaces')
         .from('friendships')
         .update({ status: 'FRIEND' })
         .eq('user_low', key.user_low)
@@ -94,6 +96,7 @@ export function useRemoveFriend() {
       const key = friendshipKey(userId, otherUserId)
 
       const { error } = await supabase
+        .schema('civic_spaces')
         .from('friendships')
         .delete()
         .eq('user_low', key.user_low)

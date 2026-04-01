@@ -9,6 +9,7 @@ export function useBlockedUsers(userId: string | null) {
     enabled: !!userId,
     queryFn: async () => {
       const { data, error } = await supabase
+        .schema('civic_spaces')
         .from('blocks')
         .select('*')
         .eq('blocker_id', userId!)
@@ -24,7 +25,7 @@ export function useBlockUser() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (vars: { blocker_id: string; blocked_id: string }) => {
-      const { error } = await supabase.from('blocks').insert(vars)
+      const { error } = await supabase.schema('civic_spaces').from('blocks').insert(vars)
       if (error) throw error
     },
     onSuccess: (_data, vars) => {
@@ -41,6 +42,7 @@ export function useUnblockUser() {
   return useMutation({
     mutationFn: async (vars: { blocker_id: string; blocked_id: string }) => {
       const { error } = await supabase
+        .schema('civic_spaces')
         .from('blocks')
         .delete()
         .eq('blocker_id', vars.blocker_id)

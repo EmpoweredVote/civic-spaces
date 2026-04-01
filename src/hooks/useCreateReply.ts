@@ -14,6 +14,7 @@ export function useCreateReply(postId: string, userId: string) {
   return useMutation({
     mutationFn: async ({ body, parentReplyId }: CreateReplyInput) => {
       const { data, error } = await supabase
+        .schema('civic_spaces')
         .from('replies')
         .insert({
           post_id: postId,
@@ -80,7 +81,7 @@ export function useCreateReply(postId: string, userId: string) {
     onSettled: () => {
       // Invalidate replies and feed (reply_count changes)
       queryClient.invalidateQueries({ queryKey: repliesKey })
-      queryClient.invalidateQueries({ queryKey: ['feed'] })
+      queryClient.invalidateQueries({ queryKey: ['boosted-feed'] })
     },
   })
 }

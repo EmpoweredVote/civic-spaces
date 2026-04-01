@@ -73,7 +73,8 @@ export function useMarkNotificationRead() {
   return useMutation({
     mutationFn: async (notificationId: string) => {
       const { error } = await supabase
-        .from('civic_notifications')
+        .schema('civic_spaces')
+        .from('notifications')
         .update({ is_read: true })
         .eq('id', notificationId)
 
@@ -96,7 +97,8 @@ export function useMarkAllNotificationsRead() {
       if (!userId) throw new Error('Not authenticated')
 
       const { error } = await supabase
-        .from('civic_notifications')
+        .schema('civic_spaces')
+        .from('notifications')
         .update({ is_read: true })
         .eq('is_read', false)
         .eq('recipient_id', userId)

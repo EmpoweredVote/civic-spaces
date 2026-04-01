@@ -9,6 +9,7 @@ interface ReplyCursor {
 
 async function fetchPostWithAuthor(postId: string): Promise<PostWithAuthor> {
   const { data: post, error: postError } = await supabase
+    .schema('civic_spaces')
     .from('posts')
     .select('*')
     .eq('id', postId)
@@ -43,6 +44,7 @@ async function fetchRepliesPage(
   cursor: ReplyCursor | undefined,
 ): Promise<ReplyWithAuthor[]> {
   let query = supabase
+    .schema('civic_spaces')
     .from('replies')
     .select('*')
     .eq('post_id', postId)

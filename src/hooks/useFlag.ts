@@ -9,6 +9,7 @@ export function useMyFlags(userId: string | null) {
     enabled: !!userId,
     queryFn: async () => {
       const { data, error } = await supabase
+        .schema('civic_spaces')
         .from('flags')
         .select('content_id')
         .eq('reporter_id', userId!)
@@ -28,7 +29,7 @@ export function useFlagPost() {
       category: FlagCategory
       detail: string | null
     }) => {
-      const { error } = await supabase.from('flags').insert(vars)
+      const { error } = await supabase.schema('civic_spaces').from('flags').insert(vars)
       if (error) {
         if (error.code === '23505') return // duplicate — treat as success
         throw error

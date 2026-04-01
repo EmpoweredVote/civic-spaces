@@ -13,6 +13,7 @@ export function useFollowStatus(targetId: string | null): {
     queryFn: async () => {
       if (!userId || !targetId) return null
       const { data, error } = await supabase
+        .schema('civic_spaces')
         .from('follows')
         .select('follower_id')
         .eq('follower_id', userId)
@@ -48,14 +49,16 @@ export function useToggleFollow() {
 
       if (currentlyFollowing) {
         const { error } = await supabase
-          .from('follows')
+          .schema('civic_spaces')
+        .from('follows')
           .delete()
           .eq('follower_id', userId)
           .eq('target_id', targetId)
         if (error) throw error
       } else {
         const { error } = await supabase
-          .from('follows')
+          .schema('civic_spaces')
+        .from('follows')
           .insert({ follower_id: userId, target_id: targetId })
         if (error) throw error
       }

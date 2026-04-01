@@ -27,6 +27,7 @@ export function useFriendsList(): FriendsListResult {
 
       // Fetch all friendship rows involving current user
       const { data: rows, error: rowsError } = await supabase
+        .schema('civic_spaces')
         .from('friendships')
         .select('user_low, user_high, status')
         .or(`user_low.eq.${userId},user_high.eq.${userId}`)
