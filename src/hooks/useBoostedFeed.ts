@@ -33,6 +33,9 @@ async function fetchBoostedFeedPage(
 
   return posts.map((p: any) => ({
     ...p,
+    user_id: p.author_id,
+    title: p.title ?? null,
+    edit_history: p.edit_history ?? [],
     author: profileMap.get(p.author_id) ?? {
       display_name: 'Unknown',
       avatar_url: null,
