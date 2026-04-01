@@ -148,7 +148,7 @@ async function upsertSliceMember(
       { onConflict: 'user_id,slice_id', ignoreDuplicates: true }
     )
 
-  if (error) {
+  if (error?.message) {
     if (error.message.includes('slice_full') || error.code === 'P0001') {
       if (retries <= 0) {
         throw new Error('Max retries exceeded for slice_full condition')
@@ -188,11 +188,8 @@ async function upsertConnectedProfile(
       { onConflict: 'user_id' }
     )
 
-  if (error) {
-    const msg = error instanceof Error
-      ? error.message
-      : (error as any).message ?? (error as any).details ?? (error as any).code ?? JSON.stringify(error)
-    throw new Error(`Failed to upsert connected profile: ${msg} | raw: ${(error as any).message} | code: ${(error as any).code} | details: ${(error as any).details}`)
+  if (error?.message) {
+    throw new Error(`Failed to upsert connected profile: ${error.message}`)
   }
 }
 
