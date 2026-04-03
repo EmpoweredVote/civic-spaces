@@ -9,14 +9,14 @@ import type { Notification } from '../types/database'
 interface NotificationListProps {
   onClose: () => void
   onOpenProfile: (userId: string) => void
-  onNavigateToThread: (postId: string) => void
+  onNavigateToThread?: (postId: string) => void
   onNavigateToSliceThread: (postId: string) => void
 }
 
 export default function NotificationList({
   onClose,
   onOpenProfile,
-  onNavigateToThread,
+  onNavigateToThread: _onNavigateToThread,
   onNavigateToSliceThread,
 }: NotificationListProps) {
   const { notifications, unreadCount, isLoading } = useNotifications()
