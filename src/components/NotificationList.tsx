@@ -10,12 +10,14 @@ interface NotificationListProps {
   onClose: () => void
   onOpenProfile: (userId: string) => void
   onNavigateToThread: (postId: string) => void
+  onNavigateToSliceThread: (postId: string) => void
 }
 
 export default function NotificationList({
   onClose,
   onOpenProfile,
   onNavigateToThread,
+  onNavigateToSliceThread,
 }: NotificationListProps) {
   const { notifications, unreadCount, isLoading } = useNotifications()
   const markRead = useMarkNotificationRead()
@@ -25,7 +27,7 @@ export default function NotificationList({
     markRead.mutate(notification.id)
 
     if (notification.event_type === 'reply') {
-      onNavigateToThread(notification.reference_id)
+      onNavigateToSliceThread(notification.reference_id)
       onClose()
     } else if (
       notification.event_type === 'friend_request' ||

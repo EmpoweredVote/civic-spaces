@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, createRef } from 'react'
 import type React from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useAllSlices } from '../hooks/useAllSlices'
+import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
 import SliceTabBar from './SliceTabBar'
 import NoJurisdictionBanner from './NoJurisdictionBanner'
@@ -62,6 +63,16 @@ export default function AppShell() {
     setActiveTab(newTab)
   }, [activeTab])
 
+  // Notification routing (SLCE-03): resolve reply notifications to the correct slice tab
+  const { resolveTabForPost } = useNotificationRouting(slices)
+
+  const handleNotificationNavigate = useCallback(async (postId: string) => {
+    const resolvedTab = await resolveTabForPost(postId)
+    handleTabChange(resolvedTab)
+    setActivePostIds(prev => ({ ...prev, [resolvedTab]: postId }))
+    setScrollToLatestMap(prev => ({ ...prev, [resolvedTab]: true }))
+  }, [resolveTabForPost, handleTabChange])
+
   // Restore scroll position after the new tab becomes visible
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -101,6 +112,7 @@ export default function AppShell() {
                 setScrollToLatestMap(prev => ({ ...prev, [activeTab]: true }))
                 setActivePostIds(prev => ({ ...prev, [activeTab]: postId }))
               }}
+              onNavigateToSliceThread={handleNotificationNavigate}
             />
 
             {/* Friends icon */}

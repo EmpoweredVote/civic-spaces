@@ -7,11 +7,13 @@ import NotificationList from './NotificationList'
 interface NotificationBellProps {
   onOpenProfile: (userId: string) => void
   onNavigateToThread: (postId: string) => void
+  onNavigateToSliceThread: (postId: string) => void
 }
 
 export default function NotificationBell({
   onOpenProfile,
   onNavigateToThread,
+  onNavigateToSliceThread,
 }: NotificationBellProps) {
   const { unreadCount } = useNotifications()
   const markAllRead = useMarkAllNotificationsRead()
@@ -94,6 +96,7 @@ export default function NotificationBell({
                 onClose={() => setIsOpen(false)}
                 onOpenProfile={onOpenProfile}
                 onNavigateToThread={onNavigateToThread}
+                onNavigateToSliceThread={onNavigateToSliceThread}
               />
             </motion.div>
           )}
