@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 ## Current Position
 
 Phase: 6 of 8 (Hub Expansion) — COMPLETE
-Plan: 4 of 4 in Phase 6 — all plans delivered
-Status: Phase complete — ready for Phase 7
-Last activity: 2026-04-03 — Completed 06-04-PLAN.md (gap closure: TS errors + mobile notification routing)
+Plan: 5 of 5 in Phase 6 — all plans delivered (including gap-closure)
+Status: Phase complete — tsc build clean — ready for Phase 7
+Last activity: 2026-04-03 — Completed 06-05-PLAN.md (gap closure: zero tsc errors project-wide)
 
-Progress (v2.0): [████░░░░░░░░░░░░░░░] 20%
+Progress (v2.0): [████░░░░░░░░░░░░░░░] 21%
 
 ## Performance Metrics
 
@@ -30,6 +30,9 @@ Progress (v2.0): [████░░░░░░░░░░░░░░░] 20%
 
 ### Decisions
 
+- [v2.0 / Plan 06-05]: tsconfig types array used for vite/client instead of vite-env.d.ts — canonical Vite approach, no file to maintain
+- [v2.0 / Plan 06-05]: Supabase join array cast via `as unknown as T[]` — typegen emits joined rows as arrays even with maybeSingle(); cast through unknown is correct escape hatch
+- [v2.0 / Plan 06-05]: tier: 'connected' as const in optimistic author stubs — satisfies Pick<ConnectedProfile, 'tier'> without importing full union
 - [v2.0 / Plan 06-04]: onNavigateToThread kept optional in NotificationList interface; aliased _onNavigateToThread in destructuring to suppress TS6133 without removing backward-compat prop
 - [v2.0 / Plan 06-04]: activeTab as SliceType cast used at MemberDirectory sliceId access site — runtime safe (volunteer returns undefined, handled by optional chain); 'volunteer' NOT added to SliceType (Phase 7 domain)
 - [v2.0 / Plan 06-03]: useNotificationRouting is a one-off async resolver (no React Query) — called on notification tap, looks up posts.slice_id then reverse-maps against slices to find TabKey; falls back to 'federal' on any error
@@ -58,5 +61,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 06-04-PLAN.md — gap closure (TS errors + mobile notification routing)
+Stopped at: Completed 06-05-PLAN.md — gap closure (zero tsc errors project-wide)
 Resume file: None
