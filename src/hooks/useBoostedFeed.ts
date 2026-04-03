@@ -84,6 +84,7 @@ export function useBoostedFeed(sliceId: string | null) {
     getNextPageParam: (lastPage): BoostedFeedCursor | undefined => {
       if (lastPage.length < PAGE_SIZE) return undefined
       const last = lastPage[lastPage.length - 1]
+      if (!last) return undefined
       // CRITICAL: cursor must use boosted_at (synthetic sort key), not created_at
       return { boosted_at: last.boosted_at, id: last.id }
     },

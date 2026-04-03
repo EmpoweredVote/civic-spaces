@@ -103,6 +103,7 @@ export function useThread(postId: string | null) {
     getNextPageParam: (lastPage): ReplyCursor | undefined => {
       if (lastPage.length < REPLY_PAGE_SIZE) return undefined
       const last = lastPage[lastPage.length - 1]
+      if (!last) return undefined
       return { created_at: last.created_at, id: last.id }
     },
     initialPageParam: undefined,
