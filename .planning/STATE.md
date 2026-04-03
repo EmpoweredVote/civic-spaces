@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** Milestone v2.0 — All Slices. Phase 6: Hub Expansion.
+**Current focus:** Milestone v2.0 — All Slices. Phase 7: Unified and Volunteer Slices.
 
 ## Current Position
 
-Phase: 6 of 8 (Hub Expansion)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-04-03 — Completed 06-03-PLAN.md (notification slice routing)
+Phase: 6 of 8 (Hub Expansion) — COMPLETE
+Plan: 4 of 4 in Phase 6 — all plans delivered
+Status: Phase complete — ready for Phase 7
+Last activity: 2026-04-03 — Completed 06-04-PLAN.md (gap closure: TS errors + mobile notification routing)
 
-Progress (v2.0): [███░░░░░░░░░░░░░░░░] 15%
+Progress (v2.0): [████░░░░░░░░░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -22,12 +22,16 @@ Progress (v2.0): [███░░░░░░░░░░░░░░░░] 15%
 - Total plans completed: 14
 - Phases 1–5 delivered 2026-03-27 to 2026-03-28
 
-*v2.0 metrics will update after first plan completion*
+**Velocity (v2.0):**
+- Phase 6 plans completed: 4 of 4
+- Phase 6 delivered: 2026-04-03
 
 ## Accumulated Context
 
 ### Decisions
 
+- [v2.0 / Plan 06-04]: onNavigateToThread kept optional in NotificationList interface; aliased _onNavigateToThread in destructuring to suppress TS6133 without removing backward-compat prop
+- [v2.0 / Plan 06-04]: activeTab as SliceType cast used at MemberDirectory sliceId access site — runtime safe (volunteer returns undefined, handled by optional chain); 'volunteer' NOT added to SliceType (Phase 7 domain)
 - [v2.0 / Plan 06-03]: useNotificationRouting is a one-off async resolver (no React Query) — called on notification tap, looks up posts.slice_id then reverse-maps against slices to find TabKey; falls back to 'federal' on any error
 - [v2.0 / Plan 06-03]: Reply notifications route via onNavigateToSliceThread (new prop); onNavigateToThread kept for backward compat but unused for reply events now
 - [v2.0 / Plan 06-02]: Explicit scrollTop save/restore used for per-tab scroll preservation — requestAnimationFrame ensures restore fires after display:none is removed; save fires synchronously in handleTabChange before setActiveTab
@@ -54,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 06-03-PLAN.md — notification slice routing (SLCE-03)
+Stopped at: Completed 06-04-PLAN.md — gap closure (TS errors + mobile notification routing)
 Resume file: None
