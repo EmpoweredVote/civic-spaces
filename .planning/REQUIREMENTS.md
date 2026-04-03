@@ -1,7 +1,7 @@
 # Requirements: Civic Spaces
 
 **Defined:** 2026-03-27
-**Updated:** 2026-04-03 (Milestone v2.0)
+**Updated:** 2026-04-03 (Milestone v2.0 — traceability mapped)
 **Core Value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
 
 ## v1.0 Requirements (Complete)
@@ -159,21 +159,43 @@
 | NOTF-01–04 | Phase 4 | Complete |
 | MOD-01–03 | Phase 5 | Complete |
 
-### v2.0 (Pending — mapped by roadmapper)
+### v2.0 (Mapped — Phases 6–8)
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HUB-06–08 | TBD | Pending |
-| SLCE-01–03 | TBD | Pending |
-| UNIF-01–04 | TBD | Pending |
-| VOL-01–05 | TBD | Pending |
-| PROF-01–07 | TBD | Pending |
+| HUB-06 | Phase 6 | Pending |
+| HUB-07 | Phase 7 | Pending |
+| HUB-08 | Phase 6 | Pending |
+| SLCE-01 | Phase 7 | Pending |
+| SLCE-02 | Phase 6 | Pending |
+| SLCE-03 | Phase 6 | Pending |
+| UNIF-01 | Phase 7 | Pending |
+| UNIF-02 | Phase 7 | Pending |
+| UNIF-03 | Phase 7 | Pending |
+| UNIF-04 | Phase 7 | Pending |
+| VOL-01 | Phase 7 | Pending |
+| VOL-02 | Phase 7 | Pending |
+| VOL-03 | Phase 7 | Pending |
+| VOL-04 | Phase 7 | Pending |
+| VOL-05 | Phase 7 | Pending |
+| PROF-01 | Phase 8 | Pending |
+| PROF-02 | Phase 8 | Pending |
+| PROF-03 | Phase 8 | Pending |
+| PROF-04 | Phase 8 | Pending |
+| PROF-05 | Phase 8 | Pending |
+| PROF-06 | Phase 8 | Pending |
+| PROF-07 | Phase 8 | Pending |
 
 **v2.0 Coverage:**
 - v2.0 requirements: 22 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 22 ⚠️
+- Mapped to phases: 22
+- Unmapped: 0
+
+**Phase distribution:**
+- Phase 6 (Hub Expansion): HUB-06, HUB-08, SLCE-02, SLCE-03 — 4 requirements
+- Phase 7 (New Slice Types): HUB-07, SLCE-01, UNIF-01–04, VOL-01–05 — 11 requirements
+- Phase 8 (Profile Pages): PROF-01–07 — 7 requirements
 
 ---
 *Requirements defined: 2026-03-27*
-*Last updated: 2026-04-03 — Milestone v2.0 requirements added (22 new requirements)*
+*Last updated: 2026-04-03 — v2.0 traceability mapped (Phases 6–8, 22 requirements, 100% coverage)*
