@@ -31,8 +31,11 @@ async function fetchProfileById(userId: string): Promise<{
 
   let sliceName: string | null = null
   if (memberData?.slices) {
-    const sliceInfo = memberData.slices as { slice_type: string; geoid: string }
-    sliceName = `${sliceInfo.slice_type} · ${sliceInfo.geoid}`
+    const slicesRaw = memberData.slices as unknown as { slice_type: string; geoid: string }[]
+    const sliceInfo = slicesRaw[0]
+    if (sliceInfo) {
+      sliceName = `${sliceInfo.slice_type} · ${sliceInfo.geoid}`
+    }
   }
 
   return {

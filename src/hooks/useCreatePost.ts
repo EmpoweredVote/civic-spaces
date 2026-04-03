@@ -35,7 +35,7 @@ export function useCreatePost(sliceId: string, userId: string) {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         is_deleted: false,
-        author: { display_name: 'You', avatar_url: null },
+        author: { display_name: 'You', avatar_url: null, tier: 'connected' as const },
       }
 
       if (snapshot) {
