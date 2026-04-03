@@ -5,13 +5,13 @@
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** Milestone v2.0 — All Slices. Phase 7: Unified and Volunteer Slices.
+**Current focus:** Milestone v2.0 — All Slices. Phase 7: New Slice Types.
 
 ## Current Position
 
-Phase: 6 of 8 (Hub Expansion) — COMPLETE
+Phase: 6 of 8 (Hub Expansion) — COMPLETE ✓ (verified 2026-04-03, 5/5 must-haves)
 Plan: 5 of 5 in Phase 6 — all plans delivered (including gap-closure)
-Status: Phase complete — tsc build clean — ready for Phase 7
+Status: Phase 6 verified — ready for Phase 7
 Last activity: 2026-04-03 — Completed 06-05-PLAN.md (gap closure: zero tsc errors project-wide)
 
 Progress (v2.0): [████░░░░░░░░░░░░░░░] 21%
@@ -23,7 +23,7 @@ Progress (v2.0): [████░░░░░░░░░░░░░░░] 21%
 - Phases 1–5 delivered 2026-03-27 to 2026-03-28
 
 **Velocity (v2.0):**
-- Phase 6 plans completed: 4 of 4
+- Phase 6 plans completed: 5 of 5
 - Phase 6 delivered: 2026-04-03
 
 ## Accumulated Context

@@ -62,15 +62,15 @@
 
 ### Hub & Navigation
 
-- [ ] **HUB-06**: Hub displays N/L/S/F/Unified on the left and Volunteer on the right; Unified tab sits beside Federal
+- [x] **HUB-06**: Hub displays N/L/S/F/Unified on the left and Volunteer on the right; Unified tab sits beside Federal
 - [ ] **HUB-07**: Neighborhood, Local, State, and Unified tabs are active with full forum capability
-- [ ] **HUB-08**: Each slice tab independently preserves its scroll position when switching
+- [x] **HUB-08**: Each slice tab independently preserves its scroll position when switching
 
 ### Multi-Slice Forum
 
 - [ ] **SLCE-01**: User can post, reply, and view a cursor-paginated feed in Neighborhood, Local, State, and Unified slices
-- [ ] **SLCE-02**: Friend-boosted feed weighting applies in all active geo slices
-- [ ] **SLCE-03**: Reply and thread notifications route the user to the correct slice tab
+- [x] **SLCE-02**: Friend-boosted feed weighting applies in all active geo slices
+- [x] **SLCE-03**: Reply and thread notifications route the user to the correct slice tab
 
 ### Unified Slice
 
@@ -163,12 +163,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HUB-06 | Phase 6 | Pending |
+| HUB-06 | Phase 6 | Complete |
 | HUB-07 | Phase 7 | Pending |
-| HUB-08 | Phase 6 | Pending |
+| HUB-08 | Phase 6 | Complete |
 | SLCE-01 | Phase 7 | Pending |
-| SLCE-02 | Phase 6 | Pending |
-| SLCE-03 | Phase 6 | Pending |
+| SLCE-02 | Phase 6 | Complete |
+| SLCE-03 | Phase 6 | Complete |
 | UNIF-01 | Phase 7 | Pending |
 | UNIF-02 | Phase 7 | Pending |
 | UNIF-03 | Phase 7 | Pending |

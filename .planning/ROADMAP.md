@@ -166,6 +166,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3. Social Graph | v1.0 | 3/3 | Complete | 2026-03-28 |
 | 4. Notifications | v1.0 | 2/2 | Complete | 2026-03-28 |
 | 5. Moderation & Safety | v1.0 | 2/2 | Complete | 2026-03-28 |
-| 6. Hub Expansion | v2.0 | 0/3 | Not started | - |
+| 6. Hub Expansion | v2.0 | 5/5 | Complete | 2026-04-03 |
 | 7. New Slice Types | v2.0 | 0/4 | Not started | - |
 | 8. Profile Pages | v2.0 | 0/3 | Not started | - |
