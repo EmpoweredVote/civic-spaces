@@ -108,13 +108,12 @@ Plans:
   3. The friend-boosted feed weighting that exists for Federal applies equally when viewing Neighborhood, Local, and State slice feeds — friend posts surface with higher visibility in all three
   4. Tapping a reply or thread notification navigates the user to the correct slice tab (not always Federal) and opens the referenced thread
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: Hub layout redesign — two-column SliceTabBar (geo left, special right), tab ordering, Unified/Volunteer tab shells (disabled until Phase 7)
-- [ ] 06-02: Activate N/L/S slice feeds — wire existing get_boosted_feed_filtered RPC to Neighborhood, Local, and State slice_ids; enable post/reply in each
-- [ ] 06-03: Per-tab scroll state — independent scroll position preservation across all hub tabs
-- [ ] 06-04: Notification routing — look up slice_id on notification, resolve owning tab, navigate to correct tab on notification tap
+- [ ] 06-01-PLAN.md — Hub layout redesign + useAllSlices hook + activate all 4 geo slice feeds + Unified/Volunteer disabled shells
+- [ ] 06-02-PLAN.md — Per-tab scroll state — independent scroll position preservation across all hub tabs
+- [ ] 06-03-PLAN.md — Notification routing — resolve post slice_id to owning tab, navigate to correct tab on notification tap
 
 #### Phase 7: New Slice Types
 **Goal**: The Unified and Volunteer slices exist in the schema, the assignment service populates them automatically, and their hub tabs are fully active forums — Volunteer tab is visible only to users with the Volunteer role.
@@ -167,6 +166,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3. Social Graph | v1.0 | 3/3 | Complete | 2026-03-28 |
 | 4. Notifications | v1.0 | 2/2 | Complete | 2026-03-28 |
 | 5. Moderation & Safety | v1.0 | 2/2 | Complete | 2026-03-28 |
-| 6. Hub Expansion | v2.0 | 0/4 | Not started | - |
+| 6. Hub Expansion | v2.0 | 0/3 | Not started | - |
 | 7. New Slice Types | v2.0 | 0/4 | Not started | - |
 | 8. Profile Pages | v2.0 | 0/3 | Not started | - |
