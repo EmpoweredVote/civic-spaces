@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { useFederalSlice } from '../hooks/useFederalSlice'
+import { useAllSlices } from '../hooks/useAllSlices'
 import { useIsModerator } from '../hooks/useModQueue'
 import SliceTabBar from './SliceTabBar'
 import NoJurisdictionBanner from './NoJurisdictionBanner'
@@ -10,17 +10,40 @@ import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
 import NotificationBell from './NotificationBell'
 import ModeratorQueue from './ModeratorQueue'
+import type { TabKey } from '../types/database'
 
 type ActivePanel = 'friends' | 'directory' | null
 
+const GEO_TABS = ['neighborhood', 'local', 'state', 'federal'] as const
+
+const INITIAL_POST_IDS: Record<TabKey, string | null> = {
+  neighborhood: null,
+  local: null,
+  state: null,
+  federal: null,
+  unified: null,
+  volunteer: null,
+}
+
+const INITIAL_SCROLL_MAP: Record<TabKey, boolean> = {
+  neighborhood: false,
+  local: false,
+  state: false,
+  federal: false,
+  unified: false,
+  volunteer: false,
+}
+
 export default function AppShell() {
   const { userId, isAuthenticated, isLoading: authLoading, loginUrl } = useAuth()
-  const { federalSlice, hasJurisdiction, isLoading } = useFederalSlice(userId)
+  const { slices, hasJurisdiction, isLoading } = useAllSlices(userId)
   const { data: isModerator } = useIsModerator(userId)
+
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
-  const [activePostId, setActivePostId] = useState<string | null>(null)
-  const [activePostScrollToLatest, setActivePostScrollToLatest] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabKey>('federal')
+  const [activePostIds, setActivePostIds] = useState<Record<TabKey, string | null>>(INITIAL_POST_IDS)
+  const [scrollToLatestMap, setScrollToLatestMap] = useState<Record<TabKey, boolean>>(INITIAL_SCROLL_MAP)
   const [modQueueOpen, setModQueueOpen] = useState(false)
 
   return (
@@ -49,8 +72,8 @@ export default function AppShell() {
             <NotificationBell
               onOpenProfile={(uid) => setProfileUserId(uid)}
               onNavigateToThread={(postId) => {
-                setActivePostScrollToLatest(true)
-                setActivePostId(postId)
+                setScrollToLatestMap(prev => ({ ...prev, [activeTab]: true }))
+                setActivePostIds(prev => ({ ...prev, [activeTab]: postId }))
               }}
             />
 
@@ -139,24 +162,44 @@ export default function AppShell() {
 
         {isAuthenticated && !isLoading && !hasJurisdiction && <NoJurisdictionBanner />}
 
-        {isAuthenticated && !isLoading && hasJurisdiction && federalSlice && (
+        {isAuthenticated && !isLoading && hasJurisdiction && (
           <>
             <SliceTabBar
-              activeTab="federal"
-              federalMemberCount={federalSlice.memberCount}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              slices={slices}
+              disabledTabs={['unified', 'volunteer']}
             />
-            <div className="flex flex-col flex-1 overflow-y-auto">
-              <SliceFeedPanel
-                sliceId={federalSlice.id}
-                onAuthorTap={setProfileUserId}
-                activePostId={activePostId}
-                onNavigateToThread={(postId) => {
-                  setActivePostScrollToLatest(false)
-                  setActivePostId(postId)
-                }}
-                scrollToLatest={activePostScrollToLatest}
-              />
-            </div>
+
+            {/* All 4 geo feeds mounted simultaneously — CSS hidden preserves scroll and React Query cache */}
+            {GEO_TABS.map((tabKey) => {
+              const slice = slices[tabKey]
+              if (!slice) return null
+              return (
+                <div
+                  key={tabKey}
+                  className={activeTab === tabKey ? 'flex flex-col flex-1 overflow-hidden' : 'hidden'}
+                >
+                  <SliceFeedPanel
+                    sliceId={slice.id}
+                    onAuthorTap={setProfileUserId}
+                    activePostId={activePostIds[tabKey]}
+                    onNavigateToThread={(postId) => {
+                      setScrollToLatestMap(prev => ({ ...prev, [tabKey]: false }))
+                      setActivePostIds(prev => ({ ...prev, [tabKey]: postId }))
+                    }}
+                    scrollToLatest={scrollToLatestMap[tabKey]}
+                  />
+                </div>
+              )
+            })}
+
+            {/* Coming soon placeholder for disabled tabs (defensive) */}
+            {(activeTab === 'unified' || activeTab === 'volunteer') && (
+              <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
+                Coming soon
+              </div>
+            )}
           </>
         )}
       </main>
@@ -176,7 +219,7 @@ export default function AppShell() {
       {/* Member Directory panel overlay */}
       {activePanel === 'directory' && (
         <MemberDirectory
-          sliceId={federalSlice?.id ?? null}
+          sliceId={slices[activeTab]?.id ?? null}
           onClose={() => setActivePanel(null)}
         />
       )}
