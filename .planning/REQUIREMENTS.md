@@ -1,46 +1,47 @@
 # Requirements: Civic Spaces
 
 **Defined:** 2026-03-27
-**Core Value:** A Connected user can enter their Federal Slice, see posts from their ~6k civic neighbors, and contribute to the conversation — making civic engagement feel like a small town, not an ocean.
+**Updated:** 2026-04-03 (Milestone v2.0)
+**Core Value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
 
-## v1 Requirements
+## v1.0 Requirements (Complete)
 
 ### Hub & Navigation
 
-- [ ] **HUB-01**: Connected user sees a hub with 4 slice tabs (Neighborhood, Local, State, Federal)
-- [ ] **HUB-02**: User can switch between slice tabs; each tab preserves its scroll state
-- [ ] **HUB-03**: Each slice tab shows the slice name, member count, and active/unread indicator
-- [ ] **HUB-04**: Inform-tier users can view the hub and browse slices read-only
-- [ ] **HUB-05**: User with no jurisdiction set sees a banner prompting them to add their address at accounts.empowered.vote/profile
+- [x] **HUB-01**: Connected user sees a hub with 4 slice tabs (Neighborhood, Local, State, Federal)
+- [x] **HUB-02**: User can switch between slice tabs; each tab preserves its scroll state
+- [x] **HUB-03**: Each slice tab shows the slice name, member count, and active/unread indicator
+- [x] **HUB-04**: Inform-tier users can view the hub and browse slices read-only
+- [x] **HUB-05**: User with no jurisdiction set sees a banner prompting them to add their address at accounts.empowered.vote/profile
 
 ### Slice Assignment
 
-- [x] **ASMT-01**: Connected user is automatically placed into all 4 slices based on jurisdiction GEOIDs from the accounts API
-- [x] **ASMT-02**: All slices (Neighborhood, Local, State, Federal) are hard-capped at 6,000 members; overflow creates a new sibling slice of the same type
-- [x] **ASMT-03**: Slice membership is fetched fresh from the accounts API (never stored locally in profiles — only the assignment mapping is stored)
+- [x] **ASMT-01**: Connected user is automatically placed into all 4 geo slices based on jurisdiction GEOIDs from the accounts API
+- [x] **ASMT-02**: All slices are hard-capped at 6,000 members; overflow creates a new sibling slice of the same type
+- [x] **ASMT-03**: Slice membership is fetched fresh from the accounts API (never stored locally in profiles)
 
 ### Federal Slice Forum
 
-- [ ] **FEED-01**: User can view a feed of topic cards (title + preview) in their Federal Slice
-- [ ] **FEED-02**: Feed surfaces posts from mutual friends with higher visibility
-- [ ] **FEED-03**: Feed uses cursor-based pagination with infinite scroll
-- [ ] **FEED-04**: User can create a new topic (text post) in their Federal Slice
-- [ ] **FEED-05**: Tapping a topic opens a thread view with nested replies (Reddit/Discourse style)
-- [ ] **FEED-06**: Thread view displays the original post and all nested replies in chronological order
-- [ ] **FEED-07**: User can reply to a post or to another reply (nested threading)
-- [ ] **FEED-08**: User can edit their own post (edit history retained internally for moderation)
-- [ ] **FEED-09**: User can delete their own post
-- [ ] **FEED-10**: Suspended accounts are read-only; all write actions are blocked
+- [x] **FEED-01**: User can view a feed of topic cards (title + preview) in their Federal Slice
+- [x] **FEED-02**: Feed surfaces posts from mutual friends with higher visibility
+- [x] **FEED-03**: Feed uses cursor-based pagination with infinite scroll
+- [x] **FEED-04**: User can create a new topic (text post) in their Federal Slice
+- [x] **FEED-05**: Tapping a topic opens a thread view with nested replies
+- [x] **FEED-06**: Thread view displays the original post and all nested replies in chronological order
+- [x] **FEED-07**: User can reply to a post or to another reply (nested threading)
+- [x] **FEED-08**: User can edit their own post (edit history retained internally)
+- [x] **FEED-09**: User can delete their own post
+- [x] **FEED-10**: Suspended accounts are read-only; all write actions are blocked
 
 ### Social Graph
 
-- [ ] **SOC-01**: User can send a friend request to another slice member
-- [ ] **SOC-02**: Friendship is mutual — both users must accept before it is active
-- [ ] **SOC-03**: User can view their friends list
-- [ ] **SOC-04**: User can remove a friend
-- [ ] **SOC-05**: User can follow an Empowered (civic leader) account one-directionally without requiring reciprocation
-- [ ] **SOC-06**: User can unfollow an Empowered account
-- [ ] **SOC-07**: Empowered accounts are visually distinguished in the feed and on profile cards
+- [x] **SOC-01**: User can send a friend request to another slice member
+- [x] **SOC-02**: Friendship is mutual — both users must accept before it is active
+- [x] **SOC-03**: User can view their friends list
+- [x] **SOC-04**: User can remove a friend
+- [x] **SOC-05**: User can follow an Empowered (civic leader) account one-directionally
+- [x] **SOC-06**: User can unfollow an Empowered account
+- [x] **SOC-07**: Empowered accounts are visually distinguished in the feed and on profile cards
 
 ### Notifications
 
@@ -55,13 +56,60 @@
 - [x] **MOD-02**: User can block another user (private; blocked user cannot see your posts or send friend requests)
 - [x] **MOD-03**: Moderator role can review flagged content and remove it
 
-## v2 Requirements
+---
+
+## v2.0 Requirements (Milestone: All Slices)
+
+### Hub & Navigation
+
+- [ ] **HUB-06**: Hub displays N/L/S/F/Unified on the left and Volunteer on the right; Unified tab sits beside Federal
+- [ ] **HUB-07**: Neighborhood, Local, State, and Unified tabs are active with full forum capability
+- [ ] **HUB-08**: Each slice tab independently preserves its scroll position when switching
+
+### Multi-Slice Forum
+
+- [ ] **SLCE-01**: User can post, reply, and view a cursor-paginated feed in Neighborhood, Local, State, and Unified slices
+- [ ] **SLCE-02**: Friend-boosted feed weighting applies in all active geo slices
+- [ ] **SLCE-03**: Reply and thread notifications route the user to the correct slice tab
+
+### Unified Slice
+
+- [ ] **UNIF-01**: User is auto-assigned to the Unified Slice on login via the slice assignment service
+- [ ] **UNIF-02**: Unified Slice is capped at 6,000 members; overflow creates a sibling Unified Slice
+- [ ] **UNIF-03**: User can post, reply, and view the Unified Slice feed via the Unified tab
+- [ ] **UNIF-04**: Unified Slice has a distinct `slice_type` ('unified') in the schema
+
+### Volunteer Slice
+
+- [ ] **VOL-01**: Users with the Volunteer role see a Volunteer tab on the right side of the hub
+- [ ] **VOL-02**: Slice assignment service assigns Volunteer-role users to the Volunteer Slice automatically
+- [ ] **VOL-03**: Users without the Volunteer role do not see the Volunteer tab
+- [ ] **VOL-04**: Volunteer Slice is capped at 6,000 members; overflow creates a sibling
+- [ ] **VOL-05**: User can post, reply, and view the Volunteer Slice feed
+
+### Profile Pages
+
+- [ ] **PROF-01**: User can navigate to any slice member's profile by tapping their display name anywhere in the app
+- [ ] **PROF-02**: Profile shows display name, join date, and tier badge
+- [ ] **PROF-03**: Profile shows the user's active slice memberships
+- [ ] **PROF-04**: Profile shows post count and reply count
+- [ ] **PROF-05**: Viewing another user's profile shows mutual connections (mutual friends only, not total friend count)
+- [ ] **PROF-06**: Viewing your own profile shows your full friends list
+- [ ] **PROF-07**: Friend request and follow actions are accessible from a user's profile
+
+---
+
+## Future Requirements
 
 ### Forum Enhancements
 
 - **FEED-V2-01**: Hot/Top feed sorting modes (in addition to chronological)
 - **FEED-V2-02**: Image attachments on posts
 - **FEED-V2-03**: Search within a slice
+
+### Slice Enhancements
+
+- **SLCE-V2-01**: Aggregate "all slices" combined feed (view posts from all slices at once)
 
 ### Slice Tabs (Future Feature Layers)
 
@@ -80,62 +128,52 @@
 
 - **SOC-V2-01**: Half-slice rotation mechanic (2-year cohort swap)
 
+---
+
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
 | Circle-model geographic boundaries | Replaced permanently by jurisdiction GEOIDs from accounts system |
-| International / Unified slice | Future — not part of v1 or near-term roadmap |
 | Custom onboarding / registration flow | accounts.empowered.vote owns all auth and onboarding |
-| New-account posting time-lock (7-day read-only) | Superseded by invite-code gate — every Connected Account during alpha requires a code from admin or level-2 member |
 | Real-time chat / DMs | Not part of the forum model |
-| Algorithmic engagement ranking | Research confirms chronological + friend-boost is correct for civic discourse; engagement ranking drives polarization |
+| Algorithmic engagement ranking | Chronological + friend-boost is correct for civic discourse |
 | Downvotes | Documented harm to civic discourse quality |
-| Public reaction counts / share mechanics | Anti-pattern for civic platforms — drives performance over substance |
+| Public reaction counts / share mechanics | Anti-pattern for civic platforms |
 | Post history browsable by pseudonym | Primary deanonymization vector |
+| Aggregate "all slices" combined feed | Deferred — Unified tab is the Unified slice only for now |
+| Public total friend/follower counts | Only mutual connections shown on other profiles |
+
+---
 
 ## Traceability
 
+### v1.0 (Complete)
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HUB-01 | Phase 2 | Complete |
-| HUB-02 | Phase 2 | Complete |
-| HUB-03 | Phase 2 | Complete |
-| HUB-04 | Phase 2 | Complete |
-| HUB-05 | Phase 2 | Complete |
-| ASMT-01 | Phase 1 | Complete |
-| ASMT-02 | Phase 1 | Complete |
-| ASMT-03 | Phase 1 | Complete |
-| FEED-01 | Phase 2 | Complete |
-| FEED-02 | Phase 2 | Complete |
-| FEED-03 | Phase 2 | Complete |
-| FEED-04 | Phase 2 | Complete |
-| FEED-05 | Phase 2 | Complete |
-| FEED-06 | Phase 2 | Complete |
-| FEED-07 | Phase 2 | Complete |
-| FEED-08 | Phase 2 | Complete |
-| FEED-09 | Phase 2 | Complete |
-| FEED-10 | Phase 2 | Complete |
-| SOC-01 | Phase 3 | Complete |
-| SOC-02 | Phase 3 | Complete |
-| SOC-03 | Phase 3 | Complete |
-| SOC-04 | Phase 3 | Complete |
-| SOC-05 | Phase 3 | Complete |
-| SOC-06 | Phase 3 | Complete |
-| SOC-07 | Phase 3 | Complete |
-| NOTF-01 | Phase 4 | Complete |
-| NOTF-02 | Phase 4 | Complete |
-| NOTF-03 | Phase 4 | Complete |
-| NOTF-04 | Phase 4 | Complete |
-| MOD-01 | Phase 5 | Complete |
-| MOD-02 | Phase 5 | Complete |
-| MOD-03 | Phase 5 | Complete |
+| HUB-01–05 | Phase 2 | Complete |
+| ASMT-01–03 | Phase 1 | Complete |
+| FEED-01–10 | Phase 2 | Complete |
+| SOC-01–07 | Phase 3 | Complete |
+| NOTF-01–04 | Phase 4 | Complete |
+| MOD-01–03 | Phase 5 | Complete |
 
-**Coverage:**
-- v1 requirements: 32 total
-- Mapped to phases: 32 (Phase 1: 3, Phase 2: 15, Phase 3: 7, Phase 4: 4, Phase 5: 3)
-- Unmapped: 0
+### v2.0 (Pending — mapped by roadmapper)
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| HUB-06–08 | TBD | Pending |
+| SLCE-01–03 | TBD | Pending |
+| UNIF-01–04 | TBD | Pending |
+| VOL-01–05 | TBD | Pending |
+| PROF-01–07 | TBD | Pending |
+
+**v2.0 Coverage:**
+- v2.0 requirements: 22 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 22 ⚠️
 
 ---
 *Requirements defined: 2026-03-27*
-*Last updated: 2026-03-27 after roadmap creation — traceability populated*
+*Last updated: 2026-04-03 — Milestone v2.0 requirements added (22 new requirements)*
