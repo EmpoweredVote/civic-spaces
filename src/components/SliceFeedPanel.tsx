@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
+import type React from 'react'
 // import { useFeed } from '../hooks/useFeed' // Fallback: chronological feed
 import { useBoostedFeed } from '../hooks/useBoostedFeed'
 import { useRealtimeInvalidation } from '../hooks/useRealtimeInvalidation'
@@ -19,9 +20,10 @@ interface SliceFeedPanelProps {
   activePostId: string | null
   onNavigateToThread: (postId: string | null) => void
   scrollToLatest?: boolean
+  scrollRef?: React.RefObject<HTMLDivElement | null>
 }
 
-export default function SliceFeedPanel({ sliceId, onAuthorTap, activePostId, onNavigateToThread, scrollToLatest }: SliceFeedPanelProps) {
+export default function SliceFeedPanel({ sliceId, onAuthorTap, activePostId, onNavigateToThread, scrollToLatest, scrollRef }: SliceFeedPanelProps) {
   const {
     data,
     fetchNextPage,
@@ -96,7 +98,7 @@ export default function SliceFeedPanel({ sliceId, onAuthorTap, activePostId, onN
   return (
     <div className="relative h-full">
       {/* Feed — hidden (but mounted) when thread is open to preserve scroll */}
-      <div className={activePostId ? 'hidden' : 'flex flex-col h-full overflow-y-auto'}>
+      <div ref={scrollRef} className={activePostId ? 'hidden' : 'flex flex-col h-full overflow-y-auto'}>
         {posts.length === 0 ? (
           <div className="flex flex-1 items-center justify-center py-16 text-center px-6">
             <p className="text-sm text-gray-400">

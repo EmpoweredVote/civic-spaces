@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback, createRef } from 'react'
+import type React from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useAllSlices } from '../hooks/useAllSlices'
 import { useIsModerator } from '../hooks/useModQueue'
@@ -45,6 +46,31 @@ export default function AppShell() {
   const [activePostIds, setActivePostIds] = useState<Record<TabKey, string | null>>(INITIAL_POST_IDS)
   const [scrollToLatestMap, setScrollToLatestMap] = useState<Record<TabKey, boolean>>(INITIAL_SCROLL_MAP)
   const [modQueueOpen, setModQueueOpen] = useState(false)
+
+  // Per-tab scroll position preservation (HUB-08)
+  const scrollPositions = useRef<Record<string, number>>({})
+  const scrollRefs = useRef<Record<string, React.RefObject<HTMLDivElement | null>>>(
+    Object.fromEntries(GEO_TABS.map((tab) => [tab, createRef<HTMLDivElement>()]))
+  )
+
+  const handleTabChange = useCallback((newTab: TabKey) => {
+    // Save current tab's scroll position before switching
+    const currentRef = scrollRefs.current[activeTab]
+    if (currentRef?.current) {
+      scrollPositions.current[activeTab] = currentRef.current.scrollTop
+    }
+    setActiveTab(newTab)
+  }, [activeTab])
+
+  // Restore scroll position after the new tab becomes visible
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      const ref = scrollRefs.current[activeTab]
+      if (ref?.current) {
+        ref.current.scrollTop = scrollPositions.current[activeTab] ?? 0
+      }
+    })
+  }, [activeTab])
 
   return (
     <div className="flex flex-col h-screen">
@@ -166,7 +192,7 @@ export default function AppShell() {
           <>
             <SliceTabBar
               activeTab={activeTab}
-              onTabChange={setActiveTab}
+              onTabChange={handleTabChange}
               slices={slices}
               disabledTabs={['unified', 'volunteer']}
             />
@@ -189,6 +215,7 @@ export default function AppShell() {
                       setActivePostIds(prev => ({ ...prev, [tabKey]: postId }))
                     }}
                     scrollToLatest={scrollToLatestMap[tabKey]}
+                    scrollRef={scrollRefs.current[tabKey]}
                   />
                 </div>
               )
