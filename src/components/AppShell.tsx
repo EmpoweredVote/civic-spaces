@@ -12,7 +12,7 @@ import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
 import NotificationBell from './NotificationBell'
 import ModeratorQueue from './ModeratorQueue'
-import type { TabKey } from '../types/database'
+import type { TabKey, SliceType } from '../types/database'
 
 type ActivePanel = 'friends' | 'directory' | null
 
@@ -258,7 +258,7 @@ export default function AppShell() {
       {/* Member Directory panel overlay */}
       {activePanel === 'directory' && (
         <MemberDirectory
-          sliceId={slices[activeTab]?.id ?? null}
+          sliceId={slices[activeTab as SliceType]?.id ?? null}
           onClose={() => setActivePanel(null)}
         />
       )}
