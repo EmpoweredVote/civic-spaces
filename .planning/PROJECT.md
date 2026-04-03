@@ -6,32 +6,41 @@ Civic Spaces is the Connect Pillar of the Empowered Vote civic platform. It's a 
 
 ## Core Value
 
-A Connected user can enter their Federal Slice, see posts from their ~6k civic neighbors, and contribute to the conversation — making civic engagement feel like a small town, not an ocean.
+Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
+
+## Current Milestone: v2.0 All Slices
+
+**Goal:** Expand from Federal-only to all slice types — activating the remaining geo slices, launching the Global and Volunteer slices, and giving users a profile page that anchors their civic identity.
+
+**Target features:**
+- Activate Neighborhood, Local, and State slice tabs with full forum capability
+- Redesign hub layout: geographic slices (left), special slices — Global and Volunteer — (right)
+- Global Slice (Unified tab): distinct 6k-person flat slice with worldwide membership
+- Volunteer Slice: role-gated flat slice for users with the Volunteer role; assigned by the slice assignment service; right-side tab only visible to Volunteers
+- Profile pages: display name, join date, slice memberships, post/reply counts, mutual connections
 
 ## Requirements
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Schema, RLS, external JWT auth, slice assignment service — Phase 1
+- ✓ Federal Slice forum: feed, posts, replies, cursor pagination — Phase 2
+- ✓ Social graph: mutual friends, Empowered follow, friend-boosted feed — Phase 3
+- ✓ Notifications: reply, friend request, accepted friendship — Phase 4
+- ✓ Moderation & Safety: flag, block, moderator queue — Phase 5
 
-### Active
+### Active (Milestone v2.0)
 
-- [ ] User can navigate a hub showing all 4 slice tabs (Neighborhood, Local, State, Federal)
-- [ ] User is automatically placed into the correct slice for each level based on their jurisdiction GEOIDs from the accounts API
-- [ ] User can post to their Federal Slice and the post is visible to all members of that slice
-- [ ] User can view a feed of posts from their Federal Slice, ordered by recency
-- [ ] User can reply to posts in their Federal Slice
-- [ ] User can send a friend request and the recipient must accept before the friendship is mutual
-- [ ] User's feed surfaces posts from mutual friends with higher visibility / priority
-- [ ] User can follow an Empowered (elected/civic leader) account one-directionally without requiring reciprocation
-- [ ] Inform-tier users can browse slices read-only; all write actions prompt Connected Account creation
-- [ ] Federal Slice is capped at 6,000 members; a second Federal Slice is created when cap is reached
-- [ ] User with no jurisdiction set sees a prompt to add their address at accounts.empowered.vote/profile
+- [ ] Neighborhood, Local, and State slice tabs are active with full forum capability
+- [ ] Hub layout separates geographic slices (left) from special slices — Global, Volunteer — (right)
+- [ ] Global Slice is a distinct 6k-person slice with worldwide flat membership
+- [ ] Volunteer Slice is available to users with the Volunteer role; auto-assigned by the slice assignment service
+- [ ] User profile page shows display name, join date, slice memberships, post/reply counts, and mutual connections
 
 ### Out of Scope
 
 - Circle-model geographic boundaries (Civil Civics radius approach) — replaced permanently by jurisdiction GEOIDs from the accounts system
-- International / Unified slice — future, not v1
+- Aggregate "all slices" combined feed — deferred; Unified tab is the Global slice only for now
 - Debates, Shared Facts, Symposiums, Announcements tabs inside slices — future feature layers on top of the basic forum
 - Focus Communities — accessible from the hub in a future phase
 - Half-slice swapping (2-year rotation mechanic) — future, revisit in ~2 years
@@ -73,4 +82,4 @@ A Connected user can enter their Federal Slice, see posts from their ~6k civic n
 | 6k hard cap per slice → new slice created | Preserves the ~30k principle; prevents "ocean" dynamic as platform grows | — Pending |
 
 ---
-*Last updated: 2026-03-27 after initialization*
+*Last updated: 2026-04-03 after milestone v2.0 initialization*
