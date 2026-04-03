@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 ## Current Position
 
 Phase: 6 of 8 (Hub Expansion)
-Plan: 0 of 4 in current phase
-Status: Ready to plan
-Last activity: 2026-04-03 — Roadmap created for v2.0 (Phases 6–8)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-04-03 — Completed 06-01-PLAN.md (multi-tab hub)
 
-Progress (v2.0): [░░░░░░░░░░░░░░░░░░░] 0%
+Progress (v2.0): [█░░░░░░░░░░░░░░░░░░] 5%
 
 ## Performance Metrics
 
@@ -28,6 +28,9 @@ Progress (v2.0): [░░░░░░░░░░░░░░░░░░░] 0%
 
 ### Decisions
 
+- [v2.0 / Plan 06-01]: CSS hidden used (not conditional rendering) for all 4 geo SliceFeedPanels — preserves React Query cache and DOM scroll across tab switches; required for 06-02 scroll preservation
+- [v2.0 / Plan 06-01]: Per-tab activePostIds Record<TabKey,string|null> prevents cross-tab thread view interference when all panels are simultaneously mounted
+- [v2.0 / Plan 06-01]: useAllSlices returns Partial<Record<SliceType,SliceInfo>> so AppShell handles users missing some geo slice assignments gracefully
 - [v2.0 / Roadmap]: Phase 6 activates N/L/S geo tabs; Unified/Volunteer tab shells added as disabled placeholders
 - [v2.0 / Roadmap]: Phase 7 owns all new slice_type schema, assignment service, and tab activation for Unified and Volunteer
 - [v2.0 / Roadmap]: Unified geoid sentinel = 'UNIFIED'; Volunteer geoid sentinel = 'VOLUNTEER'
@@ -48,5 +51,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: v2.0 roadmap written (Phases 6–8, 22 requirements mapped). Ready to plan Phase 6.
+Stopped at: Completed 06-01-PLAN.md — multi-tab hub wired (N/L/S/F feeds + Unified/Volunteer shells)
 Resume file: None
