@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 ## Current Position
 
 Phase: 6 of 8 (Hub Expansion)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-04-03 — Completed 06-02-PLAN.md (per-tab scroll preservation)
+Last activity: 2026-04-03 — Completed 06-03-PLAN.md (notification slice routing)
 
-Progress (v2.0): [██░░░░░░░░░░░░░░░░░] 10%
+Progress (v2.0): [███░░░░░░░░░░░░░░░░] 15%
 
 ## Performance Metrics
 
@@ -28,6 +28,8 @@ Progress (v2.0): [██░░░░░░░░░░░░░░░░░] 10%
 
 ### Decisions
 
+- [v2.0 / Plan 06-03]: useNotificationRouting is a one-off async resolver (no React Query) — called on notification tap, looks up posts.slice_id then reverse-maps against slices to find TabKey; falls back to 'federal' on any error
+- [v2.0 / Plan 06-03]: Reply notifications route via onNavigateToSliceThread (new prop); onNavigateToThread kept for backward compat but unused for reply events now
 - [v2.0 / Plan 06-02]: Explicit scrollTop save/restore used for per-tab scroll preservation — requestAnimationFrame ensures restore fires after display:none is removed; save fires synchronously in handleTabChange before setActiveTab
 - [v2.0 / Plan 06-01]: CSS hidden used (not conditional rendering) for all 4 geo SliceFeedPanels — preserves React Query cache and DOM scroll across tab switches; required for 06-02 scroll preservation
 - [v2.0 / Plan 06-01]: Per-tab activePostIds Record<TabKey,string|null> prevents cross-tab thread view interference when all panels are simultaneously mounted
@@ -52,5 +54,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Completed 06-02-PLAN.md — per-tab scroll preservation (HUB-08)
+Stopped at: Completed 06-03-PLAN.md — notification slice routing (SLCE-03)
 Resume file: None
