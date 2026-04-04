@@ -212,14 +212,6 @@ export async function assignUserToSlices(
   return { assigned }
 }
 
-// TODO(volunteer-role): Replace this stub with the real accounts API check.
-// The accounts team is finalizing the role field name. When confirmed:
-//   1. Add the role field to AccountData in accountsApi.ts
-//   2. Replace `return false` below with the real check (e.g., accountData.roles?.includes('volunteer'))
-function hasVolunteerRole(_accountData: AccountData): boolean {
-  return false
-}
-
 async function isAlreadyAssignedToType(userId: string, sliceType: string, geoid: string): Promise<string | null> {
   // Returns the existing slice_id if already assigned, or null
   const { data: existingSlices } = await supabase
@@ -274,10 +266,8 @@ export async function assignUnifiedIfNotAssigned(userId: string): Promise<string
 
 export async function assignVolunteerIfEligible(
   userId: string,
-  accountData: AccountData
+  isVolunteer: boolean
 ): Promise<string | null> {
-  const isVolunteer = hasVolunteerRole(accountData)
-
   if (!isVolunteer) {
     // Role revocation: remove from volunteer slice if previously assigned
     await removeMembershipByType(userId, 'volunteer', VOLUNTEER_GEOID)

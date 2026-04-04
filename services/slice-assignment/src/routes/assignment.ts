@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express'
-import { fetchAccountData } from '../services/accountsApi'
+import { fetchAccountData, checkVolunteerRole } from '../services/accountsApi'
 import { assignUserToSlices, upsertConnectedProfile, assignUnifiedIfNotAssigned, assignVolunteerIfEligible } from '../services/sliceAssigner'
 
 const router = Router()
@@ -14,7 +14,10 @@ router.post('/assign', async (req: Request, res: Response): Promise<void> => {
       return
     }
 
-    const accountData = await fetchAccountData(rawToken)
+    const [accountData, isVolunteer] = await Promise.all([
+      fetchAccountData(rawToken),
+      checkVolunteerRole(rawToken),
+    ])
 
     if (accountData.tier === 'inform') {
       res.status(403).json({ error: 'Connected tier required' })
@@ -35,8 +38,8 @@ router.post('/assign', async (req: Request, res: Response): Promise<void> => {
       assigned.push(unifiedSliceId)
     }
 
-    // Volunteer: role-gated assignment (stub: always false in Phase 7)
-    const volunteerSliceId = await assignVolunteerIfEligible(accountData.id, accountData)
+    // Volunteer: role-gated — isVolunteer resolved via POST /api/roles/check (90s cache on revocation)
+    const volunteerSliceId = await assignVolunteerIfEligible(accountData.id, isVolunteer)
     if (volunteerSliceId) {
       assigned.push(volunteerSliceId)
     }
