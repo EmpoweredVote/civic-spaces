@@ -1,8 +1,7 @@
-import { useState } from 'react'
+import { useLocation } from 'wouter'
 import { useFriendsList } from '../hooks/useFriends'
 import { useAcceptFriendRequest, useRemoveFriend } from '../hooks/useFriendship'
 import EmpoweredBadge from './EmpoweredBadge'
-import UserProfileCard from './UserProfileCard'
 import type { FriendProfile } from '../hooks/useFriends'
 
 interface FriendsListProps {
@@ -29,10 +28,10 @@ function AvatarCell({ profile }: { profile: FriendProfile }) {
 }
 
 export default function FriendsList({ onClose }: FriendsListProps) {
+  const [, navigate] = useLocation()
   const { friends, pendingReceived, isLoading } = useFriendsList()
   const acceptFriendRequest = useAcceptFriendRequest()
   const removeFriend = useRemoveFriend()
-  const [profileUserId, setProfileUserId] = useState<string | null>(null)
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
@@ -118,7 +117,7 @@ export default function FriendsList({ onClose }: FriendsListProps) {
                   {friends.map((p) => (
                     <button
                       key={p.user_id}
-                      onClick={() => setProfileUserId(p.user_id)}
+                      onClick={() => navigate('/profile/' + p.user_id)}
                       className="w-full flex items-center gap-3 py-3 text-left"
                     >
                       <AvatarCell profile={p} />
@@ -137,12 +136,6 @@ export default function FriendsList({ onClose }: FriendsListProps) {
         )}
       </div>
 
-      {/* Nested profile card */}
-      <UserProfileCard
-        isOpen={profileUserId !== null}
-        onClose={() => setProfileUserId(null)}
-        userId={profileUserId}
-      />
     </div>
   )
 }

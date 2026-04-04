@@ -7,7 +7,6 @@ import { useIsModerator } from '../hooks/useModQueue'
 import SliceTabBar from './SliceTabBar'
 import NoJurisdictionBanner from './NoJurisdictionBanner'
 import SliceFeedPanel from './SliceFeedPanel'
-import UserProfileCard from './UserProfileCard'
 import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
 import NotificationBell from './NotificationBell'
@@ -52,7 +51,6 @@ export default function AppShell() {
   const { slices, hasJurisdiction, isLoading } = useAllSlices(userId)
   const { data: isModerator } = useIsModerator(userId)
 
-  const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [activeTab, setActiveTab] = useState<TabKey>('federal')
   const [activePostIds, setActivePostIds] = useState<Record<TabKey, string | null>>(INITIAL_POST_IDS)
@@ -120,7 +118,6 @@ export default function AppShell() {
 
             {/* Notification bell */}
             <NotificationBell
-              onOpenProfile={(uid) => setProfileUserId(uid)}
               onNavigateToThread={(postId) => {
                 setScrollToLatestMap(prev => ({ ...prev, [activeTab]: true }))
                 setActivePostIds(prev => ({ ...prev, [activeTab]: postId }))
@@ -235,7 +232,6 @@ export default function AppShell() {
                     sliceId={slice.id}
                     sliceName={TAB_LABELS[tabKey]}
                     siblingIndex={slice.siblingIndex}
-                    onAuthorTap={setProfileUserId}
                     activePostId={activePostIds[tabKey]}
                     onNavigateToThread={(postId) => {
                       setScrollToLatestMap(prev => ({ ...prev, [tabKey]: false }))
@@ -255,7 +251,6 @@ export default function AppShell() {
                   sliceId={slices['volunteer'].id}
                   sliceName="Volunteer"
                   siblingIndex={slices['volunteer'].siblingIndex}
-                  onAuthorTap={setProfileUserId}
                   activePostId={activePostIds['volunteer']}
                   onNavigateToThread={(postId) => {
                     setScrollToLatestMap(prev => ({ ...prev, volunteer: false }))
@@ -269,13 +264,6 @@ export default function AppShell() {
           </>
         )}
       </main>
-
-      {/* Global UserProfileCard overlay */}
-      <UserProfileCard
-        isOpen={profileUserId !== null}
-        onClose={() => setProfileUserId(null)}
-        userId={profileUserId}
-      />
 
       {/* Friends panel overlay */}
       {activePanel === 'friends' && (

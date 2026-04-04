@@ -5,13 +5,11 @@ import { useNotifications, useMarkAllNotificationsRead } from '../hooks/useNotif
 import NotificationList from './NotificationList'
 
 interface NotificationBellProps {
-  onOpenProfile: (userId: string) => void
   onNavigateToThread: (postId: string) => void
   onNavigateToSliceThread: (postId: string) => void
 }
 
 export default function NotificationBell({
-  onOpenProfile,
   onNavigateToThread,
   onNavigateToSliceThread,
 }: NotificationBellProps) {
@@ -94,7 +92,7 @@ export default function NotificationBell({
             >
               <NotificationList
                 onClose={() => setIsOpen(false)}
-                onOpenProfile={onOpenProfile}
+
                 onNavigateToThread={onNavigateToThread}
                 onNavigateToSliceThread={onNavigateToSliceThread}
               />

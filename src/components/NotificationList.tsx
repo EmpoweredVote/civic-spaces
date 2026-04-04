@@ -1,3 +1,4 @@
+import { useLocation } from 'wouter'
 import {
   useNotifications,
   useMarkNotificationRead,
@@ -8,17 +9,16 @@ import type { Notification } from '../types/database'
 
 interface NotificationListProps {
   onClose: () => void
-  onOpenProfile: (userId: string) => void
   onNavigateToThread?: (postId: string) => void
   onNavigateToSliceThread: (postId: string) => void
 }
 
 export default function NotificationList({
   onClose,
-  onOpenProfile,
   onNavigateToThread: _onNavigateToThread,
   onNavigateToSliceThread,
 }: NotificationListProps) {
+  const [, navigate] = useLocation()
   const { notifications, unreadCount, isLoading } = useNotifications()
   const markRead = useMarkNotificationRead()
   const markAllRead = useMarkAllNotificationsRead()
@@ -33,7 +33,7 @@ export default function NotificationList({
       notification.event_type === 'friend_request' ||
       notification.event_type === 'friend_accepted'
     ) {
-      onOpenProfile(notification.reference_id)
+      navigate('/profile/' + notification.reference_id)
       onClose()
     }
   }
