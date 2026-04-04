@@ -16,7 +16,18 @@ import type { TabKey, SliceType } from '../types/database'
 
 type ActivePanel = 'friends' | 'directory' | null
 
-const GEO_TABS = ['neighborhood', 'local', 'state', 'federal'] as const
+const FEED_TABS = ['neighborhood', 'local', 'state', 'federal', 'unified'] as const
+
+const TAB_LABELS: Record<TabKey, string> = {
+  neighborhood: 'Neighborhood',
+  local: 'Local',
+  state: 'State',
+  federal: 'Federal',
+  unified: 'Unified',
+  volunteer: 'Volunteer',
+}
+
+const ALL_TAB_KEYS: TabKey[] = ['neighborhood', 'local', 'state', 'federal', 'unified', 'volunteer']
 
 const INITIAL_POST_IDS: Record<TabKey, string | null> = {
   neighborhood: null,
@@ -51,8 +62,10 @@ export default function AppShell() {
   // Per-tab scroll position preservation (HUB-08)
   const scrollPositions = useRef<Record<string, number>>({})
   const scrollRefs = useRef<Record<string, React.RefObject<HTMLDivElement | null>>>(
-    Object.fromEntries(GEO_TABS.map((tab) => [tab, createRef<HTMLDivElement>()]))
+    Object.fromEntries(ALL_TAB_KEYS.map((tab) => [tab, createRef<HTMLDivElement>()]))
   )
+
+  const showVolunteerTab = !!slices['volunteer']
 
   const handleTabChange = useCallback((newTab: TabKey) => {
     // Save current tab's scroll position before switching
@@ -198,19 +211,19 @@ export default function AppShell() {
           </div>
         )}
 
-        {isAuthenticated && !isLoading && !hasJurisdiction && <NoJurisdictionBanner />}
+        {isAuthenticated && !isLoading && !hasJurisdiction && !slices['unified'] && <NoJurisdictionBanner />}
 
-        {isAuthenticated && !isLoading && hasJurisdiction && (
+        {isAuthenticated && !isLoading && (hasJurisdiction || !!slices['unified']) && (
           <>
             <SliceTabBar
               activeTab={activeTab}
               onTabChange={handleTabChange}
               slices={slices}
-              disabledTabs={['unified', 'volunteer']}
+              showVolunteerTab={showVolunteerTab}
             />
 
-            {/* All 4 geo feeds mounted simultaneously — CSS hidden preserves scroll and React Query cache */}
-            {GEO_TABS.map((tabKey) => {
+            {/* All FEED_TABS feeds mounted simultaneously — CSS hidden preserves scroll and React Query cache */}
+            {FEED_TABS.map((tabKey) => {
               const slice = slices[tabKey]
               if (!slice) return null
               return (
@@ -220,6 +233,8 @@ export default function AppShell() {
                 >
                   <SliceFeedPanel
                     sliceId={slice.id}
+                    sliceName={TAB_LABELS[tabKey]}
+                    siblingIndex={slice.siblingIndex}
                     onAuthorTap={setProfileUserId}
                     activePostId={activePostIds[tabKey]}
                     onNavigateToThread={(postId) => {
@@ -233,10 +248,22 @@ export default function AppShell() {
               )
             })}
 
-            {/* Coming soon placeholder for disabled tabs (defensive) */}
-            {(activeTab === 'unified' || activeTab === 'volunteer') && (
-              <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
-                Coming soon
+            {/* Volunteer feed — conditionally rendered for users with volunteer slice */}
+            {showVolunteerTab && slices['volunteer'] && (
+              <div className={activeTab === 'volunteer' ? 'flex flex-col flex-1 overflow-hidden' : 'hidden'}>
+                <SliceFeedPanel
+                  sliceId={slices['volunteer'].id}
+                  sliceName="Volunteer"
+                  siblingIndex={slices['volunteer'].siblingIndex}
+                  onAuthorTap={setProfileUserId}
+                  activePostId={activePostIds['volunteer']}
+                  onNavigateToThread={(postId) => {
+                    setScrollToLatestMap(prev => ({ ...prev, volunteer: false }))
+                    setActivePostIds(prev => ({ ...prev, volunteer: postId }))
+                  }}
+                  scrollToLatest={scrollToLatestMap['volunteer']}
+                  scrollRef={scrollRefs.current['volunteer']}
+                />
               </div>
             )}
           </>
