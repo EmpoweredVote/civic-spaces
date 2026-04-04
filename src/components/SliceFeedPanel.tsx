@@ -16,6 +16,8 @@ import type { PostWithAuthor } from '../types/database'
 
 interface SliceFeedPanelProps {
   sliceId: string
+  sliceName?: string
+  siblingIndex?: number
   onAuthorTap?: (userId: string) => void
   activePostId: string | null
   onNavigateToThread: (postId: string | null) => void
@@ -23,7 +25,7 @@ interface SliceFeedPanelProps {
   scrollRef?: React.RefObject<HTMLDivElement | null>
 }
 
-export default function SliceFeedPanel({ sliceId, onAuthorTap, activePostId, onNavigateToThread, scrollToLatest, scrollRef }: SliceFeedPanelProps) {
+export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, onAuthorTap, activePostId, onNavigateToThread, scrollToLatest, scrollRef }: SliceFeedPanelProps) {
   const {
     data,
     fetchNextPage,
@@ -99,6 +101,11 @@ export default function SliceFeedPanel({ sliceId, onAuthorTap, activePostId, onN
     <div className="relative h-full">
       {/* Feed — hidden (but mounted) when thread is open to preserve scroll */}
       <div ref={scrollRef} className={activePostId ? 'hidden' : 'flex flex-col h-full overflow-y-auto'}>
+        {sliceName && siblingIndex != null && (
+          <div className="px-4 py-2 text-sm font-medium text-gray-500 border-b border-gray-100">
+            {sliceName} #{siblingIndex}
+          </div>
+        )}
         {posts.length === 0 ? (
           <div className="flex flex-1 items-center justify-center py-16 text-center px-6">
             <p className="text-sm text-gray-400">
