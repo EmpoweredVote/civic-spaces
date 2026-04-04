@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 
 ## Current Position
 
-Phase: 7 of 8 (New Slice Types) — Complete
-Plan: 3 of 3 in Phase 7 — frontend activation of Unified/Volunteer feeds
-Status: Phase 7 complete
-Last activity: 2026-04-04 — Completed 07-03-PLAN.md (Unified/Volunteer feeds activated, conditional Volunteer tab, feed headers)
+Phase: 8 of 8 (Profile Pages) — In progress
+Plan: 1 of 3 in Phase 8 — data layer (RPCs, hooks, router)
+Status: In progress
+Last activity: 2026-04-04 — Completed 08-01-PLAN.md (profile RPCs, wouter, useProfileStats/useProfileSlices/useMutualFriends hooks)
 
-Progress (v2.0): [████████░░░░░░░░░░░] 42%
+Progress (v2.0): [█████████░░░░░░░░░░] 47%
 
 ## Performance Metrics
 
@@ -30,6 +30,9 @@ Progress (v2.0): [████████░░░░░░░░░░░] 42%
 
 ### Decisions
 
+- [v2.0 / Plan 08-01]: Vite SPA fallback requires no config change — default appType='spa' already serves index.html for unmatched routes in dev
+- [v2.0 / Plan 08-01]: get_profile_stats returns JSON (not TABLE) — aggregates three scalar counts into one ergonomic JSON object
+- [v2.0 / Plan 08-01]: useProfileSlices duplicates useAllSlices fetch logic parameterized on userId — avoids modifying useAllSlices, preserves backward compat
 - [v2.0 / Plan 06-05]: tsconfig types array used for vite/client instead of vite-env.d.ts — canonical Vite approach, no file to maintain
 - [v2.0 / Plan 06-05]: Supabase join array cast via `as unknown as T[]` — typegen emits joined rows as arrays even with maybeSingle(); cast through unknown is correct escape hatch
 - [v2.0 / Plan 06-05]: tier: 'connected' as const in optimistic author stubs — satisfies Pick<ConnectedProfile, 'tier'> without importing full union
@@ -71,5 +74,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-04
-Stopped at: Phase 7 verified 5/5 — volunteer role check wired to POST /api/roles/check
+Stopped at: Completed 08-01-PLAN.md — profile data layer (RPCs, wouter, four hooks)
 Resume file: None
