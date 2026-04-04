@@ -112,7 +112,6 @@ export default function NotificationBell({
           <Sheet.Content>
             <NotificationList
               onClose={() => setIsOpen(false)}
-              onOpenProfile={onOpenProfile}
               onNavigateToThread={onNavigateToThread}
               onNavigateToSliceThread={onNavigateToSliceThread}
             />
