@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** Milestone v2.0 — All Slices. Phase 7 complete. Ready for Phase 8: Discovery.
+**Current focus:** Milestone v2.0 — All Slices. Phase 7 complete — verified 5/5. Ready for Phase 8: Profile Pages.
 
 ## Current Position
 
@@ -41,7 +41,7 @@ Progress (v2.0): [████████░░░░░░░░░░░] 42%
 - [v2.0 / Plan 07-02]: check-before-insert used for unified (not upsert) — stable 2-year cohort, users stay in same sibling slice
 - [v2.0 / Plan 07-02]: unified assignment runs before jurisdiction check — non-geo slice, Connected users without jurisdiction still get Unified
 - [v2.0 / Plan 07-02]: volunteer revocation on every login when role absent — prompt removal without webhook dependency
-- [v2.0 / Plan 07-02]: hasVolunteerRole stub returns false; one TODO(volunteer-role) change enables live check when accounts team confirms field name
+- [v2.0 / Plan 07-02 / gap fix]: checkVolunteerRole uses POST /api/roles/check with { feature_scope: 'volunteer', jurisdiction_geoid: null } — platform-scope grant check; 90s server-side cache means revocation lags by up to 90s (by design)
 - [v2.0 / Plan 07-01]: SliceType now includes 'volunteer' — resolves Phase 6 deferral; Plan 06-04 cast (activeTab as SliceType) is now type-safe
 - [v2.0 / Plan 07-01]: siblingIndex added as required field on SliceInfo — assignment service (07-02) always provides it from slices.sibling_index
 - [v2.0 / Plan 07-01]: No sentinel rows inserted in migration — assignment service creates unified/volunteer slices on demand via findActiveSliceForGeoid
@@ -66,11 +66,10 @@ None.
 
 ### Blockers/Concerns
 
-- [Phase 7]: Volunteer role API field name not confirmed — verify how accounts API surfaces the Volunteer role before implementing assignment service check
-- [Phase 7]: Confirm whether get_boosted_feed_filtered RPC needs any RLS adjustment when called for 'unified' / 'volunteer' slice_types
+None.
 
 ## Session Continuity
 
 Last session: 2026-04-04
-Stopped at: Completed 07-03-PLAN.md — Unified/Volunteer feeds activated, Phase 7 complete
+Stopped at: Phase 7 verified 5/5 — volunteer role check wired to POST /api/roles/check
 Resume file: None

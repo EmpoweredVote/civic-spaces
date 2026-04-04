@@ -63,29 +63,29 @@
 ### Hub & Navigation
 
 - [x] **HUB-06**: Hub displays N/L/S/F/Unified on the left and Volunteer on the right; Unified tab sits beside Federal
-- [ ] **HUB-07**: Neighborhood, Local, State, and Unified tabs are active with full forum capability
+- [x] **HUB-07**: Neighborhood, Local, State, and Unified tabs are active with full forum capability
 - [x] **HUB-08**: Each slice tab independently preserves its scroll position when switching
 
 ### Multi-Slice Forum
 
-- [ ] **SLCE-01**: User can post, reply, and view a cursor-paginated feed in Neighborhood, Local, State, and Unified slices
+- [x] **SLCE-01**: User can post, reply, and view a cursor-paginated feed in Neighborhood, Local, State, and Unified slices
 - [x] **SLCE-02**: Friend-boosted feed weighting applies in all active geo slices
 - [x] **SLCE-03**: Reply and thread notifications route the user to the correct slice tab
 
 ### Unified Slice
 
-- [ ] **UNIF-01**: User is auto-assigned to the Unified Slice on login via the slice assignment service
-- [ ] **UNIF-02**: Unified Slice is capped at 6,000 members; overflow creates a sibling Unified Slice
-- [ ] **UNIF-03**: User can post, reply, and view the Unified Slice feed via the Unified tab
-- [ ] **UNIF-04**: Unified Slice has a distinct `slice_type` ('unified') in the schema
+- [x] **UNIF-01**: User is auto-assigned to the Unified Slice on login via the slice assignment service
+- [x] **UNIF-02**: Unified Slice is capped at 6,000 members; overflow creates a sibling Unified Slice
+- [x] **UNIF-03**: User can post, reply, and view the Unified Slice feed via the Unified tab
+- [x] **UNIF-04**: Unified Slice has a distinct `slice_type` ('unified') in the schema
 
 ### Volunteer Slice
 
-- [ ] **VOL-01**: Users with the Volunteer role see a Volunteer tab on the right side of the hub
-- [ ] **VOL-02**: Slice assignment service assigns Volunteer-role users to the Volunteer Slice automatically
-- [ ] **VOL-03**: Users without the Volunteer role do not see the Volunteer tab
-- [ ] **VOL-04**: Volunteer Slice is capped at 6,000 members; overflow creates a sibling
-- [ ] **VOL-05**: User can post, reply, and view the Volunteer Slice feed
+- [x] **VOL-01**: Users with the Volunteer role see a Volunteer tab on the right side of the hub
+- [x] **VOL-02**: Slice assignment service assigns Volunteer-role users to the Volunteer Slice automatically
+- [x] **VOL-03**: Users without the Volunteer role do not see the Volunteer tab
+- [x] **VOL-04**: Volunteer Slice is capped at 6,000 members; overflow creates a sibling
+- [x] **VOL-05**: User can post, reply, and view the Volunteer Slice feed
 
 ### Profile Pages
 
@@ -164,20 +164,20 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | HUB-06 | Phase 6 | Complete |
-| HUB-07 | Phase 7 | Pending |
+| HUB-07 | Phase 7 | Complete |
 | HUB-08 | Phase 6 | Complete |
-| SLCE-01 | Phase 7 | Pending |
+| SLCE-01 | Phase 7 | Complete |
 | SLCE-02 | Phase 6 | Complete |
 | SLCE-03 | Phase 6 | Complete |
-| UNIF-01 | Phase 7 | Pending |
-| UNIF-02 | Phase 7 | Pending |
-| UNIF-03 | Phase 7 | Pending |
-| UNIF-04 | Phase 7 | Pending |
-| VOL-01 | Phase 7 | Pending |
-| VOL-02 | Phase 7 | Pending |
-| VOL-03 | Phase 7 | Pending |
-| VOL-04 | Phase 7 | Pending |
-| VOL-05 | Phase 7 | Pending |
+| UNIF-01 | Phase 7 | Complete |
+| UNIF-02 | Phase 7 | Complete |
+| UNIF-03 | Phase 7 | Complete |
+| UNIF-04 | Phase 7 | Complete |
+| VOL-01 | Phase 7 | Complete |
+| VOL-02 | Phase 7 | Complete |
+| VOL-03 | Phase 7 | Complete |
+| VOL-04 | Phase 7 | Complete |
+| VOL-05 | Phase 7 | Complete |
 | PROF-01 | Phase 8 | Pending |
 | PROF-02 | Phase 8 | Pending |
 | PROF-03 | Phase 8 | Pending |

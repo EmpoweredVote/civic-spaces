@@ -129,9 +129,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Schema migration (CHECK constraint extension for unified/volunteer) + TypeScript type updates (SliceType, SliceInfo)
-- [ ] 07-02-PLAN.md — Slice assignment service extension (Unified check-before-insert, Volunteer stubbed role check, revocation DELETE, route wiring)
-- [ ] 07-03-PLAN.md — Frontend activation (useAllSlices extension, AppShell/SliceTabBar overhaul, Volunteer tab conditional rendering, feed headers)
+- [x] 07-01-PLAN.md — Schema migration (CHECK constraint extension for unified/volunteer) + TypeScript type updates (SliceType, SliceInfo)
+- [x] 07-02-PLAN.md — Slice assignment service extension (Unified check-before-insert, Volunteer role check via POST /api/roles/check, revocation DELETE, route wiring)
+- [x] 07-03-PLAN.md — Frontend activation (useAllSlices extension, AppShell/SliceTabBar overhaul, Volunteer tab conditional rendering, feed headers)
 
 #### Phase 8: Profile Pages
 **Goal**: Any user's display name is tappable throughout the app and opens a profile page that shows their civic identity — slice memberships, activity counts, and social connections appropriate to the viewer's relationship with them.
@@ -166,5 +166,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. Notifications | v1.0 | 2/2 | Complete | 2026-03-28 |
 | 5. Moderation & Safety | v1.0 | 2/2 | Complete | 2026-03-28 |
 | 6. Hub Expansion | v2.0 | 5/5 | Complete | 2026-04-03 |
-| 7. New Slice Types | v2.0 | 0/3 | Not started | - |
+| 7. New Slice Types | v2.0 | 3/3 | Complete | 2026-04-04 |
 | 8. Profile Pages | v2.0 | 0/3 | Not started | - |
