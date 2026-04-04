@@ -82,7 +82,6 @@ function MutualFriendsList({ userId, friendCount }: { userId: string; friendCoun
           ))}
         </div>
       )}
-      <p className="text-xs text-gray-400 mt-2">· {friendCount} friends total</p>
     </>
   )
 }
