@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 
 ## Current Position
 
-Phase: 6 of 8 (Hub Expansion) — COMPLETE ✓ (verified 2026-04-03, 5/5 must-haves)
-Plan: 5 of 5 in Phase 6 — all plans delivered (including gap-closure)
-Status: Phase 6 verified — ready for Phase 7
-Last activity: 2026-04-03 — Completed 06-05-PLAN.md (gap closure: zero tsc errors project-wide)
+Phase: 7 of 8 (New Slice Types) — In progress
+Plan: 1 of 3 in Phase 7 — schema foundation delivered
+Status: In progress
+Last activity: 2026-04-04 — Completed 07-01-PLAN.md (CHECK constraint + TypeScript types for unified/volunteer)
 
-Progress (v2.0): [████░░░░░░░░░░░░░░░] 21%
+Progress (v2.0): [█████░░░░░░░░░░░░░░] 26%
 
 ## Performance Metrics
 
@@ -34,7 +34,10 @@ Progress (v2.0): [████░░░░░░░░░░░░░░░] 21%
 - [v2.0 / Plan 06-05]: Supabase join array cast via `as unknown as T[]` — typegen emits joined rows as arrays even with maybeSingle(); cast through unknown is correct escape hatch
 - [v2.0 / Plan 06-05]: tier: 'connected' as const in optimistic author stubs — satisfies Pick<ConnectedProfile, 'tier'> without importing full union
 - [v2.0 / Plan 06-04]: onNavigateToThread kept optional in NotificationList interface; aliased _onNavigateToThread in destructuring to suppress TS6133 without removing backward-compat prop
-- [v2.0 / Plan 06-04]: activeTab as SliceType cast used at MemberDirectory sliceId access site — runtime safe (volunteer returns undefined, handled by optional chain); 'volunteer' NOT added to SliceType (Phase 7 domain)
+- [v2.0 / Plan 07-01]: SliceType now includes 'volunteer' — resolves Phase 6 deferral; Plan 06-04 cast (activeTab as SliceType) is now type-safe
+- [v2.0 / Plan 07-01]: siblingIndex added as required field on SliceInfo — assignment service (07-02) always provides it from slices.sibling_index
+- [v2.0 / Plan 07-01]: No sentinel rows inserted in migration — assignment service creates unified/volunteer slices on demand via findActiveSliceForGeoid
+- [v2.0 / Plan 06-04]: activeTab as SliceType cast used at MemberDirectory sliceId access site — runtime safe (volunteer returns undefined, handled by optional chain); 'volunteer' NOT added to SliceType (Phase 7 domain — now resolved)
 - [v2.0 / Plan 06-03]: useNotificationRouting is a one-off async resolver (no React Query) — called on notification tap, looks up posts.slice_id then reverse-maps against slices to find TabKey; falls back to 'federal' on any error
 - [v2.0 / Plan 06-03]: Reply notifications route via onNavigateToSliceThread (new prop); onNavigateToThread kept for backward compat but unused for reply events now
 - [v2.0 / Plan 06-02]: Explicit scrollTop save/restore used for per-tab scroll preservation — requestAnimationFrame ensures restore fires after display:none is removed; save fires synchronously in handleTabChange before setActiveTab
@@ -60,6 +63,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-03
-Stopped at: Completed 06-05-PLAN.md — gap closure (zero tsc errors project-wide)
+Last session: 2026-04-04
+Stopped at: Completed 07-01-PLAN.md — schema migration + TypeScript types for unified/volunteer slice types
 Resume file: None
