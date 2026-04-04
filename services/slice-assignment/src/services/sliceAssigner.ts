@@ -6,6 +6,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+const UNIFIED_GEOID = 'UNIFIED'
+const VOLUNTEER_GEOID = 'VOLUNTEER'
+
 const SLICE_ASSIGNMENTS: Array<{
   sliceType: string
   geoid: (j: NonNullable<AccountData['jurisdiction']>) => string
@@ -207,6 +210,87 @@ export async function assignUserToSlices(
   }
 
   return { assigned }
+}
+
+// TODO(volunteer-role): Replace this stub with the real accounts API check.
+// The accounts team is finalizing the role field name. When confirmed:
+//   1. Add the role field to AccountData in accountsApi.ts
+//   2. Replace `return false` below with the real check (e.g., accountData.roles?.includes('volunteer'))
+function hasVolunteerRole(_accountData: AccountData): boolean {
+  return false
+}
+
+async function isAlreadyAssignedToType(userId: string, sliceType: string, geoid: string): Promise<string | null> {
+  // Returns the existing slice_id if already assigned, or null
+  const { data: existingSlices } = await supabase
+    .schema('civic_spaces')
+    .from('slices')
+    .select('id')
+    .eq('slice_type', sliceType)
+    .eq('geoid', geoid)
+
+  if (!existingSlices || existingSlices.length === 0) return null
+
+  const sliceIds = existingSlices.map(s => s.id)
+  const { data: membership } = await supabase
+    .schema('civic_spaces')
+    .from('slice_members')
+    .select('slice_id')
+    .eq('user_id', userId)
+    .in('slice_id', sliceIds)
+    .limit(1)
+
+  return (membership && membership.length > 0) ? membership[0].slice_id as string : null
+}
+
+async function removeMembershipByType(userId: string, sliceType: string, geoid: string): Promise<void> {
+  const { data: slices } = await supabase
+    .schema('civic_spaces')
+    .from('slices')
+    .select('id')
+    .eq('slice_type', sliceType)
+    .eq('geoid', geoid)
+
+  if (!slices || slices.length === 0) return
+
+  const sliceIds = slices.map(s => s.id)
+  await supabase
+    .schema('civic_spaces')
+    .from('slice_members')
+    .delete()
+    .eq('user_id', userId)
+    .in('slice_id', sliceIds)
+  // decrement_slice_count trigger fires automatically on DELETE
+}
+
+export async function assignUnifiedIfNotAssigned(userId: string): Promise<string | null> {
+  const existing = await isAlreadyAssignedToType(userId, 'unified', UNIFIED_GEOID)
+  if (existing) return existing
+
+  const sliceId = await findActiveSliceForGeoid('unified', UNIFIED_GEOID)
+  await upsertSliceMember(userId, sliceId)
+  return sliceId
+}
+
+export async function assignVolunteerIfEligible(
+  userId: string,
+  accountData: AccountData
+): Promise<string | null> {
+  const isVolunteer = hasVolunteerRole(accountData)
+
+  if (!isVolunteer) {
+    // Role revocation: remove from volunteer slice if previously assigned
+    await removeMembershipByType(userId, 'volunteer', VOLUNTEER_GEOID)
+    return null
+  }
+
+  // Assign if not already assigned (same check-before-insert pattern as unified)
+  const existing = await isAlreadyAssignedToType(userId, 'volunteer', VOLUNTEER_GEOID)
+  if (existing) return existing
+
+  const sliceId = await findActiveSliceForGeoid('volunteer', VOLUNTEER_GEOID)
+  await upsertSliceMember(userId, sliceId)
+  return sliceId
 }
 
 export { upsertConnectedProfile }

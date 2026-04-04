@@ -10,6 +10,9 @@ export interface AccountData {
     county: string
     school_district: string
   } | null
+  // TODO(volunteer-role): The accounts team is finalizing the role field name.
+  // When confirmed, add the real field here (e.g., roles?: string[], is_volunteer?: boolean).
+  // Then update hasVolunteerRole() in sliceAssigner.ts to read it.
 }
 
 export async function fetchAccountData(token: string): Promise<AccountData> {
