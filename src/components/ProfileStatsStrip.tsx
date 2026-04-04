@@ -2,6 +2,7 @@ interface ProfileStatsStripProps {
   postCount: number
   replyCount: number
   friendCount: number
+  isSelf: boolean
 }
 
 interface StatCellProps {
@@ -21,12 +22,12 @@ function StatCell({ value, label, muted = false }: StatCellProps) {
   )
 }
 
-export default function ProfileStatsStrip({ postCount, replyCount, friendCount }: ProfileStatsStripProps) {
+export default function ProfileStatsStrip({ postCount, replyCount, friendCount, isSelf }: ProfileStatsStripProps) {
   return (
-    <div className="grid grid-cols-3 divide-x divide-gray-200 border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <div className={`grid ${isSelf ? 'grid-cols-3' : 'grid-cols-2'} divide-x divide-gray-200 border border-gray-200 rounded-lg overflow-hidden bg-white`}>
       <StatCell value={postCount} label="Posts" />
       <StatCell value={replyCount} label="Replies" />
-      <StatCell value={friendCount} label="Friends" muted />
+      {isSelf && <StatCell value={friendCount} label="Friends" muted />}
     </div>
   )
 }

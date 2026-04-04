@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { useLocation } from 'wouter'
 import { useMemberDirectory } from '../hooks/useMemberDirectory'
 import { useMemberSearch } from '../hooks/useMemberSearch'
 import EmpoweredBadge from './EmpoweredBadge'
-import UserProfileCard from './UserProfileCard'
 import type { MemberProfile } from '../hooks/useMemberDirectory'
 
 interface MemberDirectoryProps {
@@ -109,9 +109,13 @@ function SearchResults({
 export default function MemberDirectory({ sliceId, onClose }: MemberDirectoryProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [crossSlice, setCrossSlice] = useState(false)
-  const [profileUserId, setProfileUserId] = useState<string | null>(null)
+  const [, navigate] = useLocation()
 
   const showSearch = searchTerm.length >= 2
+
+  function handleMemberTap(userId: string) {
+    navigate('/profile/' + userId)
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
@@ -164,19 +168,12 @@ export default function MemberDirectory({ sliceId, onClose }: MemberDirectoryPro
             term={searchTerm}
             crossSlice={crossSlice}
             sliceId={sliceId}
-            onTap={setProfileUserId}
+            onTap={handleMemberTap}
           />
         ) : (
-          <DirectoryList sliceId={sliceId} onTap={setProfileUserId} />
+          <DirectoryList sliceId={sliceId} onTap={handleMemberTap} />
         )}
       </div>
-
-      {/* Nested profile card */}
-      <UserProfileCard
-        isOpen={profileUserId !== null}
-        onClose={() => setProfileUserId(null)}
-        userId={profileUserId}
-      />
     </div>
   )
 }

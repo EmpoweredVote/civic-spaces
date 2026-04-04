@@ -74,6 +74,7 @@ export default function ProfilePage({ userId }: ProfilePageProps) {
                 postCount={stats?.postCount ?? 0}
                 replyCount={stats?.replyCount ?? 0}
                 friendCount={stats?.friendCount ?? 0}
+                isSelf={isSelf}
               />
             </div>
 
