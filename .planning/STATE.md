@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 ## Current Position
 
 Phase: 7 of 8 (New Slice Types) — In progress
-Plan: 1 of 3 in Phase 7 — schema foundation delivered
+Plan: 2 of 3 in Phase 7 — assignment service extended for unified/volunteer
 Status: In progress
-Last activity: 2026-04-04 — Completed 07-01-PLAN.md (CHECK constraint + TypeScript types for unified/volunteer)
+Last activity: 2026-04-04 — Completed 07-02-PLAN.md (unified check-before-insert + volunteer stubbed assignment + role revocation)
 
-Progress (v2.0): [█████░░░░░░░░░░░░░░] 26%
+Progress (v2.0): [██████░░░░░░░░░░░░░] 32%
 
 ## Performance Metrics
 
@@ -34,6 +34,10 @@ Progress (v2.0): [█████░░░░░░░░░░░░░░] 26%
 - [v2.0 / Plan 06-05]: Supabase join array cast via `as unknown as T[]` — typegen emits joined rows as arrays even with maybeSingle(); cast through unknown is correct escape hatch
 - [v2.0 / Plan 06-05]: tier: 'connected' as const in optimistic author stubs — satisfies Pick<ConnectedProfile, 'tier'> without importing full union
 - [v2.0 / Plan 06-04]: onNavigateToThread kept optional in NotificationList interface; aliased _onNavigateToThread in destructuring to suppress TS6133 without removing backward-compat prop
+- [v2.0 / Plan 07-02]: check-before-insert used for unified (not upsert) — stable 2-year cohort, users stay in same sibling slice
+- [v2.0 / Plan 07-02]: unified assignment runs before jurisdiction check — non-geo slice, Connected users without jurisdiction still get Unified
+- [v2.0 / Plan 07-02]: volunteer revocation on every login when role absent — prompt removal without webhook dependency
+- [v2.0 / Plan 07-02]: hasVolunteerRole stub returns false; one TODO(volunteer-role) change enables live check when accounts team confirms field name
 - [v2.0 / Plan 07-01]: SliceType now includes 'volunteer' — resolves Phase 6 deferral; Plan 06-04 cast (activeTab as SliceType) is now type-safe
 - [v2.0 / Plan 07-01]: siblingIndex added as required field on SliceInfo — assignment service (07-02) always provides it from slices.sibling_index
 - [v2.0 / Plan 07-01]: No sentinel rows inserted in migration — assignment service creates unified/volunteer slices on demand via findActiveSliceForGeoid
@@ -64,5 +68,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-04
-Stopped at: Completed 07-01-PLAN.md — schema migration + TypeScript types for unified/volunteer slice types
+Stopped at: Completed 07-02-PLAN.md — unified/volunteer assignment service with check-before-insert and role revocation
 Resume file: None
