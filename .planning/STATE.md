@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-04-03)
 ## Current Position
 
 Phase: 8 of 8 (Profile Pages) — In progress
-Plan: 1 of 3 in Phase 8 — data layer (RPCs, hooks, router)
+Plan: 2 of 3 in Phase 8 — profile UI component tree
 Status: In progress
-Last activity: 2026-04-04 — Completed 08-01-PLAN.md (profile RPCs, wouter, useProfileStats/useProfileSlices/useMutualFriends hooks)
+Last activity: 2026-04-04 — Completed 08-02-PLAN.md (ProfilePage, ProfileHeader, ProfileStatsStrip, ProfileSlices, ProfileFriends, ProfileSkeleton, App.tsx Router)
 
-Progress (v2.0): [█████████░░░░░░░░░░] 47%
+Progress (v2.0): [██████████░░░░░░░░░] 53%
 
 ## Performance Metrics
 
@@ -30,6 +30,9 @@ Progress (v2.0): [█████████░░░░░░░░░░] 47%
 
 ### Decisions
 
+- [v2.0 / Plan 08-02]: AppContent child pattern — useRoute called inside Router by child component; App() stays as thin provider shell
+- [v2.0 / Plan 08-02]: Shared slice detection by slice_type key not slice_id — sibling slices differ by ID but same type means same geo tier
+- [v2.0 / Plan 08-02]: ProfilePage as fixed inset-0 overlay — stacks above CSS-hidden AppShell without layout coupling
 - [v2.0 / Plan 08-01]: Vite SPA fallback requires no config change — default appType='spa' already serves index.html for unmatched routes in dev
 - [v2.0 / Plan 08-01]: get_profile_stats returns JSON (not TABLE) — aggregates three scalar counts into one ergonomic JSON object
 - [v2.0 / Plan 08-01]: useProfileSlices duplicates useAllSlices fetch logic parameterized on userId — avoids modifying useAllSlices, preserves backward compat
@@ -74,5 +77,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-04
-Stopped at: Completed 08-01-PLAN.md — profile data layer (RPCs, wouter, four hooks)
+Stopped at: Completed 08-02-PLAN.md — profile UI component tree (6 components + App.tsx Router)
 Resume file: None
