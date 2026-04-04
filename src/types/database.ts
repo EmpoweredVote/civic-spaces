@@ -1,4 +1,4 @@
-export type SliceType = 'federal' | 'state' | 'local' | 'neighborhood' | 'unified'
+export type SliceType = 'federal' | 'state' | 'local' | 'neighborhood' | 'unified' | 'volunteer'
 
 export type TabKey = 'neighborhood' | 'local' | 'state' | 'federal' | 'unified' | 'volunteer'
 
@@ -7,6 +7,7 @@ export interface SliceInfo {
   sliceType: SliceType
   geoid: string
   memberCount: number
+  siblingIndex: number
 }
 
 export interface Slice {
