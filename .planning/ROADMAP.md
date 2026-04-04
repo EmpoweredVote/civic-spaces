@@ -126,13 +126,12 @@ Plans:
   4. The Unified slice is capped at 6,000 members; when the cap is reached, the slice assignment service creates a sibling Unified slice and assigns overflow users to it — same cap behavior applies to the Volunteer slice
   5. The schema has distinct slice_type values 'unified' and 'volunteer' in civic_spaces.slices; the existing get_boosted_feed_filtered RPC serves both slice types without modification
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: Schema additions — 'unified' and 'volunteer' slice_type values, sentinel GEOID rows, RLS policy review for new types
-- [ ] 07-02: Slice assignment service — Unified auto-assign on every login; Volunteer role check against accounts API (field name to be confirmed), conditional Volunteer assignment; sibling overflow for both
-- [ ] 07-03: Unified tab activation — connect Unified tab shell (from Phase 6) to live slice_id; enable post/reply/feed
-- [ ] 07-04: Volunteer tab visibility gating — role-aware tab rendering; connect Volunteer tab to live slice_id; enable post/reply/feed
+- [ ] 07-01-PLAN.md — Schema migration (CHECK constraint extension for unified/volunteer) + TypeScript type updates (SliceType, SliceInfo)
+- [ ] 07-02-PLAN.md — Slice assignment service extension (Unified check-before-insert, Volunteer stubbed role check, revocation DELETE, route wiring)
+- [ ] 07-03-PLAN.md — Frontend activation (useAllSlices extension, AppShell/SliceTabBar overhaul, Volunteer tab conditional rendering, feed headers)
 
 #### Phase 8: Profile Pages
 **Goal**: Any user's display name is tappable throughout the app and opens a profile page that shows their civic identity — slice memberships, activity counts, and social connections appropriate to the viewer's relationship with them.
@@ -167,5 +166,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. Notifications | v1.0 | 2/2 | Complete | 2026-03-28 |
 | 5. Moderation & Safety | v1.0 | 2/2 | Complete | 2026-03-28 |
 | 6. Hub Expansion | v2.0 | 5/5 | Complete | 2026-04-03 |
-| 7. New Slice Types | v2.0 | 0/4 | Not started | - |
+| 7. New Slice Types | v2.0 | 0/3 | Not started | - |
 | 8. Profile Pages | v2.0 | 0/3 | Not started | - |
