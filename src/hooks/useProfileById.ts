@@ -3,19 +3,19 @@ import { supabase } from '../lib/supabase'
 import type { ConnectedProfile } from '../types/database'
 
 interface ProfileByIdResult {
-  profile: Pick<ConnectedProfile, 'user_id' | 'display_name' | 'avatar_url' | 'tier'> | null
+  profile: Pick<ConnectedProfile, 'user_id' | 'display_name' | 'avatar_url' | 'tier' | 'created_at'> | null
   sliceName: string | null
   isLoading: boolean
   error: Error | null
 }
 
 async function fetchProfileById(userId: string): Promise<{
-  profile: Pick<ConnectedProfile, 'user_id' | 'display_name' | 'avatar_url' | 'tier'> | null
+  profile: Pick<ConnectedProfile, 'user_id' | 'display_name' | 'avatar_url' | 'tier' | 'created_at'> | null
   sliceName: string | null
 }> {
   const { data: profileData, error: profileError } = await supabase
     .from('connected_profiles')
-    .select('user_id, display_name, avatar_url, tier')
+    .select('user_id, display_name, avatar_url, tier, created_at')
     .eq('user_id', userId)
     .single()
 
