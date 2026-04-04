@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** Milestone v2.0 — All Slices. Phase 7: New Slice Types.
+**Current focus:** Milestone v2.0 — All Slices. Phase 7 complete. Ready for Phase 8: Discovery.
 
 ## Current Position
 
-Phase: 7 of 8 (New Slice Types) — In progress
-Plan: 2 of 3 in Phase 7 — assignment service extended for unified/volunteer
-Status: In progress
-Last activity: 2026-04-04 — Completed 07-02-PLAN.md (unified check-before-insert + volunteer stubbed assignment + role revocation)
+Phase: 7 of 8 (New Slice Types) — Complete
+Plan: 3 of 3 in Phase 7 — frontend activation of Unified/Volunteer feeds
+Status: Phase 7 complete
+Last activity: 2026-04-04 — Completed 07-03-PLAN.md (Unified/Volunteer feeds activated, conditional Volunteer tab, feed headers)
 
-Progress (v2.0): [██████░░░░░░░░░░░░░] 32%
+Progress (v2.0): [████████░░░░░░░░░░░] 42%
 
 ## Performance Metrics
 
@@ -34,6 +34,10 @@ Progress (v2.0): [██████░░░░░░░░░░░░░] 32%
 - [v2.0 / Plan 06-05]: Supabase join array cast via `as unknown as T[]` — typegen emits joined rows as arrays even with maybeSingle(); cast through unknown is correct escape hatch
 - [v2.0 / Plan 06-05]: tier: 'connected' as const in optimistic author stubs — satisfies Pick<ConnectedProfile, 'tier'> without importing full union
 - [v2.0 / Plan 06-04]: onNavigateToThread kept optional in NotificationList interface; aliased _onNavigateToThread in destructuring to suppress TS6133 without removing backward-compat prop
+- [v2.0 / Plan 07-03]: FEED_TABS excludes volunteer — volunteer rendered as separate conditional block so it can be absent from DOM entirely
+- [v2.0 / Plan 07-03]: NoJurisdictionBanner gated on !hasJurisdiction && !slices['unified'] — unified users without geo slices see feeds, not banner
+- [v2.0 / Plan 07-03]: hasJurisdiction derived from !!slices['federal'] — federal always assigned when jurisdiction exists, matches assignment service semantics
+- [v2.0 / Plan 07-03]: siblingIndex != null guard (not falsy) used in feed header — allows index 0 to render correctly
 - [v2.0 / Plan 07-02]: check-before-insert used for unified (not upsert) — stable 2-year cohort, users stay in same sibling slice
 - [v2.0 / Plan 07-02]: unified assignment runs before jurisdiction check — non-geo slice, Connected users without jurisdiction still get Unified
 - [v2.0 / Plan 07-02]: volunteer revocation on every login when role absent — prompt removal without webhook dependency
@@ -68,5 +72,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-04
-Stopped at: Completed 07-02-PLAN.md — unified/volunteer assignment service with check-before-insert and role revocation
+Stopped at: Completed 07-03-PLAN.md — Unified/Volunteer feeds activated, Phase 7 complete
 Resume file: None
