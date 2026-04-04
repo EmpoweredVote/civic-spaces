@@ -1,3 +1,4 @@
+import { useLocation } from 'wouter'
 import { formatDistanceToNow } from 'date-fns'
 import type { ReplyWithAuthor } from '../types/database'
 import EmpoweredBadge from './EmpoweredBadge'
@@ -9,10 +10,10 @@ interface ReplyCardProps {
   onReply?: (replyId: string, authorName: string) => void
   canWrite: boolean
   currentUserId?: string
-  onAuthorTap?: (userId: string) => void
 }
 
-export default function ReplyCard({ reply, depth, onReply, canWrite, currentUserId, onAuthorTap }: ReplyCardProps) {
+export default function ReplyCard({ reply, depth, onReply, canWrite, currentUserId }: ReplyCardProps) {
+  const [, navigate] = useLocation()
   if (reply.is_deleted) {
     return (
       <div
@@ -31,7 +32,7 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, currentUser
       {/* Author row */}
       <button
         type="button"
-        onClick={() => onAuthorTap?.(reply.user_id)}
+        onClick={() => navigate('/profile/' + reply.user_id)}
         className="flex items-center gap-2 text-left w-full"
         aria-label={`View ${reply.author.display_name}'s profile`}
       >

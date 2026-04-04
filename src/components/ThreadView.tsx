@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useLocation } from 'wouter'
 import { formatDistanceToNow } from 'date-fns'
 import { useThread } from '../hooks/useThread'
 import { useAuth } from '../hooks/useAuth'
@@ -13,7 +14,6 @@ interface ThreadViewProps {
   postId: string
   onBack: () => void
   sliceId: string
-  onAuthorTap?: (userId: string) => void
   scrollToLatest?: boolean
 }
 
@@ -22,7 +22,8 @@ interface ReplyTarget {
   authorName: string
 }
 
-export default function ThreadView({ postId, onBack, onAuthorTap, scrollToLatest }: ThreadViewProps) {
+export default function ThreadView({ postId, onBack, scrollToLatest }: ThreadViewProps) {
+  const [, navigate] = useLocation()
   const { post, replies, fetchMoreReplies, hasMoreReplies, isLoading } = useThread(postId)
   const { userId } = useAuth()
   const { profile } = useProfile(userId)
@@ -116,7 +117,7 @@ export default function ThreadView({ postId, onBack, onAuthorTap, scrollToLatest
             {/* Author row */}
             <button
               type="button"
-              onClick={() => onAuthorTap?.(post.user_id)}
+              onClick={() => navigate('/profile/' + post.user_id)}
               className="flex items-center gap-3 w-full text-left"
               aria-label={`View ${post.author.display_name}'s profile`}
             >
@@ -208,7 +209,6 @@ export default function ThreadView({ postId, onBack, onAuthorTap, scrollToLatest
                   canWrite={canWrite}
                   currentUserId={userId ?? undefined}
                   onReply={handleReply}
-                  onAuthorTap={onAuthorTap}
                 />
 
                 {/* Inline composer for this reply */}
@@ -230,7 +230,6 @@ export default function ThreadView({ postId, onBack, onAuthorTap, scrollToLatest
                     reply={child}
                     canWrite={false}
                     currentUserId={userId ?? undefined}
-                    onAuthorTap={onAuthorTap}
                   />
                 ))}
               </div>

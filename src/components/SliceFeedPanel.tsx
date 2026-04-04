@@ -18,14 +18,13 @@ interface SliceFeedPanelProps {
   sliceId: string
   sliceName?: string
   siblingIndex?: number
-  onAuthorTap?: (userId: string) => void
   activePostId: string | null
   onNavigateToThread: (postId: string | null) => void
   scrollToLatest?: boolean
   scrollRef?: React.RefObject<HTMLDivElement | null>
 }
 
-export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, onAuthorTap, activePostId, onNavigateToThread, scrollToLatest, scrollRef }: SliceFeedPanelProps) {
+export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, activePostId, onNavigateToThread, scrollToLatest, scrollRef }: SliceFeedPanelProps) {
   const {
     data,
     fetchNextPage,
@@ -125,7 +124,6 @@ export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, onAut
                   setComposerOpen(true)
                 }}
                 onDelete={(postId) => deletePost.mutate({ postId, sliceId })}
-                onAuthorTap={onAuthorTap}
               />
             ))}
 
@@ -175,7 +173,6 @@ export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, onAut
             postId={activePostId}
             sliceId={sliceId}
             onBack={() => onNavigateToThread(null)}
-            onAuthorTap={onAuthorTap}
             scrollToLatest={scrollToLatest}
           />
         </div>

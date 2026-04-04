@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useLocation } from 'wouter'
 import { formatDistanceToNow } from 'date-fns'
 import type { PostWithAuthor } from '../types/database'
 import { isWithinEditWindow } from '../hooks/useEditPost'
@@ -12,10 +13,10 @@ interface PostCardProps {
   currentUserId?: string
   onEdit?: (post: PostWithAuthor) => void
   onDelete?: (postId: string) => void
-  onAuthorTap?: (userId: string) => void
 }
 
-export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEdit, onDelete, onAuthorTap }: PostCardProps) {
+export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEdit, onDelete }: PostCardProps) {
+  const [, navigate] = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -57,7 +58,7 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
             type="button"
             onClick={(e) => {
               e.stopPropagation()
-              onAuthorTap?.(post.user_id)
+              navigate('/profile/' + post.user_id)
             }}
             className="flex items-center gap-3 flex-1 min-w-0 text-left"
             aria-label={`View ${post.author.display_name}'s profile`}
