@@ -2,80 +2,30 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-03)
+See: .planning/PROJECT.md (updated 2026-04-04)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** Milestone v2.0 — All Slices. Phase 8 complete — Profile Pages delivered 3/3 plans.
+**Current focus:** Planning next milestone (v3.0 — TBD)
 
 ## Current Position
 
-Phase: 8 of 8 (Profile Pages) — Complete
-Plan: 3 of 3 in Phase 8 — navigation wiring + AppShell cleanup
-Status: Phase 8 complete. All Milestone v2.0 phases delivered.
-Last activity: 2026-04-04 — Completed quick task 001: remove stale onOpenProfile prop from mobile NotificationList
+Phase: — (v2.0 complete, next milestone not yet defined)
+Plan: Not started
+Status: Ready to plan next milestone
+Last activity: 2026-04-04 — v2.0 milestone complete (22/22 requirements, 3 phases, 11 plans shipped)
 
-Progress (v2.0): [███████████████████] 100%
-
-## Performance Metrics
-
-**Velocity (v1.0):**
-- Total plans completed: 14
-- Phases 1–5 delivered 2026-03-27 to 2026-03-28
-
-**Velocity (v2.0):**
-- Phase 6 plans completed: 5 of 5
-- Phase 6 delivered: 2026-04-03
-- Phase 7 plans completed: 3 of 3
-- Phase 7 delivered: 2026-04-04
-- Phase 8 plans completed: 3 of 3
-- Phase 8 delivered: 2026-04-04
-- Milestone v2.0 complete: 2026-04-04
+Progress (v2.0): [███████████████████] 100% — SHIPPED
 
 ## Accumulated Context
 
 ### Decisions
 
-- [v2.0 / Phase 8 / gap fix]: ProfileStatsStrip hides Friends column (grid-cols-2) when isSelf=false — total friend count not disclosed to other-view visitors
-- [v2.0 / Phase 8 / gap fix]: MemberDirectory replaced UserProfileCard overlay with navigate('/profile/:userId') via useLocation — missed in 08-03 initial execution
-- [v2.0 / Phase 8 / gap fix]: MutualFriendsList removed "· {friendCount} friends total" footer — total count not shown to other-view visitors
-- [v2.0 / Plan 08-03]: onAuthorTap callback pattern fully removed — leaf components (PostCard, ReplyCard, ThreadView) own navigation via useLocation; no prop threading through SliceFeedPanel
-- [v2.0 / Plan 08-03]: NotificationItem copy split into actorSegment/restSegment — actor name is inline tappable span with stopPropagation only when actor_ids.length === 1
-- [v2.0 / Plan 08-03]: onOpenProfile removed from NotificationBell/NotificationList — friend notification profile navigation handled internally via useLocation
-- [v2.0 / Plan 08-02]: AppContent child pattern — useRoute called inside Router by child component; App() stays as thin provider shell
-- [v2.0 / Plan 08-02]: Shared slice detection by slice_type key not slice_id — sibling slices differ by ID but same type means same geo tier
-- [v2.0 / Plan 08-02]: ProfilePage as fixed inset-0 overlay — stacks above CSS-hidden AppShell without layout coupling
-- [v2.0 / Plan 08-01]: Vite SPA fallback requires no config change — default appType='spa' already serves index.html for unmatched routes in dev
-- [v2.0 / Plan 08-01]: get_profile_stats returns JSON (not TABLE) — aggregates three scalar counts into one ergonomic JSON object
-- [v2.0 / Plan 08-01]: useProfileSlices duplicates useAllSlices fetch logic parameterized on userId — avoids modifying useAllSlices, preserves backward compat
-- [v2.0 / Plan 06-05]: tsconfig types array used for vite/client instead of vite-env.d.ts — canonical Vite approach, no file to maintain
-- [v2.0 / Plan 06-05]: Supabase join array cast via `as unknown as T[]` — typegen emits joined rows as arrays even with maybeSingle(); cast through unknown is correct escape hatch
-- [v2.0 / Plan 06-05]: tier: 'connected' as const in optimistic author stubs — satisfies Pick<ConnectedProfile, 'tier'> without importing full union
-- [v2.0 / Plan 06-04]: onNavigateToThread kept optional in NotificationList interface; aliased _onNavigateToThread in destructuring to suppress TS6133 without removing backward-compat prop
-- [v2.0 / Plan 07-03]: FEED_TABS excludes volunteer — volunteer rendered as separate conditional block so it can be absent from DOM entirely
-- [v2.0 / Plan 07-03]: NoJurisdictionBanner gated on !hasJurisdiction && !slices['unified'] — unified users without geo slices see feeds, not banner
-- [v2.0 / Plan 07-03]: hasJurisdiction derived from !!slices['federal'] — federal always assigned when jurisdiction exists, matches assignment service semantics
-- [v2.0 / Plan 07-03]: siblingIndex != null guard (not falsy) used in feed header — allows index 0 to render correctly
-- [v2.0 / Plan 07-02]: check-before-insert used for unified (not upsert) — stable 2-year cohort, users stay in same sibling slice
-- [v2.0 / Plan 07-02]: unified assignment runs before jurisdiction check — non-geo slice, Connected users without jurisdiction still get Unified
-- [v2.0 / Plan 07-02]: volunteer revocation on every login when role absent — prompt removal without webhook dependency
-- [v2.0 / Plan 07-02 / gap fix]: checkVolunteerRole uses POST /api/roles/check with { feature_scope: 'volunteer', jurisdiction_geoid: null } — platform-scope grant check; 90s server-side cache means revocation lags by up to 90s (by design)
-- [v2.0 / Plan 07-01]: SliceType now includes 'volunteer' — resolves Phase 6 deferral; Plan 06-04 cast (activeTab as SliceType) is now type-safe
-- [v2.0 / Plan 07-01]: siblingIndex added as required field on SliceInfo — assignment service (07-02) always provides it from slices.sibling_index
-- [v2.0 / Plan 07-01]: No sentinel rows inserted in migration — assignment service creates unified/volunteer slices on demand via findActiveSliceForGeoid
-- [v2.0 / Plan 06-04]: activeTab as SliceType cast used at MemberDirectory sliceId access site — runtime safe (volunteer returns undefined, handled by optional chain); 'volunteer' NOT added to SliceType (Phase 7 domain — now resolved)
-- [v2.0 / Plan 06-03]: useNotificationRouting is a one-off async resolver (no React Query) — called on notification tap, looks up posts.slice_id then reverse-maps against slices to find TabKey; falls back to 'federal' on any error
-- [v2.0 / Plan 06-03]: Reply notifications route via onNavigateToSliceThread (new prop); onNavigateToThread kept for backward compat but unused for reply events now
-- [v2.0 / Plan 06-02]: Explicit scrollTop save/restore used for per-tab scroll preservation — requestAnimationFrame ensures restore fires after display:none is removed; save fires synchronously in handleTabChange before setActiveTab
-- [v2.0 / Plan 06-01]: CSS hidden used (not conditional rendering) for all 4 geo SliceFeedPanels — preserves React Query cache and DOM scroll across tab switches; required for 06-02 scroll preservation
-- [v2.0 / Plan 06-01]: Per-tab activePostIds Record<TabKey,string|null> prevents cross-tab thread view interference when all panels are simultaneously mounted
-- [v2.0 / Plan 06-01]: useAllSlices returns Partial<Record<SliceType,SliceInfo>> so AppShell handles users missing some geo slice assignments gracefully
-- [v2.0 / Roadmap]: Phase 6 activates N/L/S geo tabs; Unified/Volunteer tab shells added as disabled placeholders
-- [v2.0 / Roadmap]: Phase 7 owns all new slice_type schema, assignment service, and tab activation for Unified and Volunteer
-- [v2.0 / Roadmap]: Unified geoid sentinel = 'UNIFIED'; Volunteer geoid sentinel = 'VOLUNTEER'
-- [v2.0 / Milestone init]: Global Slice (Unified tab) is a distinct 6k flat slice — worldwide membership, NOT an aggregate of geo slices
-- [v2.0 / Milestone init]: Volunteer Slice is flat (all Volunteers together), role-gated, right-side tab
-- [v1.0 / Plan 05-01]: get_feed_filtered() and get_boosted_feed_filtered() use NOT EXISTS bidirectional block check
-- [v1.0 / Plan 03-01]: get_boosted_feed uses SECURITY INVOKER; friendships use single-row normalization (user_low < user_high)
+(Cleared — full decision log in PROJECT.md and milestones/v2.0-ROADMAP.md)
+
+### Known Tech Debt (from v2.0 audit)
+
+- `MutualFriendsList` accepts `friendCount` prop but never renders it — dead prop surface, harmless; cleanup in future milestone
+- `onNavigateToThread` is vestigial in `NotificationListProps` — always passed, never invoked; all reply navigation routes through `onNavigateToSliceThread`; cleanup in future milestone
 
 ### Pending Todos
 
@@ -94,5 +44,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-04
-Stopped at: Completed 08-03-PLAN.md — profile navigation wiring + AppShell overlay cleanup
+Stopped at: v2.0 milestone complete — archived, tagged v2.0, pushed to remote
 Resume file: None
