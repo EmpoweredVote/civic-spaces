@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** Milestone v2.0 — All Slices. Phase 7 complete — verified 5/5. Ready for Phase 8: Profile Pages.
+**Current focus:** Milestone v2.0 — All Slices. Phase 8 complete — Profile Pages delivered 3/3 plans.
 
 ## Current Position
 
-Phase: 8 of 8 (Profile Pages) — In progress
-Plan: 2 of 3 in Phase 8 — profile UI component tree
-Status: In progress
-Last activity: 2026-04-04 — Completed 08-02-PLAN.md (ProfilePage, ProfileHeader, ProfileStatsStrip, ProfileSlices, ProfileFriends, ProfileSkeleton, App.tsx Router)
+Phase: 8 of 8 (Profile Pages) — Complete
+Plan: 3 of 3 in Phase 8 — navigation wiring + AppShell cleanup
+Status: Phase 8 complete. All Milestone v2.0 phases delivered.
+Last activity: 2026-04-04 — Completed 08-03-PLAN.md (profile navigation wiring, AppShell overlay removal)
 
-Progress (v2.0): [██████████░░░░░░░░░] 53%
+Progress (v2.0): [███████████████████] 100%
 
 ## Performance Metrics
 
@@ -30,6 +30,9 @@ Progress (v2.0): [██████████░░░░░░░░░] 53%
 
 ### Decisions
 
+- [v2.0 / Plan 08-03]: onAuthorTap callback pattern fully removed — leaf components (PostCard, ReplyCard, ThreadView) own navigation via useLocation; no prop threading through SliceFeedPanel
+- [v2.0 / Plan 08-03]: NotificationItem copy split into actorSegment/restSegment — actor name is inline tappable span with stopPropagation only when actor_ids.length === 1
+- [v2.0 / Plan 08-03]: onOpenProfile removed from NotificationBell/NotificationList — friend notification profile navigation handled internally via useLocation
 - [v2.0 / Plan 08-02]: AppContent child pattern — useRoute called inside Router by child component; App() stays as thin provider shell
 - [v2.0 / Plan 08-02]: Shared slice detection by slice_type key not slice_id — sibling slices differ by ID but same type means same geo tier
 - [v2.0 / Plan 08-02]: ProfilePage as fixed inset-0 overlay — stacks above CSS-hidden AppShell without layout coupling
@@ -77,5 +80,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-04
-Stopped at: Completed 08-02-PLAN.md — profile UI component tree (6 components + App.tsx Router)
+Stopped at: Completed 08-03-PLAN.md — profile navigation wiring + AppShell overlay cleanup
 Resume file: None
