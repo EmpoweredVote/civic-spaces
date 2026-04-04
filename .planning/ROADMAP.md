@@ -8,7 +8,7 @@
 ## Phases
 
 <details>
-<summary>✅ v1.0 Foundation & Full Forum (Phases 1–5) — SHIPPED 2026-03-28</summary>
+<summary>✅ v1.0 Foundation & Full Forum (Phases 1-5) -- SHIPPED 2026-03-28</summary>
 
 ### Phase 1: Foundation
 **Goal**: The Supabase schema, external JWT auth integration, and slice assignment service are all working correctly — every downstream phase builds on this without touching auth or RLS again.
@@ -94,7 +94,7 @@ Plans:
 
 ---
 
-### 🚧 v2.0 All Slices (In Progress)
+### v2.0 All Slices (In Progress)
 
 **Milestone Goal:** Expand from Federal-only to all slice types — activating the remaining geo slices, launching the Unified and Volunteer slices, and giving users a profile page that anchors their civic identity.
 
@@ -144,19 +144,19 @@ Plans:
   4. When viewing another user's profile, only mutual friends are shown (not total friend count); when viewing your own profile, your full friends list is visible
   5. Friend request and follow (for Empowered accounts) actions are accessible directly from a user's profile page
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 08-01: get_user_profile RPC (or composite query) — display_name, join_date, tier, slice_memberships, post_count, reply_count, mutual_friends; own-vs-other view branching
-- [ ] 08-02: ProfilePage component — layout, tier badge, slice membership list, activity counts, own/other conditional sections, friend list rendering
-- [ ] 08-03: Display name tap navigation — link all display name instances app-wide to /profile/:userId; friend request and follow actions on profile
+- [x] 08-01-PLAN.md — Database RPCs (get_profile_stats, get_mutual_friends), wouter install, profile hooks (useProfileStats, useProfileSlices, useMutualFriends), extend useProfileById
+- [x] 08-02-PLAN.md — ProfilePage component tree (header, stats strip, slices, friends, skeleton) + App.tsx Router integration with CSS-hidden AppShell
+- [x] 08-03-PLAN.md — Display name tap navigation wiring (PostCard, ReplyCard, NotificationItem, FriendsList) + AppShell cleanup (remove UserProfileCard overlay)
 
 ---
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -167,4 +167,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 5. Moderation & Safety | v1.0 | 2/2 | Complete | 2026-03-28 |
 | 6. Hub Expansion | v2.0 | 5/5 | Complete | 2026-04-03 |
 | 7. New Slice Types | v2.0 | 3/3 | Complete | 2026-04-04 |
-| 8. Profile Pages | v2.0 | 0/3 | Not started | - |
+| 8. Profile Pages | v2.0 | 3/3 | Complete | 2026-04-04 |

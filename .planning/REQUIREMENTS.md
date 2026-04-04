@@ -178,13 +178,13 @@
 | VOL-03 | Phase 7 | Complete |
 | VOL-04 | Phase 7 | Complete |
 | VOL-05 | Phase 7 | Complete |
-| PROF-01 | Phase 8 | Pending |
-| PROF-02 | Phase 8 | Pending |
-| PROF-03 | Phase 8 | Pending |
-| PROF-04 | Phase 8 | Pending |
-| PROF-05 | Phase 8 | Pending |
-| PROF-06 | Phase 8 | Pending |
-| PROF-07 | Phase 8 | Pending |
+| PROF-01 | Phase 8 | Complete |
+| PROF-02 | Phase 8 | Complete |
+| PROF-03 | Phase 8 | Complete |
+| PROF-04 | Phase 8 | Complete |
+| PROF-05 | Phase 8 | Complete |
+| PROF-06 | Phase 8 | Complete |
+| PROF-07 | Phase 8 | Complete |
 
 **v2.0 Coverage:**
 - v2.0 requirements: 22 total

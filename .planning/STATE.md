@@ -25,11 +25,19 @@ Progress (v2.0): [███████████████████] 100
 **Velocity (v2.0):**
 - Phase 6 plans completed: 5 of 5
 - Phase 6 delivered: 2026-04-03
+- Phase 7 plans completed: 3 of 3
+- Phase 7 delivered: 2026-04-04
+- Phase 8 plans completed: 3 of 3
+- Phase 8 delivered: 2026-04-04
+- Milestone v2.0 complete: 2026-04-04
 
 ## Accumulated Context
 
 ### Decisions
 
+- [v2.0 / Phase 8 / gap fix]: ProfileStatsStrip hides Friends column (grid-cols-2) when isSelf=false — total friend count not disclosed to other-view visitors
+- [v2.0 / Phase 8 / gap fix]: MemberDirectory replaced UserProfileCard overlay with navigate('/profile/:userId') via useLocation — missed in 08-03 initial execution
+- [v2.0 / Phase 8 / gap fix]: MutualFriendsList removed "· {friendCount} friends total" footer — total count not shown to other-view visitors
 - [v2.0 / Plan 08-03]: onAuthorTap callback pattern fully removed — leaf components (PostCard, ReplyCard, ThreadView) own navigation via useLocation; no prop threading through SliceFeedPanel
 - [v2.0 / Plan 08-03]: NotificationItem copy split into actorSegment/restSegment — actor name is inline tappable span with stopPropagation only when actor_ids.length === 1
 - [v2.0 / Plan 08-03]: onOpenProfile removed from NotificationBell/NotificationList — friend notification profile navigation handled internally via useLocation
