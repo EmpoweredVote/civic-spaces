@@ -2,19 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-04)
+See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** Planning next milestone (v3.0 — TBD)
+**Current focus:** v3.0 — UI/UX Redesign (Phase 9: Hero Banner & Layout)
 
 ## Current Position
 
-Phase: — (v2.0 complete, next milestone not yet defined)
-Plan: Not started
-Status: Ready to plan next milestone
-Last activity: 2026-04-04 — v2.0 milestone complete (22/22 requirements, 3 phases, 11 plans shipped)
-
-Progress (v2.0): [███████████████████] 100% — SHIPPED
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-05 — Milestone v3.0 started
 
 ## Accumulated Context
 
@@ -22,10 +20,10 @@ Progress (v2.0): [███████████████████] 100
 
 (Cleared — full decision log in PROJECT.md and milestones/v2.0-ROADMAP.md)
 
-### Known Tech Debt (from v2.0 audit)
+### Known Tech Debt (from v2.0 audit — addressed in CLEAN-01/02)
 
-- `MutualFriendsList` accepts `friendCount` prop but never renders it — dead prop surface, harmless; cleanup in future milestone
-- `onNavigateToThread` is vestigial in `NotificationListProps` — always passed, never invoked; all reply navigation routes through `onNavigateToSliceThread`; cleanup in future milestone
+- `MutualFriendsList` accepts `friendCount` prop but never renders it — CLEAN-01
+- `onNavigateToThread` vestigial in `NotificationListProps` — CLEAN-02
 
 ### Pending Todos
 
@@ -33,7 +31,8 @@ None.
 
 ### Blockers/Concerns
 
-None.
+- Compass integration: Need to confirm the Empower pillar API endpoint/shape for the calibrated compass. Probe before Phase 11.
+- Rep data: Accounts API partially has rep data — need to confirm what fields are available before Phase 11.
 
 ### Quick Tasks Completed
 
@@ -43,6 +42,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-04
-Stopped at: v2.0 milestone complete — archived, tagged v2.0, pushed to remote
+Last session: 2026-04-05
+Stopped at: v3.0 milestone initialized — requirements defined, roadmap pending
 Resume file: None

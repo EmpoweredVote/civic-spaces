@@ -25,9 +25,28 @@ Every Connected user is part of four geographic communities plus specialized civ
 - ✓ Volunteer Slice: role-gated, auto-assign/revoke on login, tab absent for non-Volunteers — v2.0
 - ✓ Profile pages: display name tap navigation, stats, slice memberships, mutual friends, social actions — v2.0
 
+## Current Milestone: v3.0 UI/UX Redesign
+
+**Goal:** Rebuild the slice UI around Krishna's mockup — geo-grounded hero banners, two-column layout, and a fully-wired community sidebar.
+
+**Target features:**
+- Full-width hero banner per slice tab with jurisdiction-specific photo, slice identity, and pill badges
+- Two-column desktop layout (feed left, sidebar right); single-column mobile
+- Issue Alignment Compass widget (live from Empower pillar, calibration prompt if uncalibrated)
+- Representing This Community widget (rep cards from accounts API)
+- Tools for This Community widget (EV ecosystem tool links)
+- Jurisdiction-specific hero photos in Supabase Storage
+- v2.0 tech debt cleanup (two dead props)
+
 ### Active
 
-(None — v2.0 complete. Next milestone requirements defined via `/gsd:new-milestone`.)
+- [ ] Hero banner with geo photo, name, tagline, pill badges, description per slice tab
+- [ ] Two-column desktop layout / single-column mobile
+- [ ] Issue Alignment Compass sidebar widget (Empower pillar API)
+- [ ] Representing This Community sidebar widget (accounts API rep data)
+- [ ] Tools for This Community sidebar widget (EV ecosystem links)
+- [ ] Jurisdiction-specific hero photos in Supabase Storage
+- [ ] v2.0 dead prop cleanup (MutualFriendsList, NotificationListProps)
 
 ### Out of Scope
 
@@ -81,4 +100,4 @@ Every Connected user is part of four geographic communities plus specialized civ
 | onAuthorTap callback pattern removed; leaf components own navigation | Prop drilling through SliceFeedPanel was brittle; useLocation in leaf components is simpler | ✓ Good — cleaner component boundaries |
 
 ---
-*Last updated: 2026-04-04 after v2.0 milestone*
+*Last updated: 2026-04-05 after v3.0 milestone start*

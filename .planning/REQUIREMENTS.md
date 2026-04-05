@@ -1,0 +1,92 @@
+# Requirements: Civic Spaces
+
+**Defined:** 2026-04-05
+**Milestone:** v3.0 — UI/UX Redesign
+**Core Value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
+
+## v3.0 Requirements
+
+### Hero Banner
+
+- [ ] **HERO-01**: User sees a full-width hero banner at the top of each slice tab — geo photo with slice name, tagline, pill badges (level, jurisdiction, member count, slice number), and a 2-sentence description overlaid
+- [ ] **HERO-02**: Hero photo changes when user switches slice tabs
+- [ ] **HERO-03**: Active slice tab is visually highlighted (brand teal) in the tab bar
+
+### Layout
+
+- [ ] **LAYOUT-01**: On desktop, slice content uses a two-column layout — feed (~65%) left, sidebar (~35%) right
+- [ ] **LAYOUT-02**: On mobile, sidebar is hidden and feed is full-width single column
+
+### Sidebar
+
+- [ ] **SIDE-01**: User sees an Issue Alignment Compass widget showing their calibrated civic radar chart pulled from the Empower pillar API
+- [ ] **SIDE-02**: If user's compass is not yet calibrated, compass widget shows a prompt with a link to the Empower calibration flow
+- [ ] **SIDE-03**: User sees a 'Representing This Community' widget listing elected officials relevant to this slice's jurisdiction level
+- [ ] **SIDE-04**: Each rep card shows name, title, party badge, jurisdiction level badge, and a 'View Profile' link
+- [ ] **SIDE-05**: User sees a 'Tools for This Community' widget with icon cards for Fallacy Finders, Treasury Tracker, Read & Rank, and Civic Trivia (links to EV ecosystem; gracefully degraded if tool not yet live)
+
+### Photos
+
+- [ ] **PHOTO-01**: Jurisdiction-specific hero photos are stored in a Supabase Storage bucket and served via CDN URL
+- [ ] **PHOTO-02**: Each slice type (Neighborhood, District, State, Federal, Unified, Volunteer) has at least one curated hero photo; Bloomington-pilot slices get location-specific imagery (courthouse, capitol, White House, etc.)
+
+### Cleanup
+
+- [ ] **CLEAN-01**: `friendCount` dead prop removed from `MutualFriendsList`
+- [ ] **CLEAN-02**: `onNavigateToThread` vestigial prop removed from `NotificationListProps`
+
+---
+
+## Future Requirements (v4.0+)
+
+### Sidebar Integrations (deeper)
+
+- **COMP-01**: Issue Alignment Compass compares user priorities vs. a specific rep's positions (side-by-side overlay)
+- **COMP-02**: User can open a full-page compass comparison view
+- **TOOLS-01**: Tools widget shows live status (available / coming soon) pulled from EV platform registry
+
+### Visual Polish
+
+- **VIS-01**: Animated hero banner transitions on tab switch
+- **VIS-02**: Skeleton loading states for sidebar widgets
+- **VIS-03**: Dark mode support across all new components
+
+---
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Real-time rep data sync | Accounts API owns rep data; Civic Spaces is a consumer — no local rep DB |
+| User-uploadable slice photos | Moderation complexity; curated imagery is sufficient |
+| Debates / Symposiums / Announcements tabs | Future feature layers, explicitly deferred in v2.0 |
+| Focus Communities | Future hub expansion |
+| Algorithmic feed ranking | Conscious anti-feature — chronological feed is a civic legitimacy signal |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| HERO-01 | Phase 9 | Pending |
+| HERO-02 | Phase 9 | Pending |
+| HERO-03 | Phase 9 | Pending |
+| LAYOUT-01 | Phase 9 | Pending |
+| LAYOUT-02 | Phase 9 | Pending |
+| PHOTO-01 | Phase 10 | Pending |
+| PHOTO-02 | Phase 10 | Pending |
+| SIDE-01 | Phase 11 | Pending |
+| SIDE-02 | Phase 11 | Pending |
+| SIDE-03 | Phase 11 | Pending |
+| SIDE-04 | Phase 11 | Pending |
+| SIDE-05 | Phase 11 | Pending |
+| CLEAN-01 | Phase 12 | Pending |
+| CLEAN-02 | Phase 12 | Pending |
+
+**Coverage:**
+- v3.0 requirements: 14 total
+- Mapped to phases: 14
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-04-05*
+*Last updated: 2026-04-05 after v3.0 milestone start*
