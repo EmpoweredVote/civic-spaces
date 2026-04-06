@@ -48,14 +48,17 @@ export default function SliceTabBar({ activeTab, onTabChange, slices, showVolunt
     )
   }
 
+  // Only show tabs the user actually belongs to
+  const visibleLeftTabs = LEFT_TABS.filter(tab => !!slices[tab.key as SliceType])
+
   return (
     <nav
       className="flex flex-row flex-nowrap overflow-x-auto border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5"
       aria-label="Slice tabs"
     >
-      {/* Left group: geo tabs + Unified */}
+      {/* Left group: geo tabs + Unified (only tabs the user has) */}
       <div className="flex flex-row flex-nowrap gap-1">
-        {LEFT_TABS.map(renderTab)}
+        {visibleLeftTabs.map(renderTab)}
       </div>
 
       {/* Separator */}
