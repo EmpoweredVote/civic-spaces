@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 9 of 12 (Hero Banner & Layout Shell)
-Plan: 1 of 3 in current phase
-Status: In progress
-Last activity: 2026-04-06 — Completed 09-01-PLAN.md (layout shell + dark mode infrastructure)
+Plan: 2 of 3 in current phase
+Status: In progress — wave 2 complete
+Last activity: 2026-04-06 — Completed 09-02-PLAN.md (HeroBanner component + sliceCopy data)
 
 Progress: [███░░░░░░░] 25% (v2.0 complete; 09-01 done)
 
@@ -34,6 +34,9 @@ Progress: [███░░░░░░░] 25% (v2.0 complete; 09-01 done)
 - [09-01] min-h-0 must be on every flex/grid ancestor from h-screen down to the scrollRef target — grid items expand to intrinsic content height otherwise, breaking scroll containment.
 - [09-01] Sidebar placeholder uses hidden md:flex in existing grid column — Phase 11 fills it without structural AppShell changes.
 - [09-01] Teal pill uses rounded-lg (not rounded-full) — matches Krishna mockup rectangular capsule shape.
+- [09-02] HeroBanner is pure presentational (no hooks/state) — all data via props, ready for Plan 03 wiring.
+- [09-02] Slice number pill shows only siblingIndex (not "of Y") — siblingTotal not in SliceInfo; Phase 10 TODO.
+- [09-02] Unsplash placeholder photos in sliceCopy.ts — Phase 10 replaces with Supabase Storage CDN URLs.
 
 ### Blockers/Concerns
 
@@ -59,5 +62,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-06
-Stopped at: Completed 09-01-PLAN.md — layout shell, dark mode infrastructure, teal pill tabs
+Stopped at: Completed 09-02-PLAN.md — HeroBanner component and sliceCopy static data
 Resume file: None
