@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useAllSlices } from '../hooks/useAllSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
+import { useWikiHeroImage } from '../hooks/useWikiHeroImage'
 import SliceTabBar from './SliceTabBar'
 import NoJurisdictionBanner from './NoJurisdictionBanner'
 import SliceFeedPanel from './SliceFeedPanel'
@@ -12,7 +13,32 @@ import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
 import NotificationBell from './NotificationBell'
 import ModeratorQueue from './ModeratorQueue'
-import type { TabKey, SliceType } from '../types/database'
+import type { TabKey, SliceType, SliceInfo } from '../types/database'
+
+/**
+ * Small wrapper that calls useWikiHeroImage for the active slice.
+ * Extracted as its own component so the hook is called unconditionally
+ * (React rules of hooks forbid calling hooks inside callbacks or IIFEs).
+ */
+function ActiveHeroBanner({
+  slice,
+  sliceName,
+}: {
+  slice: SliceInfo
+  sliceName: string
+}) {
+  const wikiPhotoUrl = useWikiHeroImage(slice)
+  return (
+    <HeroBanner
+      sliceType={slice.sliceType}
+      sliceName={sliceName}
+      geoid={slice.geoid}
+      memberCount={slice.memberCount}
+      siblingIndex={slice.siblingIndex}
+      photoUrl={slice.photoUrl ?? wikiPhotoUrl}
+    />
+  )
+}
 
 type ActivePanel = 'friends' | 'directory' | null
 
@@ -224,21 +250,15 @@ export default function AppShell() {
             <div className="grid grid-cols-1 md:grid-cols-[65%_35%] flex-1 overflow-hidden min-h-0">
               {/* Feed column */}
               <div className="flex flex-col overflow-hidden min-h-0">
-                {/* Hero banner — natural height from aspect ratio, swaps with active tab */}
-                {(() => {
-                  const activeSlice = slices[activeTab as SliceType]
-                  if (!activeSlice) return null
-                  return (
-                    <HeroBanner
-                      sliceType={activeSlice.sliceType}
-                      sliceName={TAB_LABELS[activeTab]}
-                      geoid={activeSlice.geoid}
-                      memberCount={activeSlice.memberCount}
-                      siblingIndex={activeSlice.siblingIndex}
-                      photoUrl={activeSlice.photoUrl}
-                    />
-                  )
-                })()}
+                {/* Hero banner — natural height from aspect ratio, swaps with active tab.
+                    ActiveHeroBanner is a separate component so useWikiHeroImage can be
+                    called unconditionally (React rules of hooks). */}
+                {slices[activeTab as SliceType] && (
+                  <ActiveHeroBanner
+                    slice={slices[activeTab as SliceType]!}
+                    sliceName={TAB_LABELS[activeTab]}
+                  />
+                )}
 
                 {/* Feed tab panels — flex-1 fills remaining space below hero banner */}
                 <div className="flex flex-col flex-1 overflow-hidden min-h-0">
