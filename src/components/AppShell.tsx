@@ -7,6 +7,7 @@ import { useIsModerator } from '../hooks/useModQueue'
 import SliceTabBar from './SliceTabBar'
 import NoJurisdictionBanner from './NoJurisdictionBanner'
 import SliceFeedPanel from './SliceFeedPanel'
+import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
 import NotificationBell from './NotificationBell'
@@ -223,48 +224,66 @@ export default function AppShell() {
             <div className="grid grid-cols-1 md:grid-cols-[65%_35%] flex-1 overflow-hidden min-h-0">
               {/* Feed column */}
               <div className="flex flex-col overflow-hidden min-h-0">
-                {/* All FEED_TABS feeds mounted simultaneously — CSS hidden preserves scroll and React Query cache */}
-                {FEED_TABS.map((tabKey) => {
-                  const slice = slices[tabKey]
-                  if (!slice) return null
+                {/* Hero banner — natural height from aspect ratio, swaps with active tab */}
+                {(() => {
+                  const activeSlice = slices[activeTab as SliceType]
+                  if (!activeSlice) return null
                   return (
-                    <div
-                      key={tabKey}
-                      className={activeTab === tabKey ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}
-                    >
+                    <HeroBanner
+                      sliceType={activeSlice.sliceType}
+                      sliceName={TAB_LABELS[activeTab]}
+                      geoid={activeSlice.geoid}
+                      memberCount={activeSlice.memberCount}
+                      siblingIndex={activeSlice.siblingIndex}
+                    />
+                  )
+                })()}
+
+                {/* Feed tab panels — flex-1 fills remaining space below hero banner */}
+                <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+                  {/* All FEED_TABS feeds mounted simultaneously — CSS hidden preserves scroll and React Query cache */}
+                  {FEED_TABS.map((tabKey) => {
+                    const slice = slices[tabKey]
+                    if (!slice) return null
+                    return (
+                      <div
+                        key={tabKey}
+                        className={activeTab === tabKey ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}
+                      >
+                        <SliceFeedPanel
+                          sliceId={slice.id}
+                          sliceName={TAB_LABELS[tabKey]}
+                          siblingIndex={slice.siblingIndex}
+                          activePostId={activePostIds[tabKey]}
+                          onNavigateToThread={(postId) => {
+                            setScrollToLatestMap(prev => ({ ...prev, [tabKey]: false }))
+                            setActivePostIds(prev => ({ ...prev, [tabKey]: postId }))
+                          }}
+                          scrollToLatest={scrollToLatestMap[tabKey]}
+                          scrollRef={scrollRefs.current[tabKey]}
+                        />
+                      </div>
+                    )
+                  })}
+
+                  {/* Volunteer feed — conditionally rendered for users with volunteer slice */}
+                  {showVolunteerTab && slices['volunteer'] && (
+                    <div className={activeTab === 'volunteer' ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}>
                       <SliceFeedPanel
-                        sliceId={slice.id}
-                        sliceName={TAB_LABELS[tabKey]}
-                        siblingIndex={slice.siblingIndex}
-                        activePostId={activePostIds[tabKey]}
+                        sliceId={slices['volunteer'].id}
+                        sliceName="Volunteer"
+                        siblingIndex={slices['volunteer'].siblingIndex}
+                        activePostId={activePostIds['volunteer']}
                         onNavigateToThread={(postId) => {
-                          setScrollToLatestMap(prev => ({ ...prev, [tabKey]: false }))
-                          setActivePostIds(prev => ({ ...prev, [tabKey]: postId }))
+                          setScrollToLatestMap(prev => ({ ...prev, volunteer: false }))
+                          setActivePostIds(prev => ({ ...prev, volunteer: postId }))
                         }}
-                        scrollToLatest={scrollToLatestMap[tabKey]}
-                        scrollRef={scrollRefs.current[tabKey]}
+                        scrollToLatest={scrollToLatestMap['volunteer']}
+                        scrollRef={scrollRefs.current['volunteer']}
                       />
                     </div>
-                  )
-                })}
-
-                {/* Volunteer feed — conditionally rendered for users with volunteer slice */}
-                {showVolunteerTab && slices['volunteer'] && (
-                  <div className={activeTab === 'volunteer' ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}>
-                    <SliceFeedPanel
-                      sliceId={slices['volunteer'].id}
-                      sliceName="Volunteer"
-                      siblingIndex={slices['volunteer'].siblingIndex}
-                      activePostId={activePostIds['volunteer']}
-                      onNavigateToThread={(postId) => {
-                        setScrollToLatestMap(prev => ({ ...prev, volunteer: false }))
-                        setActivePostIds(prev => ({ ...prev, volunteer: postId }))
-                      }}
-                      scrollToLatest={scrollToLatestMap['volunteer']}
-                      scrollRef={scrollRefs.current['volunteer']}
-                    />
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Sidebar column — hidden on mobile, placeholder on desktop */}
