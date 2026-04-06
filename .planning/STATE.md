@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** v3.0 — UI/UX Redesign (Phase 10: Photos & Storage)
+**Current focus:** v3.0 — UI/UX Redesign (Phase 11: Sidebar Widgets)
 
 ## Current Position
 
-Phase: 10 of 12 (Photos & Storage)
-Plan: 2 of 2 in current phase
-Status: In progress — 10-02 at checkpoint (awaiting user upload + visual verify)
-Last activity: 2026-04-06 — Tasks 1-2 of 10-02 complete; checkpoint awaiting user action
+Phase: 10 of 12 (Photos & Storage) — COMPLETE
+Plan: 2 of 2 — both plans done
+Status: Phase 10 complete
+Last activity: 2026-04-06 — Completed 10-02-PLAN.md (Wikipedia hero images + jurisdiction names)
 
-Next up: User runs upload script, fills migration, approves checkpoint → plan 10-02 complete
+Next up: Phase 11 — Sidebar Widgets (confirm CORS/API pre-conditions before starting)
 
-Progress: [█████░░░░░] 42% (v2.0 + Phase 9 + Phase 10 Plan 01 complete)
+Progress: [█████░░░░░] 50% (v2.0 + Phases 9 + 10 complete)
 
 ## Performance Metrics
 
@@ -32,7 +32,7 @@ Progress: [█████░░░░░] 42% (v2.0 + Phase 9 + Phase 10 Plan 0
 ### Decisions
 
 - [v2.0] CSS-hidden SliceFeedPanels (not conditional render) — preserves React Query cache, Realtime subscriptions, and DOM scroll across tab switches. Scroll target is a specific scrollRef DOM node; two-column wrapper in Phase 9 must not break this.
-- [v3.0 Roadmap] Sidebar hooks MUST be hoisted to AppShell level — all 6 panels mount simultaneously, so any hook inside a panel fires 6×. Establish in Phase 11 before any widget is wired.
+- [v3.0 Roadmap] Sidebar hooks MUST be hoisted to AppShell level — all 6 panels mount simultaneously, so any hook inside a panel fires 6x. Establish in Phase 11 before any widget is wired.
 - [09-01] min-h-0 must be on every flex/grid ancestor from h-screen down to the scrollRef target — grid items expand to intrinsic content height otherwise, breaking scroll containment.
 - [09-01] Sidebar placeholder uses hidden md:flex in existing grid column — Phase 11 fills it without structural AppShell changes.
 - [09-01] Teal pill uses rounded-lg (not rounded-full) — matches Krishna mockup rectangular capsule shape.
@@ -44,7 +44,14 @@ Progress: [█████░░░░░] 42% (v2.0 + Phase 9 + Phase 10 Plan 0
 - [10-01] placeholderPhoto renamed to defaultPhoto in sliceCopy.ts — permanent type defaults, not temporary placeholders.
 - [10-01] Storage RLS: public=true bucket flag is not sufficient; explicit SELECT policy on storage.objects is also required to avoid 403 on public reads.
 - [10-01] sliceCopy.ts type defaults use external Unsplash URLs only — no VITE_SUPABASE_URL dependency; DB CDN URLs come from useAllSlices hook exclusively.
-- [10-01] HeroBanner photo resolution: photoUrl (DB) ?? copy.defaultPhoto (type default) ?? null (gray fallback).
+- [10-01] HeroBanner photo resolution: photoUrl (DB) > wikiPhotoUrl (Wikipedia hook) > copy.defaultPhoto (type default) > null (gray fallback).
+- [10-02] Wikipedia replaces Supabase Storage for hero images — no uploads, no service-role keys. photo_url DB column retained as curated override (currently unused).
+- [10-02] Census Bureau API used for county/place name lookups — free, no key required. Indiana fast-path lookup avoids API call for known Indiana counties.
+- [10-02] Tab labels: neighborhood->"Local", local->"County" — reflects civic jurisdiction levels better than TIGER/Line technical terms.
+- [10-02] Unified tab hidden from users who don't have the slice — not shown until assigned.
+- [10-02] federal slice Wikipedia: congressional district -> US Capitol; state slice -> "{State} State Capitol".
+- [10-02] PostgREST schema cache: after DDL changes, may need NOTIFY pgrst, 'reload schema' and brief wait before new columns are queryable.
+- [10-02] Unified slice backfilled to all existing connected users (BloomingtonVoter and Kades) after fixing missing Phase 7 CHECK constraint in production (applied 2026-04-06).
 
 ### Blockers/Concerns
 
@@ -70,5 +77,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-06
-Stopped at: 10-02-PLAN.md checkpoint — upload script + migration stub committed; awaiting user upload + visual verification
+Stopped at: Completed 10-02-PLAN.md — Phase 10 done
 Resume file: None
