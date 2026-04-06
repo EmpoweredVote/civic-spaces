@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 9 of 12 (Hero Banner & Layout Shell)
-Plan: 2 of 3 in current phase
-Status: In progress — wave 2 complete
-Last activity: 2026-04-06 — Completed 09-02-PLAN.md (HeroBanner component + sliceCopy data)
+Plan: 3 of 3 in current phase
+Status: In progress — awaiting checkpoint:human-verify for 09-03
+Last activity: 2026-04-06 — Completed 09-03 Task 1 (HeroBanner wired into AppShell)
 
 Progress: [███░░░░░░░] 25% (v2.0 complete; 09-01 done)
 
@@ -62,5 +62,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-06
-Stopped at: Completed 09-02-PLAN.md — HeroBanner component and sliceCopy static data
+Stopped at: 09-03-PLAN.md Task 1 complete (1d3f9fe) — paused at checkpoint:human-verify
 Resume file: None
