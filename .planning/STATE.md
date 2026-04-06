@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 10 of 12 (Photos & Storage)
-Plan: 1 of 2 in current phase
-Status: In progress — 10-01 complete
-Last activity: 2026-04-06 — Completed 10-01 (Storage bucket, photo_url column, HeroBanner wiring)
+Plan: 2 of 2 in current phase
+Status: In progress — 10-02 at checkpoint (awaiting user upload + visual verify)
+Last activity: 2026-04-06 — Tasks 1-2 of 10-02 complete; checkpoint awaiting user action
 
-Next up: Plan 10-02 — Upload Bloomington photos to slice-photos bucket and seed photo_url DB rows
+Next up: User runs upload script, fills migration, approves checkpoint → plan 10-02 complete
 
 Progress: [█████░░░░░] 42% (v2.0 + Phase 9 + Phase 10 Plan 01 complete)
 
@@ -70,5 +70,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-06
-Stopped at: 10-01-PLAN.md complete — Storage bucket, photo_url column, HeroBanner wiring done
+Stopped at: 10-02-PLAN.md checkpoint — upload script + migration stub committed; awaiting user upload + visual verification
 Resume file: None
