@@ -64,6 +64,13 @@ Plans:
 
 **Milestone Goal:** Rebuild the slice UI around Krishna's mockup — geo-grounded hero banners, two-column layout, and a fully-wired community sidebar. Every slice becomes a visually distinct, community-anchored space.
 
+**Design Standard (v3.0 non-negotiable):**
+- Beautiful, polished UI is a first-class deliverable — not a nice-to-have
+- Light AND dark mode required across all new components
+- Desktop and mobile must each be exceptional — separate flows are acceptable if they produce a superior experience for each context
+- Reference: `C:\Civic Spaces\Screengrabs\` (6 Krishna mockup screengrabs) for layout, tone, and visual hierarchy
+- Use `/ui-ux-pro-max` skill during planning phases to validate component design decisions before implementation
+
 #### Phase 9: Hero Banner & Layout Shell
 
 **Goal**: Users see a full-width, identity-rich hero banner above their feed on every slice tab, and desktop users see the two-column layout shell ready to receive a sidebar.

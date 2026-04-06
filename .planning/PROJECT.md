@@ -29,6 +29,8 @@ Every Connected user is part of four geographic communities plus specialized civ
 
 **Goal:** Rebuild the slice UI around Krishna's mockup — geo-grounded hero banners, two-column layout, and a fully-wired community sidebar.
 
+**Design standard:** Beautiful, polished UI is a first-class deliverable. Light + dark mode required. Desktop and mobile must each be exceptional — separate flows acceptable for superior experience. Reference: `C:\Civic Spaces\Screengrabs\` (Krishna mockups). Use `/ui-ux-pro-max` skill during planning.
+
 **Target features:**
 - Full-width hero banner per slice tab with jurisdiction-specific photo, slice identity, and pill badges
 - Two-column desktop layout (feed left, sidebar right); single-column mobile
