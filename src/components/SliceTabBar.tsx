@@ -8,8 +8,8 @@ interface SliceTabBarProps {
 }
 
 const LEFT_TABS: { key: TabKey; label: string }[] = [
-  { key: 'neighborhood', label: 'Neighborhood' },
-  { key: 'local', label: 'Local' },
+  { key: 'neighborhood', label: 'Local' },
+  { key: 'local', label: 'County' },
   { key: 'state', label: 'State' },
   { key: 'federal', label: 'Federal' },
   { key: 'unified', label: 'Unified' },

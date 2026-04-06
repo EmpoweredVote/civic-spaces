@@ -47,8 +47,8 @@ type ActivePanel = 'friends' | 'directory' | null
 const FEED_TABS = ['neighborhood', 'local', 'state', 'federal', 'unified'] as const
 
 const TAB_LABELS: Record<TabKey, string> = {
-  neighborhood: 'Neighborhood',
-  local: 'Local',
+  neighborhood: 'Local',
+  local: 'County',
   state: 'State',
   federal: 'Federal',
   unified: 'Unified',

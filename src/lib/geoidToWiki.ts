@@ -193,8 +193,11 @@ export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | 
       return `${countyName} County, ${stateName}`
     }
 
-    case 'neighborhood':
     case 'unified':
+      // Wikipedia "Earth" article has the NASA Blue Marble photo as its lead image
+      return 'Earth'
+
+    case 'neighborhood':
     case 'volunteer':
     default:
       return null

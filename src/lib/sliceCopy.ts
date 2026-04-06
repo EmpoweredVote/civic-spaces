@@ -9,16 +9,16 @@ export interface SliceCopy {
 
 export const SLICE_COPY: Record<SliceType, SliceCopy> = {
   neighborhood: {
-    tagline: 'Discuss local issues with verified residents in your community',
+    tagline: 'Connect with verified residents in your city or town',
     description:
-      'This neighborhood civic space is for verified residents to discuss local issues, explore alignment, and access local civic tools.',
+      'This local civic space is for verified residents to discuss city and neighborhood issues, explore alignment with neighbors, and access local civic tools.',
     defaultPhoto:
       'https://images.unsplash.com/photo-1516156008625-3a9d6067fab5?w=1200&h=400&fit=crop',
   },
   local: {
-    tagline: 'Engage with county-level issues affecting your local community',
+    tagline: 'Engage with county-wide issues and governance in your region',
     description:
-      'This local civic space connects residents across your county to discuss local governance, community priorities, and civic engagement opportunities.',
+      'This county civic space connects residents across your county to discuss local governance, community priorities, and civic engagement opportunities.',
     defaultPhoto:
       'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&h=400&fit=crop',
   },

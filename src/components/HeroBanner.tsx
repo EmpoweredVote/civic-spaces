@@ -11,8 +11,8 @@ interface HeroBannerProps {
 }
 
 const SLICE_LEVEL_LABELS: Record<SliceType, string> = {
-  neighborhood: 'Neighborhood Level',
-  local: 'Local Level',
+  neighborhood: 'Local Level',
+  local: 'County Level',
   state: 'State Level',
   federal: 'Federal Level',
   unified: 'Unified',
