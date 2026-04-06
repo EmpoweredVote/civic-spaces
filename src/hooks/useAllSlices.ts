@@ -29,7 +29,7 @@ async function fetchAllSlicesData(userId: string): Promise<{
   // Step 2: Find all slices the user belongs to (all types, not filtered)
   const { data: sliceRows, error: sliceError } = await supabase
     .from('slices')
-    .select('id, slice_type, geoid, current_member_count, sibling_index, photo_url')
+    .select('id, slice_type, geoid, current_member_count, sibling_index')
     .in('id', sliceIds)
 
   if (sliceError) throw sliceError
@@ -44,7 +44,6 @@ async function fetchAllSlicesData(userId: string): Promise<{
       geoid: row.geoid,
       memberCount: row.current_member_count,
       siblingIndex: row.sibling_index,
-      photoUrl: row.photo_url ?? null,
     }
   }
 
