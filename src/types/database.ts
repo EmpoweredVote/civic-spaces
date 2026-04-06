@@ -8,6 +8,7 @@ export interface SliceInfo {
   geoid: string
   memberCount: number
   siblingIndex: number
+  photoUrl?: string | null
 }
 
 export interface Slice {

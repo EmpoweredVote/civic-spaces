@@ -235,6 +235,7 @@ export default function AppShell() {
                       geoid={activeSlice.geoid}
                       memberCount={activeSlice.memberCount}
                       siblingIndex={activeSlice.siblingIndex}
+                      photoUrl={activeSlice.photoUrl}
                     />
                   )
                 })()}

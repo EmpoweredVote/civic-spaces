@@ -7,6 +7,7 @@ interface HeroBannerProps {
   geoid: string
   memberCount: number
   siblingIndex: number
+  photoUrl?: string | null
 }
 
 const SLICE_LEVEL_LABELS: Record<SliceType, string> = {
@@ -24,15 +25,16 @@ export function HeroBanner({
   geoid,
   memberCount,
   siblingIndex,
+  photoUrl,
 }: HeroBannerProps) {
   const copy = SLICE_COPY[sliceType]
-  const photoUrl = copy?.placeholderPhoto ?? null
+  const resolvedPhoto = photoUrl ?? copy?.defaultPhoto ?? null
 
-  const bgStyle = photoUrl
-    ? { backgroundImage: `url(${photoUrl})` }
+  const bgStyle = resolvedPhoto
+    ? { backgroundImage: `url(${resolvedPhoto})` }
     : undefined
 
-  const fallbackBg = photoUrl ? '' : 'bg-gray-700 dark:bg-gray-800'
+  const fallbackBg = resolvedPhoto ? '' : 'bg-gray-700 dark:bg-gray-800'
 
   return (
     <div
