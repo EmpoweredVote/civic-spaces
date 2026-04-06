@@ -13,23 +13,23 @@
 
 ### Phase 1: Foundation
 **Goal**: Schema, auth integration, and slice assignment service operational
-**Plans**: TBD
+**Plans**: 2 plans
 
 ### Phase 2: Core Forum
 **Goal**: Federal Slice forum active with cursor-paginated feed, posts, and replies
-**Plans**: TBD
+**Plans**: 2 plans
 
 ### Phase 3: Social Graph
 **Goal**: Mutual friends and Empowered follow active with friend-boosted feed
-**Plans**: TBD
+**Plans**: 2 plans
 
 ### Phase 4: Notifications & Realtime
 **Goal**: Reply, friend request, and accepted-friendship notifications delivered live
-**Plans**: TBD
+**Plans**: 2 plans
 
 ### Phase 5: Moderation & Safety
 **Goal**: Flagging, moderation queue, and block operational before public launch
-**Plans**: TBD
+**Plans**: 2 plans
 
 </details>
 
@@ -45,7 +45,7 @@ Plans:
 
 ### Phase 7: Special Slices
 **Goal**: Unified and Volunteer slices auto-assigned, role-gated, and forum-active
-**Plans**: TBD
+**Plans**: 2 plans
 
 ### Phase 8: Profile Pages
 **Goal**: Display name tappable from all surfaces; profile anchors civic identity
@@ -108,11 +108,11 @@ Plans:
 2. Bloomington pilot slices display location-specific photos: courthouse image for Civil Civics/District slice, Indiana State Capitol for State, White House for Federal
 3. Each geo slice type (Neighborhood, Local, State, Federal, Unified, Volunteer) has at least one curated hero photo loaded and resolving via CDN URL — no broken image states
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 10-01: Supabase Storage bucket creation + RLS policies + CDN wiring
-- [ ] 10-02: Bloomington pilot photo upload + slice-to-photo URL mapping
+- [ ] 10-01-PLAN.md &mdash; Storage bucket + migration + photo_url column + HeroBanner wiring
+- [ ] 10-02-PLAN.md &mdash; Bloomington photo upload + DB seeding + visual verification
 
 ---
 
@@ -135,7 +135,7 @@ Plans:
 3. The sidebar shows a "Representing This Community" widget with rep cards for officials relevant to the current slice's jurisdiction level — each card displays name, title, party badge, jurisdiction badge, and a View Profile link; the widget filters correctly when the user switches slice tabs
 4. The sidebar shows a "Tools for This Community" widget with icon cards for Fallacy Finders, Treasury Tracker, Read & Rank, and Civic Trivia; tools not yet live degrade gracefully (no broken links or console errors)
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 11-01: CORS verification + AppShell sidebar hook architecture
@@ -157,7 +157,7 @@ Plans:
 1. `MutualFriendsList` no longer accepts or types a `friendCount` prop; all call sites pass no such prop; `tsc` produces zero errors
 2. `NotificationListProps` no longer includes `onNavigateToThread`; all call sites are clean; `tsc` produces zero errors
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 12-01: Dead prop removal (CLEAN-01 + CLEAN-02) + full tsc verification
