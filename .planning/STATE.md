@@ -11,10 +11,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 Phase: 9 of 12 (Hero Banner & Layout Shell)
 Plan: 3 of 3 in current phase
-Status: In progress — awaiting checkpoint:human-verify for 09-03
-Last activity: 2026-04-06 — Completed 09-03 Task 1 (HeroBanner wired into AppShell)
+Status: Phase complete — all 3 plans done, user-verified
+Last activity: 2026-04-06 — Completed 09-03 (HeroBanner integrated, layout shell verified)
 
-Progress: [███░░░░░░░] 25% (v2.0 complete; 09-01 done)
+Next up: Phase 10 — Slice Data & Photos (replace placeholder photos, real taglines, siblingTotal pill)
+
+Progress: [████░░░░░░] 33% (v2.0 + Phase 9 complete)
 
 ## Performance Metrics
 
@@ -37,6 +39,8 @@ Progress: [███░░░░░░░] 25% (v2.0 complete; 09-01 done)
 - [09-02] HeroBanner is pure presentational (no hooks/state) — all data via props, ready for Plan 03 wiring.
 - [09-02] Slice number pill shows only siblingIndex (not "of Y") — siblingTotal not in SliceInfo; Phase 10 TODO.
 - [09-02] Unsplash placeholder photos in sliceCopy.ts — Phase 10 replaces with Supabase Storage CDN URLs.
+- [09-03] HeroBanner rendered outside CSS-hidden tab divs — swaps via props, never remounts, preserves scroll-preservation pattern.
+- [09-03] Feed panel wrapper uses flex-1 overflow-hidden min-h-0 — hero has natural height, feed scrolls independently below it.
 
 ### Blockers/Concerns
 
@@ -62,5 +66,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-06
-Stopped at: 09-03-PLAN.md Task 1 complete (1d3f9fe) — paused at checkpoint:human-verify
+Stopped at: 09-03-PLAN.md complete — Phase 9 done, user-verified
 Resume file: None
