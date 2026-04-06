@@ -67,9 +67,9 @@ export function HeroBanner({
             {SLICE_LEVEL_LABELS[sliceType]}
           </span>
 
-          {/* Jurisdiction pill — Phase 10 resolves geoid to a human name */}
+          {/* Jurisdiction pill */}
           <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
-            {geoid}
+            {sliceName}
           </span>
 
           {/* Member count pill */}

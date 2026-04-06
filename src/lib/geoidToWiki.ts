@@ -202,10 +202,41 @@ export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | 
 }
 
 /**
- * Decodes the state FIPS prefix from any geoid.
- * Used by the hook to build Census API requests for unknown counties.
+ * Returns a display name for the slice's jurisdiction synchronously where possible.
+ * Returns null for local/neighborhood slices that need a Census API lookup.
+ *
+ * Used by useJurisdictionName to populate the hero banner title.
  */
-export function stateFipsFromGeoid(geoid: string): string | null {
-  const fips = geoid.slice(0, 2)
-  return STATE_FIPS[fips] ? fips : null
+export function geoidToDisplayName(sliceType: SliceType, geoid: string): string | null {
+  const stateFips = geoid.slice(0, 2)
+  const stateName = STATE_FIPS[stateFips] ?? null
+
+  switch (sliceType) {
+    case 'federal':
+      return 'United States of America'
+
+    case 'state':
+      return stateName
+
+    case 'local': {
+      if (geoid.length !== 5 || !stateName) return null
+      const countyFips = geoid.slice(2)
+      const countyName = COUNTY_NAMES[`${stateFips}-${countyFips}`]
+      // Indiana fast-path: return county name without "County" suffix
+      return countyName ?? null
+    }
+
+    case 'neighborhood':
+      // Place FIPS (7-digit) or census tract (11-digit) — needs Census API
+      return null
+
+    case 'unified':
+      return 'Unified'
+
+    case 'volunteer':
+      return 'Volunteer'
+
+    default:
+      return null
+  }
 }

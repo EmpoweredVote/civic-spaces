@@ -5,6 +5,7 @@ import { useAllSlices } from '../hooks/useAllSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
 import { useWikiHeroImage } from '../hooks/useWikiHeroImage'
+import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import SliceTabBar from './SliceTabBar'
 import NoJurisdictionBanner from './NoJurisdictionBanner'
 import SliceFeedPanel from './SliceFeedPanel'
@@ -22,16 +23,17 @@ import type { TabKey, SliceType, SliceInfo } from '../types/database'
  */
 function ActiveHeroBanner({
   slice,
-  sliceName,
+  fallbackName,
 }: {
   slice: SliceInfo
-  sliceName: string
+  fallbackName: string
 }) {
   const wikiPhotoUrl = useWikiHeroImage(slice)
+  const displayName = useJurisdictionName(slice, fallbackName)
   return (
     <HeroBanner
       sliceType={slice.sliceType}
-      sliceName={sliceName}
+      sliceName={displayName}
       geoid={slice.geoid}
       memberCount={slice.memberCount}
       siblingIndex={slice.siblingIndex}
@@ -256,7 +258,7 @@ export default function AppShell() {
                 {slices[activeTab as SliceType] && (
                   <ActiveHeroBanner
                     slice={slices[activeTab as SliceType]!}
-                    sliceName={TAB_LABELS[activeTab]}
+                    fallbackName={TAB_LABELS[activeTab]}
                   />
                 )}
 
