@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 9 of 12 (Hero Banner & Layout Shell)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-04-05 — v3.0 roadmap created (4 phases, 14 requirements mapped)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-04-06 — Completed 09-01-PLAN.md (layout shell + dark mode infrastructure)
 
-Progress: [██░░░░░░░░] 20% (v2.0 complete; v3.0 not started)
+Progress: [███░░░░░░░] 25% (v2.0 complete; 09-01 done)
 
 ## Performance Metrics
 
@@ -31,6 +31,9 @@ Progress: [██░░░░░░░░] 20% (v2.0 complete; v3.0 not started)
 
 - [v2.0] CSS-hidden SliceFeedPanels (not conditional render) — preserves React Query cache, Realtime subscriptions, and DOM scroll across tab switches. Scroll target is a specific scrollRef DOM node; two-column wrapper in Phase 9 must not break this.
 - [v3.0 Roadmap] Sidebar hooks MUST be hoisted to AppShell level — all 6 panels mount simultaneously, so any hook inside a panel fires 6×. Establish in Phase 11 before any widget is wired.
+- [09-01] min-h-0 must be on every flex/grid ancestor from h-screen down to the scrollRef target — grid items expand to intrinsic content height otherwise, breaking scroll containment.
+- [09-01] Sidebar placeholder uses hidden md:flex in existing grid column — Phase 11 fills it without structural AppShell changes.
+- [09-01] Teal pill uses rounded-lg (not rounded-full) — matches Krishna mockup rectangular capsule shape.
 
 ### Blockers/Concerns
 
@@ -55,6 +58,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-05
-Stopped at: v3.0 roadmap written — Phase 9 ready to plan
+Last session: 2026-04-06
+Stopped at: Completed 09-01-PLAN.md — layout shell, dark mode infrastructure, teal pill tabs
 Resume file: None
