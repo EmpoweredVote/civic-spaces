@@ -1,458 +1,322 @@
-# Pitfalls Research: Civic Spaces
+# Domain Pitfalls: Civic Spaces v3.0 UI/UX Redesign
 
-## Technical Pitfalls
-
-### 1. Feed Performance Degradation at Volume
-
-**Warning signs:**
-- Feed query time exceeds 200ms at ~1k posts; p95 latency climbs as content accrues
-- N+1 queries appearing in Supabase logs when fetching post metadata, vote counts, or reply trees
-- Client re-renders entire feed on any single new post
-
-**Prevention strategy:**
-- Use cursor-based (keyset) pagination, never offset — offset scans grow with table size
-- Materialize vote counts and reply counts as denormalized columns updated by triggers; never COUNT(*) in feed queries
-- Index every column touched by RLS policies (user_id, jurisdiction GEOID, created_at) — missing indexes are the single largest performance killer in RLS-heavy apps
-- Adopt chronological feed as the default. Algorithmic ranking is expensive and introduces bias; research confirms users prefer chronological options and treat them as a legitimacy signal
-- Cache the top-N posts per jurisdiction slice in Redis/Supabase Edge with a short TTL (30–60 seconds), invalidating on new posts
-
-**Phase to address:** MVP (before first real users hit the feed)
+**Domain:** Cross-app API integration + layout redesign on existing React civic forum
+**Researched:** 2026-04-05
+**Scope:** Specific to v3.0 work — hero banners, sidebar widgets, external API integration, Supabase Storage
 
 ---
 
-### 2. Notification Spam and Fatigue
+## Critical Pitfalls
 
-**Warning signs:**
-- Push notification opt-out rate exceeds 30% within 30 days of signup
-- Users cite "too many notifications" in churn feedback
-- Open rate on notifications drops below 5%
-
-**Prevention strategy:**
-- Default to digest (daily or twice-daily) rather than per-event notifications
-- Apply per-user rate limits server-side (e.g., max 3 notifications per 6-hour window regardless of activity volume)
-- Batch same-thread replies into a single notification: "5 people replied to your post"
-- Allow per-topic notification preferences from day one — retrofitting this is expensive
-- Never send a notification for a user's own activity (common oversight causing immediate mute)
-
-**Phase to address:** Alpha (before inviting more than seed users)
+Mistakes that cause rewrites, data loss, or user-visible regressions.
 
 ---
 
-### 3. Realtime Subscription Overload
+### Pitfall 1: Sidebar API Calls Fire 6x Simultaneously on App Load
+
+**What goes wrong:**
+`SliceFeedPanel` components are all mounted simultaneously in `AppShell` (lines 223-245 of `AppShell.tsx`). The `className={activeTab === tabKey ? ... : 'hidden'}` pattern keeps all 6 panels in the DOM. Any hook called inside `SliceFeedPanel` — including a new sidebar widget hook — fires once per panel on mount. A hook that fetches from the Compass API (`api.empowered.vote/api/compass/...`) or the accounts API would trigger 6 parallel requests on every app load, even though the sidebar is only visible on one tab at a time.
+
+**Why it happens:**
+CSS `display:none` hides elements visually but does not prevent React from mounting them or running their `useEffect` and `useQuery` hooks. React Query's deduplication only collapses requests with the **same query key** issued within the same render cycle. If 6 panels each call `useCompassScore(userId)` with the same key, React Query will deduplicate to 1 in-flight request — but only if `staleTime > 0`. With the default `staleTime: 0`, each panel mounts, sees a stale cache, and triggers its own background refetch, potentially resulting in 6 sequential refetches as panels settle.
+
+**Consequences:**
+- 6x API calls on load to external cross-origin services (Compass, accounts)
+- Rate limiting or slow response compounds: if one call takes 800ms, all 6 are in-flight simultaneously
+- Unnecessary load on `api.empowered.vote` from every Civic Spaces page load
+- Network tab shows 6 duplicate requests, confusing future developers
+
+**Prevention:**
+Hoist sidebar widget data hooks **out of `SliceFeedPanel`** and into `AppShell` or a shared context provider that sits above the panel loop. Pass data down as props. Alternatively, use a single `useSidebarData()` hook called once in `AppShell` and pass results via context. If the hook must live inside the panel (e.g., for per-slice data), set `staleTime: Infinity` or `staleTime: 5 * 60 * 1000` so React Query serves cached data to panels 2-6 without refetching. Do not set `enabled: activeTab === tabKey` as a workaround — this defeats the CSS-hidden mount pattern and will break scroll preservation.
 
 **Warning signs:**
-- Supabase Realtime connection count approaching plan limits
-- Browser tab consumes >5% CPU idle due to open websocket listeners
-- Realtime events firing for rows outside the user's jurisdiction slice
+- Network tab shows repeated calls to `api.empowered.vote` on first load
+- React Query DevTools shows 6 separate query instances for the same key
+- `useQuery` hook appears inside `SliceFeedPanel` body rather than above it
 
-**Prevention strategy:**
-- Scope Realtime subscriptions narrowly: filter by jurisdiction GEOID at the channel level, not client-side
-- Unsubscribe from channels when user navigates away from a view
-- Use polling (30–60 second intervals) for low-urgency data (vote counts, user stats) instead of persistent Realtime channels
-- Set a connection limit per user session; reject duplicate tab connections gracefully
-
-**Phase to address:** MVP
+**Phase that should address it:** Phase that implements sidebar widgets (hero + sidebar phase)
 
 ---
 
-### 4. Search Without Full-Text Infrastructure
+### Pitfall 2: Token Key Mismatch — `cs_token` vs `ev_token`
+
+**What goes wrong:**
+Civic Spaces stores the auth JWT in `localStorage` under the key `cs_token` (see `useAuth.ts` line 86, `supabase.ts` line 10). EV-CompassV2 uses the key `ev_token` (see `C:/EV-CompassV2/src/lib/auth.js` line 2, `TOKEN_KEY = 'ev_token'`). These are two different localStorage entries. When Civic Spaces calls the Compass API or accounts API using its sidebar widget hooks, it must read `cs_token` — not `ev_token`. If the sidebar code is copy-pasted from EV-CompassV2, it will silently read `ev_token`, find `null`, and send unauthenticated requests. The Compass API (`publicFetch`) will succeed with no user data. The accounts API (`apiFetch`) will redirect to login.
+
+**Why it happens:**
+EV-CompassV2's `lib/auth.js` `apiFetch` function automatically reads `ev_token`. Copy-pasting that utility into Civic Spaces without adaptation means it reads the wrong key. This is a silent failure — no error thrown, just no user identity in the API response.
+
+**Consequences:**
+- Sidebar widgets show anonymous/empty state even for logged-in users
+- If accounts API returns 401 and EV-CompassV2's `apiFetch` is used, it calls `redirectToLogin()`, which navigates away from Civic Spaces entirely
+- Extremely hard to debug because the user IS authenticated (cs_token is valid), but sidebar calls appear unauthenticated
+
+**Prevention:**
+Do not import `apiFetch` or `publicFetch` from EV-CompassV2. Write new fetch utilities in Civic Spaces that read `cs_token`. Verify the token key in every cross-app API call during implementation. The `cs_token` and `ev_token` are the same JWT issued by `accounts.empowered.vote` — the underlying user identity is the same, only the localStorage key differs.
 
 **Warning signs:**
-- ILIKE queries appearing in slow query logs
-- Search results feel stale or irrelevant to users
+- Sidebar widgets show empty/guest state while user is clearly logged in
+- Network requests to `api.empowered.vote` are missing `Authorization` header
+- Any import path referencing `EV-CompassV2/src/lib/auth` in Civic Spaces source
 
-**Prevention strategy:**
-- Enable `pg_trgm` and `tsvector` full-text search in Postgres from the start — retrofitting is a migration risk
-- Create a `search_vector` column updated by trigger on post insert/update
-- Index it with GIN; scope searches to jurisdiction GEOID as a WHERE clause before text matching
-
-**Phase to address:** MVP (schema-level decision; hard to retrofit cleanly)
+**Phase that should address it:** API integration design phase — establish Civic Spaces-native fetch utility before building any sidebar widget
 
 ---
 
-## Social Dynamics Pitfalls
+### Pitfall 3: Layout Change Breaks Scroll Position Preservation
 
-### 5. Loud Minority Dominance
+**What goes wrong:**
+The existing scroll preservation system (HUB-08) depends on a specific DOM structure. `AppShell` maintains `scrollRefs` — one `RefObject<HTMLDivElement>` per tab — that point to the scrollable container inside each `SliceFeedPanel`. These refs are passed as `scrollRef` props to `SliceFeedPanel`, which attaches them to the `div` that has `overflow-y-auto` (line 102 of `SliceFeedPanel.tsx`). Adding a sidebar changes the layout wrapping that scrollable div. If the two-column layout wraps the feed in a new container that itself becomes the scroll root, the `scrollRef` will point to the wrong element and scroll restoration will silently fail.
+
+**Why it happens:**
+The `overflow-y-auto` responsibility must stay on exactly the element the `scrollRef` tracks. Introducing a CSS Grid or flexbox wrapper for the sidebar without carefully preserving where `overflow` is set will shift the scroll root. The `requestAnimationFrame` in `AppShell`'s `useEffect` (line 89) restores `scrollTop` on the tracked ref — if the ref points to a non-scrolling element, `scrollTop` reads 0 always and the restore is a no-op.
+
+**Consequences:**
+- All 6 tabs lose their scroll position on tab switch (regression of HUB-08)
+- Users who scroll deep into Federal feed, switch to Neighborhood, and return find Federal reset to top
+- Bug is invisible in development if testing with short feeds (no scrolling needed)
+
+**Prevention:**
+When implementing the two-column layout, keep the scrollable feed column as a self-contained flex column with `overflow-y-auto` on the **same element** the `scrollRef` tracks. Do not make the sidebar or its wrapper the scroll container for the whole panel. Use a two-column grid on the panel wrapper with the feed column preserving its own `overflow-y-auto` and the sidebar column using `overflow-y-auto` independently. Test scroll restoration explicitly: scroll feed panel 500px down, switch tab, return, verify position restored.
 
 **Warning signs:**
-- Top 10% of users by post count produce >60% of content
-- A handful of accounts appear in most discussions; others lurk only
-- Thread quality complaints increase despite low reported-post rates
+- After adding sidebar, switching tabs resets feed to top
+- `scrollRef.current.scrollTop` logs as 0 when it should be non-zero
+- The element with `className="flex flex-col h-full overflow-y-auto"` in `SliceFeedPanel` is no longer the scroll container
 
-**Prevention strategy:**
-- Apply per-user daily post/reply rate limits (e.g., 10 top-level posts, 50 replies per 24 hours per jurisdiction slice) — this directly targets the volume asymmetry
-- Surface "new voices" weighting in feeds: show content from users with fewer than 10 lifetime posts alongside high-engagement posts
-- Do not show follower counts, post counts, or any "status" metrics publicly — these create celebrity dynamics and discourage new posters
-- The platform's human-scale cap (~6k per slice) is itself the strongest structural defense; enforce it rigorously
-
-**Phase to address:** Alpha (design the rate limits before they're needed, not after)
+**Phase that should address it:** Layout/sidebar structural implementation — must be validated before any other sidebar content
 
 ---
 
-### 6. Partisan Capture via Moderation Bias
+### Pitfall 4: Hero Images Break Feed Load Performance
+
+**What goes wrong:**
+Hero images are large (full-width geographic photos). If served without explicit `width`/`height` and without `loading="lazy"` or `fetchpriority` management, they cause Cumulative Layout Shift (CLS) as the image loads and pushes feed content down. More critically: because all 6 panels are mounted simultaneously, 6 hero images will be requested in parallel on app load — even though 5 of them are in `display:none` panels. This creates an unnecessary image fetch storm on every page load.
+
+**Why it happens:**
+Browsers initiate `<img>` fetches for all `src` attributes in the DOM, including those in `display:none` containers. The CSS-hidden mount pattern that preserves scroll does so at the cost of triggering all sub-resources for all panels.
+
+**Consequences:**
+- 6x hero image requests on load, 5 of which render for no user-visible purpose
+- CLS if images lack explicit dimensions
+- Slow perceived first-load if hero image appears above the fold of the active panel
+- Supabase Storage egress charges for images never seen
+
+**Prevention:**
+Do not place hero `<img>` tags unconditionally in `SliceFeedPanel`. Either: (a) conditionally render the hero only for the active tab using `activeTab === tabKey` guard in `AppShell` (breaking the pure CSS-hidden pattern is acceptable for hero images since they do not need scroll preservation), or (b) use CSS `content-visibility: hidden` on the hero specifically within hidden panels while keeping the feed `display:none`. Always include explicit `width` and `height` attributes or `aspect-ratio` CSS. Use `loading="lazy"` for non-active heroes if they must be in the DOM. Set `fetchpriority="high"` only for the active tab's hero.
 
 **Warning signs:**
-- Reported-post removal rates differ significantly by political topic or framing
-- Power users campaign to report specific viewpoints en masse
-- Moderators are themselves recognized as partisan actors by the community
+- Network tab shows 5-6 simultaneous image requests to Supabase Storage on load
+- Lighthouse CLS score degrades after hero is added
+- Hero images appear in network log before any user has seen them
 
-**Prevention strategy:**
-- The platform's core "memory over moderation" principle is the correct defense: do not delete, label and contextualize instead
-- Where moderation is necessary (illegal content, doxxing, spam), use a rotating panel of community members from different jurisdiction quadrants, not a permanent mod team
-- Log all moderation actions publicly (action taken, category, no content shown) to create accountability
-- Research confirms that politically biased moderation directly produces echo chambers — any asymmetric removal policy will replicate this effect even if unintentional
-- Never allow users to downvote into invisibility; hiding content based on crowd votes recreates the censorship dynamic
-
-**Phase to address:** Alpha (establish moderation charter before community launch)
+**Phase that should address it:** Hero banner implementation phase — image strategy must be decided before wiring up `<img>` tags
 
 ---
 
-### 7. Toxicity Escalation Spiral
+## Moderate Pitfalls
 
-**Warning signs:**
-- Reply chains grow longer than 8 levels deep consistently
-- Per-thread report rate exceeds 5%
-- User language analysis shows increasing hostility over weeks
-
-**Prevention strategy:**
-- Implement reply depth limits (3–4 levels max); long chains become unreadable arguments, not discussions
-- Show a "cool-down" warning when a thread accumulates rapid replies (e.g., >10 replies in 5 minutes from the same two users)
-- "Memory over moderation": make a post's report history and tolerance rating visible to moderators but not the public, preserving the record without amplifying bad behavior
-- Avoid upvote/downvote systems that reward outrage; research shows engagement-based ranking amplifies out-group hostility even when that is not the intent
-
-**Phase to address:** Alpha
+Mistakes that cause delays or technical debt.
 
 ---
 
-### 8. Echo Chamber Formation
+### Pitfall 5: Supabase Storage RLS Fails With External JWT Role Claim
+
+**What goes wrong:**
+The existing Civic Spaces RLS system uses `civic_spaces.current_user_id()` which calls `auth.jwt() ->> 'sub'` because external JWTs do not populate `auth.uid()`. If hero photo upload/management uses Supabase Storage's `storage.objects` table with RLS policies that reference `auth.uid()` (which Supabase Studio generates by default in policy templates), those policies will silently fail for all external JWT users. The `role` claim in the JWT must be `"authenticated"` — if the external JWT uses a custom value, Supabase Storage will deny all operations.
+
+**Why it happens:**
+Supabase Storage policy templates in Studio default to `auth.uid()`. The Civic Spaces JWT is issued by `accounts.empowered.vote`, not Supabase Auth, so `auth.uid()` returns NULL. The `role` claim must literally be the string `"authenticated"` to match the PostgreSQL role — custom values like `"user"` or `"member"` will cause a "permission denied to set role" error (confirmed in Supabase discussion #33852).
+
+**Consequences:**
+- Admin hero photo uploads fail with 403 even though the user is authenticated
+- Default Studio-generated storage policies look correct but silently deny all operations
+- Debugging is confusing because Supabase logs show the JWT is valid but the role claim triggers a PostgreSQL error
+
+**Prevention:**
+Write storage.objects RLS policies using `auth.jwt() ->> 'sub'` instead of `auth.uid()`. Verify the `role` claim in the external JWT is exactly `"authenticated"`. Use public bucket access for hero photos (read-only public, write restricted to admin service role via server-side upload) to avoid RLS complexity on reads entirely. For write operations (admin uploading heroes), use the Supabase service role key from a trusted backend — do not rely on client-side storage uploads with the external JWT unless the JWT's role claim is verified.
 
 **Warning signs:**
-- Network graph analysis shows clustering — the same users always reply to each other
-- New topic threads attract only the same recurring voices
-- Users from opposing viewpoints stop posting without being banned
+- Storage uploads return 403 with message about row-level security
+- `storage.objects` policy uses `auth.uid()` in any expression
+- Studio-generated policy used without modification
 
-**Prevention strategy:**
-- Chronological feeds (rather than engagement-ranked) are the strongest structural intervention — six major studies tested other interventions and found only chronological feeds produced consistent improvement
-- Do not allow sub-forum creation by users; user-created sub-communities self-sort into ideological clusters (Reddit's documented pattern)
-- The geographic + jurisdiction scoping is a natural cross-cutter: local issues (zoning, transit) force ideologically diverse people to engage on shared stakes
-- Avoid explicit "agree/disagree" reaction buttons — they create binary tribal signals. Prefer reactions that signal engagement type (e.g., "insightful", "needs evidence") if reactions are used at all
-
-**Phase to address:** Design (feed architecture and reaction model must be decided before build)
+**Phase that should address it:** Supabase Storage bucket setup phase — verify auth.jwt() ->> 'sub' works in storage policies before building upload UI
 
 ---
 
-## Cold Start / Bootstrap Problem
+### Pitfall 6: Public Hero Bucket URL Cache Busting on Photo Update
 
-### 9. The Empty Room Problem
+**What goes wrong:**
+Supabase Storage CDN caches public bucket URLs aggressively. If a hero photo for a slice is replaced with a new image using the same filename (e.g., `federal-hero.jpg`), the CDN continues serving the old image to all users until the cache expires — even if the database record is updated. Users clearing their browser cache does not help because the CDN cache is upstream. This is a known Supabase Storage behavior documented in GitHub discussion #5737.
+
+**Why it happens:**
+Public bucket objects are cached by the Supabase CDN (Cloudflare) with long TTLs. The CDN serves by URL path, so same-path = same cached object. There is no automatic CDN invalidation when a file is overwritten in Supabase Storage.
+
+**Consequences:**
+- Updated hero photos appear stale for hours or days
+- No user-visible error — the old photo simply continues showing
+- If slice-to-photo mapping is by filename, updates require a coordination dance between file upload and database record
+
+**Prevention:**
+Use unique filenames for each hero photo version (e.g., append a timestamp or UUID: `federal-hero-1712345678.jpg`). Store the full URL or storage path in the database record for the slice. When updating a hero, upload a new file with a new name, update the DB record, then optionally delete the old file. This eliminates CDN cache problems entirely. Do not rely on "replace in place" for public bucket assets.
 
 **Warning signs:**
-- New jurisdiction slice has fewer than 50 posts in the first two weeks
-- New users sign up, see no content, and never return (check 1-day and 7-day retention)
-- A single jurisdiction slice launches before reaching critical mass
+- Hero photo management design assumes overwriting same filename
+- No versioning strategy in the storage path scheme
+- Database schema stores only the slice name, not the specific photo path
 
-**Prevention strategy — civic-specific approaches:**
-
-**Seed with structured content, not synthetic posts:**
-- Partner with existing local civic institutions (neighborhood associations, city council offices, local newspapers) to import or link to publicly available meeting agendas, planning notices, and public comment periods as starter threads — these are jurisdiction-relevant and factually grounded
-- Pre-populate each jurisdiction level (Federal, State, Local, Neighborhood) with 3–5 pinned "founding threads" on perennial local issues (budget, zoning, transit, schools) so new users have scaffolding to respond to
-
-**Invite-first, not open registration:**
-- Launch each geographic slice only when a committed seed cohort (~50–100 users) has been recruited offline (civic groups, libraries, local orgs) — do not open public registration to a slice until this seed exists
-- The "atomic network" principle: one active slice is more valuable than ten empty ones. Resist the temptation to launch all jurisdictions simultaneously
-
-**Single-user utility:**
-- A user should be able to read and bookmark upcoming public meetings, local ordinances, and policy documents even before anyone else in their slice has posted — this gives value before network effects exist
-- Email digests of local government activity (auto-sourced from public data feeds where available) give users a reason to return even on quiet weeks
-
-**Milestone announcements:**
-- When a slice hits 100, 500, 1000 users, send a community-wide notification — this creates a sense of growing momentum and makes early members feel like founders
-
-**Phase to address:** Pre-launch (bootstrapping strategy must precede any public launch)
+**Phase that should address it:** Supabase Storage schema design phase — filename/path strategy must be decided before any photos are uploaded
 
 ---
 
-## Pseudonymity Pitfalls
+### Pitfall 7: CORS Preflight Failures From Civic Spaces to Compass/Accounts APIs
 
-### 10. Sockpuppet and Multi-Account Abuse
+**What goes wrong:**
+Civic Spaces (`civicspaces.empowered.vote`) will make cross-origin requests to `api.empowered.vote` for sidebar widget data. If the API's CORS configuration does not explicitly allow `civicspaces.empowered.vote` as an origin, all requests will fail with CORS errors — and crucially, requests with an `Authorization` header trigger a preflight `OPTIONS` request, which must also be allowed. The existing EV-CompassV2 app (`compass.empowered.vote`) likely IS in the CORS allowlist. Civic Spaces may not be.
+
+**Why it happens:**
+CORS `Access-Control-Allow-Origin: *` (wildcard) cannot be used with credentialed requests (`Authorization` header). The API must enumerate allowed origins explicitly. Adding a new consumer app (`civicspaces.empowered.vote`) requires an explicit backend change to `api.empowered.vote`.
+
+**Consequences:**
+- All sidebar API calls silently fail in production (work fine locally if API is dev mode with permissive CORS)
+- Network tab shows CORS errors, not 401/403 — may be misdiagnosed as auth failures
+- `publicFetch` calls (no Authorization header) may also fail if wildcard is not set
+
+**Prevention:**
+Before implementing any sidebar API calls, verify that `api.empowered.vote` allows `civicspaces.empowered.vote` as an origin. This is a backend change in EV-Accounts/EV-CompassV2 infrastructure — coordinate with the API team. Test with the production origin (not localhost) using a staging deploy or curl with `Origin: https://civicspaces.empowered.vote` header. Make this a prerequisite for the sidebar API integration phase.
 
 **Warning signs:**
-- Multiple accounts posting similar rhetoric or always appearing together in threads
-- Sudden influx of new accounts in a slice all taking the same position on a contentious thread
-- Account creation spikes correlated with specific political events
+- API calls succeed in development (localhost) but fail on staging/production
+- Browser console shows "CORS policy: No 'Access-Control-Allow-Origin' header"
+- First test of sidebar widget is done in production rather than verifying CORS first
 
-**Prevention strategy:**
-- The "one human, one Connected account" constraint is the platform's core defense — enforce it at the auth layer, not the app layer. Connected account verification must happen before any posting privileges are granted
-- Device fingerprinting and IP pattern analysis at registration can flag probable duplicates for human review (do not auto-ban — false positives harm legitimate users)
-- Rate-limit new account posting: accounts under 7 days old can read and react but cannot start top-level threads; this kills throwaway account value
-- Stanford research on sockpuppets found they receive significantly more downvotes and reports — surface these signals to moderators via a "new account flagging" dashboard even if you do not expose tolerance ratings publicly
-- Never expose pseudonyms to cross-slice search; a user's pseudonym in their neighborhood slice should not be findable by someone searching from a federal slice
-
-**Phase to address:** MVP (auth integration must include duplicate-account signals)
+**Phase that should address it:** API integration prerequisite phase — CORS verification before any sidebar widget code is written
 
 ---
 
-### 11. Pseudonym-to-Identity Deanonymization
+### Pitfall 8: Sidebar Causes IntersectionObserver to Miss Sentinel
+
+**What goes wrong:**
+`SliceFeedPanel` uses an `IntersectionObserver` watching a sentinel `div` at the bottom of the feed list to trigger infinite scroll (lines 51-63). The observer uses `{ threshold: 0.1 }` with no explicit `root`, defaulting to the viewport. When a sidebar is added and the feed column becomes narrower or gains a different scroll container, the IntersectionObserver may fire incorrectly (sentinel is "visible" in viewport even when the feed isn't scrolled near the bottom) or stop firing entirely (sentinel is outside the new scroll root).
+
+**Why it happens:**
+The IntersectionObserver root defaults to the viewport when no `root` is specified. After a layout change where the feed column has its own scroll container (required for sidebar layout), the viewport-relative observer no longer accurately detects when the user has scrolled to the bottom of the feed column's scroll area.
+
+**Consequences:**
+- Infinite scroll stops working — no more posts load even when user scrolls to bottom
+- Or infinite scroll fires too eagerly — loads next page immediately on tab switch
+- Bug only manifests with the sidebar layout, not in isolation
+
+**Prevention:**
+When implementing the two-column layout, update the `IntersectionObserver` in `SliceFeedPanel` to use `root: scrollRef.current` (the feed's scroll container) instead of the viewport default. Pass the `scrollRef` prop (already exists in the component interface) as the observer root. This correctly detects intersection within the scrollable feed column regardless of sidebar presence.
 
 **Warning signs:**
-- Users posting hyper-specific local details (street addresses, names of neighbors) that make identification trivial
-- Users whose posting patterns across threads allow triangulation of real identity
-- Screenshots of posts being shared outside the platform with "outing" intent
+- After sidebar addition, feed loads all posts at once without scrolling
+- After sidebar addition, "Load more" never triggers
+- IntersectionObserver constructor does not specify `root` option
 
-**Prevention strategy:**
-- Warn users at post-time when their content contains address-like patterns or full names (client-side regex heuristic; server-side secondary check)
-- Do not display precise location beyond GEOID jurisdiction — never show a neighborhood name that maps to fewer than ~500 residents
-- Jurisdiction GEOIDs should be displayed in human-readable form only as broad labels ("City Council District 7"), never as raw census tract codes that can be cross-referenced
-- Do not provide public post history browsable by pseudonym — this is the primary deanonymization vector. Allow viewing a user's posts only in the context of a specific thread, not as a profile page timeline
-
-**Phase to address:** MVP (data model and UI decisions that are hard to reverse)
+**Phase that should address it:** Layout implementation phase — must fix IntersectionObserver root when changing scroll container structure
 
 ---
 
-### 12. Pseudonymity Enabling Consequence-Free Harassment
+### Pitfall 9: Mobile Layout Regression From Desktop-First Sidebar Implementation
+
+**What goes wrong:**
+The sidebar is a desktop-only feature (two-column at desktop, single-column at mobile). If the sidebar is implemented with hardcoded layout classes rather than responsive Tailwind breakpoints, mobile users see a broken layout: sidebar and feed stacked in an unusable way, or the feed column too narrow on medium-width devices.
+
+**Why it happens:**
+It is faster to implement desktop layout first and add mobile as an afterthought. In a CSS-hidden mount system, the same component renders for both desktop and mobile — there is no separate mobile component. Forgetting to add `md:grid-cols-[1fr_300px]` and testing only at desktop width means the regression ships.
+
+**Consequences:**
+- Mobile users see two cramped columns instead of single-column feed
+- FAB (floating action button) may be obscured by sidebar on narrow screens
+- Scroll preservation may behave differently between layouts if not tested
+
+**Prevention:**
+Design sidebar layout mobile-first. The base case (no breakpoint prefix) should be single-column. The sidebar column should use `hidden md:block` to disappear below the breakpoint. The feed column should be `w-full` by default, `col-span-1` at desktop. Write the Tailwind classes for the two-column wrapper as `grid grid-cols-1 md:grid-cols-[1fr_theme(spacing.80)]` or equivalent. Test at 375px, 768px, and 1280px before considering layout complete.
 
 **Warning signs:**
-- Reports of coordinated personal attacks on specific real-world identities (e.g., a local candidate or official)
-- Users reporting they feel unsafe returning after a specific thread
-- The same targets appear repeatedly across unrelated threads
+- Layout implementation tested only in a maximized browser window
+- Sidebar wrapper uses fixed pixel widths without responsive variants
+- No visual test at mobile viewport before merging
 
-**Prevention strategy:**
-- Tolerance rating (never shown publicly per platform values) should trigger automatic posting restrictions when it crosses thresholds — the user does not see the score, but experiences friction (e.g., posts go to a 1-hour review queue rather than immediate publishing)
-- Maintain a "targeting pattern" detector: if >3 posts in 7 days from one account mention the same real-world name in a negative context, flag for human review
-- Public officials posting in their official capacity should have a verified badge option — this actually reduces harassment of them as pseudonymous actors, because impersonation is clearly marked
-
-**Phase to address:** Alpha
+**Phase that should address it:** Layout implementation phase — mobile and desktop must be tested together, not sequentially
 
 ---
 
-## Scale Transition Pitfalls
+## Minor Pitfalls
 
-### 13. The 6k Cap Enforcement Problem
-
-**Warning signs:**
-- Slice approaching 5,800 users with no slice-split process designed
-- Users already in a full slice attempting to re-register under a different email
-- Admins manually managing waitlists with no tooling
-
-**Prevention strategy:**
-- Hard-code the 6k cap in the database as a check constraint on the slice membership table, not just application logic — app-layer limits have race conditions under concurrent registrations
-- Design the slice-split workflow before you need it: when a slice hits ~5,000, trigger a review process to divide it geographically (e.g., split a city slice into north/south neighborhood slices)
-- Communicate the cap to users at signup: "This community is intentionally limited to ~6,000 members per geographic area." Users who understand the reason accept waitlists more readily
-- Provide a waitlist with position transparency and estimated wait time; a hidden waitlist causes users to assume the product is broken
-
-**Phase to address:** MVP (constraint in schema; split workflow before Beta)
+Mistakes that cause annoyance but are fixable.
 
 ---
 
-### 14. Second Slice Creation Breaks Shared Assumptions
+### Pitfall 10: Compass Score Widget Shows Stale Data After User Answers Questions
 
-**Warning signs:**
-- Content or users from Slice A appearing in Slice B's feed due to a shared table without adequate RLS scoping
-- Admin tooling built for "one slice" that crashes or produces wrong counts when a second exists
-- Users confused about which slice they belong to and why
+**What goes wrong:**
+The Compass score widget in the sidebar fetches from `api.empowered.vote/compass/answers` (or a summary endpoint). If the user has Empower Compass open in another tab and updates their answers, the Civic Spaces sidebar continues showing the old score until the page is refreshed. This is cosmetically wrong but not harmful.
 
-**Prevention strategy:**
-- Design the data model for N slices from day one, even if only one slice launches. Every table referencing user content must have a `slice_id` or `jurisdiction_geoid` foreign key — retrofitting this after launch is the most expensive possible migration
-- RLS policies must include slice scoping as a predicate from the start; adding it later requires auditing every policy
-- Test with two slices in staging before launching the second in production
-- Users should have a clear, persistent UI indicator of which slice they are currently viewing — confusion about context is the first user complaint in multi-slice rollouts
+**Prevention:**
+Set an appropriate `staleTime` and `refetchOnWindowFocus: true` on the compass score query so it refreshes when the user returns to the Civic Spaces tab. Do not set `staleTime: Infinity` for user-specific compass data.
 
-**Phase to address:** Design / MVP schema (never retrofit)
+**Phase that should address it:** Sidebar widget implementation phase
 
 ---
 
-### 15. Community Identity Dilution at Growth
+### Pitfall 11: Hero Photo Missing State Causes Layout Jump
 
-**Warning signs:**
-- Early members report that "the community doesn't feel the same"
-- Reply rates drop as the user base grows (the paradox of more users, less connection)
-- Newcomers do not learn community norms; oldtimers become resentful
+**What goes wrong:**
+If a slice has no hero photo yet (no record in the DB, or Supabase Storage URL is null), the hero banner area collapses to zero height, then snaps to full height if a default placeholder is shown. This causes CLS and a jarring visual pop.
 
-**Prevention strategy:**
-- Pin a "Community Compact" (norms, purpose, values) at the top of every slice — this is the cultural onboarding document. Review and re-ratify it annually via community vote
-- Milestone notifications (100, 500, 1k members) create shared history and make early members feel like founders rather than squatters
-- Research confirms communities become less linguistically distinctive as they grow — proactively surface jurisdiction-specific topics (local elections, budget cycles) to maintain the "this is about our place" identity
+**Prevention:**
+Always render the hero banner area with a fixed height regardless of whether a photo is loaded. Use a solid color fallback (the slice's brand color or a neutral gradient) as the default state. Never conditionally render the banner container — always render the container, conditionally render the image inside it.
 
-**Phase to address:** Alpha → Beta transition
+**Phase that should address it:** Hero banner implementation phase
 
 ---
 
-## Auth Integration Pitfalls
+### Pitfall 12: Supabase Storage `getPublicUrl` Returns HTTP in Local Dev
 
-### 16. JWT Token Expiry Race Conditions
+**What goes wrong:**
+`supabase.storage.from('hero-photos').getPublicUrl('...')` returns URLs based on `VITE_SUPABASE_URL`. In local development, this is `http://127.0.0.1:54321`, not `https://`. If the frontend is served on HTTPS (or deployed), mixed-content browser policy blocks HTTP image requests. Hero images load locally but fail on staging/production.
 
-**Warning signs:**
-- Users randomly logged out mid-session; errors appear in logs around token refresh calls
-- Multi-tab users experience auth failures where single-tab users do not
-- Refresh token rotation logs show duplicate refresh attempts within milliseconds
+**Prevention:**
+Ensure `VITE_SUPABASE_URL` in production points to the HTTPS Supabase project URL. In local dev, be aware that storage URLs are HTTP — this is expected and not a bug to fix in code. Do not hardcode `http://` → `https://` URL replacement in application code; fix the environment variable instead.
 
-**Prevention strategy:**
-- Implement a client-side refresh mutex: only one in-flight refresh at a time. Queue all other requests that need auth and replay them after refresh succeeds
-- Subtract a 30-second buffer from the JWT `exp` claim when deciding whether to proactively refresh — this prevents the "expired by the time the request arrives at the server" race
-- Store refresh tokens in httpOnly cookies, not localStorage — this prevents XSS-based token theft and eliminates a class of multi-tab conflict
-- On refresh failure, redirect to a re-auth flow immediately rather than retrying — retry loops on a revoked token burn API quota and confuse users
-
-**Phase to address:** MVP (auth layer)
+**Phase that should address it:** Supabase Storage setup and environment configuration phase
 
 ---
 
-### 17. Jurisdiction Claims Becoming Stale
+## Phase-Specific Warnings
 
-**Warning signs:**
-- A user who moved from one city to another still sees their old jurisdiction's slice content
-- GEOID embedded in JWT does not reflect a jurisdiction change the user made in their profile
-- RLS policies that use JWT claims for jurisdiction reject valid requests after a user's jurisdiction updates
-
-**Prevention strategy:**
-- Never embed jurisdiction GEOID directly in the JWT as a long-lived claim. Store jurisdiction in the database and look it up via RLS `auth.uid()` at query time — this ensures changes take effect immediately without requiring token rotation
-- If jurisdiction must be in the JWT for performance (edge functions), implement a "force refresh" trigger on jurisdiction change that invalidates the current session token
-- Provide a clear UI flow for users to update their jurisdiction: verify the new GEOID (via address lookup against census GEOID data), apply immediately, and log the change with timestamp for audit
-
-**Phase to address:** MVP (auth + data model)
-
----
-
-### 18. External Auth Provider Outage Causing Total Login Failure
-
-**Warning signs:**
-- Auth provider's status page shows degraded service; your login page returns 503
-- Spike in "login failed" support tickets with no change on your end
-- Users who are already logged in are forced to re-auth mid-session when tokens cannot be refreshed
-
-**Prevention strategy:**
-- Set long-lived session tokens (7–30 days) so already-authenticated users are not affected by short provider outages
-- Build a graceful degraded-auth UI: "Login is temporarily unavailable. If you are already logged in, you can continue reading." — do not show a blank error page
-- Monitor the auth provider's API health as part of your own uptime monitoring, not just your own endpoints
-- Cache the last-known valid user state locally (e.g., in the session store) so the app does not fully break during a brief provider outage
-
-**Phase to address:** Alpha (before public launch)
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| Sidebar widget hooks | 6x API calls on mount (Pitfall 1) | Hoist hooks above panel loop |
+| Cross-app API integration | Token key mismatch cs_token vs ev_token (Pitfall 2) | Write Civic Spaces-native fetch utility |
+| Cross-app API integration | CORS not configured for civicspaces origin (Pitfall 7) | Verify CORS before writing code |
+| Layout restructure | Scroll preservation regression (Pitfall 3) | Test tab-switch scroll restore immediately |
+| Layout restructure | IntersectionObserver root mismatch (Pitfall 8) | Specify root: scrollRef.current |
+| Hero banner | 6x image requests for hidden panels (Pitfall 4) | Conditional hero or CSS content-visibility |
+| Hero banner | Missing state causes CLS (Pitfall 11) | Fixed-height banner container always rendered |
+| Supabase Storage setup | RLS policy using auth.uid() fails (Pitfall 5) | Use auth.jwt() ->> 'sub' |
+| Supabase Storage setup | Cache busting on photo update (Pitfall 6) | Unique filenames with timestamp/UUID |
+| Supabase Storage setup | getPublicUrl returns HTTP locally (Pitfall 12) | Environment variable hygiene |
+| Responsive layout | Mobile regression from desktop-first (Pitfall 9) | Mobile-first Tailwind, test at 375px |
+| Sidebar compass widget | Stale score after answer update (Pitfall 10) | refetchOnWindowFocus: true |
 
 ---
 
-### 19. Scope Creep in Auth Token Permissions
+## Sources
 
-**Warning signs:**
-- The Connected auth token grants broader scopes than the app actually uses
-- A compromised token could read or write data in external systems beyond what Civic Spaces needs
-- Token scopes expand over time as features are added without audit
-
-**Prevention strategy:**
-- Request the minimum required scopes from the Connected auth API at integration time; document every scope and its justification
-- Audit scopes whenever a new feature is added that touches auth
-- Never store the raw auth provider token in your own database — store only the normalized user identifier and the claims your RLS policies actually use
-
-**Phase to address:** MVP
-
----
-
-## Supabase RLS Pitfalls
-
-### 20. RLS Disabled by Default on New Tables
-
-**Warning signs:**
-- New table created during a feature sprint; developer tests in SQL Editor (which bypasses RLS) and declares it working
-- Supabase dashboard's Security Advisor shows tables without RLS enabled
-- In January 2025, 170+ production apps were found to have fully exposed databases because RLS was never enabled
-
-**Prevention strategy:**
-- Add a CI check (e.g., a test that queries Supabase's `pg_tables` and fails if any public-schema table has `rowsecurity = false`) — this catches the mistake before it reaches production
-- Create a template migration file that always includes `ALTER TABLE ... ENABLE ROW LEVEL SECURITY;` as the last line of any new table migration
-- Never test RLS policies from the Supabase SQL Editor — it runs as a superuser and bypasses all policies. Always test from the client SDK using a test user's JWT
-
-**Phase to address:** MVP (process, not feature)
-
----
-
-### 21. Relying on `user_metadata` for Authorization
-
-**Warning signs:**
-- RLS policies reference `auth.jwt() -> 'user_metadata'` for role or jurisdiction checks
-- Users can update their own metadata via the Supabase client SDK and gain unintended access
-
-**Prevention strategy:**
-- Use `raw_app_meta_data` (not `user_metadata`) for any claims that affect authorization — `raw_app_meta_data` can only be written by the service role, not by the user
-- Better still: store authorization data (role, jurisdiction GEOID, slice membership) in your own `profiles` table and look it up in RLS policies via `auth.uid()` — this gives you full control and auditability
-- Audit every RLS policy for references to `user_metadata`; replace with database-side lookups
-
-**Phase to address:** MVP
-
----
-
-### 22. Missing SELECT Policy Causes Cryptic INSERT Failures
-
-**Warning signs:**
-- INSERT operations return "new row violates row-level security policy" even though an INSERT policy exists
-- The error appears only when the INSERT result is returned to the client (i.e., with `RETURNING`)
-
-**Prevention strategy:**
-- PostgreSQL SELECTs newly inserted rows to return them to the client. Without a matching SELECT policy, this internal SELECT fails — the error message misleadingly points to the INSERT policy
-- Always create both INSERT and SELECT policies together; test with `INSERT ... RETURNING *` from a client SDK context
-- Document this behavior in the team's internal Supabase runbook so future developers do not spend hours debugging it
-
-**Phase to address:** MVP
-
----
-
-### 23. Unindexed RLS Policy Columns Causing Full Table Scans
-
-**Warning signs:**
-- Feed queries are slow despite simple WHERE clauses
-- `EXPLAIN ANALYZE` shows sequential scans on large tables
-- Performance degrades in a linear relationship with table row count
-
-**Prevention strategy:**
-- Every column referenced in an RLS policy predicate must have an index. For Civic Spaces this means at minimum: `user_id`, `jurisdiction_geoid`, `slice_id`, `created_at`
-- Composite indexes (e.g., `(jurisdiction_geoid, created_at DESC)`) dramatically outperform single-column indexes for feed queries that filter by jurisdiction and sort by time
-- Run `EXPLAIN ANALYZE` on every feed query before MVP launch; a query plan showing `Seq Scan` on a table with RLS is a red flag
-
-**Phase to address:** MVP
-
----
-
-### 24. Service Role Key Exposed in Client Code
-
-**Warning signs:**
-- Service role key found in client-side JavaScript bundle (searchable via browser DevTools)
-- Environment variable `SUPABASE_SERVICE_ROLE_KEY` referenced in a frontend file
-- A security scan or dependency audit flags the key
-
-**Prevention strategy:**
-- The service role key bypasses all RLS. Treat it as a root database password — it belongs only in server-side code (Edge Functions, backend API routes) and never in any file that ships to the browser
-- Use `SUPABASE_ANON_KEY` for all client-side Supabase calls; RLS policies are the permission layer
-- Add a pre-commit hook that rejects commits containing the service role key string
-
-**Phase to address:** MVP
-
----
-
-### 25. Firebase-Style Third-Party JWT Shared Key Risk
-
-**Warning signs:**
-- Using a third-party auth provider whose JWT signing keys are shared across all their customers (e.g., Firebase, Clerk in certain configurations)
-- No `aud` (audience) claim check in RLS policies that use JWT claims
-- A malicious actor from another app on the same auth provider could forge access
-
-**Prevention strategy:**
-- When using third-party auth with Supabase, always validate the `aud` claim in RLS policies to ensure tokens are scoped to your project specifically
-- Review the Supabase docs on third-party auth providers — Firebase in particular uses shared signing keys across all Firebase projects, meaning tokens from other Firebase projects are cryptographically valid against your Supabase instance unless you add audience restrictions
-- Prefer Supabase's own auth or an auth provider that issues project-scoped signing keys
-
-**Phase to address:** MVP (auth architecture decision)
-
----
-
-### 26. RLS Policies Not Covering Storage Objects
-
-**Warning signs:**
-- Users can access uploaded images or attachments from other jurisdiction slices via direct URL
-- Supabase Storage bucket is set to "public" without RLS policies on the `storage.objects` table
-
-**Prevention strategy:**
-- Supabase Storage enforces RLS on the `storage.objects` table separately from your application tables — enabling RLS on your app tables does not automatically protect storage
-- Define storage policies that restrict object access by the `owner` field and jurisdiction; test by attempting to access another user's uploaded file with a different user's JWT
-- For sensitive attachments, generate signed URLs server-side with short TTLs rather than relying solely on Storage RLS
-
-**Phase to address:** MVP (whenever file/image upload is introduced)
-
----
-
-*Researched: 2026-03-27*
+- Codebase: `C:/Civic Spaces/src/components/AppShell.tsx` (CSS-hidden panel pattern, scroll ref system)
+- Codebase: `C:/Civic Spaces/src/components/SliceFeedPanel.tsx` (IntersectionObserver, scroll container)
+- Codebase: `C:/Civic Spaces/src/hooks/useAuth.ts` (cs_token key, token storage)
+- Codebase: `C:/Civic Spaces/src/lib/supabase.ts` (accessToken: cs_token)
+- Codebase: `C:/EV-CompassV2/src/lib/auth.js` (ev_token key, apiFetch, publicFetch)
+- Codebase: `C:/Civic Spaces/supabase/migrations/20260327000002_rls.sql` (auth.jwt() ->> 'sub' pattern)
+- [Supabase Storage Bucket Fundamentals](https://supabase.com/docs/guides/storage/buckets/fundamentals) — public vs private bucket access (HIGH confidence)
+- [Supabase Storage CDN Fundamentals](https://supabase.com/docs/guides/storage/cdn/fundamentals) — cache eviction, per-region behavior (HIGH confidence)
+- [Supabase Storage RLS + Third-Party JWT](https://github.com/orgs/supabase/discussions/33852) — role claim must be "authenticated", auth.uid() returns NULL for external JWTs (MEDIUM confidence)
+- [TanStack Query deduplication](https://github.com/TanStack/query/discussions/608) — same-key deduplication behavior, staleTime impact on refetch (HIGH confidence)
+- [Supabase CDN cache busting discussion](https://github.com/orgs/supabase/discussions/5737) — overwriting same filename does not bust CDN cache (MEDIUM confidence)
+- [Supabase Storage Access Control](https://supabase.com/docs/guides/storage/security/access-control) — RLS on storage.objects (HIGH confidence)
