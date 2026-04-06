@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** v3.0 — UI/UX Redesign (Phase 9: Hero Banner & Layout Shell)
+**Current focus:** v3.0 — UI/UX Redesign (Phase 10: Photos & Storage)
 
 ## Current Position
 
-Phase: 9 of 12 (Hero Banner & Layout Shell)
-Plan: 3 of 3 in current phase
-Status: Phase complete — all 3 plans done, user-verified
-Last activity: 2026-04-06 — Completed 09-03 (HeroBanner integrated, layout shell verified)
+Phase: 10 of 12 (Photos & Storage)
+Plan: 1 of 2 in current phase
+Status: In progress — 10-01 complete
+Last activity: 2026-04-06 — Completed 10-01 (Storage bucket, photo_url column, HeroBanner wiring)
 
-Next up: Phase 10 — Slice Data & Photos (replace placeholder photos, real taglines, siblingTotal pill)
+Next up: Plan 10-02 — Upload Bloomington photos to slice-photos bucket and seed photo_url DB rows
 
-Progress: [████░░░░░░] 33% (v2.0 + Phase 9 complete)
+Progress: [█████░░░░░] 42% (v2.0 + Phase 9 + Phase 10 Plan 01 complete)
 
 ## Performance Metrics
 
@@ -41,6 +41,10 @@ Progress: [████░░░░░░] 33% (v2.0 + Phase 9 complete)
 - [09-02] Unsplash placeholder photos in sliceCopy.ts — Phase 10 replaces with Supabase Storage CDN URLs.
 - [09-03] HeroBanner rendered outside CSS-hidden tab divs — swaps via props, never remounts, preserves scroll-preservation pattern.
 - [09-03] Feed panel wrapper uses flex-1 overflow-hidden min-h-0 — hero has natural height, feed scrolls independently below it.
+- [10-01] placeholderPhoto renamed to defaultPhoto in sliceCopy.ts — permanent type defaults, not temporary placeholders.
+- [10-01] Storage RLS: public=true bucket flag is not sufficient; explicit SELECT policy on storage.objects is also required to avoid 403 on public reads.
+- [10-01] sliceCopy.ts type defaults use external Unsplash URLs only — no VITE_SUPABASE_URL dependency; DB CDN URLs come from useAllSlices hook exclusively.
+- [10-01] HeroBanner photo resolution: photoUrl (DB) ?? copy.defaultPhoto (type default) ?? null (gray fallback).
 
 ### Blockers/Concerns
 
@@ -66,5 +70,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-06
-Stopped at: 09-03-PLAN.md complete — Phase 9 done, user-verified
+Stopped at: 10-01-PLAN.md complete — Storage bucket, photo_url column, HeroBanner wiring done
 Resume file: None
