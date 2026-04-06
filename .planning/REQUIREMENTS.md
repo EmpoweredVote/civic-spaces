@@ -19,8 +19,8 @@
 
 ### Sidebar
 
-- [ ] **SIDE-01**: User sees an Issue Alignment Compass widget showing their calibrated civic radar chart pulled from the Empower pillar API
-- [ ] **SIDE-02**: If user's compass is not yet calibrated, compass widget shows a prompt with a link to the Empower calibration flow
+- [ ] **SIDE-01**: If user is authenticated with the Empower Compass (ev_token available via SSO cookie), they see a live radar chart of their calibrated civic compass in the sidebar
+- [ ] **SIDE-02**: If ev_token is unavailable or compass is uncalibrated (fewer than 3 answered topics), the widget shows a prompt card: "Set up your Civic Compass" with a "Calibrate Now" link to compassv2.empowered.vote/results
 - [ ] **SIDE-03**: User sees a 'Representing This Community' widget listing elected officials relevant to this slice's jurisdiction level
 - [ ] **SIDE-04**: Each rep card shows name, title, party badge, jurisdiction level badge, and a 'View Profile' link
 - [ ] **SIDE-05**: User sees a 'Tools for This Community' widget with icon cards for Fallacy Finders, Treasury Tracker, Read & Rank, and Civic Trivia (links to EV ecosystem; gracefully degraded if tool not yet live)
