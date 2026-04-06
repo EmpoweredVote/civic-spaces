@@ -161,11 +161,14 @@ const COUNTY_NAMES: Record<string, string> = Object.fromEntries(
 /**
  * Resolves a Wikipedia article title for the given slice type and geoid.
  *
- * - federal/state: returns the state name (from first 2 FIPS digits)
- * - local (5-digit county FIPS): returns '{County} County, {State}'
+ * - federal: always "United States Capitol" (landmark photo, works for any district)
+ * - state: "{State} State Capitol" (e.g. "California State Capitol" → building photo)
+ * - local (5-digit county FIPS): returns '{County} County, {State}' if county is in
+ *   our lookup table; returns null otherwise (hook will call Census API as fallback)
  * - neighborhood/unified/volunteer: returns null (use sliceCopy defaultPhoto)
  *
- * Returns null if no mapping is found (Wikipedia fetch will be skipped).
+ * Returns null if no mapping is found (Wikipedia fetch will be skipped or
+ * deferred to the Census API fallback in useWikiHeroImage).
  */
 export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | null {
   const stateFips = geoid.slice(0, 2)
@@ -173,15 +176,20 @@ export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | 
 
   switch (sliceType) {
     case 'federal':
+      // Congressional districts vary but the Capitol photo is always appropriate
+      return 'United States Capitol'
+
     case 'state':
-      return stateName
+      // State capitol building photo is far better than the state flag/seal
+      return stateName ? `${stateName} State Capitol` : null
 
     case 'local': {
-      if (geoid.length !== 5) return stateName
+      if (geoid.length !== 5 || !stateName) return null
       const countyFips = geoid.slice(2)
       const countyKey = `${stateFips}-${countyFips}`
       const countyName = COUNTY_NAMES[countyKey]
-      if (!countyName || !stateName) return stateName
+      // Return null (not state fallback) so hook can try Census API for unknown counties
+      if (!countyName) return null
       return `${countyName} County, ${stateName}`
     }
 
@@ -191,4 +199,13 @@ export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | 
     default:
       return null
   }
+}
+
+/**
+ * Decodes the state FIPS prefix from any geoid.
+ * Used by the hook to build Census API requests for unknown counties.
+ */
+export function stateFipsFromGeoid(geoid: string): string | null {
+  const fips = geoid.slice(0, 2)
+  return STATE_FIPS[fips] ? fips : null
 }
