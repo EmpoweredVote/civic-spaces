@@ -176,7 +176,7 @@ Plans:
 | 6. Hub Expansion | v2.0 | — | Complete | 2026-04-04 |
 | 7. Special Slices | v2.0 | — | Complete | 2026-04-04 |
 | 8. Profile Pages | v2.0 | 3/3 | Complete | 2026-04-04 |
-| 9. Hero Banner & Layout Shell | v3.0 | 0/3 | Planning complete | — |
+| 9. Hero Banner & Layout Shell | v3.0 | 3/3 | Complete | 2026-04-05 |
 | 10. Photos & Storage | v3.0 | 0/2 | Not started | — |
 | 11. Sidebar Widgets | v3.0 | 0/4 | Not started | — |
 | 12. Cleanup | v3.0 | 0/1 | Not started | — |

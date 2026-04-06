@@ -8,14 +8,14 @@
 
 ### Hero Banner
 
-- [ ] **HERO-01**: User sees a full-width hero banner at the top of each slice tab — geo photo with slice name, tagline, pill badges (level, jurisdiction, member count, slice number), and a 2-sentence description overlaid
-- [ ] **HERO-02**: Hero photo changes when user switches slice tabs
-- [ ] **HERO-03**: Active slice tab is visually highlighted (brand teal) in the tab bar
+- [x] **HERO-01**: User sees a full-width hero banner at the top of each slice tab — geo photo with slice name, tagline, pill badges (level, jurisdiction, member count, slice number), and a 2-sentence description overlaid
+- [x] **HERO-02**: Hero photo changes when user switches slice tabs
+- [x] **HERO-03**: Active slice tab is visually highlighted (brand teal) in the tab bar
 
 ### Layout
 
-- [ ] **LAYOUT-01**: On desktop, slice content uses a two-column layout — feed (~65%) left, sidebar (~35%) right
-- [ ] **LAYOUT-02**: On mobile, sidebar is hidden and feed is full-width single column
+- [x] **LAYOUT-01**: On desktop, slice content uses a two-column layout — feed (~65%) left, sidebar (~35%) right
+- [x] **LAYOUT-02**: On mobile, sidebar is hidden and feed is full-width single column
 
 ### Sidebar
 
@@ -67,11 +67,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HERO-01 | Phase 9 | Pending |
-| HERO-02 | Phase 9 | Pending |
-| HERO-03 | Phase 9 | Pending |
-| LAYOUT-01 | Phase 9 | Pending |
-| LAYOUT-02 | Phase 9 | Pending |
+| HERO-01 | Phase 9 | Complete |
+| HERO-02 | Phase 9 | Complete |
+| HERO-03 | Phase 9 | Complete |
+| LAYOUT-01 | Phase 9 | Complete |
+| LAYOUT-02 | Phase 9 | Complete |
 | PHOTO-01 | Phase 10 | Pending |
 | PHOTO-02 | Phase 10 | Pending |
 | SIDE-01 | Phase 11 | Pending |
