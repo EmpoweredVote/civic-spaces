@@ -95,10 +95,10 @@ export default function AppShell() {
   }, [activeTab])
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-white dark:bg-gray-950">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
-        <h1 className="text-lg font-semibold text-blue-600">Civic Spaces</h1>
+      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+        <h1 className="text-lg font-semibold text-blue-600 dark:text-blue-400">Civic Spaces</h1>
 
         {/* Social nav icons — only when authenticated */}
         {isAuthenticated && (
@@ -183,7 +183,7 @@ export default function AppShell() {
       </header>
 
       {/* Content */}
-      <main className="flex flex-col flex-1 overflow-hidden">
+      <main className="flex flex-col flex-1 overflow-hidden min-h-0">
         {authLoading && (
           <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
             Loading&hellip;
@@ -219,48 +219,61 @@ export default function AppShell() {
               showVolunteerTab={showVolunteerTab}
             />
 
-            {/* All FEED_TABS feeds mounted simultaneously — CSS hidden preserves scroll and React Query cache */}
-            {FEED_TABS.map((tabKey) => {
-              const slice = slices[tabKey]
-              if (!slice) return null
-              return (
-                <div
-                  key={tabKey}
-                  className={activeTab === tabKey ? 'flex flex-col flex-1 overflow-hidden' : 'hidden'}
-                >
-                  <SliceFeedPanel
-                    sliceId={slice.id}
-                    sliceName={TAB_LABELS[tabKey]}
-                    siblingIndex={slice.siblingIndex}
-                    activePostId={activePostIds[tabKey]}
-                    onNavigateToThread={(postId) => {
-                      setScrollToLatestMap(prev => ({ ...prev, [tabKey]: false }))
-                      setActivePostIds(prev => ({ ...prev, [tabKey]: postId }))
-                    }}
-                    scrollToLatest={scrollToLatestMap[tabKey]}
-                    scrollRef={scrollRefs.current[tabKey]}
-                  />
-                </div>
-              )
-            })}
+            {/* Two-column grid: feed left (~65%), sidebar right (~35%) on desktop; single column on mobile */}
+            <div className="grid grid-cols-1 md:grid-cols-[65%_35%] flex-1 overflow-hidden min-h-0">
+              {/* Feed column */}
+              <div className="flex flex-col overflow-hidden min-h-0">
+                {/* All FEED_TABS feeds mounted simultaneously — CSS hidden preserves scroll and React Query cache */}
+                {FEED_TABS.map((tabKey) => {
+                  const slice = slices[tabKey]
+                  if (!slice) return null
+                  return (
+                    <div
+                      key={tabKey}
+                      className={activeTab === tabKey ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}
+                    >
+                      <SliceFeedPanel
+                        sliceId={slice.id}
+                        sliceName={TAB_LABELS[tabKey]}
+                        siblingIndex={slice.siblingIndex}
+                        activePostId={activePostIds[tabKey]}
+                        onNavigateToThread={(postId) => {
+                          setScrollToLatestMap(prev => ({ ...prev, [tabKey]: false }))
+                          setActivePostIds(prev => ({ ...prev, [tabKey]: postId }))
+                        }}
+                        scrollToLatest={scrollToLatestMap[tabKey]}
+                        scrollRef={scrollRefs.current[tabKey]}
+                      />
+                    </div>
+                  )
+                })}
 
-            {/* Volunteer feed — conditionally rendered for users with volunteer slice */}
-            {showVolunteerTab && slices['volunteer'] && (
-              <div className={activeTab === 'volunteer' ? 'flex flex-col flex-1 overflow-hidden' : 'hidden'}>
-                <SliceFeedPanel
-                  sliceId={slices['volunteer'].id}
-                  sliceName="Volunteer"
-                  siblingIndex={slices['volunteer'].siblingIndex}
-                  activePostId={activePostIds['volunteer']}
-                  onNavigateToThread={(postId) => {
-                    setScrollToLatestMap(prev => ({ ...prev, volunteer: false }))
-                    setActivePostIds(prev => ({ ...prev, volunteer: postId }))
-                  }}
-                  scrollToLatest={scrollToLatestMap['volunteer']}
-                  scrollRef={scrollRefs.current['volunteer']}
-                />
+                {/* Volunteer feed — conditionally rendered for users with volunteer slice */}
+                {showVolunteerTab && slices['volunteer'] && (
+                  <div className={activeTab === 'volunteer' ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}>
+                    <SliceFeedPanel
+                      sliceId={slices['volunteer'].id}
+                      sliceName="Volunteer"
+                      siblingIndex={slices['volunteer'].siblingIndex}
+                      activePostId={activePostIds['volunteer']}
+                      onNavigateToThread={(postId) => {
+                        setScrollToLatestMap(prev => ({ ...prev, volunteer: false }))
+                        setActivePostIds(prev => ({ ...prev, volunteer: postId }))
+                      }}
+                      scrollToLatest={scrollToLatestMap['volunteer']}
+                      scrollRef={scrollRefs.current['volunteer']}
+                    />
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Sidebar column — hidden on mobile, placeholder on desktop */}
+              <div className="hidden md:flex flex-col border-l border-gray-200 dark:border-gray-700 overflow-y-auto">
+                <div className="p-4 text-sm text-gray-400 dark:text-gray-500">
+                  Sidebar coming in Phase 11
+                </div>
+              </div>
+            </div>
           </>
         )}
       </main>

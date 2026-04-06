@@ -1,9 +1,12 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-civic-blue: #2563eb;
   --color-civic-blue-dark: #1d4ed8;
   --color-civic-gray: #6b7280;
   --color-civic-gray-light: #f3f4f6;
   --color-civic-border: #e5e7eb;
+  --color-civic-teal: oklch(60% 0.118 184.704);
 }
