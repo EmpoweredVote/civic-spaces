@@ -9,14 +9,14 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 10 of 12 (Photos & Storage) — COMPLETE
-Plan: 2 of 2 — both plans done
-Status: Phase 10 complete
-Last activity: 2026-04-06 — Completed 10-02-PLAN.md (Wikipedia hero images + jurisdiction names)
+Phase: 11 of 12 (Sidebar Widgets) — In progress
+Plan: 1 of 4 — 11-01 complete
+Status: In progress
+Last activity: 2026-04-07 — Completed 11-01-PLAN.md (sidebar foundation + hook hoisting architecture)
 
-Next up: Phase 11 — Sidebar Widgets (confirm CORS/API pre-conditions before starting)
+Next up: Phase 11 Plan 02 — Compass Widget
 
-Progress: [█████░░░░░] 50% (v2.0 + Phases 9 + 10 complete)
+Progress: [█████░░░░░] ~55% (v2.0 + Phases 9 + 10 complete, Phase 11 Plan 01 done)
 
 ## Performance Metrics
 
@@ -52,12 +52,16 @@ Progress: [█████░░░░░] 50% (v2.0 + Phases 9 + 10 complete)
 - [10-02] federal slice Wikipedia: congressional district -> US Capitol; state slice -> "{State} State Capitol".
 - [10-02] PostgREST schema cache: after DDL changes, may need NOTIFY pgrst, 'reload schema' and brief wait before new columns are queryable.
 - [10-02] Unified slice backfilled to all existing connected users (BloomingtonVoter and Kades) after fixing missing Phase 7 CHECK constraint in production (applied 2026-04-06).
+- [11-01] Hook hoisting implemented: useCompassData + useRepresentatives called at AppShell level, props drilled to Sidebar/SidebarMobile — prevents 6x API calls from simultaneous feed panel mounts.
+- [11-01] party field omitted from PoliticianFlatRecord TypeScript type — anti-partisan policy enforced at the type layer.
+- [11-01] SidebarMobile collapsed by default — feed is primary on mobile, sidebar is supplemental.
+- [11-01] WidgetCard is the single extensible container for all widgets — Plans 02-04 replace placeholder children only.
 
 ### Blockers/Concerns
 
-- Phase 11 pre-condition: Confirm `civicspaces.empowered.vote` is in `api.empowered.vote` CORS allowlist before any sidebar API work begins.
-- Phase 11 pre-condition: Confirm Empower pillar compass API endpoint/response shape before Compass widget implementation.
-- Phase 11 pre-condition: Confirm accounts API rep data fields available at `GET /api/essentials/representatives/me` before Representatives widget implementation.
+- Phase 11 pre-condition: Confirm `civicspaces.empowered.vote` is in `api.empowered.vote` CORS allowlist before Plans 02-03 go live (hooks are written but will fail CORS if not whitelisted).
+- Phase 11 Plan 02 pre-condition: Confirm Empower pillar compass API endpoint/response shape matches types in compass.ts before Compass widget implementation.
+- Phase 11 Plan 03 pre-condition: Confirm accounts API rep data fields match PoliticianFlatRecord type at `GET /api/essentials/representatives/me` before Representatives widget implementation.
 
 ### Known Tech Debt (addressed in Phase 12)
 
@@ -76,6 +80,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-06
-Stopped at: Completed 10-02-PLAN.md — Phase 10 done
+Last session: 2026-04-07
+Stopped at: Completed 11-01-PLAN.md — sidebar foundation, hook hoisting, WidgetCard containers
 Resume file: None
