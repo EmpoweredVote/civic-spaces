@@ -10,15 +10,6 @@ interface HeroBannerProps {
   photoUrl?: string | null
 }
 
-const SLICE_LEVEL_LABELS: Record<SliceType, string> = {
-  neighborhood: 'Local Level',
-  local: 'County Level',
-  state: 'State Level',
-  federal: 'Federal Level',
-  unified: 'Unified',
-  volunteer: 'Volunteer',
-}
-
 export function HeroBanner({
   sliceType,
   sliceName,
@@ -62,11 +53,6 @@ export function HeroBanner({
 
         {/* Pill badges */}
         <div className="mt-3 flex flex-wrap gap-2">
-          {/* Level pill */}
-          <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
-            {SLICE_LEVEL_LABELS[sliceType]}
-          </span>
-
           {/* Jurisdiction pill */}
           <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
             {sliceName}

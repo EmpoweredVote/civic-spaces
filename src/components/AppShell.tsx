@@ -258,28 +258,20 @@ export default function AppShell() {
             <div className="grid grid-cols-1 md:grid-cols-[82%_18%] flex-1 overflow-hidden min-h-0">
               {/* Feed column */}
               <div className="flex flex-col overflow-hidden min-h-0">
-                {/* Hero banner — natural height from aspect ratio, swaps with active tab.
-                    ActiveHeroBanner is a separate component so useWikiHeroImage can be
-                    called unconditionally (React rules of hooks). */}
-                {slices[activeTab as SliceType] && (
-                  <ActiveHeroBanner
-                    slice={slices[activeTab as SliceType]!}
-                    fallbackName={TAB_LABELS[activeTab]}
-                  />
-                )}
-
                 <SidebarMobile compassData={compassData} repsData={repsData} activeTab={activeTab} />
 
-                {/* Feed tab panels — flex-1 fills remaining space below hero banner */}
+                {/* Feed tab panels — flex-1 fills remaining space. Banner lives inside each
+                    panel's scroll container so it scrolls up naturally with the posts. */}
                 <div className="flex flex-col flex-1 overflow-hidden min-h-0">
                   {/* All FEED_TABS feeds mounted simultaneously — CSS hidden preserves scroll and React Query cache */}
                   {FEED_TABS.map((tabKey) => {
                     const slice = slices[tabKey]
                     if (!slice) return null
+                    const isActive = activeTab === tabKey
                     return (
                       <div
                         key={tabKey}
-                        className={activeTab === tabKey ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}
+                        className={isActive ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}
                       >
                         <SliceFeedPanel
                           sliceId={slice.id}
@@ -292,6 +284,12 @@ export default function AppShell() {
                           }}
                           scrollToLatest={scrollToLatestMap[tabKey]}
                           scrollRef={scrollRefs.current[tabKey]}
+                          header={isActive && slices[tabKey as SliceType] ? (
+                            <ActiveHeroBanner
+                              slice={slices[tabKey as SliceType]!}
+                              fallbackName={TAB_LABELS[tabKey]}
+                            />
+                          ) : undefined}
                         />
                       </div>
                     )
@@ -311,6 +309,12 @@ export default function AppShell() {
                         }}
                         scrollToLatest={scrollToLatestMap['volunteer']}
                         scrollRef={scrollRefs.current['volunteer']}
+                        header={activeTab === 'volunteer' && slices['volunteer'] ? (
+                          <ActiveHeroBanner
+                            slice={slices['volunteer']}
+                            fallbackName="Volunteer"
+                          />
+                        ) : undefined}
                       />
                     </div>
                   )}

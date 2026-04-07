@@ -194,8 +194,8 @@ export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | 
     }
 
     case 'unified':
-      // Wikipedia "Earth" article has the NASA Blue Marble photo as its lead image
-      return 'Earth'
+      // Use static defaultPhoto from sliceCopy instead of fetching Wikipedia
+      return null
 
     case 'neighborhood':
     case 'volunteer':
