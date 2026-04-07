@@ -3,13 +3,14 @@ import { AnimatePresence, motion } from 'motion/react'
 import type { useCompassData } from '../hooks/useCompassData'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
 import { WidgetCard } from './widgets/WidgetCard'
+import { CompassWidget } from './widgets/CompassWidget'
 
 interface SidebarMobileProps {
   compassData: ReturnType<typeof useCompassData>
   repsData: ReturnType<typeof useRepresentatives>
 }
 
-export function SidebarMobile({ repsData }: SidebarMobileProps) {
+export function SidebarMobile({ compassData, repsData }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const showReps = repsData.isLoading || (!!repsData.data && repsData.data.length > 0)
@@ -51,9 +52,12 @@ export function SidebarMobile({ repsData }: SidebarMobileProps) {
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-3 p-3">
-              <WidgetCard title="Issue Alignment Compass">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Compass widget loading...</p>
-              </WidgetCard>
+              <CompassWidget
+                categories={compassData.categories}
+                answers={compassData.answers}
+                isLoading={compassData.isLoading}
+                isUncalibrated={compassData.isUncalibrated}
+              />
 
               {showReps && (
                 <WidgetCard title="Representing This Community">
