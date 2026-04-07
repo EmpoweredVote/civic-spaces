@@ -268,7 +268,7 @@ export default function AppShell() {
                   />
                 )}
 
-                <SidebarMobile compassData={compassData} repsData={repsData} />
+                <SidebarMobile compassData={compassData} repsData={repsData} activeTab={activeTab} />
 
                 {/* Feed tab panels — flex-1 fills remaining space below hero banner */}
                 <div className="flex flex-col flex-1 overflow-hidden min-h-0">
@@ -319,7 +319,7 @@ export default function AppShell() {
 
               {/* Sidebar column — hidden on mobile, live on desktop */}
               <div className="hidden md:flex flex-col border-l border-gray-200 dark:border-gray-700 overflow-y-auto sticky top-0 max-h-screen">
-                <Sidebar compassData={compassData} repsData={repsData} />
+                <Sidebar compassData={compassData} repsData={repsData} activeTab={activeTab} />
               </div>
             </div>
           </>

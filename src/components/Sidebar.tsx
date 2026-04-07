@@ -1,5 +1,6 @@
 import type { useCompassData } from '../hooks/useCompassData'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
+import { filterRepsByTab } from '../types/representatives'
 import { CompassWidget } from './widgets/CompassWidget'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
@@ -7,9 +8,13 @@ import { ToolsWidget } from './widgets/ToolsWidget'
 interface SidebarProps {
   compassData: ReturnType<typeof useCompassData>
   repsData: ReturnType<typeof useRepresentatives>
+  activeTab: string
 }
 
-export function Sidebar({ compassData, repsData }: SidebarProps) {
+export function Sidebar({ compassData, repsData, activeTab }: SidebarProps) {
+  const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
+  const showReps = repsData.isLoading || filteredReps.length > 0
+
   return (
     <div className="flex flex-col gap-3 p-3">
       <CompassWidget
@@ -19,9 +24,9 @@ export function Sidebar({ compassData, repsData }: SidebarProps) {
         isUncalibrated={compassData.isUncalibrated}
       />
 
-      {(repsData.isLoading || (repsData.data && repsData.data.length > 0)) && (
+      {showReps && (
         <RepresentativesWidget
-          reps={repsData.data ?? []}
+          reps={filteredReps}
           isLoading={repsData.isLoading}
         />
       )}

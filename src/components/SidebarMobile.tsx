@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import type { useCompassData } from '../hooks/useCompassData'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
+import { filterRepsByTab } from '../types/representatives'
 import { CompassWidget } from './widgets/CompassWidget'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
@@ -9,10 +10,14 @@ import { ToolsWidget } from './widgets/ToolsWidget'
 interface SidebarMobileProps {
   compassData: ReturnType<typeof useCompassData>
   repsData: ReturnType<typeof useRepresentatives>
+  activeTab: string
 }
 
-export function SidebarMobile({ compassData, repsData }: SidebarMobileProps) {
+export function SidebarMobile({ compassData, repsData, activeTab }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+
+  const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
+  const showReps = repsData.isLoading || filteredReps.length > 0
 
   return (
     <div className="md:hidden border-b border-gray-200 dark:border-gray-700">
@@ -58,9 +63,9 @@ export function SidebarMobile({ compassData, repsData }: SidebarMobileProps) {
                 isUncalibrated={compassData.isUncalibrated}
               />
 
-              {(repsData.isLoading || (repsData.data && repsData.data.length > 0)) && (
+              {showReps && (
                 <RepresentativesWidget
-                  reps={repsData.data ?? []}
+                  reps={filteredReps}
                   isLoading={repsData.isLoading}
                 />
               )}

@@ -34,3 +34,19 @@ export const BRANCH_ORDER: Record<string, number> = {
 export function getRepPhoto(rep: PoliticianFlatRecord): string | null {
   return rep.images[0]?.url ?? (rep.photo_origin_url || null)
 }
+
+// district_types relevant to each slice tab
+const TAB_DISTRICT_TYPES: Record<string, string[]> = {
+  federal:      ['NATIONAL_EXEC', 'NATIONAL_UPPER', 'NATIONAL_LOWER', 'NATIONAL_JUDICIAL'],
+  state:        ['STATE_EXEC', 'STATE_UPPER', 'STATE_LOWER', 'JUDICIAL'],
+  local:        ['COUNTY', 'LOCAL_EXEC'],
+  neighborhood: ['LOCAL', 'SCHOOL'],
+  unified:      Object.keys(BRANCH_ORDER),
+  volunteer:    Object.keys(BRANCH_ORDER),
+}
+
+export function filterRepsByTab(reps: PoliticianFlatRecord[], tab: string): PoliticianFlatRecord[] {
+  const allowed = TAB_DISTRICT_TYPES[tab]
+  if (!allowed) return reps
+  return reps.filter((r) => allowed.includes(r.district_type))
+}

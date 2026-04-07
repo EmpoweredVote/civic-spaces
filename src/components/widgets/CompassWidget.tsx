@@ -64,7 +64,7 @@ export function CompassWidget({ categories, answers, isLoading, isUncalibrated }
             Discover where you stand on the issues that matter to your community.
           </p>
           <a
-            href="https://compassv2.empowered.vote/results"
+            href="https://compass.empowered.vote"
             target="_blank"
             rel="noopener noreferrer"
             className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
