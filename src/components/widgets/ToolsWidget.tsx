@@ -8,7 +8,7 @@ const LIVE_TOOLS = [
   {
     name: 'Empowered Compass',
     description: 'Discover where you stand on the issues',
-    url: 'https://compassv2.empowered.vote/results',
+    url: 'https://compass.empowered.vote',
     icon: 'compass' as const,
   },
   {
@@ -80,7 +80,7 @@ export function ToolsWidget() {
 
   return (
     <WidgetCard title="Tools for This Community">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-col gap-1">
         {LIVE_TOOLS.map((tool) => (
           <a
             key={tool.url}
@@ -88,12 +88,12 @@ export function ToolsWidget() {
             target="_blank"
             rel="noopener noreferrer"
             title={tool.description}
-            className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer no-underline"
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer no-underline"
           >
             <span className="text-gray-600 dark:text-gray-400">
               <ToolIcon type={tool.icon} />
             </span>
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 text-center leading-tight">
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-tight">
               {tool.name}
             </span>
           </a>

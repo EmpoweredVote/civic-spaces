@@ -254,8 +254,8 @@ export default function AppShell() {
               showVolunteerTab={showVolunteerTab}
             />
 
-            {/* Two-column grid: feed left (~65%), sidebar right (~35%) on desktop; single column on mobile */}
-            <div className="grid grid-cols-1 md:grid-cols-[65%_35%] flex-1 overflow-hidden min-h-0">
+            {/* Two-column grid: feed left (~82%), sidebar right (~18%) on desktop; single column on mobile */}
+            <div className="grid grid-cols-1 md:grid-cols-[82%_18%] flex-1 overflow-hidden min-h-0">
               {/* Feed column */}
               <div className="flex flex-col overflow-hidden min-h-0">
                 {/* Hero banner — natural height from aspect ratio, swaps with active tab.
