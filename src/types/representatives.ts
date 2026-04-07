@@ -41,7 +41,7 @@ const TAB_DISTRICT_TYPES: Record<string, string[]> = {
   state:        ['STATE_EXEC', 'STATE_UPPER', 'STATE_LOWER', 'JUDICIAL'],
   local:        ['COUNTY', 'LOCAL_EXEC'],
   neighborhood: ['LOCAL', 'SCHOOL'],
-  unified:      Object.keys(BRANCH_ORDER),
+  unified:      [],
   volunteer:    Object.keys(BRANCH_ORDER),
 }
 
