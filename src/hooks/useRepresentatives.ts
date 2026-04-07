@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { PoliticianFlatRecord } from '../types/representatives'
 
-const REPS_URL = 'https://accounts.empowered.vote/api/essentials/representatives/me'
+const REPS_URL = 'https://api.empowered.vote/api/essentials/representatives/me'
 
 async function fetchRepresentatives(token: string): Promise<PoliticianFlatRecord[]> {
   const res = await fetch(REPS_URL, {

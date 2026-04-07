@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { CompassCategory, CompassAnswer } from '../types/compass'
 
-const COMPASS_BASE = 'https://accounts.empowered.vote/api/compass'
+const COMPASS_BASE = 'https://api.empowered.vote/api/compass'
 
 async function fetchCompassCategories(): Promise<CompassCategory[]> {
   const res = await fetch(`${COMPASS_BASE}/categories`)
