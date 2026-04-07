@@ -4,6 +4,7 @@ import type { useCompassData } from '../hooks/useCompassData'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
 import { WidgetCard } from './widgets/WidgetCard'
 import { CompassWidget } from './widgets/CompassWidget'
+import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 
 interface SidebarMobileProps {
   compassData: ReturnType<typeof useCompassData>
@@ -12,8 +13,6 @@ interface SidebarMobileProps {
 
 export function SidebarMobile({ compassData, repsData }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-
-  const showReps = repsData.isLoading || (!!repsData.data && repsData.data.length > 0)
 
   return (
     <div className="md:hidden border-b border-gray-200 dark:border-gray-700">
@@ -59,14 +58,11 @@ export function SidebarMobile({ compassData, repsData }: SidebarMobileProps) {
                 isUncalibrated={compassData.isUncalibrated}
               />
 
-              {showReps && (
-                <WidgetCard title="Representing This Community">
-                  {repsData.isLoading ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Representatives widget loading...</p>
-                  )}
-                </WidgetCard>
+              {(repsData.isLoading || (repsData.data && repsData.data.length > 0)) && (
+                <RepresentativesWidget
+                  reps={repsData.data ?? []}
+                  isLoading={repsData.isLoading}
+                />
               )}
 
               <WidgetCard title="Tools for This Community">
