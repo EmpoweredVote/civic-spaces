@@ -39,10 +39,10 @@ export function getRepPhoto(rep: PoliticianFlatRecord): string | null {
 const TAB_DISTRICT_TYPES: Record<string, string[]> = {
   federal:      ['NATIONAL_EXEC', 'NATIONAL_UPPER', 'NATIONAL_LOWER', 'NATIONAL_JUDICIAL'],
   state:        ['STATE_EXEC', 'STATE_UPPER', 'STATE_LOWER', 'JUDICIAL'],
-  local:        ['COUNTY', 'LOCAL_EXEC'],
-  neighborhood: ['LOCAL', 'SCHOOL'],
+  local:        ['COUNTY'],
+  neighborhood: ['LOCAL', 'LOCAL_EXEC', 'SCHOOL'],
   unified:      [],
-  volunteer:    Object.keys(BRANCH_ORDER),
+  volunteer:    [],
 }
 
 export function filterRepsByTab(reps: PoliticianFlatRecord[], tab: string): PoliticianFlatRecord[] {

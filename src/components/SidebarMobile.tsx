@@ -16,6 +16,8 @@ interface SidebarMobileProps {
 export function SidebarMobile({ compassData, repsData, activeTab }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
+  if (activeTab === 'volunteer') return null
+
   const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
   const showReps = repsData.isLoading || filteredReps.length > 0
 

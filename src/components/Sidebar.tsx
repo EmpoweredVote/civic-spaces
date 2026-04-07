@@ -12,6 +12,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ compassData, repsData, activeTab }: SidebarProps) {
+  if (activeTab === 'volunteer') return null
+
   const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
   const showReps = repsData.isLoading || filteredReps.length > 0
 
