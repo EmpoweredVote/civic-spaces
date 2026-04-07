@@ -177,6 +177,7 @@ export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, activ
             sliceId={sliceId}
             onBack={() => onNavigateToThread(null)}
             scrollToLatest={scrollToLatest}
+            header={header}
           />
         </div>
       )}

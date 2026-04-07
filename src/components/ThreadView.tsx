@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { useLocation } from 'wouter'
 import { formatDistanceToNow } from 'date-fns'
 import { useThread } from '../hooks/useThread'
@@ -15,6 +16,7 @@ interface ThreadViewProps {
   onBack: () => void
   sliceId: string
   scrollToLatest?: boolean
+  header?: ReactNode
 }
 
 interface ReplyTarget {
@@ -22,7 +24,7 @@ interface ReplyTarget {
   authorName: string
 }
 
-export default function ThreadView({ postId, onBack, scrollToLatest }: ThreadViewProps) {
+export default function ThreadView({ postId, onBack, scrollToLatest, header }: ThreadViewProps) {
   const [, navigate] = useLocation()
   const { post, replies, fetchMoreReplies, hasMoreReplies, isLoading } = useThread(postId)
   const { userId } = useAuth()
@@ -98,6 +100,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest }: ThreadVie
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
+      {header}
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0 sticky top-0 z-10">
         <button
