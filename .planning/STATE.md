@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 11 of 12 (Sidebar Widgets) — In progress
-Plan: 2 of 4 — 11-02 complete
+Plan: 3 of 4 — 11-03 complete
 Status: In progress
-Last activity: 2026-04-07 — Completed 11-02-PLAN.md (compass widget: radar chart + calibration prompt)
+Last activity: 2026-04-07 — Completed 11-03-PLAN.md (representatives widget: rep cards with photo fallback, branch sorting, skeleton loading)
 
-Next up: Phase 11 Plan 03 — Representatives Widget
+Next up: Phase 11 Plan 04 — Tools Widget
 
-Progress: [█████░░░░░] ~57% (v2.0 + Phases 9 + 10 complete, Phase 11 Plans 01-02 done)
+Progress: [██████░░░░] ~60% (v2.0 + Phases 9 + 10 complete, Phase 11 Plans 01-03 done)
 
 ## Performance Metrics
 
@@ -58,11 +58,15 @@ Progress: [█████░░░░░] ~57% (v2.0 + Phases 9 + 10 complete, 
 - [11-01] WidgetCard is the single extensible container for all widgets — Plans 02-04 replace placeholder children only.
 - [11-02] Purple #7c3aed enforced at component level in CompassWidget — no red or blue, anti-partisan policy at the render layer.
 - [11-02] Empty buildChartData result (all zeroes) falls through to calibration prompt — same UX as isUncalibrated.
+- [11-03] party never rendered in RepresentativesWidget — anti-partisan policy at the render layer (type omission + component enforcement).
+- [11-03] Widget uses complete absence (not empty state) when reps array is empty — clean sidebar layout.
+- [11-03] RepAvatar sub-component holds imgFailed state; onError swaps to inline SVG FallbackAvatar.
+- [11-03] BRANCH_ORDER ?? 99 fallback sorts unknown district_types to end of list.
 
 ### Blockers/Concerns
 
 - Phase 11 pre-condition: Confirm `civicspaces.empowered.vote` is in `api.empowered.vote` CORS allowlist before Plans 02-03 go live (hooks are written but will fail CORS if not whitelisted).
-- Phase 11 Plan 03 pre-condition: Confirm accounts API rep data fields match PoliticianFlatRecord type at `GET /api/essentials/representatives/me` before Representatives widget implementation.
+- Phase 11 Plan 03 pre-condition: Confirm accounts API rep data fields match PoliticianFlatRecord type at `GET /api/essentials/representatives/me` before Representatives widget implementation. (Plan 03 complete — widget built to spec, runtime validation pending CORS confirmation.)
 
 ### Known Tech Debt (addressed in Phase 12)
 
@@ -82,5 +86,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-07
-Stopped at: Completed 11-02-PLAN.md — compass widget (radar chart + calibration prompt) wired into Sidebar and SidebarMobile
+Stopped at: Completed 11-03-PLAN.md — representatives widget (rep cards with photo/fallback, branch sorting, skeleton loading) wired into Sidebar and SidebarMobile
 Resume file: None
