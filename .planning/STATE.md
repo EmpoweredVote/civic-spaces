@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 ## Current Position
 
 Phase: 11 of 12 (Sidebar Widgets) — In progress
-Plan: 1 of 4 — 11-01 complete
+Plan: 2 of 4 — 11-02 complete
 Status: In progress
-Last activity: 2026-04-07 — Completed 11-01-PLAN.md (sidebar foundation + hook hoisting architecture)
+Last activity: 2026-04-07 — Completed 11-02-PLAN.md (compass widget: radar chart + calibration prompt)
 
-Next up: Phase 11 Plan 02 — Compass Widget
+Next up: Phase 11 Plan 03 — Representatives Widget
 
-Progress: [█████░░░░░] ~55% (v2.0 + Phases 9 + 10 complete, Phase 11 Plan 01 done)
+Progress: [█████░░░░░] ~57% (v2.0 + Phases 9 + 10 complete, Phase 11 Plans 01-02 done)
 
 ## Performance Metrics
 
@@ -56,11 +56,12 @@ Progress: [█████░░░░░] ~55% (v2.0 + Phases 9 + 10 complete, 
 - [11-01] party field omitted from PoliticianFlatRecord TypeScript type — anti-partisan policy enforced at the type layer.
 - [11-01] SidebarMobile collapsed by default — feed is primary on mobile, sidebar is supplemental.
 - [11-01] WidgetCard is the single extensible container for all widgets — Plans 02-04 replace placeholder children only.
+- [11-02] Purple #7c3aed enforced at component level in CompassWidget — no red or blue, anti-partisan policy at the render layer.
+- [11-02] Empty buildChartData result (all zeroes) falls through to calibration prompt — same UX as isUncalibrated.
 
 ### Blockers/Concerns
 
 - Phase 11 pre-condition: Confirm `civicspaces.empowered.vote` is in `api.empowered.vote` CORS allowlist before Plans 02-03 go live (hooks are written but will fail CORS if not whitelisted).
-- Phase 11 Plan 02 pre-condition: Confirm Empower pillar compass API endpoint/response shape matches types in compass.ts before Compass widget implementation.
 - Phase 11 Plan 03 pre-condition: Confirm accounts API rep data fields match PoliticianFlatRecord type at `GET /api/essentials/representatives/me` before Representatives widget implementation.
 
 ### Known Tech Debt (addressed in Phase 12)
@@ -81,5 +82,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-07
-Stopped at: Completed 11-01-PLAN.md — sidebar foundation, hook hoisting, WidgetCard containers
+Stopped at: Completed 11-02-PLAN.md — compass widget (radar chart + calibration prompt) wired into Sidebar and SidebarMobile
 Resume file: None
