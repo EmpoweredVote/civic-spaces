@@ -6,6 +6,8 @@ import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
 import { useWikiHeroImage } from '../hooks/useWikiHeroImage'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
+import { useCompassData } from '../hooks/useCompassData'
+import { useRepresentatives } from '../hooks/useRepresentatives'
 import SliceTabBar from './SliceTabBar'
 import NoJurisdictionBanner from './NoJurisdictionBanner'
 import SliceFeedPanel from './SliceFeedPanel'
@@ -14,6 +16,8 @@ import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
 import NotificationBell from './NotificationBell'
 import ModeratorQueue from './ModeratorQueue'
+import { Sidebar } from './Sidebar'
+import { SidebarMobile } from './SidebarMobile'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
@@ -79,6 +83,8 @@ export default function AppShell() {
   const { userId, isAuthenticated, isLoading: authLoading, loginUrl } = useAuth()
   const { slices, hasJurisdiction, isLoading } = useAllSlices(userId)
   const { data: isModerator } = useIsModerator(userId)
+  const compassData = useCompassData(userId)
+  const repsData = useRepresentatives(userId)
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [activeTab, setActiveTab] = useState<TabKey>('federal')
@@ -262,6 +268,8 @@ export default function AppShell() {
                   />
                 )}
 
+                <SidebarMobile compassData={compassData} repsData={repsData} />
+
                 {/* Feed tab panels — flex-1 fills remaining space below hero banner */}
                 <div className="flex flex-col flex-1 overflow-hidden min-h-0">
                   {/* All FEED_TABS feeds mounted simultaneously — CSS hidden preserves scroll and React Query cache */}
@@ -309,11 +317,9 @@ export default function AppShell() {
                 </div>
               </div>
 
-              {/* Sidebar column — hidden on mobile, placeholder on desktop */}
-              <div className="hidden md:flex flex-col border-l border-gray-200 dark:border-gray-700 overflow-y-auto">
-                <div className="p-4 text-sm text-gray-400 dark:text-gray-500">
-                  Sidebar coming in Phase 11
-                </div>
+              {/* Sidebar column — hidden on mobile, live on desktop */}
+              <div className="hidden md:flex flex-col border-l border-gray-200 dark:border-gray-700 overflow-y-auto sticky top-0 max-h-screen">
+                <Sidebar compassData={compassData} repsData={repsData} />
               </div>
             </div>
           </>
