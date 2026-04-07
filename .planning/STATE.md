@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** v3.0 — UI/UX Redesign (Phase 11: Sidebar Widgets)
+**Current focus:** v3.0 — UI/UX Redesign (Phase 12: Cleanup)
 
 ## Current Position
 
-Phase: 11 of 12 (Sidebar Widgets) — In progress
-Plan: 3 of 4 — 11-03 complete
-Status: In progress
-Last activity: 2026-04-07 — Completed 11-03-PLAN.md (representatives widget: rep cards with photo fallback, branch sorting, skeleton loading)
+Phase: 11 of 12 (Sidebar Widgets) — COMPLETE
+Plan: 4 of 4 — all plans done
+Status: Phase 11 complete
+Last activity: 2026-04-07 — Completed Phase 11 (sidebar widgets live, verified on production)
 
-Next up: Phase 11 Plan 04 — Tools Widget
+Next up: Phase 12 — Cleanup (dead prop removal)
 
-Progress: [██████░░░░] ~60% (v2.0 + Phases 9 + 10 complete, Phase 11 Plans 01-03 done)
+Progress: [█████████░] ~92% (v2.0 + Phases 9–11 complete)
 
 ## Performance Metrics
 
@@ -62,6 +62,12 @@ Progress: [██████░░░░] ~60% (v2.0 + Phases 9 + 10 complete, 
 - [11-03] Widget uses complete absence (not empty state) when reps array is empty — clean sidebar layout.
 - [11-03] RepAvatar sub-component holds imgFailed state; onError swaps to inline SVG FallbackAvatar.
 - [11-03] BRANCH_ORDER ?? 99 fallback sorts unknown district_types to end of list.
+
+- [11] Sidebar hooks (useCompassData, useRepresentatives) hoisted to AppShell level — prevents 6x firing across simultaneously-mounted panels.
+- [11] API base URL for compass + representatives: api.empowered.vote/api (NOT accounts.empowered.vote/api — that's the auth hub frontend).
+- [11] Tab-aware rep filtering via filterRepsByTab() in types/representatives.ts. LOCAL_EXEC (Mayor) grouped with LOCAL (City Council) in Local tab. Volunteer and Unified tabs show no reps.
+- [11] Volunteer tab: entire sidebar hidden (returns null) — reserved for future task assignment modal.
+- [11] Sidebar width: 18% of viewport (82%/18% grid split). Tools widget uses horizontal single-column row layout.
 
 ### Blockers/Concerns
 
