@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import type { useCompassData } from '../hooks/useCompassData'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
-import { WidgetCard } from './widgets/WidgetCard'
 import { CompassWidget } from './widgets/CompassWidget'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
+import { ToolsWidget } from './widgets/ToolsWidget'
 
 interface SidebarMobileProps {
   compassData: ReturnType<typeof useCompassData>
@@ -65,9 +65,7 @@ export function SidebarMobile({ compassData, repsData }: SidebarMobileProps) {
                 />
               )}
 
-              <WidgetCard title="Tools for This Community">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Tools widget loading...</p>
-              </WidgetCard>
+              <ToolsWidget />
             </div>
           </motion.div>
         )}
