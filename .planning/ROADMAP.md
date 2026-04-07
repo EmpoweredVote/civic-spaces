@@ -130,18 +130,19 @@ Plans:
 **Requirements**: SIDE-01, SIDE-02, SIDE-03, SIDE-04, SIDE-05
 
 **Success Criteria** (what must be TRUE):
-1. If the user has a valid `ev_token` SSO cookie and has answered 3+ compass topics, the sidebar shows a live Recharts radar chart of their civic compass
-2. If `ev_token` is absent or the compass is uncalibrated (<3 answered topics), the sidebar shows a "Set up your Civic Compass" prompt card with a "Calibrate Now" link to `compassv2.empowered.vote/results`
-3. The sidebar shows a "Representing This Community" widget with rep cards for officials relevant to the current slice's jurisdiction level — each card displays name, title, party badge, jurisdiction badge, and a View Profile link; the widget filters correctly when the user switches slice tabs
-4. The sidebar shows a "Tools for This Community" widget with icon cards for Fallacy Finders, Treasury Tracker, Read & Rank, and Civic Trivia; tools not yet live degrade gracefully (no broken links or console errors)
+1. If the user has a valid `cs_token` and has answered 3+ compass topics, the sidebar shows a live Recharts radar chart of their civic compass in purple
+2. If `cs_token` is absent or the compass is uncalibrated (<3 answered topics), the sidebar shows a "Calibrate Now" prompt card linking to compassv2.empowered.vote/results
+3. The sidebar shows a "Representing This Community" widget listing elected officials — each card displays name, title, and photo; NO party badge (anti-partisan policy); widget hidden entirely when no reps found
+4. The sidebar shows a "Tools for This Community" widget with icon cards for confirmed-live EV ecosystem tools; tools not yet live are hidden entirely (not degraded)
+5. Mobile users access all widgets via a collapsible section below the hero banner
 
-**Plans**: 2 plans
+**Plans**: 4 plans
 
 Plans:
-- [ ] 11-01: CORS verification + AppShell sidebar hook architecture
-- [ ] 11-02: Compass widget (Recharts radar + calibration prompt)
-- [ ] 11-03: Representatives widget (accounts API proxy + rep cards)
-- [ ] 11-04: Tools widget (icon grid + graceful degradation)
+- [ ] 11-01-PLAN.md — Install recharts, create data hooks (hoisted to AppShell), build Sidebar/SidebarMobile containers
+- [ ] 11-02-PLAN.md — Compass widget (Recharts radar chart + calibration prompt)
+- [ ] 11-03-PLAN.md — Representatives widget (rep cards with branch sorting, photo fallback)
+- [ ] 11-04-PLAN.md — Tools widget (icon grid) + visual verification checkpoint
 
 ---
 
@@ -177,6 +178,6 @@ Plans:
 | 7. Special Slices | v2.0 | — | Complete | 2026-04-04 |
 | 8. Profile Pages | v2.0 | 3/3 | Complete | 2026-04-04 |
 | 9. Hero Banner & Layout Shell | v3.0 | 3/3 | Complete | 2026-04-05 |
-| 10. Photos & Storage | v3.0 | 0/2 | Not started | — |
+| 10. Photos & Storage | v3.0 | 2/2 | Complete | 2026-04-06 |
 | 11. Sidebar Widgets | v3.0 | 0/4 | Not started | — |
 | 12. Cleanup | v3.0 | 0/1 | Not started | — |
