@@ -48,11 +48,14 @@ export function HeroBanner({
         />
       )}
 
-      {/* Gradient overlay — dark at bottom, transparent at top */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+      {/* Gradient: strong at bottom where text lives, fades to near-transparent at top */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/5" />
 
       {/* Text content — sits above gradient via z-10 */}
-      <div className="relative z-10 flex h-full flex-col justify-end p-6 md:p-8">
+      <div
+        className="relative z-10 flex h-full flex-col justify-end p-6 md:p-8"
+        style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}
+      >
         {/* Slice name */}
         <h2 className="text-2xl font-bold text-white md:text-3xl">{sliceName}</h2>
 
@@ -62,18 +65,17 @@ export function HeroBanner({
         {/* Pill badges */}
         <div className="mt-3 flex flex-wrap gap-2">
           {/* Jurisdiction pill */}
-          <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+          <span className="rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
             {sliceName}
           </span>
 
           {/* Member count pill */}
-          <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+          <span className="rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
             {memberCount.toLocaleString()} verified residents
           </span>
 
           {/* Slice number pill */}
-          {/* TODO Phase 10: add siblingTotal when available */}
-          <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+          <span className="rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
             Slice {siblingIndex}
           </span>
         </div>
