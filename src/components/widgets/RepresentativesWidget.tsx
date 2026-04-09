@@ -78,10 +78,23 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
       if (rep.district_type === 'NATIONAL_EXEC') {
         return rep.office_title.toLowerCase().includes('president')
       }
-      // Only keep elected officials from STATE_EXEC — filters out appointed
-      // commissioners, agency secretaries, etc. (they return is_elected: null)
+      // Only keep statewide elected constitutional officers from STATE_EXEC.
+      // Appointed officials (PUC commissioners, agency secretaries, etc.) are
+      // excluded by not matching any of the known elected titles.
       if (rep.district_type === 'STATE_EXEC') {
-        return rep.is_elected === true
+        const t = rep.office_title.toLowerCase()
+        return (
+          t.includes('governor') ||
+          t.includes('attorney general') ||
+          t.includes('secretary of state') ||
+          t.includes('treasurer') ||
+          t.includes('controller') ||
+          t.includes('comptroller') ||
+          t.includes('commissioner of insurance') ||
+          t.includes('insurance commissioner') ||
+          t.includes('superintendent') ||
+          t.includes('equalization')
+        )
       }
       return true
     })
