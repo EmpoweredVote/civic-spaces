@@ -17,31 +17,34 @@ export interface PoliticianFlatRecord {
 }
 
 export const BRANCH_ORDER: Record<string, number> = {
+  // Federal: executive → legislative → judicial
   NATIONAL_EXEC: 0,
-  STATE_EXEC: 1,
-  LOCAL_EXEC: 2,
-  NATIONAL_UPPER: 10,
-  NATIONAL_LOWER: 11,
-  STATE_UPPER: 12,
-  STATE_LOWER: 13,
-  COUNTY: 14,
-  LOCAL: 15,
-  SCHOOL: 16,
-  NATIONAL_JUDICIAL: 20,
-  JUDICIAL: 21,
+  NATIONAL_UPPER: 1,
+  NATIONAL_LOWER: 2,
+  NATIONAL_JUDICIAL: 3,
+  // State: executive → legislative → judicial
+  STATE_EXEC: 10,
+  STATE_UPPER: 11,
+  STATE_LOWER: 12,
+  JUDICIAL: 13,
+  // Local
+  LOCAL_EXEC: 20,
+  COUNTY: 21,
+  LOCAL: 22,
+  SCHOOL: 23,
 }
 
 export function getRepPhoto(rep: PoliticianFlatRecord): string | null {
   return rep.images[0]?.url ?? (rep.photo_origin_url || null)
 }
 
-// district_types relevant to each slice tab
+// district_types relevant to each slice tab. Omitting a tab key means "show all".
 const TAB_DISTRICT_TYPES: Record<string, string[]> = {
   federal:      ['NATIONAL_EXEC', 'NATIONAL_UPPER', 'NATIONAL_LOWER', 'NATIONAL_JUDICIAL'],
   state:        ['STATE_EXEC', 'STATE_UPPER', 'STATE_LOWER', 'JUDICIAL'],
   local:        ['COUNTY'],
   neighborhood: ['LOCAL', 'LOCAL_EXEC', 'SCHOOL'],
-  unified:      [],
+  // unified: omitted — show all reps sorted by BRANCH_ORDER
   volunteer:    [],
 }
 

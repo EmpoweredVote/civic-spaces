@@ -93,9 +93,14 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
           >
             <RepAvatar rep={rep} />
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+              <a
+                href={`https://essentials.empowered.vote/politician/${rep.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate hover:underline"
+              >
                 {rep.full_name}
-              </span>
+              </a>
               <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
                 {rep.office_title}
               </span>
