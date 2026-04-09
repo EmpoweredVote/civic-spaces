@@ -87,7 +87,10 @@ export default function AppShell() {
   const repsData = useRepresentatives(userId)
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
-  const [activeTab, setActiveTab] = useState<TabKey>('federal')
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    const saved = localStorage.getItem('cs_active_tab')
+    return (ALL_TAB_KEYS.includes(saved as TabKey) ? saved : 'federal') as TabKey
+  })
   const [activePostIds, setActivePostIds] = useState<Record<TabKey, string | null>>(INITIAL_POST_IDS)
   const [scrollToLatestMap, setScrollToLatestMap] = useState<Record<TabKey, boolean>>(INITIAL_SCROLL_MAP)
   const [modQueueOpen, setModQueueOpen] = useState(false)
@@ -106,6 +109,7 @@ export default function AppShell() {
     if (currentRef?.current) {
       scrollPositions.current[activeTab] = currentRef.current.scrollTop
     }
+    localStorage.setItem('cs_active_tab', newTab)
     setActiveTab(newTab)
   }, [activeTab])
 

@@ -19,27 +19,35 @@ export function HeroBanner({
   photoUrl,
 }: HeroBannerProps) {
   const copy = SLICE_COPY[sliceType]
-  const resolvedPhoto = photoUrl ?? copy?.defaultPhoto ?? null
 
-  const bgStyle = resolvedPhoto
-    ? { backgroundImage: `url(${resolvedPhoto})` }
-    : undefined
-
-  const fallbackBg = resolvedPhoto ? '' : 'bg-gray-700 dark:bg-gray-800'
+  // undefined = still loading — don't show defaultPhoto yet (avoids flash of wrong image)
+  // null      = loaded, no wiki image — fall back to defaultPhoto
+  const resolvedPhoto = photoUrl === undefined
+    ? null
+    : (photoUrl ?? copy?.defaultPhoto ?? null)
 
   return (
     <div
       className={[
         'relative overflow-hidden rounded-xl mx-4 mt-4 md:mx-0 md:mt-0',
         'aspect-[16/9] md:aspect-[16/5]',
-        'bg-cover bg-center',
-        fallbackBg,
+        'bg-gray-700 dark:bg-gray-800',
         'dark:ring-1 dark:ring-white/10',
       ]
-        .filter(Boolean)
         .join(' ')}
-      style={bgStyle}
     >
+      {/* Background image — fades in once loaded to avoid jarring flash */}
+      {resolvedPhoto && (
+        <img
+          src={resolvedPhoto}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700"
+          style={{ opacity: 0 }}
+          onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = '1' }}
+        />
+      )}
+
       {/* Gradient overlay — dark at bottom, transparent at top */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
 

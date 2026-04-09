@@ -5,6 +5,8 @@ import { geoidToWikiTitle } from '../lib/geoidToWiki'
 /** Session-level cache: cacheKey → image URL or null (null means "fetched, no image found") */
 const cache = new Map<string, string | null>()
 
+const STORAGE_PREFIX = 'cs_wiki_img_'
+
 async function fetchWikiImage(title: string): Promise<string | null> {
   try {
     const encoded = encodeURIComponent(title.replace(/ /g, '_'))
@@ -58,12 +60,30 @@ async function fetchLocalImageViaCensus(geoid: string): Promise<string | null> {
  *  3. Census Bureau API (for local slices with counties not in our hardcoded table)
  *  4. null → HeroBanner falls back to sliceCopy defaultPhoto
  */
-export function useWikiHeroImage(slice: SliceInfo): string | null {
+/**
+ * Returns the hero image URL for the given slice.
+ * - `undefined` = still loading (HeroBanner should show gray, not defaultPhoto)
+ * - `null`      = loaded, no image found (HeroBanner may use defaultPhoto)
+ * - `string`    = resolved image URL
+ *
+ * URLs are persisted to localStorage so subsequent visits load instantly.
+ */
+export function useWikiHeroImage(slice: SliceInfo): string | null | undefined {
   const cacheKey = `${slice.sliceType}|${slice.geoid}`
 
-  const [url, setUrl] = useState<string | null>(() =>
-    cache.has(cacheKey) ? (cache.get(cacheKey) ?? null) : null
-  )
+  const [url, setUrl] = useState<string | null | undefined>(() => {
+    if (cache.has(cacheKey)) return cache.get(cacheKey) ?? null
+    // Check localStorage for a previously resolved URL
+    try {
+      const stored = localStorage.getItem(STORAGE_PREFIX + cacheKey)
+      if (stored !== null) {
+        const resolved = stored === '' ? null : stored
+        cache.set(cacheKey, resolved)
+        return resolved
+      }
+    } catch { /* ignore */ }
+    return undefined // not yet fetched
+  })
 
   useEffect(() => {
     if (cache.has(cacheKey)) {
@@ -84,6 +104,10 @@ export function useWikiHeroImage(slice: SliceInfo): string | null {
       }
 
       cache.set(cacheKey, result)
+      try {
+        // Persist for next session; empty string encodes "no image found"
+        localStorage.setItem(STORAGE_PREFIX + cacheKey, result ?? '')
+      } catch { /* ignore quota errors */ }
       setUrl(result)
     }
 
