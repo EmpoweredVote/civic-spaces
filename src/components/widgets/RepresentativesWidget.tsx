@@ -72,7 +72,15 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
   }
 
   const sortedReps = [...reps]
-    .filter((rep) => !rep.is_vacant && rep.is_elected !== false)
+    .filter((rep) => {
+      if (rep.is_vacant) return false
+      // Cabinet secretaries share NATIONAL_EXEC with the President/VP.
+      // Only keep President and Vice President from that group.
+      if (rep.district_type === 'NATIONAL_EXEC') {
+        return rep.office_title.toLowerCase().includes('president')
+      }
+      return true
+    })
     .sort((a, b) => {
       const orderA = BRANCH_ORDER[a.district_type] ?? 99
       const orderB = BRANCH_ORDER[b.district_type] ?? 99
