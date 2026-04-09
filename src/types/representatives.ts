@@ -41,7 +41,7 @@ export function getRepPhoto(rep: PoliticianFlatRecord): string | null {
 
 // district_types relevant to each slice tab. Omitting a tab key means "show all".
 const TAB_DISTRICT_TYPES: Record<string, string[]> = {
-  federal:      ['NATIONAL_EXEC', 'NATIONAL_UPPER', 'NATIONAL_LOWER', 'NATIONAL_JUDICIAL'],
+  federal:      ['NATIONAL_EXEC', 'NATIONAL_UPPER', 'NATIONAL_LOWER'],
   state:        ['STATE_EXEC', 'STATE_UPPER', 'STATE_LOWER', 'JUDICIAL'],
   local:        ['COUNTY'],
   neighborhood: ['LOCAL', 'LOCAL_EXEC', 'SCHOOL'],
