@@ -81,7 +81,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
     return (
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
           <button
             onClick={onBack}
             className="text-brand hover:text-brand-btn text-sm font-medium"
@@ -89,7 +89,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
           >
             ← Back
           </button>
-          <h2 className="text-sm font-semibold text-gray-900">Thread</h2>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Thread</h2>
         </div>
         <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
           Loading thread...
@@ -102,7 +102,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
     <div className="flex flex-col h-full overflow-y-auto">
       {header}
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0 sticky top-0 z-10">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0 sticky top-0 z-10">
         <button
           onClick={onBack}
           className="text-brand hover:text-brand-btn text-sm font-medium"
@@ -110,13 +110,13 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
         >
           ← Back
         </button>
-        <h2 className="text-sm font-semibold text-gray-900">Thread</h2>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Thread</h2>
       </div>
 
       <div className="flex-1 px-4 pb-8">
         {/* Original post */}
         {post && (
-          <div className="py-4 border-b border-gray-200">
+          <div className="py-4 border-b border-gray-200 dark:border-gray-700">
             {/* Author row */}
             <button
               type="button"
@@ -131,21 +131,21 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
                   className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-medium text-gray-600">
+                <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
                     {post.author.display_name.charAt(0).toUpperCase()}
                   </span>
                 </div>
               )}
               <div>
                 <div className="flex items-center gap-1">
-                  <p className="text-sm font-semibold text-gray-900">{post.author.display_name}</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{post.author.display_name}</p>
                   {post.author.tier === 'empowered' && <EmpoweredBadge />}
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                   {post.edit_history.length > 0 && (
-                    <span className="text-gray-400"> · edited</span>
+                    <span className="text-gray-400 dark:text-gray-500"> · edited</span>
                   )}
                 </p>
               </div>
@@ -153,14 +153,14 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
 
             {/* Post title */}
             {post.title && (
-              <p className="mt-3 text-base font-semibold text-gray-900">{post.title}</p>
+              <p className="mt-3 text-base font-semibold text-gray-900 dark:text-gray-100">{post.title}</p>
             )}
 
             {/* Post body */}
-            <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{post.body}</p>
+            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{post.body}</p>
 
             {/* Reply count separator */}
-            <div className="mt-4 pt-4 border-t border-gray-100 text-sm text-gray-500">
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
               {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
 
         {/* Reply to post action */}
         {userId && (
-          <div className="py-3 border-b border-gray-100">
+          <div className="py-3 border-b border-gray-100 dark:border-gray-700">
             {canWrite ? (
               <>
                 {!replyComposerOpen || activeReplyTarget !== null ? (
@@ -199,7 +199,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
         )}
 
         {/* Reply tree */}
-        <div ref={replyListRef} className="divide-y divide-gray-100">
+        <div ref={replyListRef} className="divide-y divide-gray-100 dark:divide-gray-700">
           {rootReplies.map((rootReply) => {
             const children = childMap.get(rootReply.id) ?? []
             const isTargeted = activeReplyTarget?.replyId === rootReply.id

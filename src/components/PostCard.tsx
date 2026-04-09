@@ -36,8 +36,8 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
 
   if (post.is_deleted) {
     return (
-      <div className="w-full text-left rounded-lg border border-gray-200 bg-white p-4">
-        <p className="text-sm text-gray-400 italic">[Post deleted]</p>
+      <div className="w-full text-left rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+        <p className="text-sm text-gray-400 dark:text-gray-500 italic">[Post deleted]</p>
       </div>
     )
   }
@@ -49,7 +49,7 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
   return (
     <div className="relative w-full">
       <button
-        className="w-full text-left rounded-lg border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow cursor-pointer"
+        className="w-full text-left rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 hover:shadow-md dark:hover:shadow-gray-800 transition-shadow cursor-pointer"
         onClick={() => onClick(post.id)}
       >
         {/* Top row: avatar + author info */}
@@ -70,8 +70,8 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
                 className="w-10 h-10 rounded-full object-cover flex-shrink-0"
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-medium text-gray-600">
+              <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
                   {post.author.display_name.charAt(0).toUpperCase()}
                 </span>
               </div>
@@ -79,14 +79,14 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1">
-                <p className="text-sm font-semibold text-gray-900 truncate">
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                   {post.author.display_name}
                 </p>
                 {post.author.tier === 'empowered' && <EmpoweredBadge />}
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {timeAgo}
-                {wasEdited && <span className="text-gray-400"> · edited</span>}
+                {wasEdited && <span className="text-gray-400 dark:text-gray-500"> · edited</span>}
               </p>
             </div>
           </button>
@@ -97,19 +97,19 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
 
         {/* Post title */}
         {post.title && (
-          <p className="mt-2 text-sm font-semibold text-gray-900 line-clamp-2">
+          <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100 line-clamp-2">
             {post.title}
           </p>
         )}
 
         {/* Body preview */}
-        <p className="mt-2 text-sm text-gray-700 line-clamp-4 min-h-[4.5rem]">
+        <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 line-clamp-4 min-h-[4.5rem]">
           {post.body}
         </p>
 
         {/* Bottom row: reply count + flag button */}
         <div className="mt-2 flex items-center justify-between">
-          <div className="flex items-center gap-1 text-xs text-gray-500">
+          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-4 w-4"
@@ -144,16 +144,16 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
               e.stopPropagation()
               setMenuOpen((prev) => !prev)
             }}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <span className="text-base leading-none tracking-widest">···</span>
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-9 z-10 w-36 rounded-md bg-white shadow-lg border border-gray-200 py-1">
+            <div className="absolute right-0 top-9 z-10 w-36 rounded-md bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 py-1">
               {canEdit && (
                 <button
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                   onClick={(e) => {
                     e.stopPropagation()
                     setMenuOpen(false)
@@ -164,7 +164,7 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
                 </button>
               )}
               <button
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                 onClick={(e) => {
                   e.stopPropagation()
                   setMenuOpen(false)

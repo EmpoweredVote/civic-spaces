@@ -17,9 +17,9 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, currentUser
   if (reply.is_deleted) {
     return (
       <div
-        className={`py-3 ${depth === 1 ? 'ml-8 border-l-2 border-blue-200 pl-4' : ''}`}
+        className={`py-3 ${depth === 1 ? 'ml-8 border-l-2 border-gray-200 dark:border-gray-700 pl-4' : ''}`}
       >
-        <p className="text-sm text-gray-400 italic">[Reply deleted]</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 italic">[Reply deleted]</p>
       </div>
     )
   }
@@ -28,7 +28,7 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, currentUser
   const initial = reply.author.display_name.charAt(0).toUpperCase()
 
   return (
-    <div className={`py-3 ${depth === 1 ? 'ml-8 border-l-2 border-blue-200 pl-4' : ''}`}>
+    <div className={`py-3 ${depth === 1 ? 'ml-8 border-l-2 border-gray-200 dark:border-gray-700 pl-4' : ''}`}>
       {/* Author row */}
       <button
         type="button"
@@ -43,21 +43,21 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, currentUser
             className="w-7 h-7 rounded-full object-cover flex-shrink-0"
           />
         ) : (
-          <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-medium text-gray-600">{initial}</span>
+          <div className="w-7 h-7 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{initial}</span>
           </div>
         )}
         <div className="flex items-center gap-1 min-w-0">
-          <span className="text-sm font-semibold text-gray-900 truncate">
+          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
             {reply.author.display_name}
           </span>
           {reply.author.tier === 'empowered' && <EmpoweredBadge />}
-          <span className="text-xs text-gray-500 flex-shrink-0">{timeAgo}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{timeAgo}</span>
         </div>
       </button>
 
       {/* Body */}
-      <p className="mt-1 text-sm text-gray-700">{reply.body}</p>
+      <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{reply.body}</p>
 
       {/* Bottom row: reply button + flag button */}
       <div className="mt-1 flex items-center justify-between">

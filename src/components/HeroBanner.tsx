@@ -49,7 +49,7 @@ export function HeroBanner({
       )}
 
       {/* Gradient overlay — dark at bottom, transparent at top */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
       {/* Text content — sits above gradient via z-10 */}
       <div className="relative z-10 flex h-full flex-col justify-end p-6 md:p-8">
