@@ -8,6 +8,7 @@ import { useWikiHeroImage } from '../hooks/useWikiHeroImage'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { useCompassData } from '../hooks/useCompassData'
 import { useRepresentatives } from '../hooks/useRepresentatives'
+import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import NoJurisdictionBanner from './NoJurisdictionBanner'
 import SliceFeedPanel from './SliceFeedPanel'
@@ -18,6 +19,7 @@ import NotificationBell from './NotificationBell'
 import ModeratorQueue from './ModeratorQueue'
 import { Sidebar } from './Sidebar'
 import { SidebarMobile } from './SidebarMobile'
+import { HamburgerMenu } from './HamburgerMenu'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
@@ -85,6 +87,7 @@ export default function AppShell() {
   const { data: isModerator } = useIsModerator(userId)
   const compassData = useCompassData(userId)
   const repsData = useRepresentatives(userId)
+  const { theme, toggleTheme } = useTheme(userId)
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
@@ -217,6 +220,7 @@ export default function AppShell() {
                 />
               </svg>
             </button>
+            <HamburgerMenu theme={theme} onToggleTheme={toggleTheme} />
           </div>
         )}
       </header>
