@@ -74,17 +74,32 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
   const sortedReps = [...reps]
     .filter((rep) => {
       if (rep.is_vacant) return false
-      // Cabinet secretaries share NATIONAL_EXEC with the President/VP.
-      // Only keep President and Vice President from that group.
+      // Only keep President/VP from NATIONAL_EXEC — secretaries are appointed
       if (rep.district_type === 'NATIONAL_EXEC') {
         return rep.office_title.toLowerCase().includes('president')
+      }
+      // Only keep elected officials from STATE_EXEC — filters out appointed
+      // commissioners, agency secretaries, etc.
+      if (rep.district_type === 'STATE_EXEC') {
+        return rep.is_elected !== false
       }
       return true
     })
     .sort((a, b) => {
       const orderA = BRANCH_ORDER[a.district_type] ?? 99
       const orderB = BRANCH_ORDER[b.district_type] ?? 99
-      return orderA - orderB
+      if (orderA !== orderB) return orderA - orderB
+      // Within STATE_EXEC, Governor first then Lieutenant Governor
+      if (a.district_type === 'STATE_EXEC') {
+        const titlePriority = (title: string) => {
+          const t = title.toLowerCase()
+          if (t === 'governor') return 0
+          if (t.includes('lieutenant governor')) return 1
+          return 2
+        }
+        return titlePriority(a.office_title) - titlePriority(b.office_title)
+      }
+      return 0
     })
 
   return (
