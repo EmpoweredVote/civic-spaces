@@ -83,9 +83,12 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
     <WidgetCard title="Representing This Community">
       <div className="flex flex-col">
         {sortedReps.map((rep, index) => (
-          <div
+          <a
             key={rep.id}
-            className={`flex items-center gap-3 py-2 ${
+            href={`https://essentials.empowered.vote/politician/${rep.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex items-center gap-3 py-2 -mx-2 px-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
               index < sortedReps.length - 1
                 ? 'border-b border-gray-100 dark:border-gray-800'
                 : ''
@@ -93,19 +96,14 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
           >
             <RepAvatar rep={rep} />
             <div className="flex flex-col min-w-0">
-              <a
-                href={`https://essentials.empowered.vote/politician/${rep.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate hover:underline"
-              >
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                 {rep.full_name}
-              </a>
+              </span>
               <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
                 {rep.office_title}
               </span>
             </div>
-          </div>
+          </a>
         ))}
       </div>
     </WidgetCard>
