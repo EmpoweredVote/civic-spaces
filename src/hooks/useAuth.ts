@@ -136,5 +136,26 @@ export function useAuth(): AuthState & { loginUrl: string } {
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
 
+  // Cross-app logout sync — detect ev_session cookie cleared by another app
+  useEffect(() => {
+    if (!authState.isAuthenticated) return;
+
+    const poll = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const res = await fetch(ACCOUNTS_SESSION_URL, { credentials: 'include' });
+        if (res.status === 401) {
+          localStorage.removeItem('cs_token');
+          setAuthState({ userId: null, isAuthenticated: false, isLoading: false });
+        }
+      } catch {
+        // Network error — don't log out
+      }
+    };
+
+    const id = setInterval(poll, 60_000);
+    return () => clearInterval(id);
+  }, [authState.isAuthenticated])
+
   return { ...authState, loginUrl: LOGIN_URL }
 }
