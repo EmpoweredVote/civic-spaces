@@ -72,7 +72,7 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
   }
 
   const sortedReps = [...reps]
-    .filter((rep) => !rep.is_vacant && rep.is_elected)
+    .filter((rep) => !rep.is_vacant && rep.is_elected !== false)
     .sort((a, b) => {
       const orderA = BRANCH_ORDER[a.district_type] ?? 99
       const orderB = BRANCH_ORDER[b.district_type] ?? 99
