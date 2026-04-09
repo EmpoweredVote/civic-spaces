@@ -84,7 +84,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
           <button
             onClick={onBack}
-            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            className="text-brand hover:text-brand-btn text-sm font-medium"
             aria-label="Back to feed"
           >
             ← Back
@@ -105,7 +105,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0 sticky top-0 z-10">
         <button
           onClick={onBack}
-          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+          className="text-brand hover:text-brand-btn text-sm font-medium"
           aria-label="Back to feed"
         >
           ← Back
@@ -174,7 +174,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
                 {!replyComposerOpen || activeReplyTarget !== null ? (
                   <button
                     onClick={handleReplyToPost}
-                    className="text-sm text-blue-600 hover:underline"
+                    className="text-sm text-brand hover:underline"
                   >
                     Reply to post
                   </button>
@@ -190,7 +190,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
             ) : profile?.tier === 'inform' ? (
               <button
                 onClick={handleReplyToPost}
-                className="text-sm text-blue-600 hover:underline"
+                className="text-sm text-brand hover:underline"
               >
                 Reply
               </button>
@@ -245,7 +245,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
           <div className="pt-4 flex justify-center">
             <button
               onClick={() => fetchMoreReplies()}
-              className="text-sm text-blue-600 hover:underline"
+              className="text-sm text-brand hover:underline"
             >
               Load more replies
             </button>

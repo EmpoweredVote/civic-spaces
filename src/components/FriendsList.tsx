@@ -89,7 +89,7 @@ export default function FriendsList({ onClose }: FriendsListProps) {
                         <button
                           onClick={() => acceptFriendRequest.mutate(p.user_id)}
                           disabled={acceptFriendRequest.isPending}
-                          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                          className="rounded-md bg-brand-btn px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover disabled:opacity-50 transition-colors"
                         >
                           Accept
                         </button>

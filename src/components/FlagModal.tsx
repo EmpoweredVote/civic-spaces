@@ -62,7 +62,7 @@ export default function FlagModal({ contentId, contentType, userId, open, onClos
                     value={value}
                     checked={selectedCategory === value}
                     onChange={() => setSelectedCategory(value)}
-                    className="w-4 h-4 text-blue-600"
+                    className="w-4 h-4 text-brand"
                   />
                   <span className="text-sm text-gray-800">{label}</span>
                 </label>
@@ -71,7 +71,7 @@ export default function FlagModal({ contentId, contentType, userId, open, onClos
 
             {selectedCategory === 'other' && (
               <textarea
-                className="mt-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="mt-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand resize-none"
                 rows={3}
                 maxLength={280}
                 placeholder="Tell us more (optional)"
@@ -83,7 +83,7 @@ export default function FlagModal({ contentId, contentType, userId, open, onClos
             <button
               onClick={handleSubmit}
               disabled={!selectedCategory || flagPost.isPending}
-              className="mt-5 w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="mt-5 w-full rounded-md bg-brand-btn px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {flagPost.isPending ? 'Submitting…' : 'Submit report'}
             </button>

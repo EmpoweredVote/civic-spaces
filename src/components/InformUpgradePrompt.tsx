@@ -26,7 +26,7 @@ export default function InformUpgradePrompt({ isOpen, onClose }: InformUpgradePr
             href="https://accounts.empowered.vote"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white text-center hover:bg-blue-700 transition-colors"
+            className="w-full rounded-md bg-brand-btn px-4 py-2 text-sm font-semibold text-white text-center hover:bg-brand-hover transition-colors"
           >
             Create Connected Account
           </a>

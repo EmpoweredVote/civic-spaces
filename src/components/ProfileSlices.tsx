@@ -14,8 +14,8 @@ const LABEL_MAP: Record<SliceType, string> = {
 function SharedSliceChip() {
   return (
     <span className="flex items-center gap-1">
-      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" aria-hidden="true" />
-      <span className="text-xs text-blue-500">you&apos;re here too</span>
+      <span className="w-1.5 h-1.5 rounded-full bg-brand-light flex-shrink-0" aria-hidden="true" />
+      <span className="text-xs text-brand">you&apos;re here too</span>
     </span>
   )
 }

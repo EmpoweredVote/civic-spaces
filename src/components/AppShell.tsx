@@ -137,7 +137,7 @@ export default function AppShell() {
     <div className="flex flex-col h-screen bg-white dark:bg-gray-950">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-        <h1 className="text-lg font-semibold text-blue-600 dark:text-blue-400">Civic Spaces</h1>
+        <h1 className="text-lg font-semibold text-brand dark:text-brand-light">Civic Spaces</h1>
 
         {/* Social nav icons — only when authenticated */}
         {isAuthenticated && (
@@ -170,7 +170,7 @@ export default function AppShell() {
               aria-label="Friends"
               className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                 activePanel === 'friends'
-                  ? 'bg-blue-100 text-blue-600'
+                  ? 'bg-brand-muted text-brand'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -197,7 +197,7 @@ export default function AppShell() {
               aria-label="Member Directory"
               className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                 activePanel === 'directory'
-                  ? 'bg-blue-100 text-blue-600'
+                  ? 'bg-brand-muted text-brand'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -234,7 +234,7 @@ export default function AppShell() {
             <p className="text-gray-500 text-sm">Log in to view your civic community.</p>
             <a
               href={loginUrl}
-              className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
+              className="px-5 py-2 bg-brand-btn text-white text-sm font-medium rounded-full hover:bg-brand-hover transition-colors"
             >
               Log in with Empowered Vote
             </a>

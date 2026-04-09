@@ -118,7 +118,7 @@ export default function PostComposer({
                   <input
                     type="text"
                     placeholder="What's happening in your community?"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                     {...createForm.register('title')}
                   />
                   {createForm.formState.errors.title && (
@@ -132,7 +132,7 @@ export default function PostComposer({
                   <textarea
                     rows={4}
                     placeholder="Share your thoughts..."
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand resize-none"
                     {...createForm.register('body')}
                   />
                   {createForm.formState.errors.body && (
@@ -146,7 +146,7 @@ export default function PostComposer({
                   <button
                     type="submit"
                     disabled={createForm.formState.isSubmitting}
-                    className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex-1 rounded-md bg-brand-btn px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {createForm.formState.isSubmitting ? 'Posting...' : 'Post'}
                   </button>
@@ -167,7 +167,7 @@ export default function PostComposer({
                 <div className="mb-4">
                   <textarea
                     rows={4}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand resize-none"
                     {...editForm.register('body')}
                   />
                   {editForm.formState.errors.body && (
@@ -181,7 +181,7 @@ export default function PostComposer({
                   <button
                     type="submit"
                     disabled={editForm.formState.isSubmitting}
-                    className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex-1 rounded-md bg-brand-btn px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {editForm.formState.isSubmitting ? 'Saving...' : 'Save'}
                   </button>

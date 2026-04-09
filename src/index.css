@@ -1,12 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-civic-blue: #2563eb;
-  --color-civic-blue-dark: #1d4ed8;
-  --color-civic-gray: #6b7280;
-  --color-civic-gray-light: #f3f4f6;
-  --color-civic-border: #e5e7eb;
-  --color-civic-teal: oklch(60% 0.118 184.704);
+  /* EV Brand — Connect pillar (Civic Spaces is the Connect product) */
+  --color-brand:       #00657C; /* Primary teal */
+  --color-brand-btn:   #005366; /* Button / darker teal */
+  --color-brand-hover: #003E4D; /* Hover / pressed state */
+  --color-brand-muted: #F0F8FA; /* Teal background tint */
+  --color-brand-light: #59B0C4; /* Light teal — dark mode primary / light mode accent */
+}
+
+body {
+  font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
 }

@@ -47,7 +47,7 @@ export default function NotificationList({
           <button
             type="button"
             onClick={() => markAllRead.mutate()}
-            className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+            className="text-sm text-brand hover:text-brand-btn transition-colors"
           >
             Mark all read
           </button>

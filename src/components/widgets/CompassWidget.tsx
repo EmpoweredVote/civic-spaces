@@ -24,7 +24,7 @@ function CompassIcon() {
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 48 48"
-      className="w-10 h-10 text-purple-500"
+      className="w-10 h-10 text-brand"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -37,8 +37,8 @@ function CompassIcon() {
       <line x1="4" y1="24" x2="10" y2="24" strokeWidth="2.5" />
       <line x1="38" y1="24" x2="44" y2="24" strokeWidth="2.5" />
       {/* Needle */}
-      <polygon points="24,12 21,24 24,36 27,24" fill="#7c3aed" stroke="none" />
-      <circle cx="24" cy="24" r="2" fill="#7c3aed" />
+      <polygon points="24,12 21,24 24,36 27,24" fill="#005366" stroke="none" />
+      <circle cx="24" cy="24" r="2" fill="#005366" />
     </svg>
   )
 }
@@ -67,7 +67,7 @@ export function CompassWidget({ categories, answers, isLoading, isUncalibrated }
             href="https://compass.empowered.vote"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            className="bg-brand-btn hover:bg-brand-hover text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
           >
             Calibrate Now
           </a>
@@ -85,9 +85,9 @@ export function CompassWidget({ categories, answers, isLoading, isUncalibrated }
           <Radar
             name="Your Compass"
             dataKey="value"
-            fill="#7c3aed"
+            fill="#005366"
             fillOpacity={0.35}
-            stroke="#7c3aed"
+            stroke="#005366"
             strokeWidth={2}
           />
           <Tooltip formatter={(value: number | string) => [Number(value).toFixed(1), 'Your Compass']} />

@@ -16,10 +16,10 @@ export default function FAB({ onClick, disabled }: FABProps) {
         zIndex: 50,
       }}
       className={[
-        'w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center text-2xl',
+        'w-14 h-14 rounded-full bg-brand-btn text-white shadow-lg flex items-center justify-center text-2xl',
         disabled
           ? 'opacity-50 cursor-not-allowed'
-          : 'hover:bg-blue-700 hover:scale-105 transition-all',
+          : 'hover:bg-brand-hover hover:scale-105 transition-all',
       ].join(' ')}
     >
       <svg

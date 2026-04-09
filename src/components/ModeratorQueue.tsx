@@ -59,7 +59,7 @@ export default function ModeratorQueue({ onClose }: ModeratorQueueProps) {
               setCategoryFilter(e.target.value)
               setCurrentIndex(0)
             }}
-            className="text-sm border border-gray-300 rounded px-2 py-1 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-sm border border-gray-300 rounded px-2 py-1 text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand"
           >
             {CATEGORY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>

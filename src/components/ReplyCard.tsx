@@ -64,7 +64,7 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, currentUser
         {canWrite && depth === 0 && onReply ? (
           <button
             onClick={() => onReply(reply.id, reply.author.display_name)}
-            className="text-xs text-blue-600 hover:underline"
+            className="text-xs text-brand hover:underline"
           >
             Reply
           </button>

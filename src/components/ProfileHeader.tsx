@@ -18,7 +18,7 @@ function TierBadge({ tier }: { tier: ConnectedProfile['tier'] }) {
   }
   if (tier === 'connected') {
     return (
-      <span className="bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 text-xs font-medium">
+      <span className="bg-brand-muted text-brand-btn rounded-full px-2 py-0.5 text-xs font-medium">
         Connected
       </span>
     )
@@ -59,7 +59,7 @@ function FriendRequestButton({ userId }: { userId: string }) {
       <button
         onClick={() => acceptRequest.mutate(userId)}
         disabled={acceptRequest.isPending}
-        className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        className="rounded-md bg-brand-btn px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover disabled:opacity-50 transition-colors"
       >
         Accept
       </button>
@@ -71,7 +71,7 @@ function FriendRequestButton({ userId }: { userId: string }) {
     <button
       onClick={() => sendRequest.mutate(userId)}
       disabled={sendRequest.isPending}
-      className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+      className="rounded-md bg-brand-btn px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover disabled:opacity-50 transition-colors"
     >
       Add Friend
     </button>

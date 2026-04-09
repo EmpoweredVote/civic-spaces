@@ -88,7 +88,7 @@ export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, activ
         <p className="text-sm">Failed to load posts. Please try again.</p>
         <button
           onClick={() => refetch()}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-brand hover:underline"
         >
           Try again
         </button>
@@ -137,7 +137,7 @@ export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, activ
             {isFetchingNextPage && (
               <div className="flex justify-center py-4">
                 <div
-                  className="w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"
+                  className="w-6 h-6 border-2 border-gray-300 border-t-brand rounded-full animate-spin"
                   aria-label="Loading more posts"
                 />
               </div>

@@ -32,7 +32,7 @@ export default function SliceTabBar({ activeTab, onTabChange, slices, showVolunt
         className={[
           'flex flex-col items-center text-sm font-medium whitespace-nowrap rounded-lg px-4 py-2',
           isActive
-            ? 'bg-teal-600 dark:bg-teal-500 text-white font-semibold shadow-sm'
+            ? 'bg-brand dark:bg-brand-light text-white font-semibold shadow-sm'
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800',
         ].join(' ')}
         aria-selected={isActive}
@@ -40,7 +40,7 @@ export default function SliceTabBar({ activeTab, onTabChange, slices, showVolunt
       >
         <span>{tab.label}</span>
         {isActive && sliceInfo ? (
-          <span className="text-xs font-normal text-teal-100 dark:text-teal-200 mt-0.5">
+          <span className="text-xs font-normal text-white/80 mt-0.5">
             {sliceInfo.memberCount.toLocaleString()} {sliceInfo.memberCount === 1 ? 'member' : 'members'}
           </span>
         ) : null}

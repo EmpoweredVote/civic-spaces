@@ -70,7 +70,7 @@ function DirectoryList({
           <button
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+            className="text-sm text-brand hover:underline disabled:opacity-50"
           >
             {isFetchingNextPage ? 'Loading...' : 'Load more'}
           </button>
@@ -148,14 +148,14 @@ export default function MemberDirectory({ sliceId, onClose }: MemberDirectoryPro
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search members..."
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
         />
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={crossSlice}
             onChange={(e) => setCrossSlice(e.target.checked)}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 text-brand focus:ring-brand"
           />
           <span className="text-sm text-gray-600">Search beyond your slice</span>
         </label>

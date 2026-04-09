@@ -67,7 +67,7 @@ export default function ReplyComposer({
           {...register('body')}
           rows={2}
           placeholder="Write a reply..."
-          className="w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
         />
         <div className="flex items-center justify-end gap-2 mt-2">
           <button
@@ -80,7 +80,7 @@ export default function ReplyComposer({
           <button
             type="submit"
             disabled={isSubmitting || !body.trim()}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="rounded-md bg-brand-btn px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Reply
           </button>

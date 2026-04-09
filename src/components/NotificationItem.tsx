@@ -76,7 +76,7 @@ export default function NotificationItem({ notification, onTap }: NotificationIt
       {/* Unread indicator */}
       <div className="flex-shrink-0 flex items-center justify-center w-4 pt-1">
         {isUnread && (
-          <span className="w-2 h-2 rounded-full bg-blue-500" aria-label="Unread" />
+          <span className="w-2 h-2 rounded-full bg-brand" aria-label="Unread" />
         )}
       </div>
 
@@ -115,7 +115,7 @@ export default function NotificationItem({ notification, onTap }: NotificationIt
                     navigate('/profile/' + primaryActorId)
                   }
                 }}
-                className="underline underline-offset-2 hover:text-blue-600 transition-colors cursor-pointer"
+                className="underline underline-offset-2 hover:text-brand transition-colors cursor-pointer"
                 aria-label={`View ${actorSegment}'s profile`}
               >
                 {actorSegment}

@@ -119,7 +119,7 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
                     className={`w-full rounded-md px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       isFollowing
                         ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-brand-btn text-white hover:bg-brand-hover'
                     }`}
                   >
                     {isFollowing ? 'Unfollow' : 'Follow'}
@@ -131,7 +131,7 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
                       <button
                         onClick={() => sendFriendRequest.mutate(userId)}
                         disabled={sendFriendRequest.isPending}
-                        className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="w-full rounded-md bg-brand-btn px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         Add Friend
                       </button>
@@ -150,7 +150,7 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
                       <button
                         onClick={() => acceptFriendRequest.mutate(userId)}
                         disabled={acceptFriendRequest.isPending}
-                        className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="w-full rounded-md bg-brand-btn px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         Accept Request
                       </button>
