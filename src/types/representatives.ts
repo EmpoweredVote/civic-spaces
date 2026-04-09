@@ -7,6 +7,7 @@ export interface PoliticianFlatRecord {
   district_type: string
   government_type: string
   is_vacant: boolean
+  is_elected: boolean
   images: Array<{
     id: string
     url: string
