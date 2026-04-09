@@ -79,9 +79,9 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
         return rep.office_title.toLowerCase().includes('president')
       }
       // Only keep elected officials from STATE_EXEC — filters out appointed
-      // commissioners, agency secretaries, etc.
+      // commissioners, agency secretaries, etc. (they return is_elected: null)
       if (rep.district_type === 'STATE_EXEC') {
-        return rep.is_elected !== false
+        return rep.is_elected === true
       }
       return true
     })
