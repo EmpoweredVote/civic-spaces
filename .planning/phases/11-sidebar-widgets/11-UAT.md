@@ -53,11 +53,14 @@ skipped: 0
 ## Gaps
 
 - truth: "Mobile collapsible sidebar accessible below hero banner without hero text overflow"
-  status: failed
+  status: fixed
   reason: "User reported: too much text on the Hero Banner on mobile, the words don't fit. Suggested: hide the description sentence on mobile, or move it elsewhere."
   severity: minor
   test: 2
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "HeroBanner description <p> rendered on all screen sizes; on mobile aspect-[16/9] with name + tagline + pills + description stacked, content overflowed the banner height"
+  artifacts:
+    - path: "src/components/HeroBanner.tsx"
+      issue: "description paragraph missing hidden md:block responsive classes"
+  missing:
+    - "Add hidden md:block to description paragraph — hides on mobile, visible on desktop"
+  fix_commit: "2ca92d2"
