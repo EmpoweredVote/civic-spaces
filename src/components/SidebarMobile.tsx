@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import type { useCompassData } from '../hooks/useCompassData'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
 import { filterRepsByTab } from '../types/representatives'
-import { CompassWidget } from './widgets/CompassWidget'
+const CompassWidget = lazy(() =>
+  import('./widgets/CompassWidget').then((m) => ({ default: m.CompassWidget }))
+)
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
 
@@ -58,12 +60,14 @@ export function SidebarMobile({ compassData, repsData, activeTab }: SidebarMobil
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-3 p-3">
-              <CompassWidget
-                categories={compassData.categories}
-                answers={compassData.answers}
-                isLoading={compassData.isLoading}
-                isUncalibrated={compassData.isUncalibrated}
-              />
+              <Suspense fallback={<div className="h-40 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />}>
+                <CompassWidget
+                  categories={compassData.categories}
+                  answers={compassData.answers}
+                  isLoading={compassData.isLoading}
+                  isUncalibrated={compassData.isUncalibrated}
+                />
+              </Suspense>
 
               {showReps && (
                 <RepresentativesWidget
