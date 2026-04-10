@@ -1,5 +1,33 @@
 # Milestones: Civic Spaces
 
+## v3.0 — UI/UX Redesign (Shipped: 2026-04-10)
+
+**Delivered:** A visually rich, identity-anchored slice experience — geo-grounded hero banners, two-column desktop layout, three live sidebar widgets, and a zero-warning TypeScript build.
+
+**Phases completed:** 9–13 (11 plans total)
+
+**Key accomplishments:**
+
+- Identity-rich hero banners on every slice tab — Wikipedia-sourced geo photos (state capitols, county courthouses, White House) swap live on tab switch; photo_url DB override path active for future curated imagery
+- Two-column desktop layout (65/35 grid) with single-column mobile; teal pill tab bar matching Krishna mockup; Tailwind v4 dark mode infrastructure (`@custom-variant dark`) across all new components
+- Three live sidebar widgets: Issue Alignment Compass (Recharts radar chart in purple #7c3aed with calibration prompt fallback), Representing This Community (rep cards with tab-aware filtering, no party affiliation), Tools for This Community (confirmed-live EV ecosystem links)
+- Anti-partisan architecture enforced at the type and render layers — `party` field omitted from `PoliticianFlatRecord`, never rendered, purple color enforced in CompassWidget
+- Hook-hoisting at AppShell level prevents 6x API calls from simultaneously-mounted feed panels; React.lazy code-splits Recharts from 938KB monolithic chunk to 328KB async chunk
+- Zero-warning TypeScript build: two dead props removed (CLEAN-01/02) + all three v3.0 tech debt items closed (TD-01 photo_url, TD-02 volunteer ghost column, TD-03 Recharts code-split)
+
+**Stats:**
+
+- 5 phases (9–13), 11 plans
+- 43 files changed (+1,685/−162 lines in src/)
+- 6,847 lines of TypeScript
+- 5 days (2026-04-05 → 2026-04-10)
+
+**Git range:** `feat(09-01)` → `docs(13)`
+
+**What's next:** v4.0 — TBD
+
+---
+
 ## v2.0 — All Slices (Shipped: 2026-04-04)
 
 **Delivered:** All geographic and special slice types active with full forum capability — Unified and Volunteer slices launched, profile pages anchoring civic identity.

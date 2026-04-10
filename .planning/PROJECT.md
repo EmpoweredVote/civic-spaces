@@ -24,31 +24,19 @@ Every Connected user is part of four geographic communities plus specialized civ
 - ✓ Unified Slice: 6k-capped worldwide flat slice, auto-assigned on login — v2.0
 - ✓ Volunteer Slice: role-gated, auto-assign/revoke on login, tab absent for non-Volunteers — v2.0
 - ✓ Profile pages: display name tap navigation, stats, slice memberships, mutual friends, social actions — v2.0
-
-## Current Milestone: v3.0 UI/UX Redesign
-
-**Goal:** Rebuild the slice UI around Krishna's mockup — geo-grounded hero banners, two-column layout, and a fully-wired community sidebar.
-
-**Design standard:** Beautiful, polished UI is a first-class deliverable. Light + dark mode required. Desktop and mobile must each be exceptional — separate flows acceptable for superior experience. Reference: `C:\Civic Spaces\Screengrabs\` (Krishna mockups). Use `/ui-ux-pro-max` skill during planning.
-
-**Target features:**
-- Full-width hero banner per slice tab with jurisdiction-specific photo, slice identity, and pill badges
-- Two-column desktop layout (feed left, sidebar right); single-column mobile
-- Issue Alignment Compass widget (live from Empower pillar, calibration prompt if uncalibrated)
-- Representing This Community widget (rep cards from accounts API)
-- Tools for This Community widget (EV ecosystem tool links)
-- Jurisdiction-specific hero photos in Supabase Storage
-- v2.0 tech debt cleanup (two dead props)
+- ✓ Hero banner with geo photo (Wikipedia REST API), name, tagline, pill badges, description per slice tab — v3.0
+- ✓ Two-column desktop layout (65/35) / single-column mobile — v3.0
+- ✓ Issue Alignment Compass sidebar widget (Recharts radar chart, calibration prompt fallback) — v3.0
+- ✓ Representing This Community sidebar widget (rep cards, tab-aware filtering, no party affiliation) — v3.0
+- ✓ Tools for This Community sidebar widget (confirmed-live EV ecosystem links) — v3.0
+- ✓ Jurisdiction-specific hero photos via Wikipedia REST API; photo_url DB override path active — v3.0
+- ✓ v2.0 dead prop cleanup (MutualFriendsList.friendCount, NotificationListProps.onNavigateToThread) — v3.0
+- ✓ Tailwind v4 dark mode infrastructure + civic-teal theme token across all new components — v3.0
+- ✓ Hook-hoisting at AppShell + React.lazy Recharts code-split (938KB → 328KB async chunk) — v3.0
 
 ### Active
 
-- [ ] Hero banner with geo photo, name, tagline, pill badges, description per slice tab
-- [ ] Two-column desktop layout / single-column mobile
-- [ ] Issue Alignment Compass sidebar widget (Empower pillar API)
-- [ ] Representing This Community sidebar widget (accounts API rep data)
-- [ ] Tools for This Community sidebar widget (EV ecosystem links)
-- [ ] Jurisdiction-specific hero photos in Supabase Storage
-- [ ] v2.0 dead prop cleanup (MutualFriendsList, NotificationListProps)
+(Defined by next milestone — run `/gsd:new-milestone` to set v4.0 requirements)
 
 ### Out of Scope
 
@@ -72,7 +60,7 @@ Every Connected user is part of four geographic communities plus specialized civ
 - **The ~30k principle:** Each slice ~6k people. Four slices ≈ 24k total. Same cohort for 2 years then half-swap (future). Human scale creates iterative encounters and accountability.
 - **Figma foundation:** Krishna's prototype (file: J9mfnUSnc2k6fUQDhw9L7h) provides the visual starting point — particularly the tabbed hub interface and the slice navigation model. The onboarding screens in the Figma are superseded by the accounts system.
 - **Tech stack:** React + Tailwind (Framer-compatible), Express/Node backend on Render, Supabase (`civic_spaces.*` schema), TypeScript everywhere, Redis with in-memory fallback.
-- **Shipped state (v2.0):** ~5,332 LOC TypeScript. All 6 slice types active (N/L/S/F + Unified + Volunteer). Profile pages shipped. Zero-error tsc build. Two minor dead props noted in audit (non-blocking).
+- **Shipped state (v3.0):** 6,847 LOC TypeScript. Identity-rich geo-grounded hero banners on every slice tab (Wikipedia REST API). Two-column desktop layout (65/35), teal pill tab bar, Tailwind v4 dark mode. Three live sidebar widgets (Compass, Representatives, Tools). Hook-hoisting at AppShell prevents 6x API calls. Recharts code-split to 328KB async chunk. Zero-warning TypeScript build. All v3.0 tech debt closed.
 
 ## Constraints
 
@@ -100,6 +88,12 @@ Every Connected user is part of four geographic communities plus specialized civ
 | ProfilePage as fixed inset-0 overlay | Stacks above CSS-hidden AppShell without layout coupling; no routing library required initially | ✓ Good — wouter installed cleanly; overlay approach works |
 | Mutual-friends-only disclosure on other-user profile | Privacy: total friend count is not shown to other viewers; only mutual count is relevant | ✓ Good — enforced at RPC level (get_mutual_friends) and UI level |
 | onAuthorTap callback pattern removed; leaf components own navigation | Prop drilling through SliceFeedPanel was brittle; useLocation in leaf components is simpler | ✓ Good — cleaner component boundaries |
+| Wikipedia REST API for hero images (not Supabase Storage uploads) | Zero-upload, zero-auth, returns geo-appropriate photos for any US state/county automatically | ✓ Good — simpler, no service-role key, better photos |
+| Hook-hoisting at AppShell (not inside SliceFeedPanel) | All 6 feed panels mount simultaneously via CSS-hidden pattern; hooks inside panels fire 6x | ✓ Good — essential for sidebar data hooks |
+| Anti-partisan policy at type layer (party field omitted from PoliticianFlatRecord) | Policy must be enforced structurally, not just by convention | ✓ Good — accidental rendering is impossible |
+| Sidebar width 18% (not 35%) | Feed content should dominate; sidebar is supplemental | ✓ Good — confirmed by user during visual verification |
+| Volunteer tab sidebar hidden entirely (returns null) | Volunteer tab will get a task assignment modal; civic widgets not relevant | — Pending v4.0 task modal |
+| React.lazy named-export shim for Recharts code-split | React.lazy expects default export; named-export shim is required or runtime throws | ✓ Good — Recharts deferred to 328KB async chunk |
 
 ---
-*Last updated: 2026-04-05 after v3.0 milestone start*
+*Last updated: 2026-04-10 after v3.0 milestone*

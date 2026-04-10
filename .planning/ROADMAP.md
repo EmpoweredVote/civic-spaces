@@ -58,133 +58,18 @@ Plans:
 
 </details>
 
----
+<details>
+<summary>✅ v3.0 UI/UX Redesign (Phases 9–13) — SHIPPED 2026-04-10</summary>
 
-### ✅ v3.0 UI/UX Redesign — SHIPPED 2026-04-10
+- [x] Phase 9: Hero Banner & Layout Shell (3/3 plans) — completed 2026-04-05
+- [x] Phase 10: Photos & Storage (2/2 plans) — completed 2026-04-06
+- [x] Phase 11: Sidebar Widgets (4/4 plans) — completed 2026-04-07
+- [x] Phase 12: Cleanup (1/1 plan) — completed 2026-04-09
+- [x] Phase 13: v3.0 Tech Debt Sprint (1/1 plan) — completed 2026-04-10
 
-**Milestone Goal:** Rebuild the slice UI around Krishna's mockup — geo-grounded hero banners, two-column layout, and a fully-wired community sidebar. Every slice becomes a visually distinct, community-anchored space.
+See archive: `.planning/milestones/v3.0-ROADMAP.md`
 
-**Design Standard (v3.0 non-negotiable):**
-- Beautiful, polished UI is a first-class deliverable — not a nice-to-have
-- Light AND dark mode required across all new components
-- Desktop and mobile must each be exceptional — separate flows are acceptable if they produce a superior experience for each context
-- Reference: `C:\Civic Spaces\Screengrabs\` (6 Krishna mockup screengrabs) for layout, tone, and visual hierarchy
-- Use `/ui-ux-pro-max` skill during planning phases to validate component design decisions before implementation
-
-#### Phase 9: Hero Banner & Layout Shell
-
-**Goal**: Users see a full-width, identity-rich hero banner above their feed on every slice tab, and desktop users see the two-column layout shell ready to receive a sidebar.
-
-**Depends on**: Phase 8
-
-**Requirements**: HERO-01, HERO-02, HERO-03, LAYOUT-01, LAYOUT-02
-
-**Success Criteria** (what must be TRUE):
-1. Each slice tab displays a full-width hero banner with the slice name, tagline, pill badges (level, jurisdiction, member count, slice number), and a two-sentence description overlaid on a photo
-2. Switching slice tabs swaps the hero photo to the photo for that slice (even before jurisdiction-specific photos are uploaded — placeholder is acceptable)
-3. The active tab in the tab bar is visually highlighted in brand teal
-4. On desktop, the page renders a two-column grid with feed occupying ~65% width left and a sidebar placeholder occupying ~35% width right
-5. On mobile, the sidebar is hidden and the feed is full-width single column; tab-switch scroll preservation still works correctly
-
-**Plans**: 3 plans
-
-Plans:
-- [ ] 09-01-PLAN.md — Two-column layout grid, teal pill tabs, dark mode setup
-- [ ] 09-02-PLAN.md — HeroBanner component + static slice copy data
-- [ ] 09-03-PLAN.md — Hero wiring into AppShell + visual verification
-
----
-
-#### Phase 10: Photos & Storage
-
-**Goal**: Jurisdiction-specific hero photos are stored in Supabase Storage and served via CDN URL into the Phase 9 hero banner, giving Bloomington pilot slices authentic local imagery.
-
-**Depends on**: Phase 9
-
-**Requirements**: PHOTO-01, PHOTO-02
-
-**Success Criteria** (what must be TRUE):
-1. A Supabase Storage bucket exists with correct RLS policies allowing public CDN reads and service-role writes
-2. Bloomington pilot slices display location-specific photos: courthouse image for Civil Civics/District slice, Indiana State Capitol for State, White House for Federal
-3. Each geo slice type (Neighborhood, Local, State, Federal, Unified, Volunteer) has at least one curated hero photo loaded and resolving via CDN URL — no broken image states
-
-**Plans**: 2 plans
-
-Plans:
-- [ ] 10-01-PLAN.md &mdash; Storage bucket + migration + photo_url column + HeroBanner wiring
-- [ ] 10-02-PLAN.md &mdash; Bloomington photo upload + DB seeding + visual verification
-
----
-
-#### Phase 11: Sidebar Widgets
-
-**Goal**: The sidebar is populated with three live widgets — Issue Alignment Compass, Representing This Community, and Tools for This Community — with sidebar hook architecture established at AppShell level to prevent 6x firing.
-
-**Depends on**: Phase 10
-
-**Pre-conditions** (must verify before coding):
-- CORS: `civicspaces.empowered.vote` confirmed in `api.empowered.vote` allowlist
-- Sidebar hooks hoisted to AppShell level (not inside SliceFeedPanel) to prevent 6× firing across simultaneously-mounted panels
-- Recharts installed
-
-**Requirements**: SIDE-01, SIDE-02, SIDE-03, SIDE-04, SIDE-05
-
-**Success Criteria** (what must be TRUE):
-1. If the user has a valid `cs_token` and has answered 3+ compass topics, the sidebar shows a live Recharts radar chart of their civic compass in purple
-2. If `cs_token` is absent or the compass is uncalibrated (<3 answered topics), the sidebar shows a "Calibrate Now" prompt card linking to compassv2.empowered.vote/results
-3. The sidebar shows a "Representing This Community" widget listing elected officials — each card displays name, title, and photo; NO party badge (anti-partisan policy); widget hidden entirely when no reps found
-4. The sidebar shows a "Tools for This Community" widget with icon cards for confirmed-live EV ecosystem tools; tools not yet live are hidden entirely (not degraded)
-5. Mobile users access all widgets via a collapsible section below the hero banner
-
-**Plans**: 4 plans
-
-Plans:
-- [ ] 11-01-PLAN.md — Install recharts, create data hooks (hoisted to AppShell), build Sidebar/SidebarMobile containers
-- [ ] 11-02-PLAN.md — Compass widget (Recharts radar chart + calibration prompt)
-- [ ] 11-03-PLAN.md — Representatives widget (rep cards with branch sorting, photo fallback)
-- [ ] 11-04-PLAN.md — Tools widget (icon grid) + visual verification checkpoint
-
----
-
-#### Phase 12: Cleanup
-
-**Goal**: Two dead props from the v2.0 codebase are removed, leaving a zero-warning TypeScript build and no vestigial interfaces.
-
-**Depends on**: Phase 11
-
-**Requirements**: CLEAN-01, CLEAN-02
-
-**Success Criteria** (what must be TRUE):
-1. `MutualFriendsList` no longer accepts or types a `friendCount` prop; all call sites pass no such prop; `tsc` produces zero errors
-2. `NotificationListProps` no longer includes `onNavigateToThread`; all call sites are clean; `tsc` produces zero errors
-
-**Plans**: 1 plan
-
-Plans:
-- [x] 12-01-PLAN.md — Dead prop removal (CLEAN-01 + CLEAN-02) + full tsc verification
-
----
-
-#### Phase 13: v3.0 Tech Debt Sprint
-
-**Goal**: Close the three non-blocking tech debt items surfaced by the v3.0 audit — volunteer tab sidebar ghost column, Recharts bundle chunk, and dormant DB photo override path.
-
-**Depends on**: Phase 12
-
-**Tech Debt Closed:**
-- TD-01: `photo_url` DB override path dormant — add to `useAllSlices` SELECT so curated photos can activate
-- TD-02: Volunteer tab desktop sidebar grid column persists (ghost space) — one CSS class fix
-- TD-03: Recharts 938KB bundle chunk — dynamic import + React.lazy in `CompassWidget`
-
-**Success Criteria** (what must be TRUE):
-1. Volunteer tab desktop layout: feed occupies 100% width (no ghost sidebar column)
-2. `CompassWidget` uses React.lazy + dynamic import; Vite no longer emits the 938KB chunk warning
-3. `useAllSlices` SELECT includes `photo_url`; `ActiveHeroBanner` can activate curated DB photos when a row has a non-null value
-
-**Plans**: 1 plan
-
-Plans:
-- [x] 13-01-PLAN.md — Volunteer sidebar ghost fix + Recharts code-split + photo_url SELECT activation
+</details>
 
 ---
 

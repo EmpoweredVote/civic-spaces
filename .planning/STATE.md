@@ -2,83 +2,49 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-05)
+See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** v3.0 — UI/UX Redesign (Phase 13: v3.0 Tech Debt Sprint) — COMPLETE
+**Current focus:** Planning next milestone (v4.0)
 
 ## Current Position
 
-Phase: 13 of 13 (v3.0 Tech Debt Sprint) — COMPLETE
-Plan: 1 of 1 — all plans done
-Status: Phase 13 complete — v3.0 DONE
-Last activity: 2026-04-10 — Completed 13-01-PLAN.md (TD-01 photo_url, TD-02 volunteer ghost column, TD-03 CompassWidget code-split)
+Phase: — (v3.0 complete — planning v4.0)
+Plan: Not started
+Status: Ready for next milestone
+Last activity: 2026-04-10 — v3.0 milestone complete and archived
 
-Progress: [██████████] 100% (v2.0 + Phases 9–13 complete)
+Progress: [██████████] 100% (v3.0 — Phases 9–13 all complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11+ (v2.0)
-- Average duration: ~30 min/plan (estimated)
-- Total execution time: ~5.5 hours (v2.0)
-
-*Updated after each plan completion*
+- v3.0 plans completed: 11
+- Average duration: ~20 min/plan (estimated)
+- v3.0 execution time: 5 days (2026-04-05 → 2026-04-10)
 
 ## Accumulated Context
 
 ### Decisions
 
-- [v2.0] CSS-hidden SliceFeedPanels (not conditional render) — preserves React Query cache, Realtime subscriptions, and DOM scroll across tab switches. Scroll target is a specific scrollRef DOM node; two-column wrapper in Phase 9 must not break this.
-- [v3.0 Roadmap] Sidebar hooks MUST be hoisted to AppShell level — all 6 panels mount simultaneously, so any hook inside a panel fires 6x. Establish in Phase 11 before any widget is wired.
-- [09-01] min-h-0 must be on every flex/grid ancestor from h-screen down to the scrollRef target — grid items expand to intrinsic content height otherwise, breaking scroll containment.
-- [09-01] Sidebar placeholder uses hidden md:flex in existing grid column — Phase 11 fills it without structural AppShell changes.
-- [09-01] Teal pill uses rounded-lg (not rounded-full) — matches Krishna mockup rectangular capsule shape.
-- [09-02] HeroBanner is pure presentational (no hooks/state) — all data via props, ready for Plan 03 wiring.
-- [09-02] Slice number pill shows only siblingIndex (not "of Y") — siblingTotal not in SliceInfo; Phase 10 TODO.
-- [09-02] Unsplash placeholder photos in sliceCopy.ts — Phase 10 replaces with Supabase Storage CDN URLs.
-- [09-03] HeroBanner rendered outside CSS-hidden tab divs — swaps via props, never remounts, preserves scroll-preservation pattern.
-- [09-03] Feed panel wrapper uses flex-1 overflow-hidden min-h-0 — hero has natural height, feed scrolls independently below it.
-- [10-01] placeholderPhoto renamed to defaultPhoto in sliceCopy.ts — permanent type defaults, not temporary placeholders.
-- [10-01] Storage RLS: public=true bucket flag is not sufficient; explicit SELECT policy on storage.objects is also required to avoid 403 on public reads.
-- [10-01] sliceCopy.ts type defaults use external Unsplash URLs only — no VITE_SUPABASE_URL dependency; DB CDN URLs come from useAllSlices hook exclusively.
-- [10-01] HeroBanner photo resolution: photoUrl (DB) > wikiPhotoUrl (Wikipedia hook) > copy.defaultPhoto (type default) > null (gray fallback).
-- [10-02] Wikipedia replaces Supabase Storage for hero images — no uploads, no service-role keys. photo_url DB column retained as curated override (currently unused).
-- [10-02] Census Bureau API used for county/place name lookups — free, no key required. Indiana fast-path lookup avoids API call for known Indiana counties.
-- [10-02] Tab labels: neighborhood->"Local", local->"County" — reflects civic jurisdiction levels better than TIGER/Line technical terms.
-- [10-02] Unified tab hidden from users who don't have the slice — not shown until assigned.
-- [10-02] federal slice Wikipedia: congressional district -> US Capitol; state slice -> "{State} State Capitol".
-- [10-02] PostgREST schema cache: after DDL changes, may need NOTIFY pgrst, 'reload schema' and brief wait before new columns are queryable.
-- [10-02] Unified slice backfilled to all existing connected users (BloomingtonVoter and Kades) after fixing missing Phase 7 CHECK constraint in production (applied 2026-04-06).
-- [11-01] Hook hoisting implemented: useCompassData + useRepresentatives called at AppShell level, props drilled to Sidebar/SidebarMobile — prevents 6x API calls from simultaneous feed panel mounts.
-- [11-01] party field omitted from PoliticianFlatRecord TypeScript type — anti-partisan policy enforced at the type layer.
-- [11-01] SidebarMobile collapsed by default — feed is primary on mobile, sidebar is supplemental.
-- [11-01] WidgetCard is the single extensible container for all widgets — Plans 02-04 replace placeholder children only.
-- [11-02] Purple #7c3aed enforced at component level in CompassWidget — no red or blue, anti-partisan policy at the render layer.
-- [11-02] Empty buildChartData result (all zeroes) falls through to calibration prompt — same UX as isUncalibrated.
-- [11-03] party never rendered in RepresentativesWidget — anti-partisan policy at the render layer (type omission + component enforcement).
-- [11-03] Widget uses complete absence (not empty state) when reps array is empty — clean sidebar layout.
-- [11-03] RepAvatar sub-component holds imgFailed state; onError swaps to inline SVG FallbackAvatar.
-- [11-03] BRANCH_ORDER ?? 99 fallback sorts unknown district_types to end of list.
+*(Full decision log in PROJECT.md Key Decisions table)*
 
-- [11] Sidebar hooks (useCompassData, useRepresentatives) hoisted to AppShell level — prevents 6x firing across simultaneously-mounted panels.
-- [11] API base URL for compass + representatives: api.empowered.vote/api (NOT accounts.empowered.vote/api — that's the auth hub frontend).
-- [11] Tab-aware rep filtering via filterRepsByTab() in types/representatives.ts. LOCAL_EXEC (Mayor) grouped with LOCAL (City Council) in Local tab. Volunteer and Unified tabs show no reps.
-- [11] Volunteer tab: entire sidebar hidden (returns null) — reserved for future task assignment modal.
-- [11] Sidebar width: 18% of viewport (82%/18% grid split). Tools widget uses horizontal single-column row layout.
-
-- [13-01] photo_url query-only addition to useAllSlices — no DDL or PostgREST cache reload needed (column existed since Phase 10, only SELECT was missing it).
-- [13-01] Volunteer tab ghost column fix: mutually exclusive 'hidden' vs 'hidden md:flex' in template literal — avoids Tailwind md:hidden + hidden specificity conflict.
-- [13-01] React.lazy with named export: requires .then((m) => ({ default: m.Comp })) shim — without it, throws "Element type is invalid" at runtime.
+Key patterns carrying into v4.0:
+- CSS-hidden SliceFeedPanels (not conditional render) — preserves React Query cache, Realtime subscriptions, and DOM scroll
+- Hook-hoisting at AppShell level for any data hooks used by sidebar — all 6 panels mount simultaneously
+- Anti-partisan policy enforced at: type layer (party omitted from PoliticianFlatRecord), render layer (never rendered), color layer (purple #7c3aed)
+- Photo resolution chain: `photoUrl (DB) > wikiPhotoUrl (Wikipedia) > copy.defaultPhoto > null`
+- Named-export lazy import shim: `lazy(() => import('./X').then((m) => ({ default: m.X })))`
+- API base URL for EV ecosystem: `api.empowered.vote/api` (not `accounts.empowered.vote/api`)
 
 ### Blockers/Concerns
 
-- Phase 11 pre-condition: Confirm `civicspaces.empowered.vote` is in `api.empowered.vote` CORS allowlist before Plans 02-03 go live (hooks are written but will fail CORS if not whitelisted).
-- Phase 11 Plan 03 pre-condition: Confirm accounts API rep data fields match PoliticianFlatRecord type at `GET /api/essentials/representatives/me` before Representatives widget implementation. (Plan 03 complete — widget built to spec, runtime validation pending CORS confirmation.)
+- CORS: `civicspaces.empowered.vote` in `api.empowered.vote` allowlist — should be confirmed before v4.0 work uses sidebar API hooks in production
+- Volunteer tab sidebar: reserved for task assignment modal (future v4.0 feature)
 
 ### Known Tech Debt
 
-TD-01, TD-02, TD-03 resolved in Phase 13 Plan 01 (2026-04-10). Remaining items tracked in 13-RESEARCH.md.
+None. All TD-01/02/03 closed in Phase 13.
 
 ### Quick Tasks Completed
 
@@ -93,5 +59,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-10
-Stopped at: Completed 13-01-PLAN.md — photo_url activated (TD-01), volunteer ghost column fixed (TD-02), CompassWidget code-split (TD-03)
+Stopped at: v3.0 milestone archived — tag and commit pending
 Resume file: None
