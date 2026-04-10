@@ -325,8 +325,8 @@ export default function AppShell() {
                 </div>
               </div>
 
-              {/* Sidebar column — hidden on mobile, live on desktop */}
-              <div className="hidden md:flex flex-col border-l border-gray-200 dark:border-gray-700 overflow-y-auto sticky top-0 max-h-screen">
+              {/* Sidebar column — hidden on mobile, live on desktop; hidden entirely on volunteer tab */}
+              <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} flex-col border-l border-gray-200 dark:border-gray-700 overflow-y-auto sticky top-0 max-h-screen`}>
                 <Sidebar compassData={compassData} repsData={repsData} activeTab={activeTab} />
               </div>
             </div>
