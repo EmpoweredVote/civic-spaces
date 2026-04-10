@@ -80,8 +80,8 @@ export function HeroBanner({
           </span>
         </div>
 
-        {/* Description */}
-        <p className="mt-3 max-w-2xl text-xs leading-relaxed text-white/80 md:text-sm">
+        {/* Description — hidden on mobile to prevent overflow; visible on desktop */}
+        <p className="hidden md:block mt-3 max-w-2xl text-xs leading-relaxed text-white/80 md:text-sm">
           {copy?.description}
         </p>
       </div>
