@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** v3.0 — UI/UX Redesign (Phase 12: Cleanup) — COMPLETE
+**Current focus:** Phase 13 — v3.0 Tech Debt Sprint (in progress)
 
 ## Current Position
 
-Phase: 12 of 12 (Cleanup) — COMPLETE
-Plan: 1 of 1 — all plans done
-Status: Phase 12 complete — v3.0 DONE
-Last activity: 2026-04-09 — Completed 12-01-PLAN.md (dead prop removal, clean TypeScript surface)
+Phase: 13 of 13 (v3.0 Tech Debt Sprint) — In progress
+Plan: 1 of N — 13-01 complete
+Status: In progress
+Last activity: 2026-04-10 — Completed 13-01-PLAN.md (TD-01 photo_url, TD-02 volunteer ghost column, TD-03 CompassWidget code-split)
 
-Progress: [██████████] 100% (v2.0 + Phases 9–12 complete)
+Progress: [██████████░] ~92% (v2.0 + Phases 9–13 in progress)
 
 ## Performance Metrics
 
@@ -67,6 +67,10 @@ Progress: [██████████] 100% (v2.0 + Phases 9–12 complete)
 - [11] Volunteer tab: entire sidebar hidden (returns null) — reserved for future task assignment modal.
 - [11] Sidebar width: 18% of viewport (82%/18% grid split). Tools widget uses horizontal single-column row layout.
 
+- [13-01] photo_url query-only addition to useAllSlices — no DDL or PostgREST cache reload needed (column existed since Phase 10, only SELECT was missing it).
+- [13-01] Volunteer tab ghost column fix: mutually exclusive 'hidden' vs 'hidden md:flex' in template literal — avoids Tailwind md:hidden + hidden specificity conflict.
+- [13-01] React.lazy with named export: requires .then((m) => ({ default: m.Comp })) shim — without it, throws "Element type is invalid" at runtime.
+
 ### Blockers/Concerns
 
 - Phase 11 pre-condition: Confirm `civicspaces.empowered.vote` is in `api.empowered.vote` CORS allowlist before Plans 02-03 go live (hooks are written but will fail CORS if not whitelisted).
@@ -74,7 +78,7 @@ Progress: [██████████] 100% (v2.0 + Phases 9–12 complete)
 
 ### Known Tech Debt
 
-None — CLEAN-01 and CLEAN-02 resolved in Phase 12 (2026-04-09).
+TD-01, TD-02, TD-03 resolved in Phase 13 Plan 01 (2026-04-10). Remaining items tracked in 13-RESEARCH.md.
 
 ### Quick Tasks Completed
 
@@ -88,6 +92,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-09
-Stopped at: Completed 12-01-PLAN.md — dead prop removal (CLEAN-01: friendCount, CLEAN-02: onNavigateToThread), v3.0 cleanup complete
+Last session: 2026-04-10
+Stopped at: Completed 13-01-PLAN.md — photo_url activated (TD-01), volunteer ghost column fixed (TD-02), CompassWidget code-split (TD-03)
 Resume file: None
