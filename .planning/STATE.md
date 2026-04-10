@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** Phase 13 — v3.0 Tech Debt Sprint (in progress)
+**Current focus:** v3.0 — UI/UX Redesign (Phase 13: v3.0 Tech Debt Sprint) — COMPLETE
 
 ## Current Position
 
-Phase: 13 of 13 (v3.0 Tech Debt Sprint) — In progress
-Plan: 1 of N — 13-01 complete
-Status: In progress
+Phase: 13 of 13 (v3.0 Tech Debt Sprint) — COMPLETE
+Plan: 1 of 1 — all plans done
+Status: Phase 13 complete — v3.0 DONE
 Last activity: 2026-04-10 — Completed 13-01-PLAN.md (TD-01 photo_url, TD-02 volunteer ghost column, TD-03 CompassWidget code-split)
 
-Progress: [██████████░] ~92% (v2.0 + Phases 9–13 in progress)
+Progress: [██████████] 100% (v2.0 + Phases 9–13 complete)
 
 ## Performance Metrics
 

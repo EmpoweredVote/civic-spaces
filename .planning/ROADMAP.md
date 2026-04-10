@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Foundation & Full Forum** — Phases 1–5 (shipped 2026-03-28)
 - ✅ **v2.0 All Slices** — Phases 6–8 (shipped 2026-04-04)
-- ✅ **v3.0 UI/UX Redesign** — Phases 9–12 (shipped 2026-04-09)
+- ✅ **v3.0 UI/UX Redesign** — Phases 9–13 (shipped 2026-04-10)
 
 ## Phases
 
@@ -60,7 +60,7 @@ Plans:
 
 ---
 
-### v3.0 UI/UX Redesign (Active — Phase 13 tech debt sprint)
+### ✅ v3.0 UI/UX Redesign — SHIPPED 2026-04-10
 
 **Milestone Goal:** Rebuild the slice UI around Krishna's mockup — geo-grounded hero banners, two-column layout, and a fully-wired community sidebar. Every slice becomes a visually distinct, community-anchored space.
 
@@ -184,7 +184,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 13-01-PLAN.md — Volunteer sidebar ghost fix + Recharts code-split + photo_url SELECT activation
+- [x] 13-01-PLAN.md — Volunteer sidebar ghost fix + Recharts code-split + photo_url SELECT activation
 
 ---
 
@@ -204,4 +204,4 @@ Plans:
 | 10. Photos & Storage | v3.0 | 2/2 | Complete | 2026-04-06 |
 | 11. Sidebar Widgets | v3.0 | 4/4 | Complete | 2026-04-07 |
 | 12. Cleanup | v3.0 | 1/1 | Complete | 2026-04-09 |
-| 13. v3.0 Tech Debt Sprint | v3.0 | 0/1 | In Progress | — |
+| 13. v3.0 Tech Debt Sprint | v3.0 | 1/1 | Complete | 2026-04-10 |
