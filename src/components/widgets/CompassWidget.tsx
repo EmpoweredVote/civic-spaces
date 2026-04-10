@@ -78,7 +78,7 @@ export function CompassWidget({ categories, answers, isLoading, isUncalibrated }
 
   return (
     <WidgetCard title="Issue Alignment Compass">
-      <ResponsiveContainer width="100%" aspect={1}>
+      <ResponsiveContainer width="100%" height={220}>
         <RadarChart data={chartData} outerRadius="75%">
           <PolarGrid />
           <PolarAngleAxis dataKey="category" tick={{ fontSize: 11 }} />
@@ -89,6 +89,7 @@ export function CompassWidget({ categories, answers, isLoading, isUncalibrated }
             fillOpacity={0.35}
             stroke="#005366"
             strokeWidth={2}
+            isAnimationActive={false}
           />
           <Tooltip formatter={(value: number | string) => [Number(value).toFixed(1), 'Your Compass']} />
         </RadarChart>
