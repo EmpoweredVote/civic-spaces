@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Foundation & Full Forum** — Phases 1–5 (shipped 2026-03-28)
 - ✅ **v2.0 All Slices** — Phases 6–8 (shipped 2026-04-04)
-- 🚧 **v3.0 UI/UX Redesign** — Phases 9–12 (in progress)
+- ✅ **v3.0 UI/UX Redesign** — Phases 9–12 (shipped 2026-04-09)
 
 ## Phases
 
@@ -60,7 +60,7 @@ Plans:
 
 ---
 
-### 🚧 v3.0 UI/UX Redesign (In Progress)
+### ✅ v3.0 UI/UX Redesign (SHIPPED 2026-04-09)
 
 **Milestone Goal:** Rebuild the slice UI around Krishna's mockup — geo-grounded hero banners, two-column layout, and a fully-wired community sidebar. Every slice becomes a visually distinct, community-anchored space.
 
@@ -161,7 +161,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 12-01-PLAN.md — Dead prop removal (CLEAN-01 + CLEAN-02) + full tsc verification
+- [x] 12-01-PLAN.md — Dead prop removal (CLEAN-01 + CLEAN-02) + full tsc verification
 
 ---
 
@@ -180,4 +180,4 @@ Plans:
 | 9. Hero Banner & Layout Shell | v3.0 | 3/3 | Complete | 2026-04-05 |
 | 10. Photos & Storage | v3.0 | 2/2 | Complete | 2026-04-06 |
 | 11. Sidebar Widgets | v3.0 | 4/4 | Complete | 2026-04-07 |
-| 12. Cleanup | v3.0 | 0/1 | Not started | — |
+| 12. Cleanup | v3.0 | 1/1 | Complete | 2026-04-09 |

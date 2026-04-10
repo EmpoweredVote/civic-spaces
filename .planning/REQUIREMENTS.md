@@ -32,8 +32,8 @@
 
 ### Cleanup
 
-- [ ] **CLEAN-01**: `friendCount` dead prop removed from `MutualFriendsList`
-- [ ] **CLEAN-02**: `onNavigateToThread` vestigial prop removed from `NotificationListProps`
+- [x] **CLEAN-01**: `friendCount` dead prop removed from `MutualFriendsList`
+- [x] **CLEAN-02**: `onNavigateToThread` vestigial prop removed from `NotificationListProps`
 
 ---
 
@@ -72,15 +72,15 @@
 | HERO-03 | Phase 9 | Complete |
 | LAYOUT-01 | Phase 9 | Complete |
 | LAYOUT-02 | Phase 9 | Complete |
-| PHOTO-01 | Phase 10 | Pending |
-| PHOTO-02 | Phase 10 | Pending |
-| SIDE-01 | Phase 11 | Pending |
-| SIDE-02 | Phase 11 | Pending |
-| SIDE-03 | Phase 11 | Pending |
-| SIDE-04 | Phase 11 | Pending |
-| SIDE-05 | Phase 11 | Pending |
-| CLEAN-01 | Phase 12 | Pending |
-| CLEAN-02 | Phase 12 | Pending |
+| PHOTO-01 | Phase 10 | Complete |
+| PHOTO-02 | Phase 10 | Complete |
+| SIDE-01 | Phase 11 | Complete |
+| SIDE-02 | Phase 11 | Complete |
+| SIDE-03 | Phase 11 | Complete |
+| SIDE-04 | Phase 11 | Complete |
+| SIDE-05 | Phase 11 | Complete |
+| CLEAN-01 | Phase 12 | Complete |
+| CLEAN-02 | Phase 12 | Complete |
 
 **Coverage:**
 - v3.0 requirements: 14 total
