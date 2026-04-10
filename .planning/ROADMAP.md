@@ -60,7 +60,7 @@ Plans:
 
 ---
 
-### ✅ v3.0 UI/UX Redesign (SHIPPED 2026-04-09)
+### v3.0 UI/UX Redesign (Active — Phase 13 tech debt sprint)
 
 **Milestone Goal:** Rebuild the slice UI around Krishna's mockup — geo-grounded hero banners, two-column layout, and a fully-wired community sidebar. Every slice becomes a visually distinct, community-anchored space.
 
@@ -165,6 +165,29 @@ Plans:
 
 ---
 
+#### Phase 13: v3.0 Tech Debt Sprint
+
+**Goal**: Close the three non-blocking tech debt items surfaced by the v3.0 audit — volunteer tab sidebar ghost column, Recharts bundle chunk, and dormant DB photo override path.
+
+**Depends on**: Phase 12
+
+**Tech Debt Closed:**
+- TD-01: `photo_url` DB override path dormant — add to `useAllSlices` SELECT so curated photos can activate
+- TD-02: Volunteer tab desktop sidebar grid column persists (ghost space) — one CSS class fix
+- TD-03: Recharts 938KB bundle chunk — dynamic import + React.lazy in `CompassWidget`
+
+**Success Criteria** (what must be TRUE):
+1. Volunteer tab desktop layout: feed occupies 100% width (no ghost sidebar column)
+2. `CompassWidget` uses React.lazy + dynamic import; Vite no longer emits the 938KB chunk warning
+3. `useAllSlices` SELECT includes `photo_url`; `ActiveHeroBanner` can activate curated DB photos when a row has a non-null value
+
+**Plans**: 1 plan
+
+Plans:
+- [ ] 13-01-PLAN.md — Volunteer sidebar ghost fix + Recharts code-split + photo_url SELECT activation
+
+---
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -181,3 +204,4 @@ Plans:
 | 10. Photos & Storage | v3.0 | 2/2 | Complete | 2026-04-06 |
 | 11. Sidebar Widgets | v3.0 | 4/4 | Complete | 2026-04-07 |
 | 12. Cleanup | v3.0 | 1/1 | Complete | 2026-04-09 |
+| 13. v3.0 Tech Debt Sprint | v3.0 | 0/1 | In Progress | — |
