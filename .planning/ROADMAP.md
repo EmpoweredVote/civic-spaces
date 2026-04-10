@@ -158,10 +158,10 @@ Plans:
 1. `MutualFriendsList` no longer accepts or types a `friendCount` prop; all call sites pass no such prop; `tsc` produces zero errors
 2. `NotificationListProps` no longer includes `onNavigateToThread`; all call sites are clean; `tsc` produces zero errors
 
-**Plans**: 2 plans
+**Plans**: 1 plan
 
 Plans:
-- [ ] 12-01: Dead prop removal (CLEAN-01 + CLEAN-02) + full tsc verification
+- [ ] 12-01-PLAN.md — Dead prop removal (CLEAN-01 + CLEAN-02) + full tsc verification
 
 ---
 
