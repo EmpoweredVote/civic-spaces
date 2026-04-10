@@ -5,18 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** v3.0 — UI/UX Redesign (Phase 12: Cleanup)
+**Current focus:** v3.0 — UI/UX Redesign (Phase 12: Cleanup) — COMPLETE
 
 ## Current Position
 
-Phase: 11 of 12 (Sidebar Widgets) — COMPLETE
-Plan: 4 of 4 — all plans done
-Status: Phase 11 complete
-Last activity: 2026-04-07 — Completed Phase 11 (sidebar widgets live, verified on production)
+Phase: 12 of 12 (Cleanup) — COMPLETE
+Plan: 1 of 1 — all plans done
+Status: Phase 12 complete — v3.0 DONE
+Last activity: 2026-04-09 — Completed 12-01-PLAN.md (dead prop removal, clean TypeScript surface)
 
-Next up: Phase 12 — Cleanup (dead prop removal)
-
-Progress: [█████████░] ~92% (v2.0 + Phases 9–11 complete)
+Progress: [██████████] 100% (v2.0 + Phases 9–12 complete)
 
 ## Performance Metrics
 
@@ -74,10 +72,9 @@ Progress: [█████████░] ~92% (v2.0 + Phases 9–11 complete)
 - Phase 11 pre-condition: Confirm `civicspaces.empowered.vote` is in `api.empowered.vote` CORS allowlist before Plans 02-03 go live (hooks are written but will fail CORS if not whitelisted).
 - Phase 11 Plan 03 pre-condition: Confirm accounts API rep data fields match PoliticianFlatRecord type at `GET /api/essentials/representatives/me` before Representatives widget implementation. (Plan 03 complete — widget built to spec, runtime validation pending CORS confirmation.)
 
-### Known Tech Debt (addressed in Phase 12)
+### Known Tech Debt
 
-- `MutualFriendsList` accepts `friendCount` prop but never renders it — CLEAN-01
-- `onNavigateToThread` vestigial in `NotificationListProps` — CLEAN-02
+None — CLEAN-01 and CLEAN-02 resolved in Phase 12 (2026-04-09).
 
 ### Quick Tasks Completed
 
@@ -91,6 +88,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-07
-Stopped at: Completed 11-03-PLAN.md — representatives widget (rep cards with photo/fallback, branch sorting, skeleton loading) wired into Sidebar and SidebarMobile
+Last session: 2026-04-09
+Stopped at: Completed 12-01-PLAN.md — dead prop removal (CLEAN-01: friendCount, CLEAN-02: onNavigateToThread), v3.0 cleanup complete
 Resume file: None
