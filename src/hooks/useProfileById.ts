@@ -14,6 +14,7 @@ async function fetchProfileById(userId: string): Promise<{
   sliceName: string | null
 }> {
   const { data: profileData, error: profileError } = await supabase
+    .schema('civic_spaces')
     .from('connected_profiles')
     .select('user_id, display_name, avatar_url, tier, created_at')
     .eq('user_id', userId)
@@ -23,6 +24,7 @@ async function fetchProfileById(userId: string): Promise<{
 
   // Fetch federal slice name for this user
   const { data: memberData } = await supabase
+    .schema('civic_spaces')
     .from('slice_members')
     .select('slice_id, slices(slice_type, geoid)')
     .eq('user_id', userId)

@@ -15,6 +15,7 @@ export function useMemberSearch(
       if (crossSlice || !sliceId) {
         // Search all connected profiles
         const { data, error } = await supabase
+          .schema('civic_spaces')
           .from('connected_profiles')
           .select('user_id, display_name, avatar_url, tier')
           .ilike('display_name', `%${term}%`)
@@ -30,6 +31,7 @@ export function useMemberSearch(
       } else {
         // Two-query: get slice member IDs, then filter by name
         const { data: memberRows, error: memberError } = await supabase
+          .schema('civic_spaces')
           .from('slice_members')
           .select('user_id')
           .eq('slice_id', sliceId)
@@ -40,6 +42,7 @@ export function useMemberSearch(
         const memberIds = memberRows.map((r) => r.user_id)
 
         const { data, error } = await supabase
+          .schema('civic_spaces')
           .from('connected_profiles')
           .select('user_id, display_name, avatar_url, tier')
           .ilike('display_name', `%${term}%`)

@@ -7,6 +7,7 @@ export function useProfile(userId: string | null) {
     queryKey: ['profile', userId],
     queryFn: async () => {
       const { data, error } = await supabase
+        .schema('civic_spaces')
         .from('connected_profiles')
         .select('user_id, display_name, avatar_url, tier, is_suspended, account_standing')
         .eq('user_id', userId!)

@@ -8,7 +8,7 @@ export interface MutualFriend {
 }
 
 async function fetchMutualFriends(subjectId: string): Promise<MutualFriend[]> {
-  const { data, error } = await supabase.rpc('get_mutual_friends', {
+  const { data, error } = await supabase.schema('civic_spaces').rpc('get_mutual_friends', {
     p_subject_id: subjectId,
   })
 

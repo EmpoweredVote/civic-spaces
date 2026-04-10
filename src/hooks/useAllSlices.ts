@@ -14,6 +14,7 @@ async function fetchAllSlicesData(userId: string): Promise<{
 }> {
   // Step 1: Get all slice_ids this user belongs to
   const { data: memberships, error: memberError } = await supabase
+    .schema('civic_spaces')
     .from('slice_members')
     .select('slice_id')
     .eq('user_id', userId)
@@ -28,6 +29,7 @@ async function fetchAllSlicesData(userId: string): Promise<{
 
   // Step 2: Find all slices the user belongs to (all types, not filtered)
   const { data: sliceRows, error: sliceError } = await supabase
+    .schema('civic_spaces')
     .from('slices')
     .select('id, slice_type, geoid, current_member_count, sibling_index, photo_url')
     .in('id', sliceIds)

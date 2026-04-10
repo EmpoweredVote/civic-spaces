@@ -196,6 +196,30 @@ async function upsertConnectedProfile(
   }
 }
 
+async function removeStaleGeoMemberships(
+  userId: string,
+  sliceType: string,
+  newGeoid: string
+): Promise<void> {
+  // Find all slices of this type with a different GEOID than the incoming assignment
+  const { data: otherSlices } = await supabase
+    .schema('civic_spaces')
+    .from('slices')
+    .select('id')
+    .eq('slice_type', sliceType)
+    .neq('geoid', newGeoid)
+
+  if (!otherSlices || otherSlices.length === 0) return
+
+  await supabase
+    .schema('civic_spaces')
+    .from('slice_members')
+    .delete()
+    .eq('user_id', userId)
+    .in('slice_id', otherSlices.map(s => s.id))
+  // decrement_slice_count trigger fires automatically on DELETE
+}
+
 export async function assignUserToSlices(
   userId: string,
   jurisdiction: NonNullable<AccountData['jurisdiction']>
@@ -204,6 +228,7 @@ export async function assignUserToSlices(
 
   for (const { sliceType, geoid: geoidFn } of SLICE_ASSIGNMENTS) {
     const geoid = geoidFn(jurisdiction)
+    await removeStaleGeoMemberships(userId, sliceType, geoid)
     const sliceId = await findActiveSliceForGeoid(sliceType, geoid)
     await upsertSliceMember(userId, sliceId)
     assigned.push(sliceId)

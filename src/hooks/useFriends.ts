@@ -56,6 +56,7 @@ export function useFriendsList(): FriendsListResult {
 
       // Batch-fetch profiles
       const { data: profiles, error: profilesError } = await supabase
+        .schema('civic_spaces')
         .from('connected_profiles')
         .select('user_id, display_name, avatar_url, tier')
         .in('user_id', allIds)

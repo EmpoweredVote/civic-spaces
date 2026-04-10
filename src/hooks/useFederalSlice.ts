@@ -19,6 +19,7 @@ async function fetchFederalSliceData(userId: string): Promise<{
 }> {
   // Step 1: Get all slice_ids this user belongs to
   const { data: memberships, error: memberError } = await supabase
+    .schema('civic_spaces')
     .from('slice_members')
     .select('slice_id')
     .eq('user_id', userId)
@@ -35,6 +36,7 @@ async function fetchFederalSliceData(userId: string): Promise<{
 
   // Step 2: Find the federal slice among the user's slices
   const { data: federalSlice, error: sliceError } = await supabase
+    .schema('civic_spaces')
     .from('slices')
     .select('id, slice_type, geoid, current_member_count')
     .in('id', sliceIds)

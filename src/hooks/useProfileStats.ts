@@ -8,7 +8,7 @@ export interface ProfileStats {
 }
 
 async function fetchProfileStats(userId: string): Promise<ProfileStats> {
-  const { data, error } = await supabase.rpc('get_profile_stats', {
+  const { data, error } = await supabase.schema('civic_spaces').rpc('get_profile_stats', {
     p_user_id: userId,
   })
 

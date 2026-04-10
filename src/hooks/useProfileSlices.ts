@@ -5,6 +5,7 @@ import type { SliceType, SliceInfo } from '../types/database'
 async function fetchProfileSlices(userId: string): Promise<Partial<Record<SliceType, SliceInfo>>> {
   // Step 1: Get all slice_ids this user belongs to
   const { data: memberships, error: memberError } = await supabase
+    .schema('civic_spaces')
     .from('slice_members')
     .select('slice_id')
     .eq('user_id', userId)
@@ -19,6 +20,7 @@ async function fetchProfileSlices(userId: string): Promise<Partial<Record<SliceT
 
   // Step 2: Find all slices the user belongs to
   const { data: sliceRows, error: sliceError } = await supabase
+    .schema('civic_spaces')
     .from('slices')
     .select('id, slice_type, geoid, current_member_count, sibling_index')
     .in('id', sliceIds)

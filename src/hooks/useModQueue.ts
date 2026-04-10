@@ -32,6 +32,7 @@ export function useIsModerator(userId: string | null) {
     enabled: !!userId,
     queryFn: async () => {
       const { data, error } = await supabase
+        .schema('civic_spaces')
         .from('moderators')
         .select('user_id')
         .eq('user_id', userId!)

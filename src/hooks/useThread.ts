@@ -18,6 +18,7 @@ async function fetchPostWithAuthor(postId: string): Promise<PostWithAuthor> {
   if (postError) throw postError
 
   const { data: profile, error: profileError } = await supabase
+    .schema('civic_spaces')
     .from('connected_profiles')
     .select('user_id, display_name, avatar_url')
     .eq('user_id', post.user_id)
@@ -67,6 +68,7 @@ async function fetchRepliesPage(
   const userIds = [...new Set(replies.map((r) => r.user_id))]
 
   const { data: profiles, error: profilesError } = await supabase
+    .schema('civic_spaces')
     .from('connected_profiles')
     .select('user_id, display_name, avatar_url')
     .in('user_id', userIds)

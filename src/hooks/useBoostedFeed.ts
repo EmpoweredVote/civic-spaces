@@ -23,6 +23,7 @@ async function fetchBoostedFeedPage(
   // Batch fetch profiles for all unique authors
   const userIds = [...new Set(posts.map((p: any) => p.author_id as string))]
   const { data: profiles } = await supabase
+    .schema('civic_spaces')
     .from('connected_profiles')
     .select('user_id, display_name, avatar_url, tier')
     .in('user_id', userIds)

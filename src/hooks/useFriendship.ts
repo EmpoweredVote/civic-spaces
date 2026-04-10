@@ -49,7 +49,7 @@ export function useSendFriendRequest() {
       // Determine status: REQ_LOW if current user is user_low, REQ_HIGH if user_high
       const status = userId === key.user_low ? 'REQ_LOW' : 'REQ_HIGH'
 
-      const { error } = await supabase.from('friendships').insert({
+      const { error } = await supabase.schema('civic_spaces').from('friendships').insert({
         user_low: key.user_low,
         user_high: key.user_high,
         status,

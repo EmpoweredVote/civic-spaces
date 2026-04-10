@@ -25,6 +25,7 @@ export function useMemberDirectory(sliceId: string | null) {
 
       // Step 1: Fetch user_ids for this slice, with pagination
       const { data: memberRows, error: memberError } = await supabase
+        .schema('civic_spaces')
         .from('slice_members')
         .select('user_id')
         .eq('slice_id', sliceId)
@@ -38,6 +39,7 @@ export function useMemberDirectory(sliceId: string | null) {
 
       // Step 2: Fetch profiles for those IDs
       const { data: profiles, error: profilesError } = await supabase
+        .schema('civic_spaces')
         .from('connected_profiles')
         .select('user_id, display_name, avatar_url, tier')
         .in('user_id', userIds)

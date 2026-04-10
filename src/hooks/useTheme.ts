@@ -26,6 +26,7 @@ export function useTheme(userId: string | null) {
     if (!userId) return
 
     supabase
+      .schema('civic_spaces')
       .from('connected_profiles')
       .select('ui_theme')
       .eq('user_id', userId)
@@ -47,6 +48,7 @@ export function useTheme(userId: string | null) {
 
     if (userId) {
       await supabase
+        .schema('civic_spaces')
         .from('connected_profiles')
         .update({ ui_theme: next })
         .eq('user_id', userId)
