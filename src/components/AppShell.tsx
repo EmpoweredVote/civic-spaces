@@ -160,10 +160,6 @@ export default function AppShell() {
 
             {/* Notification bell */}
             <NotificationBell
-              onNavigateToThread={(postId) => {
-                setScrollToLatestMap(prev => ({ ...prev, [activeTab]: true }))
-                setActivePostIds(prev => ({ ...prev, [activeTab]: postId }))
-              }}
               onNavigateToSliceThread={handleNotificationNavigate}
             />
 

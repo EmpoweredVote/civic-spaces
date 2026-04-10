@@ -7,7 +7,6 @@ import type { ConnectedProfile } from '../types/database'
 interface ProfileFriendsProps {
   userId: string
   isSelf: boolean
-  friendCount: number
 }
 
 interface FriendRowProps {
@@ -56,7 +55,7 @@ function OwnFriendsList() {
   )
 }
 
-function MutualFriendsList({ userId, friendCount }: { userId: string; friendCount: number }) {
+function MutualFriendsList({ userId }: { userId: string }) {
   const [, navigate] = useLocation()
   const { mutualFriends, isLoading } = useMutualFriends(userId)
 
@@ -86,7 +85,7 @@ function MutualFriendsList({ userId, friendCount }: { userId: string; friendCoun
   )
 }
 
-export default function ProfileFriends({ userId, isSelf, friendCount }: ProfileFriendsProps) {
+export default function ProfileFriends({ userId, isSelf }: ProfileFriendsProps) {
   return (
     <div>
       {isSelf ? (
@@ -95,7 +94,7 @@ export default function ProfileFriends({ userId, isSelf, friendCount }: ProfileF
           <OwnFriendsList />
         </>
       ) : (
-        <MutualFriendsList userId={userId} friendCount={friendCount} />
+        <MutualFriendsList userId={userId} />
       )}
     </div>
   )

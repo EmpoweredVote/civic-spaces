@@ -9,13 +9,11 @@ import type { Notification } from '../types/database'
 
 interface NotificationListProps {
   onClose: () => void
-  onNavigateToThread?: (postId: string) => void
   onNavigateToSliceThread: (postId: string) => void
 }
 
 export default function NotificationList({
   onClose,
-  onNavigateToThread: _onNavigateToThread,
   onNavigateToSliceThread,
 }: NotificationListProps) {
   const [, navigate] = useLocation()

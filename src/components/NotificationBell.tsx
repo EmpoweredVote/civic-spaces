@@ -5,12 +5,10 @@ import { useNotifications, useMarkAllNotificationsRead } from '../hooks/useNotif
 import NotificationList from './NotificationList'
 
 interface NotificationBellProps {
-  onNavigateToThread: (postId: string) => void
   onNavigateToSliceThread: (postId: string) => void
 }
 
 export default function NotificationBell({
-  onNavigateToThread,
   onNavigateToSliceThread,
 }: NotificationBellProps) {
   const { unreadCount } = useNotifications()
@@ -92,8 +90,6 @@ export default function NotificationBell({
             >
               <NotificationList
                 onClose={() => setIsOpen(false)}
-
-                onNavigateToThread={onNavigateToThread}
                 onNavigateToSliceThread={onNavigateToSliceThread}
               />
             </motion.div>
@@ -112,7 +108,6 @@ export default function NotificationBell({
           <Sheet.Content>
             <NotificationList
               onClose={() => setIsOpen(false)}
-              onNavigateToThread={onNavigateToThread}
               onNavigateToSliceThread={onNavigateToSliceThread}
             />
           </Sheet.Content>

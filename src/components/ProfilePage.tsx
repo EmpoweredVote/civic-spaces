@@ -90,7 +90,6 @@ export default function ProfilePage({ userId }: ProfilePageProps) {
               <ProfileFriends
                 userId={userId}
                 isSelf={isSelf}
-                friendCount={stats?.friendCount ?? 0}
               />
             </div>
           </>
