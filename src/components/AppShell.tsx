@@ -140,7 +140,16 @@ export default function AppShell() {
     <div className="flex flex-col h-screen bg-white dark:bg-gray-950">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-        <h1 className="text-lg font-semibold text-brand dark:text-brand-light">Civic Spaces</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-lg font-semibold text-brand dark:text-brand-light">Civic Spaces</h1>
+          <a
+            href="https://fc.empowered.vote"
+            className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+          >
+            <span className="hidden sm:inline">Focused Communities</span>
+            <span className="sm:hidden">FC</span>
+          </a>
+        </div>
 
         {/* Social nav icons — only when authenticated */}
         {isAuthenticated && (
