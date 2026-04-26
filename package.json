@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@empoweredvote/ev-ui": "^0.5.1",
+    "@empoweredvote/ev-ui": "^0.6.0",
     "@hookform/resolvers": "^5.2.2",
     "@supabase/supabase-js": "^2.100.1",
     "@tailwindcss/vite": "^4.2.2",
