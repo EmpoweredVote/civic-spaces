@@ -3,12 +3,17 @@ export interface AccountData {
   display_name: string
   tier: 'inform' | 'connected' | 'empowered'
   account_standing: 'active' | 'suspended'
+  // Every field is nullable in practice, whatever the API's own docs imply. A point
+  // can sit outside a layer we hold: a Buncombe County, NC address on 2026-09-01
+  // resolved a county, a congressional district and a senate district but NO school
+  // district, because no school-district boundary covers it. Typing these as
+  // non-null hid that until it reached a NOT NULL column at runtime.
   jurisdiction: {
-    congressional_district: string
-    state_senate_district: string
-    state_house_district: string
-    county: string
-    school_district: string
+    congressional_district: string | null
+    state_senate_district: string | null
+    state_house_district: string | null
+    county: string | null
+    school_district: string | null
   } | null
 }
 
