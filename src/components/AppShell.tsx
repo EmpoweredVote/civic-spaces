@@ -87,7 +87,7 @@ export default function AppShell() {
   const { data: isModerator } = useIsModerator(userId)
   const compassData = useCompassData(userId)
   const repsData = useRepresentatives(userId)
-  const { theme, toggleTheme } = useTheme(userId)
+  const { theme, toggleTheme } = useTheme()
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {

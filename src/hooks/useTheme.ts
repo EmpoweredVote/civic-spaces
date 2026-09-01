@@ -1,59 +1,39 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
 
 export type Theme = 'light' | 'dark'
 
+const KEY = 'ev:color-scheme'
+
 function applyTheme(theme: Theme) {
-  if (theme === 'dark') {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
+  document.documentElement.classList.toggle('dark', theme === 'dark')
 }
 
-/**
- * Manages the user's light/dark theme preference.
- *
- * - Default: dark (index.html seeds the .dark class so there is no flash)
- * - Authenticated: loads saved preference from connected_profiles.ui_theme
- * - Toggle: updates Supabase immediately, then updates the DOM
- */
-export function useTheme(userId: string | null) {
-  const [theme, setTheme] = useState<Theme>('dark')
+export function useTheme() {
+  const [theme, setTheme] = useState<Theme>(
+    () => document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+  )
 
-  // Fetch saved preference once userId is known
   useEffect(() => {
-    if (!userId) return
+    const mq = window.matchMedia('(prefers-color-scheme: light)')
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (!localStorage.getItem(KEY)) {
+        const next: Theme = e.matches ? 'light' : 'dark'
+        setTheme(next)
+        applyTheme(next)
+      }
+    }
+    mq.addEventListener('change', handleChange)
+    return () => mq.removeEventListener('change', handleChange)
+  }, [])
 
-    supabase
-      .schema('civic_spaces')
-      .from('connected_profiles')
-      .select('ui_theme')
-      .eq('user_id', userId)
-      .single()
-      .then(({ data }) => {
-        const saved = data?.ui_theme as Theme | undefined
-        if (saved === 'light' || saved === 'dark') {
-          setTheme(saved)
-          applyTheme(saved)
-        }
-      })
-  }, [userId])
-
-  const toggleTheme = useCallback(async () => {
+  const toggleTheme = useCallback(() => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark'
-    // Apply immediately so the toggle feels instant
     setTheme(next)
     applyTheme(next)
-
-    if (userId) {
-      await supabase
-        .schema('civic_spaces')
-        .from('connected_profiles')
-        .update({ ui_theme: next })
-        .eq('user_id', userId)
-    }
-  }, [theme, userId])
+    localStorage.setItem(KEY, next)
+    // TODO: also persist to connected_profiles.ui_theme via accounts API
+    // when account preferences land in the schema.
+  }, [theme])
 
   return { theme, toggleTheme }
 }
