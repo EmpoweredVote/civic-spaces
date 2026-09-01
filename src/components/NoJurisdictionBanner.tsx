@@ -10,7 +10,7 @@ export default function NoJurisdictionBanner() {
       <span className="flex-1 text-sm text-amber-800">
         Add your address to join your civic community.{' '}
         <a
-          href="https://accounts.empowered.vote/profile"
+          href="https://app.empowered.vote/settings/location"
           target="_blank"
           rel="noopener noreferrer"
           className="font-medium underline hover:text-amber-900"
