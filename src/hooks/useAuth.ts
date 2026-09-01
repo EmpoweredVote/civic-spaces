@@ -1,18 +1,13 @@
 import { useState, useEffect } from 'react'
+import { triggerSliceAssignment } from '../lib/sliceAssignment'
 
 const ACCOUNTS_SESSION_URL = 'https://accounts-api.empowered.vote/api/auth/session'
-const SLICE_ASSIGNMENT_URL = `${import.meta.env.VITE_SLICE_ASSIGNMENT_URL ?? ''}/assign`
 const LOGIN_URL = `https://accounts.empowered.vote/login?redirect=${encodeURIComponent('https://civicspaces.empowered.vote')}`
 
-function triggerSliceAssignment(token: string) {
-  // Fire-and-forget — slice membership will be ready when useFederalSlice queries
-  fetch(SLICE_ASSIGNMENT_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-  }).catch(() => {
-    // Silently ignore — useFederalSlice will show "no jurisdiction" if it fails
-  })
-}
+// NOTE: assignment here is a best-effort head start on login, NOT the guarantee.
+// It cannot be, because the stored-token path below never reaches it and because a
+// member can set their address long after this ran. useEnsureSlices owns the
+// guarantee: it re-asks whenever a signed-in member turns out to have no spaces.
 
 interface AuthState {
   userId: string | null

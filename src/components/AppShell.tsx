@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, createRef } from 'react'
 import type React from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useAllSlices } from '../hooks/useAllSlices'
+import { useEnsureSlices } from '../hooks/useEnsureSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
 import { useWikiHeroImage } from '../hooks/useWikiHeroImage'
@@ -84,6 +85,13 @@ const INITIAL_SCROLL_MAP: Record<TabKey, boolean> = {
 export default function AppShell() {
   const { userId, isAuthenticated, isLoading: authLoading, loginUrl } = useAuth()
   const { slices, hasJurisdiction, isLoading } = useAllSlices(userId)
+
+  // A signed-in member with no spaces is usually someone who set their address
+  // after their session started, not someone without one. Ask the assigner again
+  // before concluding they have no jurisdiction. See useEnsureSlices.
+  const hasAnySlices = Object.keys(slices).length > 0
+  const assignmentStatus = useEnsureSlices({ userId, hasAnySlices, isLoading })
+  const isAssigning = assignmentStatus === 'assigning'
   const { data: isModerator } = useIsModerator(userId)
   const compassData = useCompassData(userId)
   const repsData = useRepresentatives(userId)
@@ -105,6 +113,22 @@ export default function AppShell() {
   )
 
   const showVolunteerTab = !!slices['volunteer']
+
+  // Keep the active tab on a slice the member actually has.
+  //
+  // activeTab is restored from localStorage and otherwise defaults to 'federal',
+  // neither of which knows which slices exist. When it names one they do not have,
+  // the feed column renders nothing at all: that tab's panel returns null for a
+  // missing slice, and every other panel is CSS-hidden because it is not active.
+  // The result is a tab bar above an empty page, with nothing to say why.
+  useEffect(() => {
+    if (isLoading || !hasAnySlices || slices[activeTab]) return
+    const firstAvailable = ALL_TAB_KEYS.find((tab) => slices[tab])
+    if (firstAvailable) {
+      setActiveTab(firstAvailable)
+      localStorage.setItem('cs_active_tab', firstAvailable)
+    }
+  }, [isLoading, hasAnySlices, slices, activeTab])
 
   const handleTabChange = useCallback((newTab: TabKey) => {
     // Save current tab's scroll position before switching
@@ -256,9 +280,17 @@ export default function AppShell() {
           </div>
         )}
 
-        {isAuthenticated && !isLoading && !hasJurisdiction && !slices['unified'] && <NoJurisdictionBanner />}
+        {isAuthenticated && !isLoading && isAssigning && (
+          <div className="flex flex-1 items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+            Setting up your civic spaces&hellip;
+          </div>
+        )}
 
-        {isAuthenticated && !isLoading && (hasJurisdiction || !!slices['unified']) && (
+        {isAuthenticated && !isLoading && !isAssigning && !hasJurisdiction && !slices['unified'] && (
+          <NoJurisdictionBanner />
+        )}
+
+        {isAuthenticated && !isLoading && !isAssigning && (hasJurisdiction || !!slices['unified']) && (
           <>
             <SliceTabBar
               activeTab={activeTab}
