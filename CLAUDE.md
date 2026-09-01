@@ -1,0 +1,121 @@
+# Civic Spaces — working notes
+
+Conventions that are not obvious from the code and that are expensive to get wrong. Keep this
+short; if something needs a page, put it in `.planning/` and link it here.
+
+Civic Spaces is the **Connect** pillar's forum: a member is placed into civic "slices"
+(Neighborhood, Local, State, Federal, Unified, Volunteer) based on where they live, and each
+slice has its own feed, posts and replies. Identity, location and representatives all come from
+**ev-accounts** — this repo owns none of that, it reads it.
+
+## Getting it running
+
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # tsc && vite build — the only real check this repo has
+```
+
+Copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY`. `VITE_SLICE_ASSIGNMENT_URL` is optional in dev; without it the
+fire-and-forget slice-assignment POST fails silently and you see the "no jurisdiction" state.
+
+🔴 **You cannot log in locally by clicking Sign in.** `useAuth.ts` hardcodes the redirect to
+`https://civicspaces.empowered.vote`, so the accounts hub sends you to production, not back to
+localhost. To see any signed-in screen, log in on production, copy the `cs_token` value out of
+that tab's localStorage, and paste it into localhost's localStorage under the same key. The app
+reads the token from there (or from an `access_token` in the URL hash).
+
+**There is no test framework.** No vitest, no test script, no test files. `npm run build` runs
+`tsc` and is the whole safety net — run it before you claim anything works.
+
+## Where things are on screen
+
+`AppShell.tsx` is the frame and holds nearly all the state. Reading it first saves an hour.
+
+| On screen | File |
+|---|---|
+| Top bar, tab bar, the whole grid | `components/AppShell.tsx` |
+| Slice tabs | `components/SliceTabBar.tsx` |
+| One slice's feed (posts + composer) | `components/SliceFeedPanel.tsx` |
+| A post / a reply / a thread | `components/PostCard.tsx`, `ReplyCard.tsx`, `ThreadView.tsx` |
+| Banner above the feed | `components/HeroBanner.tsx` |
+| Desktop right column | `components/Sidebar.tsx` |
+| Mobile collapsible version of it | `components/SidebarMobile.tsx` |
+| The three sidebar widgets | `components/widgets/` |
+| Profile page | `components/ProfilePage.tsx` + `Profile*.tsx` |
+
+Layout is `md:grid-cols-[82%_18%]` — feed left, sidebar right. The sidebar column is hidden on
+mobile (`SidebarMobile` takes over, above the feed) and hidden entirely on the Volunteer tab.
+
+Routing is **wouter**, and there is exactly one route: `/profile/:userId`. Everything else is
+tab state inside `AppShell`, persisted to `localStorage` under `cs_active_tab`.
+
+## Landmines
+
+🔴 **Every feed panel is mounted at once — a hook inside one fires 6×.** `AppShell` renders all
+five `FEED_TABS` plus Volunteer simultaneously and hides the inactive ones with CSS `hidden`.
+That is deliberate: it preserves scroll position and the React Query cache across tab switches.
+The consequence is that any hook you add inside `SliceFeedPanel` runs six times on load.
+
+**So sidebar and shell data hooks are hoisted to `AppShell` and passed down as props.**
+`useCompassData` and `useRepresentatives` are called once there, and `Sidebar` /
+`SidebarMobile` receive `compassData`, `repsData` and `activeTab`. Follow that pattern; do not
+call a shared hook inside a panel.
+
+🔴 **`cs_token` is this app's key, `ev_token` is Compass's.** Same JWT, same auth hub, different
+localStorage keys. Copying a snippet from CompassV2 that reads `ev_token` will silently find
+nothing here.
+
+**Scroll positions are restored manually** in `AppShell` via `scrollRefs` / `scrollPositions`.
+If you restructure the feed column, that restoration is the thing most likely to break, and it
+breaks quietly.
+
+**Every Supabase call is `.schema('civic_spaces')`** — 49 of them. The default `public` schema
+is not this app's data.
+
+## Talking to the rest of the platform
+
+| Need | Source |
+|---|---|
+| Session / user id | `accounts-api.empowered.vote/api/auth/session`, or `cs_token` |
+| Compass answers, representatives | `api.empowered.vote/api/...` (Bearer `cs_token`) |
+| Setting or changing an address | link out to `app.empowered.vote/settings/location` |
+| Posts, replies, slices, friends, notifications | Supabase, `civic_spaces` schema |
+
+This app **never geocodes and never stores a location.** If a member has no jurisdiction, the
+fix is always to send them to the accounts app — never to add address handling here.
+
+## Design rules
+
+**Beautiful is not optional.** The v3.0 redesign is the standard, and every change is judged on
+both light and dark mode and on both desktop and mobile. A change that looks right in only one
+of those four is not done.
+
+- **Dark mode is class-based.** `index.html` sets the `dark` class before first paint from
+  `localStorage['ev:color-scheme']`, falling back to the system preference. `useTheme()` reads
+  and toggles it. Never define a colour only inside a `dark:` variant — write the light value
+  and the `dark:` counterpart together, every time.
+- Use the **EV brand tokens** (teal `#00657C`, coral `#FF5740`, yellow `#FED12E`) and the
+  existing component vocabulary rather than inventing new colours or spacing.
+- Reuse `WidgetCard` for anything sidebar-shaped, and `react-loading-skeleton` for loading
+  states — match `FeedSkeleton`, do not invent a third loading style.
+- Animation is `motion/react`, already used by `NotificationBell` and `SidebarMobile`.
+- The `ui-ux-pro-max` skill is installed in `.claude/skills/` — worth invoking while planning
+  any layout change.
+
+The design mockups this UI was built from are not in the repo; ask Chris for them rather than
+guessing at intent.
+
+## Stack
+
+React 19 · TypeScript · Vite 6 · Tailwind v4 (via `@tailwindcss/vite`, no config file) ·
+wouter · TanStack Query · motion · recharts (Compass radar) · `@supabase/supabase-js` ·
+`react-modal-sheet` · `sonner` · `@empoweredvote/ev-ui`.
+
+## Planning
+
+This repo uses the GSD workflow in `.planning/` — `ROADMAP.md` at the top, then
+`phases/NN-name/` with `NN-RESEARCH.md`, `NN-MM-PLAN.md` and `NN-VERIFICATION.md`. Phases 1–13
+are shipped (v1.0 forum, v2.0 all slices, v3.0 UI redesign). Read the relevant phase's
+research doc before changing an area — it usually records why something is the way it is.

@@ -19,3 +19,10 @@ dist/
 # Playwright MCP page captures. 556 of these were committed to
 # ev-accounts and held live credentials.
 .playwright-mcp/
+
+# Supabase CLI scratch (regenerated automatically)
+supabase/.temp/
+
+# Python bytecode from .claude skills
+__pycache__/
+*.pyc
