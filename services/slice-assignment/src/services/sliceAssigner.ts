@@ -9,7 +9,14 @@ const supabase = createClient(
 const UNIFIED_GEOID = 'UNIFIED'
 const VOLUNTEER_GEOID = 'VOLUNTEER'
 
-const SLICE_ASSIGNMENTS: Array<{
+/**
+ * Which jurisdiction geoid keys each slice type is built from.
+ *
+ * Exported for the test suite. The taxonomy defect this service shipped — slices keyed
+ * on the districts a member VOTES in rather than the governments they LIVE under — was
+ * invisible partly because this table had nothing asserting anything about it.
+ */
+export const SLICE_ASSIGNMENTS: Array<{
   sliceType: string
   geoid: (j: NonNullable<AccountData['jurisdiction']>) => string | null
 }> = [
@@ -18,6 +25,18 @@ const SLICE_ASSIGNMENTS: Array<{
   { sliceType: 'local', geoid: (j) => j.county },
   { sliceType: 'neighborhood', geoid: (j) => j.school_district },
 ]
+
+/**
+ * Members per slice. A member's five spaces — unified, federal, state, county, city —
+ * sum to ~30,000, which is the human-scale figure the feature spec argues for; it is
+ * the size of a member's whole civic world, not of one room.
+ *
+ * MUST equal the threshold in civic_spaces.enforce_slice_cap(), verified 2026-09-01 as
+ * `IF v_count >= 6000`. If this is higher, the service hands out a slice whose insert the
+ * database then rejects with `slice_full` — recoverable, but only via the retry path in
+ * upsertSliceMember, and only three times.
+ */
+export const SLICE_CAPACITY = 6000
 
 async function findOrCreateSiblingSlice(
   sliceType: string,
@@ -81,7 +100,7 @@ async function findActiveSliceForGeoid(
     .select('id')
     .eq('slice_type', sliceType)
     .eq('geoid', geoid)
-    .lt('current_member_count', 6000)
+    .lt('current_member_count', SLICE_CAPACITY)
     .order('sibling_index', { ascending: true })
     .limit(1)
 
