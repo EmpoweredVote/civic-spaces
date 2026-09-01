@@ -11,7 +11,7 @@ const VOLUNTEER_GEOID = 'VOLUNTEER'
 
 const SLICE_ASSIGNMENTS: Array<{
   sliceType: string
-  geoid: (j: NonNullable<AccountData['jurisdiction']>) => string
+  geoid: (j: NonNullable<AccountData['jurisdiction']>) => string | null
 }> = [
   { sliceType: 'federal', geoid: (j) => j.congressional_district },
   { sliceType: 'state', geoid: (j) => j.state_senate_district },
@@ -223,18 +223,35 @@ async function removeStaleGeoMemberships(
 export async function assignUserToSlices(
   userId: string,
   jurisdiction: NonNullable<AccountData['jurisdiction']>
-): Promise<{ assigned: string[] }> {
+): Promise<{ assigned: string[]; skipped: string[] }> {
   const assigned: string[] = []
+  const skipped: string[] = []
 
   for (const { sliceType, geoid: geoidFn } of SLICE_ASSIGNMENTS) {
     const geoid = geoidFn(jurisdiction)
+
+    // A jurisdiction can legitimately lack a level. A Buncombe County, NC address
+    // resolves a county, a congressional district and a senate district, but no
+    // school district covers it, so `neighborhood` has no geoid.
+    //
+    // Without this guard that null reached findOrCreateSiblingSlice and violated
+    // civic_spaces.slices.geoid NOT NULL, which threw and abandoned the request —
+    // AFTER federal, state and local had already been written. The member ended up
+    // with slices in the database and a 500 telling the client assignment failed.
+    // Skip the level instead: no school district means no neighborhood space, not
+    // a broken account.
+    if (!geoid) {
+      skipped.push(sliceType)
+      continue
+    }
+
     await removeStaleGeoMemberships(userId, sliceType, geoid)
     const sliceId = await findActiveSliceForGeoid(sliceType, geoid)
     await upsertSliceMember(userId, sliceId)
     assigned.push(sliceId)
   }
 
-  return { assigned }
+  return { assigned, skipped }
 }
 
 async function isAlreadyAssignedToType(userId: string, sliceType: string, geoid: string): Promise<string | null> {

@@ -48,6 +48,11 @@ router.post('/assign', async (req: Request, res: Response): Promise<void> => {
     if (accountData.jurisdiction !== null) {
       const geoResult = await assignUserToSlices(accountData.id, accountData.jurisdiction)
       assigned.push(...geoResult.assigned)
+      if (geoResult.skipped.length > 0) {
+        // Not an error — the jurisdiction genuinely lacks that level. Logged because
+        // "why do I have no neighborhood tab" is otherwise unanswerable from here.
+        console.log(`[assign] no geoid for: ${geoResult.skipped.join(', ')}`)
+      }
     }
 
     if (assigned.length === 0) {
