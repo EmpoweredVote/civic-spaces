@@ -75,6 +75,40 @@ The consequence is that any hook you add inside `SliceFeedPanel` runs six times 
 `SidebarMobile` receive `compassData`, `repsData` and `activeTab`. Follow that pattern; do not
 call a shared hook inside a panel.
 
+🔴 **A member's id is NOT the token's `sub`.** The accounts platform accepts tokens from
+two issuers since the WorkOS AuthKit cutover (2026-08-28, ev-accounts decision 0002).
+Supabase `sub` is the internal UUID; **WorkOS `sub` is a WorkOS id (`user_01…`)** and the
+internal UUID travels in the **`external_id`** claim. Every civic_spaces row is keyed on
+the UUID.
+
+Three places resolve identity and **all three must agree**, or a request authenticates as
+one person and reads rows as another — which surfaces as missing data, not as an auth
+error:
+
+| layer | file |
+|---|---|
+| frontend | `decodeUserId` in `src/hooks/useAuth.ts` |
+| service | `internalUserId` in `services/slice-assignment/src/middleware/verifyToken.ts` |
+| database | `civic_spaces.current_user_id()` — 21 RLS policies across 9 tables call it |
+
+All three are `external_id` first, then `sub`. Change them together. An unlinked WorkOS
+account (no `external_id`) resolves to its own WorkOS sub, matches nothing, and sees
+nothing — fail-closed by design.
+
+This broke production on 2026-09-02: a WorkOS member queried
+`user_id=eq.user_01M14T3W1R72ZQM70KRXH4K5E8`, matched zero rows, and sat on "Setting up
+your civic spaces…" forever, because an empty membership list is indistinguishable from a
+new account and `useEnsureSlices` kept retrying.
+
+**Both verifiers need the WorkOS issuer registered, or a WorkOS token is a 401:**
+- `services/slice-assignment` needs `WORKOS_ISSUER` and `WORKOS_JWKS_URL` alongside the
+  existing `ACCOUNTS_ISSUER` / `ACCOUNTS_JWKS_URL`. Defaults follow the WorkOS docs:
+  `https://api.workos.com/user_management/<WORKOS_CLIENT_ID>` and
+  `https://api.workos.com/sso/jwks/<WORKOS_CLIENT_ID>`. Take the client id from the
+  `ev-accounts-api` Render env — it is not in the local accounts `.env`.
+- **Supabase Third-Party Auth must trust the WorkOS issuer too**, or every `/rest/v1/*`
+  call 401s. That is project config, not SQL, and not in this repo.
+
 🔴 **`cs_token` is this app's key, `ev_token` is Compass's.** Same JWT, same auth hub, different
 localStorage keys. Copying a snippet from CompassV2 that reads `ev_token` will silently find
 nothing here.
