@@ -5,6 +5,7 @@
 - ✅ **v1.0 Foundation & Full Forum** — Phases 1–5 (shipped 2026-03-28)
 - ✅ **v2.0 All Slices** — Phases 6–8 (shipped 2026-04-04)
 - ✅ **v3.0 UI/UX Redesign** — Phases 9–13 (shipped 2026-04-10)
+- ✅ **Slice Taxonomy** — Phase 14 (shipped 2026-09-02)
 
 ## Phases
 
@@ -71,6 +72,21 @@ See archive: `.planning/milestones/v3.0-ROADMAP.md`
 
 </details>
 
+### Phase 14: Slice Taxonomy
+**Goal**: A slice is a government a member lives under — city, county, state, federal —
+not a constituency they vote in
+**Plans**: 1 plan (8 tasks)
+
+`federal` was keyed on the member's congressional district and `state` on their state
+senate district, so two neighbours on opposite sides of a district line could not talk to
+each other about the country or the state they both live in. `neighborhood` held a school
+district while being labelled "Local", and `local` held a county while being labelled
+"County" — that gap between name and label is where the mapping hid.
+
+Districts still decide *which* representative a member sees (`TAB_DISTRICT_TYPES`); they no
+longer fragment the conversation. Spans two repos: the jurisdiction geoids come from
+ev-accounts#323.
+
 ---
 
 ## Progress
@@ -90,3 +106,4 @@ See archive: `.planning/milestones/v3.0-ROADMAP.md`
 | 11. Sidebar Widgets | v3.0 | 4/4 | Complete | 2026-04-07 |
 | 12. Cleanup | v3.0 | 1/1 | Complete | 2026-04-09 |
 | 13. v3.0 Tech Debt Sprint | v3.0 | 1/1 | Complete | 2026-04-10 |
+| 14. Slice Taxonomy | — | 1/1 | Complete | 2026-09-02 |
