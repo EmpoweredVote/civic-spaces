@@ -14,8 +14,9 @@ const cache = new Map<string, string>()
  *   "Perry Township, Monroe County"   → "Perry Township"
  */
 function extractDisplayName(censusName: string): string {
-  // Take everything before the last ", {State}" segment
-  const firstPart = censusName.split(', ')[0]
+  // Take everything before the last ", {State}" segment. split() always yields at least
+  // one element, but noUncheckedIndexedAccess cannot know that.
+  const firstPart = censusName.split(', ')[0] ?? censusName
   // Strip Census entity suffixes from place names (cities, towns, etc.)
   return firstPart
     .replace(/ city$/, '')
@@ -51,7 +52,7 @@ async function fetchCensusDisplayName(geoid: string): Promise<string | null> {
       const name: string | undefined = data?.[1]?.[0]
       if (!name) return null
       // Keep "County" for county slices — "Los Angeles County" is clearer than just "Los Angeles"
-      return name.split(', ')[0]
+      return name.split(', ')[0] ?? null
     }
 
     if (geoid.length === 7) {

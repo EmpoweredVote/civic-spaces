@@ -41,7 +41,6 @@ function ActiveHeroBanner({
     <HeroBanner
       sliceType={slice.sliceType}
       sliceName={displayName}
-      geoid={slice.geoid}
       memberCount={slice.memberCount}
       siblingIndex={slice.siblingIndex}
       photoUrl={slice.photoUrl ?? wikiPhotoUrl}

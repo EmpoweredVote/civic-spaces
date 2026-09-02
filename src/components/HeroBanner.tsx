@@ -4,7 +4,6 @@ import { SLICE_COPY } from '../lib/sliceCopy'
 interface HeroBannerProps {
   sliceType: SliceType
   sliceName: string
-  geoid: string
   memberCount: number
   siblingIndex: number
   photoUrl?: string | null
@@ -13,7 +12,6 @@ interface HeroBannerProps {
 export function HeroBanner({
   sliceType,
   sliceName,
-  geoid,
   memberCount,
   siblingIndex,
   photoUrl,
