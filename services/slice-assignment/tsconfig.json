@@ -8,5 +8,10 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "skipLibCheck": true
-  }
+  },
+  // Without an explicit include, tsc globs `**/*` and pulls in vitest.config.ts, which
+  // sits outside rootDir and fails the build with TS6059. Tests are excluded so they are
+  // not emitted into dist and shipped to the service — vitest transpiles them itself.
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "vitest.config.ts", "src/**/*.test.ts"]
 }

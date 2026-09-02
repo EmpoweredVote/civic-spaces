@@ -163,9 +163,9 @@ const COUNTY_NAMES: Record<string, string> = Object.fromEntries(
  *
  * - federal: always "United States Capitol" (landmark photo, works for any district)
  * - state: "{State} State Capitol" (e.g. "California State Capitol" → building photo)
- * - local (5-digit county FIPS): returns '{County} County, {State}' if county is in
+ * - county (5-digit county FIPS): returns '{County} County, {State}' if county is in
  *   our lookup table; returns null otherwise (hook will call Census API as fallback)
- * - neighborhood/unified/volunteer: returns null (use sliceCopy defaultPhoto)
+ * - city/unified/volunteer: returns null (use sliceCopy defaultPhoto)
  *
  * Returns null if no mapping is found (Wikipedia fetch will be skipped or
  * deferred to the Census API fallback in useWikiHeroImage).
@@ -183,7 +183,7 @@ export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | 
       // State capitol building photo is far better than the state flag/seal
       return stateName ? `${stateName} State Capitol` : null
 
-    case 'local': {
+    case 'county': {
       if (geoid.length !== 5 || !stateName) return null
       const countyFips = geoid.slice(2)
       const countyKey = `${stateFips}-${countyFips}`
@@ -197,7 +197,7 @@ export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | 
       // Use static defaultPhoto from sliceCopy instead of fetching Wikipedia
       return null
 
-    case 'neighborhood':
+    case 'city':
     case 'volunteer':
     default:
       return null
@@ -206,7 +206,7 @@ export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | 
 
 /**
  * Returns a display name for the slice's jurisdiction synchronously where possible.
- * Returns null for local/neighborhood slices that need a Census API lookup.
+ * Returns null for county/city slices that need a Census API lookup.
  *
  * Used by useJurisdictionName to populate the hero banner title.
  */
@@ -221,7 +221,7 @@ export function geoidToDisplayName(sliceType: SliceType, geoid: string): string 
     case 'state':
       return stateName
 
-    case 'local': {
+    case 'county': {
       if (geoid.length !== 5 || !stateName) return null
       const countyFips = geoid.slice(2)
       const countyName = COUNTY_NAMES[`${stateFips}-${countyFips}`]
@@ -229,7 +229,7 @@ export function geoidToDisplayName(sliceType: SliceType, geoid: string): string 
       return countyName ?? null
     }
 
-    case 'neighborhood':
+    case 'city':
       // Place FIPS (7-digit) or census tract (11-digit) — needs Census API
       return null
 

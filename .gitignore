@@ -26,3 +26,6 @@ supabase/.temp/
 # Python bytecode from .claude skills
 __pycache__/
 *.pyc
+
+# tsc -b incremental build state
+*.tsbuildinfo

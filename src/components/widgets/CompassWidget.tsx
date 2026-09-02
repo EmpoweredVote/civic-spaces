@@ -91,7 +91,11 @@ export function CompassWidget({ categories, answers, isLoading, isUncalibrated }
             strokeWidth={2}
             isAnimationActive={false}
           />
-          <Tooltip formatter={(value: number | string) => [Number(value).toFixed(1), 'Your Compass']} />
+          <Tooltip
+            // recharts types the formatter's value as ValueType | undefined, so it cannot be
+            // narrowed to number | string at the signature.
+            formatter={(value) => [Number(value ?? 0).toFixed(1), 'Your Compass']}
+          />
         </RadarChart>
       </ResponsiveContainer>
     </WidgetCard>

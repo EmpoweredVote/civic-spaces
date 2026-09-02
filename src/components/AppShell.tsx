@@ -41,7 +41,6 @@ function ActiveHeroBanner({
     <HeroBanner
       sliceType={slice.sliceType}
       sliceName={displayName}
-      geoid={slice.geoid}
       memberCount={slice.memberCount}
       siblingIndex={slice.siblingIndex}
       photoUrl={slice.photoUrl ?? wikiPhotoUrl}
@@ -51,22 +50,22 @@ function ActiveHeroBanner({
 
 type ActivePanel = 'friends' | 'directory' | null
 
-const FEED_TABS = ['neighborhood', 'local', 'state', 'federal', 'unified'] as const
+const FEED_TABS = ['city', 'county', 'state', 'federal', 'unified'] as const
 
 const TAB_LABELS: Record<TabKey, string> = {
-  neighborhood: 'Local',
-  local: 'County',
+  city: 'City',
+  county: 'County',
   state: 'State',
   federal: 'Federal',
   unified: 'Unified',
   volunteer: 'Volunteer',
 }
 
-const ALL_TAB_KEYS: TabKey[] = ['neighborhood', 'local', 'state', 'federal', 'unified', 'volunteer']
+const ALL_TAB_KEYS: TabKey[] = ['city', 'county', 'state', 'federal', 'unified', 'volunteer']
 
 const INITIAL_POST_IDS: Record<TabKey, string | null> = {
-  neighborhood: null,
-  local: null,
+  city: null,
+  county: null,
   state: null,
   federal: null,
   unified: null,
@@ -74,8 +73,8 @@ const INITIAL_POST_IDS: Record<TabKey, string | null> = {
 }
 
 const INITIAL_SCROLL_MAP: Record<TabKey, boolean> = {
-  neighborhood: false,
-  local: false,
+  city: false,
+  county: false,
   state: false,
   federal: false,
   unified: false,

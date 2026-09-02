@@ -13,7 +13,7 @@ slice has its own feed, posts and replies. Identity, location and representative
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # tsc && vite build — the only real check this repo has
+npm run build    # tsc -b && vite build — the frontend's only real check
 ```
 
 Copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and
@@ -26,8 +26,20 @@ localhost. To see any signed-in screen, log in on production, copy the `cs_token
 that tab's localStorage, and paste it into localhost's localStorage under the same key. The app
 reads the token from there (or from an `access_token` in the URL hash).
 
-**There is no test framework.** No vitest, no test script, no test files. `npm run build` runs
-`tsc` and is the whole safety net — run it before you claim anything works.
+**The frontend has no test framework.** No test script, no test files. `npm run build` is the
+whole safety net there — run it before you claim anything works.
+
+🔴 **It only became a safety net on 2026-09-01, so distrust any "build passed" older than
+that.** The script was `tsc && vite build`, but the root `tsconfig.json` is a solution file
+(`"files": []` plus `references`), and plain `tsc` on one of those compiles **zero files**.
+Vite transpiles with esbuild and does not type-check. So the build exited 0 with 25 type
+errors outstanding, and had done for a long time — four of them predated the slice-taxonomy
+work. It is `tsc -b` now, which actually builds the referenced project. If you add a
+`tsconfig.*.json`, add it to `references` or nothing will check it.
+
+**`services/slice-assignment` does have tests** — vitest, `npm test` in that directory. It is
+a separate npm project with its own `tsconfig.json`; the root build does not reach it, so run
+both when you touch the service.
 
 ## Where things are on screen
 
