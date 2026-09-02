@@ -29,9 +29,36 @@ function decodePayload(token: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * The member's INTERNAL user id — the one civic_spaces rows are keyed on.
+ *
+ * 🔴 NOT simply `sub`. The accounts platform accepts tokens from two issuers since the
+ * WorkOS AuthKit cutover on 2026-08-28 (ev-accounts decision 0002), and they name the
+ * same person differently. From ev-accounts backend/src/lib/tokenIdentity.ts:
+ *
+ *     Supabase `sub` is the internal UUID; WorkOS `sub` is a WorkOS id (`user_01…`).
+ *
+ * A WorkOS token carries the internal UUID in `external_id`. Reading `sub` alone meant a
+ * WorkOS-issued member queried `user_id=eq.user_01M…`, matched nothing, and sat on
+ * "Setting up your civic spaces…" forever — an empty membership list looks exactly like
+ * a brand-new account, so useEnsureSlices kept trying to assign someone who was already
+ * assigned.
+ *
+ * Kept deliberately identical in shape to civic_spaces.current_user_id() in the database
+ * (20260902010000_resolve_workos_identity.sql). If these two ever disagree about who the
+ * caller is, the frontend asks for rows that RLS will not return, and the failure looks
+ * like missing data rather than an identity bug. Change them together.
+ *
+ * An unlinked WorkOS account (no external_id) falls through to its WorkOS sub, which
+ * matches no row — fail-closed, and the same answer the database gives.
+ */
 function decodeUserId(token: string): string | null {
   const decoded = decodePayload(token)
   if (!decoded) return null
+
+  const externalId = decoded['external_id']
+  if (typeof externalId === 'string' && externalId !== '') return externalId
+
   const sub = decoded['sub']
   return typeof sub === 'string' ? sub : null
 }
