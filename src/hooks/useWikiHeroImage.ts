@@ -98,7 +98,7 @@ export function useWikiHeroImage(slice: SliceInfo): string | null | undefined {
 
       if (title) {
         result = await fetchWikiImage(title)
-      } else if (slice.sliceType === 'local' && slice.geoid.length === 5) {
+      } else if (slice.sliceType === 'county' && slice.geoid.length === 5) {
         // County not in hardcoded table — ask Census Bureau for the name
         result = await fetchLocalImageViaCensus(slice.geoid)
       }

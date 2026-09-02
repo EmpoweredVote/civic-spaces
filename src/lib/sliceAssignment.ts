@@ -2,9 +2,8 @@
  * Slice assignment — asking the service to work out which civic spaces a member
  * belongs to, and to create them if nobody has needed them before.
  *
- * The service maps the member's resolved jurisdiction onto slices: congressional
- * district to federal, state senate district to state, county to local, school
- * district to neighborhood. Slices are created on demand, so "no space exists for
+ * The service maps the member's resolved jurisdiction onto slices — one per level of
+ * government the member lives under. Slices are created on demand, so "no space exists for
  * that address yet" is never the reason someone sees nothing — a missing space is
  * always a missing *assignment*.
  */

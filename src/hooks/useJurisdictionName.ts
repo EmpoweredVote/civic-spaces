@@ -50,12 +50,12 @@ async function fetchCensusDisplayName(geoid: string): Promise<string | null> {
       const data = await resp.json()
       const name: string | undefined = data?.[1]?.[0]
       if (!name) return null
-      // Keep "County" for local slices — "Los Angeles County" is clearer than just "Los Angeles"
+      // Keep "County" for county slices — "Los Angeles County" is clearer than just "Los Angeles"
       return name.split(', ')[0]
     }
 
     if (geoid.length === 7) {
-      // FIPS place code (state 2 + place 5) — neighborhoods/cities
+      // FIPS place code (state 2 + place 5) — cities and places
       const placeFips = geoid.slice(2)
       const resp = await fetch(
         `https://api.census.gov/data/2020/dec/pl?get=NAME&for=place:${placeFips}&in=state:${stateFips}`
@@ -77,8 +77,8 @@ async function fetchCensusDisplayName(geoid: string): Promise<string | null> {
  * Resolution:
  *  - federal    → "United States of America" (sync)
  *  - state      → state name e.g. "California" (sync)
- *  - local      → "{County} County" e.g. "Los Angeles County" (Census API for non-Indiana)
- *  - neighborhood → city/place name e.g. "Del Mar" (Census API)
+ *  - county     → "{County} County" e.g. "Los Angeles County" (Census API for non-Indiana)
+ *  - city       → city/place name e.g. "Del Mar" (Census API)
  *  - unified    → "Unified" (sync)
  *  - volunteer  → "Volunteer" (sync)
  *

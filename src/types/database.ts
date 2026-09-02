@@ -1,6 +1,6 @@
-export type SliceType = 'federal' | 'state' | 'local' | 'neighborhood' | 'unified' | 'volunteer'
+export type SliceType = 'federal' | 'state' | 'county' | 'city' | 'unified' | 'volunteer'
 
-export type TabKey = 'neighborhood' | 'local' | 'state' | 'federal' | 'unified' | 'volunteer'
+export type TabKey = 'city' | 'county' | 'state' | 'federal' | 'unified' | 'volunteer'
 
 export interface SliceInfo {
   id: string

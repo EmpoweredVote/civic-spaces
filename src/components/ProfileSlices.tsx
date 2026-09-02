@@ -1,12 +1,12 @@
 import type { SliceType, SliceInfo } from '../types/database'
 
-const DISPLAY_ORDER: SliceType[] = ['federal', 'state', 'local', 'neighborhood', 'unified', 'volunteer']
+const DISPLAY_ORDER: SliceType[] = ['federal', 'state', 'county', 'city', 'unified', 'volunteer']
 
 const LABEL_MAP: Record<SliceType, string> = {
   federal: 'Federal',
   state: 'State',
-  local: 'Local',
-  neighborhood: 'Neighborhood',
+  county: 'County',
+  city: 'City',
   unified: 'Unified',
   volunteer: 'Volunteer',
 }
