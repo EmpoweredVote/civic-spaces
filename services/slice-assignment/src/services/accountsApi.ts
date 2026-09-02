@@ -14,6 +14,15 @@ export interface AccountData {
     state_house_district: string | null
     county: string | null
     school_district: string | null
+    // 🔴 The geoid keys, and NOT the `state` / `city` keys that sit beside them in the
+    // same object. Those two carry the geocoded USPS code and place NAME — 'NC' and
+    // 'ASHEVILLE' — not Census FIPS. Both are truthy strings, so reading the wrong pair
+    // would sail past the null guard in assignUserToSlices and key a slice on 'NC'.
+    // They are deliberately not declared here: a key this service must never read is
+    // better absent than available.
+    city_geoid: string | null
+    state_geoid: string | null
+    nation_geoid: string | null
   } | null
 }
 

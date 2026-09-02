@@ -10,20 +10,27 @@ const UNIFIED_GEOID = 'UNIFIED'
 const VOLUNTEER_GEOID = 'VOLUNTEER'
 
 /**
- * Which jurisdiction geoid keys each slice type is built from.
+ * A slice is a government a member lives under, not a constituency they vote in.
  *
- * Exported for the test suite. The taxonomy defect this service shipped — slices keyed
- * on the districts a member VOTES in rather than the governments they LIVE under — was
- * invisible partly because this table had nothing asserting anything about it.
+ * Congressional and legislative districts are deliberately absent. They still decide
+ * WHICH representative a member sees — that filtering lives in the frontend's
+ * TAB_DISTRICT_TYPES — but they no longer fragment the conversation. Keying `federal`
+ * on a congressional district meant two neighbours on opposite sides of a district line
+ * could not talk to each other about the country they both live in.
+ *
+ * Exported for the test suite. The defect above was invisible for as long as it was
+ * partly because this table had nothing asserting anything about it.
+ *
+ * See .planning/research/SLICE-TAXONOMY.md.
  */
 export const SLICE_ASSIGNMENTS: Array<{
   sliceType: string
   geoid: (j: NonNullable<AccountData['jurisdiction']>) => string | null
 }> = [
-  { sliceType: 'federal', geoid: (j) => j.congressional_district },
-  { sliceType: 'state', geoid: (j) => j.state_senate_district },
-  { sliceType: 'local', geoid: (j) => j.county },
-  { sliceType: 'neighborhood', geoid: (j) => j.school_district },
+  { sliceType: 'city', geoid: (j) => j.city_geoid },
+  { sliceType: 'county', geoid: (j) => j.county },
+  { sliceType: 'state', geoid: (j) => j.state_geoid },
+  { sliceType: 'federal', geoid: (j) => j.nation_geoid },
 ]
 
 /**
@@ -249,16 +256,15 @@ export async function assignUserToSlices(
   for (const { sliceType, geoid: geoidFn } of SLICE_ASSIGNMENTS) {
     const geoid = geoidFn(jurisdiction)
 
-    // A jurisdiction can legitimately lack a level. A Buncombe County, NC address
-    // resolves a county, a congressional district and a senate district, but no
-    // school district covers it, so `neighborhood` has no geoid.
+    // A jurisdiction can legitimately lack a level. An unincorporated address has no
+    // city: no G4110 place boundary covers Arden, NC, so `city` has no geoid. Three
+    // of the ten production profiles are in that position.
     //
     // Without this guard that null reached findOrCreateSiblingSlice and violated
     // civic_spaces.slices.geoid NOT NULL, which threw and abandoned the request —
-    // AFTER federal, state and local had already been written. The member ended up
+    // AFTER federal, state and county had already been written. The member ended up
     // with slices in the database and a 500 telling the client assignment failed.
-    // Skip the level instead: no school district means no neighborhood space, not
-    // a broken account.
+    // Skip the level instead: living outside a city is not a broken account.
     if (!geoid) {
       skipped.push(sliceType)
       continue

@@ -50,7 +50,7 @@ router.post('/assign', async (req: Request, res: Response): Promise<void> => {
       assigned.push(...geoResult.assigned)
       if (geoResult.skipped.length > 0) {
         // Not an error — the jurisdiction genuinely lacks that level. Logged because
-        // "why do I have no neighborhood tab" is otherwise unanswerable from here.
+        // "why do I have no city tab" is otherwise unanswerable from here.
         console.log(`[assign] no geoid for: ${geoResult.skipped.join(', ')}`)
       }
     }
