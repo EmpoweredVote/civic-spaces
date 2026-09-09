@@ -1,4 +1,6 @@
 import type { useRepresentatives } from '../hooks/useRepresentatives'
+import type { SliceInfo } from '../types/database'
+import type { CoverageCatalog } from '../lib/toolCoverage'
 import { filterRepsByTab } from '../types/representatives'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
@@ -6,9 +8,11 @@ import { ToolsWidget } from './widgets/ToolsWidget'
 interface SidebarProps {
   repsData: ReturnType<typeof useRepresentatives>
   activeTab: string
+  coverage: CoverageCatalog | null
+  activeSlice: SliceInfo | undefined
 }
 
-export function Sidebar({ repsData, activeTab }: SidebarProps) {
+export function Sidebar({ repsData, activeTab, coverage, activeSlice }: SidebarProps) {
   if (activeTab === 'volunteer') return null
 
   const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
@@ -42,7 +46,11 @@ export function Sidebar({ repsData, activeTab }: SidebarProps) {
         </div>
       )}
 
-      <ToolsWidget />
+      <ToolsWidget
+        sliceType={activeSlice?.sliceType ?? null}
+        geoid={activeSlice?.geoid ?? null}
+        catalog={coverage}
+      />
     </div>
   )
 }

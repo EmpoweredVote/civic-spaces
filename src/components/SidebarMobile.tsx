@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
+import type { SliceInfo } from '../types/database'
+import type { CoverageCatalog } from '../lib/toolCoverage'
 import { filterRepsByTab } from '../types/representatives'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
@@ -8,9 +10,11 @@ import { ToolsWidget } from './widgets/ToolsWidget'
 interface SidebarMobileProps {
   repsData: ReturnType<typeof useRepresentatives>
   activeTab: string
+  coverage: CoverageCatalog | null
+  activeSlice: SliceInfo | undefined
 }
 
-export function SidebarMobile({ repsData, activeTab }: SidebarMobileProps) {
+export function SidebarMobile({ repsData, activeTab, coverage, activeSlice }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (activeTab === 'volunteer') return null
@@ -81,7 +85,11 @@ export function SidebarMobile({ repsData, activeTab }: SidebarMobileProps) {
                 </div>
               )}
 
-              <ToolsWidget />
+              <ToolsWidget
+                sliceType={activeSlice?.sliceType ?? null}
+                geoid={activeSlice?.geoid ?? null}
+                catalog={coverage}
+              />
             </div>
           </motion.div>
         )}

@@ -8,6 +8,7 @@ import { useIsModerator } from '../hooks/useModQueue'
 import { useWikiHeroImage } from '../hooks/useWikiHeroImage'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { useRepresentatives } from '../hooks/useRepresentatives'
+import { useToolCoverage } from '../hooks/useToolCoverage'
 import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import NoJurisdictionBanner from './NoJurisdictionBanner'
@@ -92,6 +93,9 @@ export default function AppShell() {
   const isAssigning = assignmentStatus === 'assigning'
   const { data: isModerator } = useIsModerator(userId)
   const repsData = useRepresentatives(userId)
+  // Hoisted like repsData: called once here, passed to both sidebars. Never call
+  // this inside a feed panel — all six mount at once and it would fire 6x.
+  const toolCoverage = useToolCoverage()
   const { theme, toggleTheme } = useTheme()
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
@@ -300,7 +304,12 @@ export default function AppShell() {
             <div className="grid grid-cols-1 md:grid-cols-[82%_18%] flex-1 overflow-hidden min-h-0">
               {/* Feed column */}
               <div className="flex flex-col overflow-hidden min-h-0">
-                <SidebarMobile repsData={repsData} activeTab={activeTab} />
+                <SidebarMobile
+                  repsData={repsData}
+                  activeTab={activeTab}
+                  coverage={toolCoverage.data ?? null}
+                  activeSlice={slices[activeTab]}
+                />
 
                 {/* Feed tab panels — flex-1 fills remaining space. Banner lives inside each
                     panel's scroll container so it scrolls up naturally with the posts. */}
@@ -365,7 +374,12 @@ export default function AppShell() {
 
               {/* Sidebar column — hidden on mobile, live on desktop; hidden entirely on volunteer tab */}
               <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} flex-col border-l border-gray-200 dark:border-gray-700 overflow-y-auto sticky top-0 max-h-screen`}>
-                <Sidebar repsData={repsData} activeTab={activeTab} />
+                <Sidebar
+                  repsData={repsData}
+                  activeTab={activeTab}
+                  coverage={toolCoverage.data ?? null}
+                  activeSlice={slices[activeTab]}
+                />
               </div>
             </div>
           </>
