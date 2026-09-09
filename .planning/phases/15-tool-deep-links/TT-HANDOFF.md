@@ -121,13 +121,18 @@ options, and the answer affects the URL we hardcode:
    `ev-accounts-api.onrender.com`, and Civic Spaces already talks to
    `api.empowered.vote`, so this would need no new origin at all.
 
-**Also please confirm the canonical public host for entity deep links.** Essentials
-defaults `VITE_TREASURY_URL` to `https://financials.empowered.vote`
-(`essentials/src/lib/treasury.js:10`), but that host is the EV Financials surface —
-`src/App.tsx:158` sets `isFinancialsHost`, retitles the page "Empowered Vote Finances",
-and defaults the entity to `empowered-vote-ca`. We do not want to send members to a
-surface branded as EV's own financials when they asked for their city's budget. Tell us
-which host to use and we will use it.
+**On the public host** — we believe the answer is
+**`https://treasurytracker.empowered.vote`**, which is where the landing page's Treasury
+Tracker card points (`ev-landing-main/index.html:1499`). Flagging it because there is a
+contradiction worth your attention: Essentials defaults `VITE_TREASURY_URL` to
+`https://financials.empowered.vote` (`essentials/src/lib/treasury.js:10`), and that host
+is the **EV Financials surface** — `src/App.tsx:158` sets `isFinancialsHost`, retitles the
+page "Empowered Vote Finances", and defaults the entity to `empowered-vote-ca`.
+
+So Essentials may currently be sending people to a surface branded as EV's own financials
+when they asked for a city budget. That is your call, not ours, but the two apps should
+agree. We will use `treasurytracker.empowered.vote` unless you say otherwise; please
+confirm, and consider whether Essentials' default wants correcting.
 
 ## Ask 3 — stop resolving an unknown entity to Bloomington
 

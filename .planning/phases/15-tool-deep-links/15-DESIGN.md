@@ -150,20 +150,30 @@ cross-origin dependency for a sidebar icon.
 |---|---|---|
 | `compass-symbol-light.svg` / `-dark.svg` | 167x167 | pair |
 | `essentials-symbol-light.svg` / `-dark.svg` | 142x167 | pair, non-square |
-| `treasury-symbol.svg` | 214x162 | **single-colour, no dark variant** |
+| `treasury-symbol.svg` / `-dark.svg` | 214x162 | pair as of 2026-09-08 — see below |
 
 Two consequences:
 
 - **Three different aspect ratios.** Render each in a fixed square box with
   `object-contain`, not at a raw height, or the marks will not align — the exact problem
   the `icons/` crops exist to solve.
-- **Treasury has no dark variant, by design** — `brand/README.md` records Treasury
-  Tracker as "logo only (favicon & symbol are single-color)". Its teal is the light
-  `#00657C`, which will read muddy on the dark sidebar. The brand pack documents the
-  recolor convention for exactly this case: swap `#00657C` for the bright dark-mode teal
-  `#1DA8C6`, leaving coral and yellow unchanged. Derive a dark variant that way when the
-  Treasury row is built, and **offer it back to `ev-landing`** so the suite keeps one
-  source of truth rather than this repo holding a private recolor.
+- **Treasury's dark variant now exists upstream — do not derive another one.** Treasury
+  was the only product in the pack with a single-colour symbol. A dark variant was
+  derived and synced back to `ev-landing` on 2026-09-08 (branch
+  `feat/treasury-dark-symbol`): `icons/treasury-symbol-dark.svg`, with the source-of-truth
+  copy at `brand/treasury-tracker/Symbol/SVG/treasury-tracker-symbol-dark.svg`. Vendor
+  that file like the other two.
+
+  It is a **selective** recolor, and the reason is recorded here because a future
+  regeneration will otherwise "fix" it into a blanket swap. Measured against `#1F2937`,
+  the dark sidebar ground: the three stacked rects go 2.20:1 → 5.22:1 when brightened to
+  `#1DA8C6`, so they must be. But the `$` glyph sits on its own yellow circle, where the
+  same swap takes it 4.66:1 → **1.97:1** — it mushes at a 24px icon. So the `$` path keeps
+  `#00657C`. The file is 5 × `#1DA8C6` + 1 × `#00657C` deliberately. The rule:
+  **brighten teal that meets the page ground; leave teal that sits on brand yellow.**
+
+  Symbol PNGs are still light-only upstream (no rasteriser was available), which does not
+  affect us — we use the SVGs.
 
 Dark-mode switching is **class-based** here (`CLAUDE.md`) — `index.html` sets `.dark`
 before first paint. So pick the variant with `block dark:hidden` / `hidden dark:block` on
