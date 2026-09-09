@@ -165,10 +165,11 @@ Two consequences:
   that file like the other two.
 
   It is a **selective** recolor, and the reason is recorded here because a future
-  regeneration will otherwise "fix" it into a blanket swap. Measured against `#1F2937`,
-  the dark sidebar ground: the three stacked rects go 2.20:1 → 5.22:1 when brightened to
-  `#1DA8C6`, so they must be. But the `$` glyph sits on its own yellow circle, where the
-  same swap takes it 4.66:1 → **1.97:1** — it mushes at a 24px icon. So the `$` path keeps
+  regeneration will otherwise "fix" it into a blanket swap. Measured against `#111827`
+  (`gray-900`, the `WidgetCard` dark ground): the three stacked rects go 2.66:1 → 6.31:1
+  when brightened to `#1DA8C6`, so they must be. But the `$` glyph sits on its own yellow
+  circle, where the same swap takes it 4.66:1 → **1.97:1** — it mushes at a 24px icon in
+  either direction. So the `$` path keeps
   `#00657C`. The file is 5 × `#1DA8C6` + 1 × `#00657C` deliberately. The rule:
   **brighten teal that meets the page ground; leave teal that sits on brand yellow.**
 
