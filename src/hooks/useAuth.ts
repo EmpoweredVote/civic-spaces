@@ -80,6 +80,67 @@ function storeToken(token: string): string | null {
   return null
 }
 
+type SessionCheck =
+  // ok: a live session; accessToken is the fresh JWT.
+  | { ok: true; accessToken: string }
+  // not ok: status 401 = signed out; status 0 = network/CORS (indeterminate).
+  | { ok: false; status: number }
+
+/**
+ * One session check shared across every mounted useAuth().
+ *
+ * useAuth() is called by many components at once (the shell, every profile card,
+ * every thread). Each instance runs resolveAuth() on mount AND a 60s logout poll,
+ * so without coordination N mounted instances fire N identical requests at
+ * accounts-api in the same tick — the burst this fix targets. The in-flight
+ * promise is shared, then held for a short window so a cluster of mounts (and the
+ * aligned 60s polls) collapse to a single network call per browser.
+ */
+let sessionCheckInFlight: Promise<SessionCheck> | null = null
+
+async function checkSession(): Promise<SessionCheck> {
+  if (sessionCheckInFlight) return sessionCheckInFlight
+
+  sessionCheckInFlight = (async (): Promise<SessionCheck> => {
+    try {
+      const res = await fetch(ACCOUNTS_SESSION_URL, { credentials: 'include' })
+      if (res.ok) {
+        const { access_token } = (await res.json()) as { access_token: string }
+        return { ok: true, accessToken: access_token }
+      }
+      return { ok: false, status: res.status }
+    } catch {
+      return { ok: false, status: 0 }
+    }
+  })()
+
+  const result = await sessionCheckInFlight
+  // Hold the resolved result briefly so a burst of near-simultaneous callers
+  // share it, then clear so the next poll re-checks against the live cookie.
+  setTimeout(() => {
+    sessionCheckInFlight = null
+  }, 2_000)
+  return result
+}
+
+/**
+ * Send the member to re-login, once.
+ *
+ * Guarded so N instances seeing the same 401 do not each start a navigation. The
+ * full-page navigation is deliberate: per-instance auth state does not share, so
+ * a silent local logout in one instance leaves the others holding a stale userId
+ * and still issuing PostgREST queries the client can no longer authenticate —
+ * the sustained 401 burst. Navigating away tears every instance down at once.
+ */
+let redirectingToLogin = false
+
+function redirectToLogin(): void {
+  if (redirectingToLogin) return
+  redirectingToLogin = true
+  localStorage.removeItem('cs_token')
+  window.location.assign(LOGIN_URL)
+}
+
 export function useAuth(): AuthState & { loginUrl: string } {
   const [authState, setAuthState] = useState<AuthState>({
     userId: null,
@@ -118,22 +179,20 @@ export function useAuth(): AuthState & { loginUrl: string } {
         localStorage.removeItem('cs_token')
       }
 
-      // 3. Silent SSO check via ev_session cookie
-      try {
-        const res = await fetch(ACCOUNTS_SESSION_URL, { credentials: 'include' })
-        if (res.ok) {
-          const { access_token } = await res.json() as { access_token: string }
-          const userId = storeToken(access_token)
-          if (userId) {
-            triggerSliceAssignment(access_token)
-            setAuthState({ userId, isAuthenticated: true, isLoading: false })
-            return
-          }
+      // 3. Silent SSO check via ev_session cookie (shared across instances)
+      const session = await checkSession()
+      if (session.ok) {
+        const userId = storeToken(session.accessToken)
+        if (userId) {
+          triggerSliceAssignment(session.accessToken)
+          setAuthState({ userId, isAuthenticated: true, isLoading: false })
+          return
         }
-      } catch {
-        // Network error or CORS — fall through to unauthenticated
       }
 
+      // 401 (signed out) or network error — show the guest UI. Do NOT redirect
+      // to login here: a logged-out visitor landing on a public page must not be
+      // bounced. The redirect is only for a session that dies while in use (poll).
       setAuthState({ userId: null, isAuthenticated: false, isLoading: false })
     }
 
@@ -164,14 +223,15 @@ export function useAuth(): AuthState & { loginUrl: string } {
 
     const poll = async () => {
       if (document.visibilityState !== 'visible') return;
-      try {
-        const res = await fetch(ACCOUNTS_SESSION_URL, { credentials: 'include' });
-        if (res.status === 401) {
-          localStorage.removeItem('cs_token');
-          setAuthState({ userId: null, isAuthenticated: false, isLoading: false });
-        }
-      } catch {
-        // Network error — don't log out
+      const session = await checkSession();
+      // 401 = the ev_session cookie was cleared or expired (signed out elsewhere,
+      // or the session simply lapsed). Send the member to re-login rather than
+      // silently dropping to guest: the full navigation also ends this and every
+      // other instance's polling and stops the stale-token PostgREST 401s at
+      // their source. A network error (status 0) is indeterminate — don't log
+      // out; the next tick retries.
+      if (!session.ok && session.status === 401) {
+        redirectToLogin();
       }
     };
 
