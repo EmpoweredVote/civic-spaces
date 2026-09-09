@@ -54,7 +54,7 @@ both when you touch the service.
 | Banner above the feed | `components/HeroBanner.tsx` |
 | Desktop right column | `components/Sidebar.tsx` |
 | Mobile collapsible version of it | `components/SidebarMobile.tsx` |
-| The three sidebar widgets | `components/widgets/` |
+| The sidebar widgets | `components/widgets/` |
 | Profile page | `components/ProfilePage.tsx` + `Profile*.tsx` |
 
 Layout is `md:grid-cols-[82%_18%]` — feed left, sidebar right. The sidebar column is hidden on
@@ -71,9 +71,8 @@ That is deliberate: it preserves scroll position and the React Query cache acros
 The consequence is that any hook you add inside `SliceFeedPanel` runs six times on load.
 
 **So sidebar and shell data hooks are hoisted to `AppShell` and passed down as props.**
-`useCompassData` and `useRepresentatives` are called once there, and `Sidebar` /
-`SidebarMobile` receive `compassData`, `repsData` and `activeTab`. Follow that pattern; do not
-call a shared hook inside a panel.
+`useRepresentatives` is called once there, and `Sidebar` / `SidebarMobile` receive `repsData`
+and `activeTab`. Follow that pattern; do not call a shared hook inside a panel.
 
 🔴 **A member's id is NOT the token's `sub`.** The accounts platform accepts tokens from
 two issuers since the WorkOS AuthKit cutover (2026-08-28, ev-accounts decision 0002).
@@ -156,7 +155,7 @@ guessing at intent.
 ## Stack
 
 React 19 · TypeScript · Vite 6 · Tailwind v4 (via `@tailwindcss/vite`, no config file) ·
-wouter · TanStack Query · motion · recharts (Compass radar) · `@supabase/supabase-js` ·
+wouter · TanStack Query · motion · `@supabase/supabase-js` ·
 `react-modal-sheet` · `sonner` · `@empoweredvote/ev-ui`.
 
 ## Planning
