@@ -6,6 +6,7 @@
 - ✅ **v2.0 All Slices** — Phases 6–8 (shipped 2026-04-04)
 - ✅ **v3.0 UI/UX Redesign** — Phases 9–13 (shipped 2026-04-10)
 - ✅ **Slice Taxonomy** — Phase 14 (shipped 2026-09-02)
+- ✅ **Tool Deep Links** — Phase 15 (shipped 2026-09-08)
 
 ## Phases
 
@@ -87,6 +88,31 @@ Districts still decide *which* representative a member sees (`TAB_DISTRICT_TYPES
 longer fragment the conversation. Spans two repos: the jurisdiction geoids come from
 ev-accounts#323.
 
+### Phase 15: Tool Deep Links
+**Goal**: A sidebar tool row opens the member's *own* jurisdiction, or it does not appear
+**Plans**: 1 plan (6 tasks)
+
+The Tools box showed two fixed home-page links, identical on every tab. The Essentials row
+now deep-links to the active tab's own city, county, state or federal view, and the two
+hand-drawn icons are replaced with the real EV brand symbols.
+
+Matching turned out to need nothing new: Essentials' public `/coverage.json` keys cities by
+7-digit place FIPS and counties by 5-digit county FIPS — exactly what `slices.geoid` already
+stores — so it is an exact geoid match with no Census call and no `useJurisdictionName`.
+
+The governing rule is **no deep link, no row**: no home-page fallback, and never another
+jurisdiction's link. That came from Treasury Tracker resolving an unrecognised `?entity=`
+slug to Bloomington, IN's budget — a real budget for the wrong place, which is worse than
+no link at all.
+
+Coverage is genuinely sparse (170 cities, 26 counties, 50 states), so City and County tabs
+correctly show no Essentials row for most members; State and Federal always do.
+
+**Not shipped:** the Treasury Tracker row. TT stores no geoid at all, so it needs its own
+coverage catalog first — specified for that repo in
+`phases/15-tool-deep-links/TT-HANDOFF.md`. Also outstanding: the in-situ visual check,
+which needs a signed-in session.
+
 ---
 
 ## Progress
@@ -107,3 +133,4 @@ ev-accounts#323.
 | 12. Cleanup | v3.0 | 1/1 | Complete | 2026-04-09 |
 | 13. v3.0 Tech Debt Sprint | v3.0 | 1/1 | Complete | 2026-04-10 |
 | 14. Slice Taxonomy | — | 1/1 | Complete | 2026-09-02 |
+| 15. Tool Deep Links | — | 1/1 | Complete | 2026-09-08 |
