@@ -1,100 +1,75 @@
+import type { SliceType } from '../../types/database'
+import { buildToolRows, type CoverageCatalog, type ToolIconName } from '../../lib/toolCoverage'
 import { WidgetCard } from './WidgetCard'
 
-// Only confirmed-live tool URLs are included.
-// Essentials: 200 OK confirmed.
-// Treasury Tracker: connection failed — excluded.
-// Compass: confirmed live (used in compass calibration flow).
-const LIVE_TOOLS = [
-  {
-    name: 'Empowered Compass',
-    description: 'Discover where you stand on the issues',
-    url: 'https://compass.empowered.vote',
-    icon: 'compass' as const,
-  },
-  {
-    name: 'Empowered Essentials',
-    description: 'Your civic profile and voter essentials',
-    url: 'https://essentials.empowered.vote',
-    icon: 'essentials' as const,
-  },
-]
+import compassLight from '../../assets/tools/compass-symbol-light.svg'
+import compassDark from '../../assets/tools/compass-symbol-dark.svg'
+import essentialsLight from '../../assets/tools/essentials-symbol-light.svg'
+import essentialsDark from '../../assets/tools/essentials-symbol-dark.svg'
 
-type ToolIcon = 'compass' | 'essentials'
+const ICONS: Record<ToolIconName, { light: string; dark: string }> = {
+  compass: { light: compassLight, dark: compassDark },
+  essentials: { light: essentialsLight, dark: essentialsDark },
+}
 
-function ToolIcon({ type }: { type: ToolIcon }) {
-  if (type === 'compass') {
-    return (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        {/* Compass circle */}
-        <circle cx="12" cy="12" r="10" />
-        {/* N/S/E/W tick marks */}
-        <line x1="12" y1="2" x2="12" y2="4" />
-        <line x1="12" y1="20" x2="12" y2="22" />
-        <line x1="2" y1="12" x2="4" y2="12" />
-        <line x1="20" y1="12" x2="22" y2="12" />
-        {/* Compass needle — north pointing up */}
-        <polygon points="12,6 10.5,12 12,10.5 13.5,12" fill="currentColor" />
-        <polygon points="12,18 10.5,12 12,13.5 13.5,12" fill="none" />
-      </svg>
-    )
-  }
+interface ToolsWidgetProps {
+  sliceType: SliceType | null
+  geoid: string | null
+  catalog: CoverageCatalog | null
+}
 
-  // essentials: person/ID card icon
+/**
+ * Brand symbols come in light/dark pairs and do NOT share an aspect ratio
+ * (compass 167x167, essentials 142x167 — and treasury, when it lands, 214x162).
+ * So each renders in a fixed square box with object-contain; sizing by raw
+ * height would leave the marks visibly misaligned.
+ *
+ * Variants are swapped with class-based visibility, NOT prefers-color-scheme:
+ * this app's dark mode is a `.dark` class toggled by useTheme(), which a media
+ * query inside the SVG would ignore.
+ *
+ * Both marks are decorative (`alt=""`, aria-hidden): the row's text label
+ * already names the link, so captioning the icon too would make a screen
+ * reader announce the tool twice.
+ */
+function ToolIcon({ type }: { type: ToolIconName }) {
+  const { light, dark } = ICONS[type]
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {/* ID card rectangle */}
-      <rect x="2" y="5" width="20" height="14" rx="2" />
-      {/* Person avatar circle */}
-      <circle cx="8" cy="11" r="2.5" />
-      {/* Name lines */}
-      <line x1="13" y1="10" x2="19" y2="10" />
-      <line x1="13" y1="13.5" x2="17" y2="13.5" />
-    </svg>
+    <span className="w-6 h-6 shrink-0 flex items-center justify-center">
+      <img
+        src={light}
+        alt=""
+        aria-hidden="true"
+        className="block dark:hidden w-full h-full object-contain"
+      />
+      <img
+        src={dark}
+        alt=""
+        aria-hidden="true"
+        className="hidden dark:block w-full h-full object-contain"
+      />
+    </span>
   )
 }
 
-export function ToolsWidget() {
-  if (LIVE_TOOLS.length === 0) return null
+export function ToolsWidget({ sliceType, geoid, catalog }: ToolsWidgetProps) {
+  const rows = buildToolRows({ sliceType, geoid, catalog })
+  if (rows.length === 0) return null
 
   return (
     <WidgetCard title="Tools for This Community">
       <div className="flex flex-col gap-1">
-        {LIVE_TOOLS.map((tool) => (
+        {rows.map((row) => (
           <a
-            key={tool.url}
-            href={tool.url}
+            key={row.key}
+            href={row.href}
             target="_blank"
             rel="noopener noreferrer"
-            title={tool.description}
             className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer no-underline"
           >
-            <span className="text-gray-600 dark:text-gray-400">
-              <ToolIcon type={tool.icon} />
-            </span>
+            <ToolIcon type={row.icon} />
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-tight">
-              {tool.name}
+              {row.name}
             </span>
           </a>
         ))}
