@@ -27,14 +27,19 @@ interface ToolsWidgetProps {
  * Variants are swapped with class-based visibility, NOT prefers-color-scheme:
  * this app's dark mode is a `.dark` class toggled by useTheme(), which a media
  * query inside the SVG would ignore.
+ *
+ * Both marks are decorative (`alt=""`, aria-hidden): the row's text label
+ * already names the link, so captioning the icon too would make a screen
+ * reader announce the tool twice.
  */
-function ToolIcon({ type, name }: { type: ToolIconName; name: string }) {
+function ToolIcon({ type }: { type: ToolIconName }) {
   const { light, dark } = ICONS[type]
   return (
     <span className="w-6 h-6 shrink-0 flex items-center justify-center">
       <img
         src={light}
-        alt={name}
+        alt=""
+        aria-hidden="true"
         className="block dark:hidden w-full h-full object-contain"
       />
       <img
@@ -62,7 +67,7 @@ export function ToolsWidget({ sliceType, geoid, catalog }: ToolsWidgetProps) {
             rel="noopener noreferrer"
             className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer no-underline"
           >
-            <ToolIcon type={row.icon} name={row.name} />
+            <ToolIcon type={row.icon} />
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-tight">
               {row.name}
             </span>
