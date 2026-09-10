@@ -29,3 +29,6 @@ __pycache__/
 
 # tsc -b incremental build state
 *.tsbuildinfo
+
+# local visual-check output (scripts/shoot-banners.mjs)
+banner-shots/
