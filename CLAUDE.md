@@ -116,6 +116,17 @@ nothing here.
 If you restructure the feed column, that restoration is the thing most likely to break, and it
 breaks quietly.
 
+🔴 **A hero banner can change photographer with no diff on our side.** State, federal and
+geoid-keyed county banners come from Essentials' shared bucket (`src/lib/banners.ts`), and
+Essentials replaces one by swapping the bytes behind a stable URL. No path changes, so
+`tsc -b`, the Vite build and every 404 check stay green while the credit we render beside
+it becomes the wrong person's name — and attribution on a CC BY / CC BY-SA image is a
+licence condition. Treasury Tracker published a wrong photographer for three weeks this
+way. Run `npm run check:banners` (network, not in `npm run build`) when you touch banner
+code and periodically regardless; it diffs the live bytes against
+`src/lib/banners.manifest.json`. Re-derive credits from `essentials/src/lib/buildingImages.js`
+and verify each author on its Commons File: page — **never copy another app's table.**
+
 **Every Supabase call is `.schema('civic_spaces')`** — 49 of them. The default `public` schema
 is not this app's data.
 

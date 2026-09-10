@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:banners": "node scripts/check-banner-drift.mjs"
   },
   "dependencies": {
     "@empoweredvote/ev-ui": "^0.11.0",
