@@ -7,6 +7,15 @@ interface HeroBannerProps {
   memberCount: number
   siblingIndex: number
   photoUrl?: string | null
+  /**
+   * Attribution for `photoUrl`, rendered bottom-right.
+   *
+   * 🔴 NOT DECORATION. The shared banner library is Wikimedia-sourced and most of it
+   * is CC BY or CC BY-SA, which require the author be named visibly. If a caller has
+   * a credit, this component must display it — do not hide it behind a hover, a
+   * breakpoint, or a colour too faint to read.
+   */
+  credit?: string | null
 }
 
 export function HeroBanner({
@@ -15,6 +24,7 @@ export function HeroBanner({
   memberCount,
   siblingIndex,
   photoUrl,
+  credit,
 }: HeroBannerProps) {
   const copy = SLICE_COPY[sliceType]
 
@@ -29,7 +39,11 @@ export function HeroBanner({
       className={[
         'relative overflow-hidden rounded-xl mx-4 mt-4 md:mx-0 md:mt-0',
         'aspect-[16/9] md:aspect-[16/5]',
-        'bg-gray-700 dark:bg-gray-800',
+        // Brand-gradient ground, not flat gray: it shows through whenever no banner
+        // resolves (an uncovered county, a Wikipedia miss), and it is what a visitor
+        // sees for a beat while an image decodes. EV teal, light and dark together.
+        'bg-gradient-to-br from-[#00657C] to-[#004453]',
+        'dark:from-[#004453] dark:to-[#00212B]',
         'dark:ring-1 dark:ring-white/10',
       ]
         .join(' ')}
@@ -83,6 +97,18 @@ export function HeroBanner({
           {copy?.description}
         </p>
       </div>
+
+      {/* Image credit — a licence condition on the shared banner library, so it sits
+          above the gradient and stays visible at every breakpoint. Bottom-right keeps
+          it clear of the name/tagline/pills stack, which is bottom-left and max-w-2xl. */}
+      {resolvedPhoto && credit && (
+        <p
+          className="absolute bottom-2 right-3 z-10 text-[11px] leading-none text-white/75"
+          style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
+        >
+          {credit}
+        </p>
+      )}
     </div>
   )
 }
