@@ -38,6 +38,14 @@ export function HeroBanner({
     <div
       className={[
         'relative overflow-hidden rounded-xl mx-4 mt-4 md:mx-0 md:mt-0',
+        // 🔴 shrink-0 IS LOAD-BEARING. This renders as the first child of
+        // SliceFeedPanel's `flex flex-col h-full overflow-y-auto` scroll container. A
+        // flex item defaults to flex-shrink:1, and aspect-ratio only supplies a
+        // preferred height — so as soon as there were posts below, the column squashed
+        // the banner to nothing. It stayed in the DOM with its image loaded, which is
+        // why this read as "the banner does not render on that tab" rather than as a
+        // layout bug. A slice with no posts never showed it, because nothing pushed.
+        'shrink-0',
         'aspect-[16/9] md:aspect-[16/5]',
         // Brand-gradient ground, not flat gray: it shows through whenever no banner
         // resolves (an uncovered county, a Wikipedia miss), and it is what a visitor

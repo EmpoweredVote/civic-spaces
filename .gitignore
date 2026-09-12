@@ -31,4 +31,10 @@ __pycache__/
 *.tsbuildinfo
 
 # local visual-check output (scripts/shoot-banners.mjs)
-banner-shots/
+banner-shots*/
+
+# local signed-in visual check — NEVER commit a session token
+.auth-token.local*
+
+# signed-in visual check output
+app-shots/
