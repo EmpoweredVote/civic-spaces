@@ -1,5 +1,6 @@
 import type { SliceType } from '../types/database'
 import { stateAbbrevFromGeoid } from './stateAbbrev'
+import { CITY_BANNERS } from './cityBanners.generated'
 
 /**
  * The org's shared place-banner library, owned by Essentials.
@@ -144,12 +145,14 @@ const COUNTY_BANNERS: Record<string, Banner> = {
  * or the geoid itself, never a place name. Returning null is a normal outcome and
  * means "fall through to the Wikipedia path", not an error.
  *
+ * City and county banners come from CITY_BANNERS, a table generated at commit time by
+ * scripts/generate-city-banners.mjs. Essentials keys those by city NAME and we only ever
+ * hold a geoid, so the name join happens once, offline, against Essentials' own catalog —
+ * never at runtime against a name we guessed.
+ *
  * Not covered here, on purpose:
- * - `city`: Essentials keys city banners by city NAME and we only ever hold a geoid.
- *   The join is possible (via coverage.json's geoid->label, or by verifying a
- *   /location-search candidate's geo_id against ours) but it is a separate change.
- * - `unified` / `volunteer`: no jurisdiction, so no place to picture. These keep
- *   their static sliceCopy photo.
+ * - `unified` / `volunteer`: no jurisdiction, so no place to picture. These keep their
+ *   static sliceCopy photo.
  */
 export function bannerFor(sliceType: SliceType, geoid: string): Banner | null {
   switch (sliceType) {
@@ -166,10 +169,16 @@ export function bannerFor(sliceType: SliceType, geoid: string): Banner | null {
       return { url: `${BANNER_BASE}/states/${file}`, credit }
     }
 
+    // COUNTY_BANNERS is hand-maintained and wins: it holds counties Essentials has NOT
+    // published in coverage.json (Palm Beach is not in that catalog), so the generated
+    // table cannot see them. Where both know a geoid they agree — same bucket, same
+    // registry — but an explicit entry should never be shadowed by a regenerated one.
     case 'county':
-      return COUNTY_BANNERS[geoid] ?? null
+      return COUNTY_BANNERS[geoid] ?? CITY_BANNERS[geoid] ?? null
 
     case 'city':
+      return CITY_BANNERS[geoid] ?? null
+
     case 'unified':
     case 'volunteer':
     default:

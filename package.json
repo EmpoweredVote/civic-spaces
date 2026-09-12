@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check:banners": "node scripts/check-banner-drift.mjs",
     "shoot:banners": "node scripts/shoot-banners.mjs",
-    "shoot:app": "node scripts/shoot-app.mjs"
+    "shoot:app": "node scripts/shoot-app.mjs",
+    "gen:banners": "node scripts/generate-city-banners.mjs"
   },
   "dependencies": {
     "@empoweredvote/ev-ui": "^0.11.0",

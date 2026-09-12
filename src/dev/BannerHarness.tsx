@@ -16,6 +16,8 @@ import { bannerFor } from '../lib/banners'
 import type { SliceType } from '../types/database'
 
 const CASES: Array<{ label: string; sliceType: SliceType; geoid: string; name: string }> = [
+  { label: 'City — Santa Monica (curated, geoid-joined)', sliceType: 'city', geoid: '0670000', name: 'Santa Monica' },
+  { label: 'City — uncovered geoid, falls through', sliceType: 'city', geoid: '1836003', name: 'Indianapolis' },
   { label: 'State — Indiana', sliceType: 'state', geoid: '18', name: 'Indiana' },
   { label: 'State — California (v2 crop)', sliceType: 'state', geoid: '06', name: 'California' },
   { label: 'Federal', sliceType: 'federal', geoid: '1807', name: 'United States of America' },
