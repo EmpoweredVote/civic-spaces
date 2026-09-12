@@ -6,7 +6,7 @@
       "path": "national/us-capitol-banner-v2.jpg",
       "sha256": "da9f14c3c410cfd5cebce88620f7f0016e5db19972e3b6b0fc07eb61b5d922eb",
       "bytes": 210094,
-      "credit": "DiscoA340, CC BY-SA 4.0, leveled and cropped, via Wikimedia Commons"
+      "credit": "DiscoA340, CC BY-SA 4.0, via Wikimedia Commons"
     },
     "state:AK": {
       "path": "states/AK.jpg",
@@ -48,7 +48,7 @@
       "path": "states/CT.jpg",
       "sha256": "aeef60ba7c858e0cce7904512b7b103db370e16ce1e94d897ecb84eea8693d80",
       "bytes": 154146,
-      "credit": "KyleConstable, CC BY-SA 4.0, brightened, via Wikimedia Commons"
+      "credit": "KyleConstable, CC BY-SA 4.0, via Wikimedia Commons"
     },
     "state:DE": {
       "path": "states/DE.jpg",
@@ -90,7 +90,7 @@
       "path": "states/IL.jpg",
       "sha256": "6de66010bd31b5d0ac8ea17877c2ecd14bf026e9e2aa42b9ec150cf4bc8783da",
       "bytes": 135218,
-      "credit": "King of Hearts, CC BY-SA 3.0, brightened, via Wikimedia Commons"
+      "credit": "King of Hearts, CC BY-SA 3.0, via Wikimedia Commons"
     },
     "state:IN": {
       "path": "states/IN.jpg",
@@ -108,13 +108,13 @@
       "path": "states/KY.jpg",
       "sha256": "e3e71d80c0342b1f6721fe4fcdf4d9492139b757166e45e23f896a6791a723ae",
       "bytes": 143778,
-      "credit": "Anindya Chakraborty, CC BY-SA 3.0, brightened, via Wikimedia Commons"
+      "credit": "Anindya Chakraborty, CC BY-SA 3.0, via Wikimedia Commons"
     },
     "state:LA": {
       "path": "states/LA.jpg",
       "sha256": "c2b1dc04cf0bbce59b63dda978d010956852ca514ff343a1801e9f5e0a36ea63",
       "bytes": 260701,
-      "credit": "Michael Maples (USACE), public domain, via Wikimedia Commons"
+      "credit": "Michael Maples (USACE), Public Domain, via Wikimedia Commons"
     },
     "state:MA": {
       "path": "states/MA.jpg",
@@ -222,13 +222,13 @@
       "path": "states/OK.jpg",
       "sha256": "ac8aaf0d94e65a2383cabd42c87ad44f21af8cd45a6f945642cd05576772e1fc",
       "bytes": 169795,
-      "credit": "Soonerfever, public domain, via Wikimedia Commons"
+      "credit": "Soonerfever, Public Domain, via Wikimedia Commons"
     },
     "state:OR": {
       "path": "states/OR.jpg",
       "sha256": "04415f9e08e194e59cdc2b657ec4e2dc9779b066cea5c0a3f455cd6590ab7e40",
       "bytes": 279646,
-      "credit": "Oregon's Mt. Hood Territory, public domain, via Wikimedia Commons"
+      "credit": "Oregon's Mt. Hood Territory, Public Domain, via Wikimedia Commons"
     },
     "state:PA": {
       "path": "states/PA.jpg",
@@ -258,7 +258,7 @@
       "path": "states/TN.jpg",
       "sha256": "8f469ab85f83146448e2c1b35b09c19aa1ceb4ef58343202f5943152c9b90094",
       "bytes": 151737,
-      "credit": "Kaldari, public domain, via Wikimedia Commons"
+      "credit": "Kaldari, Public Domain, via Wikimedia Commons"
     },
     "state:TX": {
       "path": "states/TX-v2.jpg",
@@ -276,7 +276,7 @@
       "path": "states/VA.jpg",
       "sha256": "2a44838560eb31d193ff99e76e3a59acc96642d3e6f38ec6567012c2ad939b76",
       "bytes": 151175,
-      "credit": "Don.s.okeefe, CC BY-SA 3.0, brightened, via Wikimedia Commons"
+      "credit": "Don.s.okeefe, CC BY-SA 3.0, via Wikimedia Commons"
     },
     "state:VT": {
       "path": "states/VT.jpg",
@@ -294,7 +294,7 @@
       "path": "states/WI.jpg",
       "sha256": "5b5637635997efb912561e97675282ed55f318c1d37bc365d0ce29ebba0de6c0",
       "bytes": 92877,
-      "credit": "Dori, CC BY-SA 3.0 US, via Wikimedia Commons"
+      "credit": "Dori, CC BY-SA 3.0, via Wikimedia Commons"
     },
     "state:WV": {
       "path": "states/WV.jpg",
@@ -306,13 +306,7 @@
       "path": "states/WY.jpg",
       "sha256": "3a6686d05ecd6c0f3ac95fa6a0d6d683eaf71c012e1c53c85c6db9458ea40d7c",
       "bytes": 170849,
-      "credit": "GrandTetonNPS, public domain, via Wikimedia Commons"
-    },
-    "county:12099": {
-      "path": "counties/palm-beach-fl.jpg",
-      "sha256": "47dc45037e255ab6d3d0dcee12eea391b2fac42593eddf3c6aa60a1ecce7fcb7",
-      "bytes": 283844,
-      "credit": "Ebyabe, CC BY-SA 3.0, levelled, via Wikimedia Commons"
+      "credit": "GrandTetonNPS, Public Domain, via Wikimedia Commons"
     },
     "place:04019": {
       "path": "cities/pima-county.jpg",
@@ -342,7 +336,7 @@
       "path": "cities/south-tucson.jpg",
       "sha256": "c9d5041323d86f7c946044e474d44555096e53e26d52bd5dc2d2e26695ffec29",
       "bytes": 294275,
-      "credit": "Rgper22008 (Wikimedia Commons), public domain, via Wikimedia Commons"
+      "credit": "Rgper22008 (Wikimedia Commons), Public Domain, via Wikimedia Commons"
     },
     "place:0477000": {
       "path": "cities/tucson.jpg",
@@ -354,7 +348,7 @@
       "path": "cities/alhambra.jpg",
       "sha256": "de747f987a71efcb06de3e04eb9df45d3583f51f9e800d5ba0e8a9b6a205e7e3",
       "bytes": 198017,
-      "credit": "Sony 1992, CC0, via Wikimedia Commons"
+      "credit": "Sony 1992, CC0 / Public Domain, via Wikimedia Commons"
     },
     "place:0604982": {
       "path": "cities/bellflower.jpg",
@@ -386,6 +380,12 @@
       "bytes": 153870,
       "credit": "Natecation, CC BY-SA 4.0, via Wikimedia Commons"
     },
+    "place:0611530": {
+      "path": "la_county/building_photos/0611530.jpg",
+      "sha256": "de660058638ed7a0887a0c73e18011bc0ff62c2b38f042fdab97bcbf8079c3e3",
+      "bytes": 200465,
+      "credit": "The Front Page Online, CC BY-SA 4.0, via Wikimedia Commons"
+    },
     "place:0615044": {
       "path": "cities/compton.jpg",
       "sha256": "5504ae48c0adeb6f227fa81821d59b43759a40655b237ee6d36ce7ee64d19c26",
@@ -396,13 +396,13 @@
       "path": "cities/culver-city.jpg",
       "sha256": "3bfd5d53ec281eadd99ec71fc7c95e148c936694cd4260a73272c8a9be453df5",
       "bytes": 184783,
-      "credit": "John Margolies / Library of Congress, public domain, via Wikimedia Commons"
+      "credit": "John Margolies / Library of Congress, Public Domain, via Wikimedia Commons"
     },
     "place:0619766": {
       "path": "cities/downey.jpg",
       "sha256": "6e083592263e629064ecbb4f4f6b09a874885bbda2ac036f56c593304f61b101",
       "bytes": 182578,
-      "credit": "Northwalker, CC0, via Wikimedia Commons"
+      "credit": "Northwalker, CC0 / Public Domain, via Wikimedia Commons"
     },
     "place:0622230": {
       "path": "cities/el-monte.jpg",
@@ -464,17 +464,23 @@
       "bytes": 241526,
       "credit": "Christophe.Finot, CC BY-SA 2.5, via Wikimedia Commons"
     },
+    "place:0644000": {
+      "path": "la_county/building_photos/0644000-skyline.jpg",
+      "sha256": "56ef9bab5aaf9857a792c7f4b2009f427475b46c3ef7d76726a1c6ad756c5cc6",
+      "bytes": 113957,
+      "credit": "Adoramassey, CC BY-SA 4.0, via Wikimedia Commons"
+    },
     "place:0652526": {
       "path": "cities/norwalk.jpg",
       "sha256": "571d3d45bd88f2b169a68b6b762ea79e71f3fcba5fc0645417a4eee77844b91c",
       "bytes": 217080,
-      "credit": "Northwalker, CC0, via Wikimedia Commons"
+      "credit": "Northwalker, CC0 / Public Domain, via Wikimedia Commons"
     },
     "place:0655156": {
       "path": "cities/palmdale.jpg",
       "sha256": "efe89a959729b215e3da77be8f6de812232cf4e590962474453fd346ed99963e",
       "bytes": 190696,
-      "credit": "G-BDXH, CC0, via Wikimedia Commons"
+      "credit": "G-BDXH, CC0 / Public Domain, via Wikimedia Commons"
     },
     "place:0655254": {
       "path": "cities/palm-springs.jpg",
@@ -487,6 +493,12 @@
       "sha256": "84019991e581bcb888b46299d86fcafffef970d6c895f6fd2b952d9cfab20c6a",
       "bytes": 160529,
       "credit": "RBerteig, CC BY 2.0, via Wikimedia Commons"
+    },
+    "place:0658072": {
+      "path": "la_county/building_photos/0658072.jpg",
+      "sha256": "b92b4eecc7fe573ed93c19d3670d3f1b41e0773b862f2426ee26bef591efb080",
+      "bytes": 72406,
+      "credit": "Cliffo, CC BY 2.5, via Wikimedia Commons"
     },
     "place:0664000": {
       "path": "cities/sacramento.jpg",
@@ -530,6 +542,12 @@
       "bytes": 198221,
       "credit": "ShticktatorTal, CC BY-SA 4.0, via Wikimedia Commons"
     },
+    "place:0680000": {
+      "path": "la_county/building_photos/0680000.jpg",
+      "sha256": "c7e84f1fc6b49a2ec78bd8ce0057f75585f2f74cf6c3727c63b1827eefdc815d",
+      "bytes": 333387,
+      "credit": "Thurifer, CC BY-SA 4.0, via Wikimedia Commons"
+    },
     "place:0684200": {
       "path": "cities/west-covina.jpg",
       "sha256": "919baa653d3be775819ea3badd216b468fb5ca92b08bad48cdb1a757732ffaeb",
@@ -546,7 +564,7 @@
       "path": "cities/whittier.jpg",
       "sha256": "e34fc27580a8c2ef59503d3f5da2b671beecc3397998194de882edf28e1e7b66",
       "bytes": 347873,
-      "credit": "Northwalker, CC0, via Wikimedia Commons"
+      "credit": "Northwalker, CC0 / Public Domain, via Wikimedia Commons"
     },
     "place:0816000": {
       "path": "cities/colorado-springs.jpg",
@@ -558,6 +576,12 @@
       "path": "cities/bradenton.jpg",
       "sha256": "32abb5a1b26110453ee3616ddbe974b5157737175d27582510f08060aa3d8aa3",
       "bytes": 279527,
+      "credit": "Ebyabe, CC BY-SA 3.0, via Wikimedia Commons"
+    },
+    "place:12099": {
+      "path": "counties/palm-beach-fl.jpg",
+      "sha256": "47dc45037e255ab6d3d0dcee12eea391b2fac42593eddf3c6aa60a1ecce7fcb7",
+      "bytes": 283844,
       "credit": "Ebyabe, CC BY-SA 3.0, via Wikimedia Commons"
     },
     "place:1245000": {
@@ -588,7 +612,7 @@
       "path": "cities/milledgeville.jpg",
       "sha256": "9390fd3d28ae2742987eebc8072ebf5b940254a76dfc04e40e358a0422dc6247",
       "bytes": 249292,
-      "credit": "Clifflandis, CC0, via Wikimedia Commons"
+      "credit": "Clifflandis, CC0 / Public Domain, via Wikimedia Commons"
     },
     "place:1825000": {
       "path": "cities/fort-wayne.jpg",
@@ -600,7 +624,7 @@
       "path": "cities/gary.jpg",
       "sha256": "b6eebeed3bee21360858b60a19b5a8e8f5e3f7f2331253dda4def71138f326b1",
       "bytes": 261151,
-      "credit": "Nyttend, public domain, via Wikimedia Commons"
+      "credit": "Nyttend, Public Domain, via Wikimedia Commons"
     },
     "place:2302060": {
       "path": "cities/auburn.jpg",
@@ -666,7 +690,7 @@
       "path": "cities/lowell.jpg",
       "sha256": "63c57c7f86ea28f5f544b637f49a4d784515821b0a526aabb49e3678498ddc9d",
       "bytes": 367907,
-      "credit": "National Park Service, public domain, via Wikimedia Commons"
+      "credit": "National Park Service, Public Domain, via Wikimedia Commons"
     },
     "place:2537490": {
       "path": "cities/lynn.jpg",
@@ -782,6 +806,12 @@
       "bytes": 117431,
       "credit": "M.O. Stevens, CC BY-SA 3.0, via Wikimedia Commons"
     },
+    "place:4124250": {
+      "path": "cities/fairview-or.jpg",
+      "sha256": "fce014d1616081d0c2813e1b2d9e9e8b9b7165de02e41839b274b8c731438e9b",
+      "bytes": 326090,
+      "credit": "Finetooth, CC BY-SA 3.0, via Wikimedia Commons"
+    },
     "place:4126200": {
       "path": "cities/forest-grove.jpg",
       "sha256": "2262d2efc7114c08357492248f49bf9ada27481b7180cafaccee3ed176d08cdc",
@@ -810,7 +840,7 @@
       "path": "cities/portland.jpg",
       "sha256": "493bc3b67f39cf1655b3fd0769f15f4c9d081929e0e9228598562ab39c1f2abe",
       "bytes": 542045,
-      "credit": "Daderot, CC0, via Wikimedia Commons"
+      "credit": "Daderot, CC0 / Public Domain, via Wikimedia Commons"
     },
     "place:4167100": {
       "path": "cities/sherwood.jpg",
@@ -822,7 +852,7 @@
       "path": "cities/tigard.jpg",
       "sha256": "4d3d93e9b066f57ebb7330ed4cae0404780e32d673966732268071624b2643c9",
       "bytes": 200619,
-      "credit": "M.O. Stevens (Aboutmovies), public domain, via Wikimedia Commons"
+      "credit": "M.O. Stevens (Aboutmovies), Public Domain, via Wikimedia Commons"
     },
     "place:4174850": {
       "path": "cities/troutdale.jpg",
@@ -888,7 +918,7 @@
       "path": "cities/fairview.jpg",
       "sha256": "933884953bceb54f33f41b80a2f1344304b57fa72a9e029cf26e37acf7e69bf9",
       "bytes": 368575,
-      "credit": "Fairsaka, public domain, via Wikimedia Commons"
+      "credit": "Fairsaka, Public Domain, via Wikimedia Commons"
     },
     "place:4825488": {
       "path": "cities/farmersville.jpg",
@@ -972,7 +1002,7 @@
       "path": "cities/parker.jpg",
       "sha256": "6d9122c15bf06c6c290654b135e37eb9c2c6afd2f6ff9e5f6c6336506e4e3530",
       "bytes": 220256,
-      "credit": "Carol M. Highsmith, public domain, via Wikimedia Commons"
+      "credit": "Carol M. Highsmith, Public Domain, via Wikimedia Commons"
     },
     "place:4858016": {
       "path": "cities/plano.jpg",
@@ -996,7 +1026,7 @@
       "path": "cities/richardson.jpg",
       "sha256": "b5cd7fbf6a5dc43ebe69658516f9a40ef90d860b989dd80133b78668e9ec59f3",
       "bytes": 279518,
-      "credit": "Stan9999, public domain, via Wikimedia Commons"
+      "credit": "Stan9999, Public Domain, via Wikimedia Commons"
     },
     "place:4874924": {
       "path": "cities/van-alstyne.jpg",
@@ -1050,7 +1080,7 @@
       "path": "cities/eagle-mountain.jpg",
       "sha256": "930daaa8329a57ba3a0897aa5e6707509db3ed8dd8c7ea09f245d124c1ef129b",
       "bytes": 268587,
-      "credit": "Helen854 (en.wikipedia), public domain, via Wikimedia Commons"
+      "credit": "Helen854 (en.wikipedia), Public Domain, via Wikimedia Commons"
     },
     "place:4934970": {
       "path": "cities/herriman.jpg",
@@ -1248,7 +1278,7 @@
       "path": "cities/king-county.jpg",
       "sha256": "9dd20857e989102604d19b088cea5352889485bea012263853111bbba9ec2357",
       "bytes": 205629,
-      "credit": "Kpsudeep, CC BY-SA 4.0, brightened, via Wikimedia Commons"
+      "credit": "Kpsudeep, CC BY-SA 4.0, via Wikimedia Commons"
     },
     "place:53035": {
       "path": "cities/kitsap-county.jpg",
@@ -1266,7 +1296,7 @@
       "path": "cities/seattle.jpg",
       "sha256": "817049390be9a58e99ef4f3573e0e8be8a4dea626c1a557671510308bff848dd",
       "bytes": 179314,
-      "credit": "Daniel Schwen, CC BY-SA 4.0, brightened, via Wikimedia Commons"
+      "credit": "Daniel Schwen, CC BY-SA 4.0, via Wikimedia Commons"
     },
     "place:55025": {
       "path": "cities/dane-county.jpg",

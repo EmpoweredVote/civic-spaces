@@ -43,25 +43,18 @@ const rebuild = process.argv.includes('--rebuild')
  */
 function assetsFromSource() {
   const assets = {}
-  const banners = readFileSync('src/lib/banners.ts', 'utf8')
+  const gen = readFileSync('src/lib/banners.generated.ts', 'utf8')
 
-  const fed = /FEDERAL_BANNER: Banner = \{\s*url: `\$\{BANNER_BASE\}\/([^`]+)`,\s*credit: '([^']+)'/.exec(banners)
-  if (fed) assets['federal'] = { path: fed[1], credit: fed[2] }
+  const fed = /FEDERAL_BANNER: Banner = \{ url: "([^"]+)", credit: "([^"]+)" \}/.exec(gen)
+  if (fed) assets['federal'] = { path: fed[1].split('/politician_photos/')[1], credit: fed[2] }
 
-  const files = {}
-  const fb = banners.slice(banners.indexOf('STATE_BANNER_FILES'), banners.indexOf('Per-state credits'))
-  for (const m of fb.matchAll(/([A-Z]{2}): '([^']+)'/g)) files[m[1]] = m[2]
-  const cb = banners.slice(banners.indexOf('STATE_BANNER_CREDITS'), banners.indexOf('Curated county banners'))
-  for (const m of cb.matchAll(/^ {2}([A-Z]{2}): "(.*?)",$/gm)) {
-    assets['state:' + m[1]] = { path: 'states/' + (files[m[1]] ?? m[1] + '.jpg'), credit: m[2] }
+  const stateBlock = gen.slice(gen.indexOf('STATE_BANNERS'), gen.indexOf('PLACE_BANNERS'))
+  for (const m of stateBlock.matchAll(/^ {2}([A-Z]{2}): \{ url: "([^"]+)", credit: "([^"]+)" \}/gm)) {
+    assets['state:' + m[1]] = { path: m[2].split('/politician_photos/')[1], credit: m[3] }
   }
 
-  for (const m of banners.matchAll(/'(\d{5})': \{\s*url: `\$\{BANNER_BASE\}\/([^`]+)`,\s*credit: '([^']+)'/g)) {
-    assets['county:' + m[1]] = { path: m[2], credit: m[3] }
-  }
-
-  const cities = readFileSync('src/lib/cityBanners.generated.ts', 'utf8')
-  for (const m of cities.matchAll(/'(\d+)': \{ url: '([^']+)', credit: "([^"]+)" \}/g)) {
+  const placeBlock = gen.slice(gen.indexOf('PLACE_BANNERS'))
+  for (const m of placeBlock.matchAll(/^ {2}'(\d+)': \{ url: "([^"]+)", credit: "([^"]+)" \}/gm)) {
     assets['place:' + m[1]] = { path: m[2].split('/politician_photos/')[1], credit: m[3] }
   }
   return assets

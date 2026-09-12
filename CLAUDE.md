@@ -125,9 +125,12 @@ licence condition. Treasury Tracker published a wrong photographer for three wee
 way. Run `npm run check:banners` (network, not in `npm run build`) when you touch banner
 code and periodically regardless; it diffs the live bytes of all 227 assets against
 `src/lib/banners.manifest.json` (`--rebuild` re-derives that from source).
-City/county banners come from `src/lib/cityBanners.generated.ts` — **generated**, via
-`npm run gen:banners`, which joins Essentials' name-keyed registry to a geoid through
-their published `coverage.json`. Never hand-edit it. Re-derive credits from `essentials/src/lib/buildingImages.js`
+All credits and paths live in `src/lib/banners.generated.ts` — **generated**, via
+`npm run gen:banners`. It reads Essentials' `/banners.json` (credits, joined on bucket
+**path**, never on a place name — Portland OR and Portland ME share a key and differ only
+by filename) and `/coverage.json` (geoids). Never hand-edit it, never transcribe credits
+from Essentials' comment block, and never copy another app's table: TT published a wrong
+photographer for three weeks that way, and our own parser did it once too. Re-derive credits from `essentials/src/lib/buildingImages.js`
 and verify each author on its Commons File: page — **never copy another app's table.**
 
 **Every Supabase call is `.schema('civic_spaces')`** — 49 of them. The default `public` schema
