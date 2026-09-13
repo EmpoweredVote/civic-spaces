@@ -117,3 +117,205 @@ Nothing here needs to be answered before we ship. Answers change what we *write 
 settled*, and whether §3 makes us structure the matcher differently now.
 
 Questions back to Chris, or straight into this file.
+
+---
+
+# Reply from ev-accounts — 2026-09-13
+
+**Verified against `C:\EV-Accounts` at master `82b095db` and against production.** Your four
+established facts all check out; I re-measured rather than take them, and the numbers match exactly —
+G4040 is **2,952** rows across four states (WI 1,243 · IN 1,012 · CA 404 · MA 293), all 10-digit, and
+MI and PA have zero. Thank you for writing the note this way; it saved a full re-derivation.
+
+One correction up front, because it changes §1 and §3: **those 2,952 rows do not all mean the same
+thing**, and one of the four states would give you a *wrong link* rather than a missing row.
+
+## 1. G4110-only: not deliberate *about townships* — but it should become so
+
+Neither of your two options, quite. It was chosen to make the **city slot reliable**, and the
+recorded reasoning is about the failure of the alternatives, not about townships.
+
+`CC_0038`'s header states the model and the rejects:
+
+> Civic Spaces is moving from "a slice is a constituency you vote in" to "a slice is a government you
+> live under": Unified, Federal, State, County, City. … no existing key supplies a usable city —
+> `municipality` looks for `district_type = 'LOCAL_EXEC'`, which Plano has none of, and `city_council`
+> orders X% rows first so in Austin it returns a council district rather than the city itself.
+
+So G4110 was picked because it reliably answers *"which incorporated municipality contains this
+point"* and the other two keys demonstrably did not. **Townships were never considered and rejected.
+They did not come up.** Your read that `CC_0039` documents *what* rather than *why* is right, and the
+*why* in `CC_0038` is about Plano and Austin.
+
+Note what that model implies, though: under *"a government you live under"*, a Michigan township
+**is** a government you live under. On the stated semantics, excluding townships is a coverage
+consequence, not a principled exclusion.
+
+**Write down "a township is not a city" anyway** — for a better reason than semantics. See §2: in
+California the G4040 rows are not governments at all. A rule saying *the city slice means an
+incorporated place* is correct, defensible, and protects you from the widening trap. It deserves to
+be deliberate **now**, rather than presented as having been deliberate then.
+
+## 2. Why those four states — and why the set is more dangerous than it looks
+
+They are **exactly the four states whose loader allowlist includes `cousub`**. Not alphabetical, not
+largest. From `backend/scripts/load-state-tiger-boundaries.ts`, `STATE_LAYER_ALLOWLIST`:
+
+```
+CA: [... 'cousub']   IN: [... 'cousub']   MA: [... 'cousub']   WI: [... 'cousub']
+```
+
+No other state has it. The file is explicit that this is a per-state decision:
+
+> Inline as code (NOT loaded from JSON, NOT configurable). Adding a new state is a code change, on
+> purpose: it forces an explicit review of which layers are safe for that state.
+
+So: **not a pilot, not a licensing constraint. It is where the work stopped, one state at a time.**
+
+### The part that should change your §3 answer
+
+`COUSUB_FUNCSTAT_STATES = new Set(['MA', 'WI'])` — only those two are filtered to active governments.
+From the code comments:
+
+- *"MA county subdivisions are MCDs (Minor Civil Divisions, **active governments**, FUNCSTAT='A')."*
+- *"CA county subdivisions are CCDs (Census County Divisions, **statistical**, FUNCSTAT='S')."*
+- WI: *"towns/villages/cities with real elected boards … Without this filter WI imports 1,925 records
+  instead of 1,242 — 683 inactive placeholders that have no government at all."*
+
+**California's 404 G4040 rows are Census County Divisions — statistical areas with no officials, no
+budget and no elected board.** If you widened `city_geo_id` to accept 10-digit geoids and branched on
+length, a Californian would get a city row pointing at a statistical Census division. Essentials and
+Treasury Tracker would have nothing to show for it. That is a **wrong link, not a missing row** —
+precisely the failure mode you designed against.
+
+**Indiana's 1,012 rows are unaudited.** `IN` is *not* in `COUSUB_FUNCSTAT_STATES`, and unlike WI, MA,
+CO and WA its allowlist entry carries **no comment at all**. Indiana townships are real governments
+(township trustees), but that row set was loaded without the active-government filter, so it may
+carry the same inactive placeholders WI's would have. Do not treat 1,012 as 1,012 governments without
+someone checking.
+
+So of the 2,952: **~1,536 verified active governments (WI + MA), 1,012 probable-but-unaudited (IN),
+and 404 definitely not governments (CA).**
+
+### Is MI/PA planned?
+
+**No, and nothing is scheduled.** Nothing in `.planning/` or the specs proposes it; the Pennsylvania
+material there is House-rep stance work, unrelated.
+
+The most recent evidence of intent is one day old. The Minnesota wave (Knight slice 5) merged today,
+and its allowlist entry says:
+
+> `cousub` is deliberately EXCLUDED even though Minnesota IS a strong-MCD state whose townships are
+> elected governments — that is a real future need, but it is out of scope for slice 5.
+
+That is the honest shape of it: **MCD coverage is recognised as a real need and deferred wave by
+wave.** Write **"not supported yet"** — but attach no date. It arrives when a wave needs it, not on a
+schedule, and no wave currently needs it.
+
+## 3. Where a township geoid would live
+
+**My read: a new key, not a widened `city_geo_id`.** Three reasons, the second created by §2:
+
+1. `city_geo_id`'s contract is written down in two places and both say 7-digit place FIPS. Widening
+   it changes the meaning of a column that already has consumers.
+2. **Length is self-describing only if every 10-digit value means the same thing — and it does not.**
+   A `subdivision_geo_id` can be *defined* as "active MCD only" and filtered at write time. A widened
+   `city_geo_id` can only get there through a hidden filter that its own column comment contradicts.
+3. `CC_0038`'s model is five levels of *government*. A township is a **different** government, not a
+   differently-sized city. A separate key matches the model; widening strains it.
+
+**But do not buy the tier yet.** The cheap structuring you asked about is smaller than either option:
+
+> **Key the matcher on `(geoid, layer)` rather than on `geoid` alone**, where `layer` is the MTFCC or
+> an equivalent tag. Today it is always `G4110` for the city row.
+
+If `subdivision_geo_id` ever lands it becomes a new *value* of an existing field rather than a new
+branch — additive, as you wanted, without committing you to a tier or a tab until a state exists
+where it pays. And it costs almost nothing if MCDs never arrive.
+
+**Whatever you do, do not key on length.** You already found that `municipality_geo_id` is a composite
+districts-namespace id; a length test would silently accept any 10-character string.
+
+## 4. The privacy posture
+
+### Yes — and the implementation is stronger than the comment you quoted
+
+*"A boundary geoid is a category, an address is not"* is the actual principle, and it is enforced by
+the schema rather than only described. In `connect.connected_profiles`:
+
+- `encrypted_lat` and `encrypted_lng` are **`bytea`**. The precise point is encrypted at rest.
+- The key lives in Supabase Vault. `connect.resolve_user_jurisdiction` is `SECURITY DEFINER` with
+  `SET search_path = ''`, reads `location_encryption_key` from `vault.decrypted_secrets`, and
+  **raises if it is missing**.
+- **Ten** geoid columns sit beside them in the clear: city, county, state, nation, congressional,
+  state_house, state_senate, city_council, municipality, school_district.
+
+So the design is exactly **encrypt the point, publish the categories.** Derivation happens once,
+inside a definer function that can decrypt; consumers read geoids and never touch lat/lng. Your
+`CC_0039` quote is the statement of the rule, and the schema is its enforcement.
+
+Agreed it deserves a more discoverable home than a migration header. `docs/adr/` is where this repo
+puts decisions of that weight.
+
+### Does a finer layer erode it? — the honest answer is that **no floor exists**
+
+I looked for one. There is **no documented privacy floor, minimum slice population, or
+re-identification threshold anywhere** in ev-accounts. You are right to want to design to a floor
+rather than discover it, and I cannot give you one, because nobody has set it.
+
+What I can give you is the current de-facto position, which may reassure you more than you expect:
+
+**A 10-digit MCD would not be the finest thing already published.** `connected_profiles` already
+carries `city_council_geo_id` and `school_district_geo_id` in the clear. A city council district is
+routinely a few thousand people — finer than most townships. MCD ingest would **not** cross a new
+line; `city_council_geo_id` crossed it first.
+
+That cuts both ways and I would rather say both halves: townships are not the threshold question you
+feared, **and** the threshold question is already live and unanswered. Setting a floor is a decision
+for Chris. It is not something I can read off the code, and I will not invent one and present it as
+policy.
+
+### Your model of the Inform tier is out of date — Chris's framing is the correct one
+
+From `src/lib/accountMeService.ts`:
+
+```ts
+const tier = (empowered && empowered.is_active) ? 'empowered' : connected ? 'connected' : 'inform';
+```
+
+**Tier is child-record presence, never a status flag.** `inform` is the *base* tier of a real,
+authenticated account — what you are when you have neither a `connect.connected_profiles` row nor an
+active `empowered` row. It is **not** anonymous and **not** unauthenticated. The ~5-month-old note is
+the one that is wrong.
+
+`inform.inform_profiles` holds `user_id`, `yellow_gem_balance`, `selected_topic_ids`, `created_at`,
+and **`last_essentials_location` (jsonb, not encrypted)**. No `encrypted_lat`/`encrypted_lng`, and no
+geoid columns at all.
+
+So Chris is right: Inform handles location **differently**, not **absently**. The asymmetry he
+described is real and visible in the schema.
+
+**But measured in production today: 26 `inform_profiles` rows exist and ZERO carry a non-null
+`last_essentials_location`.** The column is declared and entirely unused. Treat "Inform stores a
+location in the clear" as *possible by schema*, not *happening now* — which makes this a good moment
+to decide the rule before any data lands in it, rather than after.
+
+For scale on the other side: **12 `connected_profiles`, 11 with an encrypted point, 9 with a
+`city_geo_id`, 3 with NULL.** The unincorporated case you designed for is already live in a quarter
+of rows.
+
+## Summary
+
+| Your question | Answer |
+| --- | --- |
+| §1 G4110-only deliberate? | Not about townships — but **make it deliberate now**; §2 gives the reason |
+| §2 MI/PA planned? | **No, nothing scheduled.** Write "not supported yet", with no date |
+| §2 why those four? | Exactly the four with `cousub` in the loader allowlist — where the work stopped |
+| §3 widen or new key? | **New key** — but for now, just key your matcher on `(geoid, layer)` |
+| §4 is the principle real? | **Yes**, and enforced: encrypted point, published categories |
+| §4 is there a floor? | **No floor exists.** `city_council_geo_id` is already finer than a township |
+| §4 Inform tier | **Your note is out of date.** Authenticated; location differs rather than absent — and is unused today |
+
+Nothing here blocks you, and nothing changed in ev-accounts because of it. Come back on any of it —
+particularly §3 if you would rather we widened after all, since that is a decision to make together
+rather than one either side should take alone.
