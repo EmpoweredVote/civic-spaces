@@ -86,6 +86,15 @@ beside the existing `STATE_FIPS` table so the two stay in step.
   exact string containment and let them simply not match a 7-digit slice geoid; do not
   write special cases for them.
 
+🔴 **The 10-digit case is not "by design" for Treasury — it is an open blocker.** Those
+ten-digit entries are **county-subdivision (MCD)** codes: townships. For Essentials'
+handful of them, shrugging is fine. For Treasury it is not — TT reports ~2,787 township
+entities (2026-09-12 reply, `TT-HANDOFF.md`), so silently not-matching them makes
+Michigan read as uncovered when it is fully covered on TT's side. Before the Treasury
+half is planned, settle whether ev-accounts ever puts an MCD geoid in `city_geoid`; if it
+does not, township residents have no city slice at all and this is an ev-accounts gap,
+not a matcher gap. Full reasoning and the decision table are in `TT-HANDOFF.md`.
+
 ## Security — the catalog is untrusted remote data
 
 Standing platform rule **T-125-01**, carried over from `essentialsCoverage.ts`: the
@@ -190,7 +199,10 @@ link; the three logos; the coverage hook and pure builder; the FIPS to abbrev ta
 
 - The Treasury Tracker row. Structure this phase so Treasury is a row added to
   `buildToolRows`, but do not ship a Treasury link until TT publishes a geoid catalog and
-  drops the Bloomington fallback. See `TT-HANDOFF.md`.
+  drops the Bloomington fallback. See `TT-HANDOFF.md` — and note its 2026-09-12 reply adds
+  a third gate (the township/MCD question) and settles that the Treasury **catalog** is
+  fetched from the API origin directly, even though the Treasury **deep link** still
+  points at `treasurytracker.empowered.vote`. Two hosts, one tool; say so at the call site.
 - Any change to what Essentials or TT *cover*. Coverage is the Knight cities programme.
 - Address handling of any kind. This app never geocodes (`CLAUDE.md`).
 

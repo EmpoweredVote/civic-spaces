@@ -190,3 +190,84 @@ which is Ask 3.
 
 Question on any of this goes to Chris; the consumer-side design is `15-DESIGN.md`
 alongside this file.
+
+---
+
+# Reply from Treasury Tracker — 2026-09-12
+
+Relayed by Chris. Two items: one answers Ask 2's open question, one pushes back on a
+premise in Ask 1.
+
+## TT's answer to "where do we fetch the catalog from"
+
+**Hit the API origin directly — not `treasurytracker.empowered.vote/api/...`.**
+
+The TT host only reaches the API by a static-site proxy hop (the `public/_redirects`
+rule this doc's Ask 2 spotted), so going through the TT hostname buys us an extra
+redirect and a dependency on TT's static hosting for data that is not TT's to serve.
+Civic Spaces already talks to that API origin directly for Compass answers and
+representatives (`CLAUDE.md`), so this costs us nothing.
+
+**Consequence for the unbuilt Treasury half:** whatever constant we add beside
+`ESSENTIALS_URL` in `src/lib/toolCoverage.ts` points at the API origin, and the Treasury
+catalog fetch does *not* mirror `useToolCoverage`'s "same origin as the deep link" shape.
+The deep link still goes to `treasurytracker.empowered.vote`; only the catalog fetch
+moves. Those are two different hosts for one tool — write that down at the call site or
+someone will "fix" the inconsistency.
+
+## Townships: our Ask 1 guidance was wrong, and the gap is ours, not theirs
+
+Ask 1 told them a township that could not be resolved cleanly should be left null and
+absent from the catalog. TT's position — which is correct — is that townships **do**
+resolve cleanly: they are 10-digit **county-subdivision (MCD)** codes. That is real,
+correct data and it belongs in the catalog. Geoid lengths are self-describing
+(2 / 5 / 7 / 10), so no extra discriminator field is needed to tell tiers apart.
+
+The problem is on the consumer side. Under this phase's governing "no match, no row"
+rule, a 10-digit MCD geoid cannot match a 7-digit place-FIPS city slice, so **~2,787
+township entities produce no Treasury row today**. Michigan's coverage will read as
+absent to a Civic Spaces member even though TT's side is complete. TT's ask is that we
+not discover this by finding Michigan empty.
+
+### What that actually means for us — worse than TT thinks
+
+Checked against this repo on 2026-09-12, and the gap is upstream of the match, not in it:
+
+- `src/hooks/useJurisdictionName.ts:41-73` resolves display names for **5-digit and
+  7-digit geoids only**. A 10-digit MCD falls through to `return null` and the banner
+  renders the raw tab label. We cannot currently *name* a township slice.
+- `services/slice-assignment/src/services/sliceAssigner.ts:259-271` takes `city_geoid`
+  verbatim from ev-accounts, which resolves cities from **G4110 place boundaries**. An
+  address with no covering place boundary has its `city` level *skipped entirely* —
+  the same path that drops Arden, NC, and three of ten production profiles.
+
+So the likely state for a Michigan township resident is **no city slice at all**, not a
+city slice that fails to match. If that holds, no TT-side change can surface a Treasury
+row for them, because there is no City tab to put it on.
+
+**Open question, and it is an ev-accounts question, not a TT or Civic Spaces one:** does
+ev-accounts ever return a 10-digit MCD in `city_geoid`, or is `city_geoid` always
+place-FIPS-or-null? This repo cannot answer it — we read that payload, we do not build
+it. Everything below depends on the answer:
+
+| If ev-accounts... | Then |
+|---|---|
+| returns MCD geoids for township addresses | Cheap fix. `useJurisdictionName` grows a 10-digit branch (`for=county subdivision:`), and the Treasury matcher compares 10-digit slices against TT's MCD entries. Both tiers work. |
+| never returns MCD (place-or-null) | Township residents have no city slice. The fix is in ev-accounts' jurisdiction resolution, and it is a much larger piece of work than Phase 15. |
+
+Do not plan the Treasury half until that is settled — the answer changes whether this is
+a match-widening or a platform gap.
+
+### One number to sanity-check with TT
+
+Ask 1 above put TT's total at **2,812 entities**. TT now reports **~2,787 townships**. If
+both are current that makes TT ~99% townships, which contradicts Ask 1's own per-tier
+table. Most likely the catalog grew since 2026-09-08 and 2,812 is stale — but somebody
+should confirm which number is which before either is quoted in a plan.
+
+### Correction owed back to TT
+
+Ask 1's line "If they cannot be resolved cleanly, leave them null and let them be absent
+from the catalog" should be treated as **withdrawn**. Emit the MCD geoids. Absent is the
+right answer for an entity with genuinely no geoid; it is the wrong answer for one whose
+geoid is simply a tier we had not thought about.
