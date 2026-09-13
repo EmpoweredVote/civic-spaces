@@ -229,7 +229,7 @@ township entities produce no Treasury row today**. Michigan's coverage will read
 absent to a Civic Spaces member even though TT's side is complete. TT's ask is that we
 not discover this by finding Michigan empty.
 
-### What that actually means for us — worse than TT thinks
+### What that actually means for us — checked, then answered
 
 Checked against this repo on 2026-09-12, and the gap is upstream of the match, not in it:
 
@@ -245,25 +245,58 @@ So the likely state for a Michigan township resident is **no city slice at all**
 city slice that fails to match. If that holds, no TT-side change can surface a Treasury
 row for them, because there is no City tab to put it on.
 
-**Open question, and it is an ev-accounts question, not a TT or Civic Spaces one:** does
-ev-accounts ever return a 10-digit MCD in `city_geoid`, or is `city_geoid` always
-place-FIPS-or-null? This repo cannot answer it — we read that payload, we do not build
-it. Everything below depends on the answer:
+### ANSWERED — TT round 2, 2026-09-12
 
-| If ev-accounts... | Then |
-|---|---|
-| returns MCD geoids for township addresses | Cheap fix. `useJurisdictionName` grows a 10-digit branch (`for=county subdivision:`), and the Treasury matcher compares 10-digit slices against TT's MCD entries. Both tiers work. |
-| never returns MCD (place-or-null) | Township residents have no city slice. The fix is in ev-accounts' jurisdiction resolution, and it is a much larger piece of work than Phase 15. |
+TT queried the boundary table and answered the blocking question. Verified independently
+against `C:\EV-Accounts` the same day; their read agrees with the source.
 
-Do not plan the Treasury half until that is settled — the answer changes whether this is
-a match-widening or a platform gap.
+**Does ev-accounts ever put a 10-digit MCD in `city_geoid`? No.**
+`connect.resolve_user_jurisdiction` fills the `city` slot from `mtfcc = 'G4110'`
+exclusively (`migrations/CC_0038_jurisdiction_city_state_nation.sql:131`), and all 6,008
+G4110 boundaries are 7-digit place FIPS. `CC_0039`'s column comment says the same:
+*"7-digit Census place FIPS (mtfcc G4110). NULL for unincorporated addresses — that is a
+valid answer, not a failure."*
 
-### One number to sanity-check with TT
+**But the decision table above was wrong to offer only two branches.** There is a third
+part, and it inverts which branch is "cheap":
 
-Ask 1 above put TT's total at **2,812 entities**. TT now reports **~2,787 townships**. If
-both are current that makes TT ~99% townships, which contradicts Ask 1's own per-tier
-table. Most likely the catalog grew since 2026-09-08 and 2,812 is stale — but somebody
-should confirm which number is which before either is quoted in a plan.
+- The 10-digit layer **already exists** — 2,952 G4040 county-subdivision boundaries, all
+  10-digit. The RPC already consults G4040 for its `city_council` and `municipality`
+  slots (`CC_0038:89,105`; also `046_resolve_user_local_officials.sql:105` for
+  LOCAL/LOCAL_EXEC). The `city` slot's MTFCC filter is simply narrower than the data.
+- **But G4040 covers four states only: WI, IN, CA, MA.** Michigan and Pennsylvania have
+  **zero** rows — and 2,787 of TT's 2,798 townships (99.6%) are in exactly those two.
+
+So the "cheap fix" this doc proposed — a 10-digit branch in `useJurisdictionName` plus
+MCD matching — would light up **11 Indiana townships and nothing else.** It is the
+ev-accounts path we suspected, but the blocker is narrower and harder than "a resolution
+gap": it is **missing G4040 boundary rows for MI and PA. Boundary ingest, not code**, and
+firmly outside Phase 15.
+
+**Neither correction changes the TT side.** Townships get honest 10-digit geoids that no
+consumer can use yet. Under "no match, no row" that costs a row, never a wrong link — so
+TT should ship the MCD geoids regardless, and Civic Spaces should not wait on them.
+
+### The counts, resolved
+
+Stopping to flag the discrepancy was right. **2,812 is stale.** TT's table is **8,184
+entities** today, of which townships are **34.2%** — not the ~99% the two numbers implied
+together. Ask 1's per-tier table was sound; only its total had aged. Full breakdown in
+TT's spec §8.2.
+
+Do not quote 2,812 again.
+
+### Two hosts: confirmed deliberate
+
+TT records the split in their spec §8 as intentional — the API origin serves **data**, the
+TT host serves a **user-facing page** — with the instruction that both call sites say so.
+That matches what this doc concluded independently. Write the comment at both call sites.
+
+### Where TT's side lives
+
+Both of TT's commits are on branch **`docs/civic-spaces-coverage-design`** in
+`C:\treasury-tracker`, with the reasoning in their spec §8 (hosts) and §8.2 (entity
+counts).
 
 ### Correction owed back to TT
 
