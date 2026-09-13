@@ -116,6 +116,23 @@ nothing here.
 If you restructure the feed column, that restoration is the thing most likely to break, and it
 breaks quietly.
 
+🔴 **A hero banner can change photographer with no diff on our side.** State, federal and
+geoid-keyed county banners come from Essentials' shared bucket (`src/lib/banners.ts`), and
+Essentials replaces one by swapping the bytes behind a stable URL. No path changes, so
+`tsc -b`, the Vite build and every 404 check stay green while the credit we render beside
+it becomes the wrong person's name — and attribution on a CC BY / CC BY-SA image is a
+licence condition. Treasury Tracker published a wrong photographer for three weeks this
+way. Run `npm run check:banners` (network, not in `npm run build`) when you touch banner
+code and periodically regardless; it diffs the live bytes of all 227 assets against
+`src/lib/banners.manifest.json` (`--rebuild` re-derives that from source).
+All credits and paths live in `src/lib/banners.generated.ts` — **generated**, via
+`npm run gen:banners`. It reads Essentials' `/banners.json` (credits, joined on bucket
+**path**, never on a place name — Portland OR and Portland ME share a key and differ only
+by filename) and `/coverage.json` (geoids). Never hand-edit it, never transcribe credits
+from Essentials' comment block, and never copy another app's table: TT published a wrong
+photographer for three weeks that way, and our own parser did it once too. Re-derive credits from `essentials/src/lib/buildingImages.js`
+and verify each author on its Commons File: page — **never copy another app's table.**
+
 **Every Supabase call is `.schema('civic_spaces')`** — 49 of them. The default `public` schema
 is not this app's data.
 
@@ -146,6 +163,14 @@ of those four is not done.
 - Reuse `WidgetCard` for anything sidebar-shaped, and `react-loading-skeleton` for loading
   states — match `FeedSkeleton`, do not invent a third loading style.
 - Animation is `motion/react`, already used by `NotificationBell` and `SidebarMobile`.
+- **The hero banner cannot be seen by clicking on localhost** (no local login — see above),
+  so the four-way check runs against a harness: `npm run dev`, then
+  `npm run shoot:banners -- --port <port>` writes light/dark x desktop/mobile PNGs to
+  `banner-shots/` (gitignored). It mounts `HeroBanner` via `/banner-harness.html` with
+  real `bannerFor()` output. **Look at the images** — a clean run only proves they
+  decoded. Crop depends solely on the box's aspect ratio, never its pixel size, so the
+  harness's narrower column crops exactly like the real feed column. It does not cover
+  `AppShell`'s photoUrl/credit precedence; that still needs the `cs_token` paste.
 - The `ui-ux-pro-max` skill is installed in `.claude/skills/` — worth invoking while planning
   any layout change.
 

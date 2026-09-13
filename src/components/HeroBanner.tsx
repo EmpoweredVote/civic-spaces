@@ -7,6 +7,15 @@ interface HeroBannerProps {
   memberCount: number
   siblingIndex: number
   photoUrl?: string | null
+  /**
+   * Attribution for `photoUrl`, rendered bottom-right.
+   *
+   * 🔴 NOT DECORATION. The shared banner library is Wikimedia-sourced and most of it
+   * is CC BY or CC BY-SA, which require the author be named visibly. If a caller has
+   * a credit, this component must display it — do not hide it behind a hover, a
+   * breakpoint, or a colour too faint to read.
+   */
+  credit?: string | null
 }
 
 export function HeroBanner({
@@ -15,6 +24,7 @@ export function HeroBanner({
   memberCount,
   siblingIndex,
   photoUrl,
+  credit,
 }: HeroBannerProps) {
   const copy = SLICE_COPY[sliceType]
 
@@ -28,8 +38,20 @@ export function HeroBanner({
     <div
       className={[
         'relative overflow-hidden rounded-xl mx-4 mt-4 md:mx-0 md:mt-0',
+        // 🔴 shrink-0 IS LOAD-BEARING. This renders as the first child of
+        // SliceFeedPanel's `flex flex-col h-full overflow-y-auto` scroll container. A
+        // flex item defaults to flex-shrink:1, and aspect-ratio only supplies a
+        // preferred height — so as soon as there were posts below, the column squashed
+        // the banner to nothing. It stayed in the DOM with its image loaded, which is
+        // why this read as "the banner does not render on that tab" rather than as a
+        // layout bug. A slice with no posts never showed it, because nothing pushed.
+        'shrink-0',
         'aspect-[16/9] md:aspect-[16/5]',
-        'bg-gray-700 dark:bg-gray-800',
+        // Brand-gradient ground, not flat gray: it shows through whenever no banner
+        // resolves (an uncovered county, a Wikipedia miss), and it is what a visitor
+        // sees for a beat while an image decodes. EV teal, light and dark together.
+        'bg-gradient-to-br from-brand to-brand-hover',
+        'dark:from-brand-hover dark:to-[#00212B]',
         'dark:ring-1 dark:ring-white/10',
       ]
         .join(' ')}
@@ -47,11 +69,11 @@ export function HeroBanner({
       )}
 
       {/* Gradient: strong at bottom where text lives, fades to near-transparent at top */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/5" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/15" />
 
       {/* Text content — sits above gradient via z-10 */}
       <div
-        className="relative z-10 flex h-full flex-col justify-end p-6 md:p-8"
+        className="relative z-10 flex h-full flex-col justify-end p-6 pb-9 md:p-8 md:pb-8"
         style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}
       >
         {/* Slice name */}
@@ -62,8 +84,11 @@ export function HeroBanner({
 
         {/* Pill badges */}
         <div className="mt-3 flex flex-wrap gap-2">
-          {/* Jurisdiction pill */}
-          <span className="rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
+          {/* Jurisdiction pill — hidden on mobile: it repeats the <h2> verbatim, and
+              that redundant row is what pushed a long jurisdiction name off the top
+              of the 16/9 box ("United States of America" wrapped to two lines, the
+              tagline to two more, and justify-end clipped the title). */}
+          <span className="hidden md:inline-block rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
             {sliceName}
           </span>
 
@@ -83,6 +108,18 @@ export function HeroBanner({
           {copy?.description}
         </p>
       </div>
+
+      {/* Image credit — a licence condition on the shared banner library, so it sits
+          above the gradient and stays visible at every breakpoint. Bottom-right keeps
+          it clear of the name/tagline/pills stack, which is bottom-left and max-w-2xl. */}
+      {resolvedPhoto && credit && (
+        <p
+          className="absolute bottom-2 right-3 z-10 max-w-[70%] text-right text-[11px] leading-tight text-white/75"
+          style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
+        >
+          {credit}
+        </p>
+      )}
     </div>
   )
 }
