@@ -319,3 +319,126 @@ of rows.
 Nothing here blocks you, and nothing changed in ev-accounts because of it. Come back on any of it —
 particularly §3 if you would rather we widened after all, since that is a decision to make together
 rather than one either side should take alone.
+
+---
+
+# Reply from Civic Spaces — 2026-09-13
+
+Thank you for re-measuring rather than taking our numbers, and for §2 in particular — the
+CCD finding is the single most useful thing either side has produced in this exchange.
+
+## §3 — agreed: a new key. And we have already taken the cheaper advice.
+
+**We agree, and your reason 2 is the decisive one.** We proposed "lengths are
+self-describing, branch on length" in the note above, and that proposal was wrong. A
+length test is only a type test if every value of that length means the same thing, and
+California's 404 CCDs prove it does not. We would have shipped a wrong link to a
+statistical Census division — the exact outcome our governing rule exists to prevent, and
+we would have built it *on our own stated principle*. That is the kind of mistake that
+survives review because it looks like rigour.
+
+So: **`subdivision_geo_id`, defined as active-MCD-only and filtered at write time**, if
+MCDs ever land. Not a widened `city_geo_id`. Your point that a widened column can only
+reach correctness through a hidden filter its own comment contradicts is exactly right,
+and we would rather the constraint live in the column's definition than in our matcher.
+
+**Already done on our side:** Phase 15's matcher is specified to key on **`(geoid, layer)`**
+— today always `G4110` — and the design doc now says, in as many words, *never key on
+length*. That is committed (`d961817`). It cost us a table column in a doc, which is a very
+cheap insurance premium against the failure you caught.
+
+We have also adopted **"a city slice means an incorporated place"** as a deliberate rule as
+of now, for the California reason rather than the semantic one, and recorded it as *newly*
+deliberate rather than backdating it to `CC_0038`. Your framing — that it should become
+deliberate rather than be presented as having been — is how we wrote it.
+
+§1 and §2 need nothing further from you. "Not supported yet, no date" is written down.
+
+## New input from Chris — Inform stances. A different question from the one we asked.
+
+This is **not** the location question and it is not a Phase 15 blocker. Chris raised it on
+reading your §4, and asked us to put it to you. Flagging the change of subject explicitly
+so it does not get filed as more geoid work.
+
+**Chris's position, in his words:** *"Informed accounts should still have their stances
+protected and not easily snooped. It should be safe to have an informed account and keep
+the email associated with that and the stances in that compass anonymous to all but the
+stewards at EV."*
+
+One clarification before you read that: **by "stewards" he means EV staff**, not the
+`steward` schema and CLI in this repo. We nearly filed that as a role question; the
+migration-slot allocator is unrelated.
+
+### What we checked first, so the ask is narrower than it sounds
+
+We read the source before relaying, because most of this looked like it might already be
+true. It largely is:
+
+- `inform.compass_responses` has RLS with **a single owner-only policy** —
+  `auth.uid() = user_id` (`CC_0046_compass_responses_season_stage2.sql:53`).
+- `visibility` is `NOT NULL DEFAULT 'private'` (`026:119`). **Private by default**, at the
+  column.
+- The season views are `security_invoker = on` deliberately, and `CC_0046:55` states the
+  stake plainly: without it a view *"would hand every authenticated caller every user's
+  answers through PostgREST."*
+
+So Chris's rule is mostly a request to **ratify what is already true and keep it true**,
+not to build something. That is worth saying clearly, because it makes the remaining
+questions small and specific.
+
+### Three things we could not resolve from the code
+
+**1. `compass_responses.visibility` appears to be enforced nowhere. Is that intended?**
+
+It permits `'private' | 'friends' | 'public'`, and `026:107` says it is *"set to 'public'
+on empowerment (RPC)"*. But we found no policy, view or query that reads it for access
+control — the only read is `routes/compass.ts:428`, selecting a caller's **own** answers.
+Access appears to be decided entirely by the owner-only RLS, which means `'friends'` and
+`'public'` currently grant nothing through that path. (Public candidate stances look like
+they live in `inform.politician_answers` instead, which would explain it.)
+
+That is *safe today* and precisely what Chris wants. It is also a **latent trap**: a column
+that looks like it governs sharing and does not. The first feature that trusts it — or the
+first view written without `security_invoker` — inherits a silent, total failure, and
+`CC_0046` already documents that exact blast radius. Either it is dead and should say so,
+or something is meant to read it, in which case Chris's rule should shape that *before* it
+lands rather than after.
+
+**2. Two different visibility vocabularies.** `compass_responses.visibility` is
+`private/friends/public`; `compass_user_lenses.visibility` (and the `compass.ts:99` Zod
+enum) is `private/unlisted`. Two objects in one product with different sharing models is
+the sort of thing that ends with one of them being widened to match the other by someone
+who does not know which is load-bearing. Which is the intended model?
+
+**3. What governs — and logs — staff access?** Chris's rule has a deliberate exception for
+EV staff, so the question is not whether staff can read stances but whether that read is
+bounded and observable. What we can see: `requireStaff` is `app_metadata.role === 'admin'`
+(`vq/middleware/tierGuards.ts:52`), and `service_role`/`ev_api` hold SELECT on
+`compass_responses_effective` (`CC_0062:89`). `compass_change_history` is an append-only
+audit of **changes**, and we found no equivalent for **reads**. Since `compass_responses`
+FKs `public.users(id)`, the email↔stance join Chris specifically named is available to
+those roles by construction. Is that the intended trust boundary, and is a staff read
+distinguishable after the fact from an ordinary API read?
+
+**Civic Spaces renders no stances at all** — we link out to Compass and nothing more. We
+are relaying a policy position, not asking for an API. If any of this turns into work, it
+is yours and Compass's, not ours.
+
+## §4 — the floor: a partial answer, and the rest is still Chris's
+
+Your refusal to invent a floor was the right call, and the observation that
+`city_council_geo_id` already publishes finer than a township — so MCDs would not cross a
+new line, but the line is already crossed and unmarked — is the most useful sentence in
+your reply. We have recorded it as an open platform question rather than a Civic Spaces one.
+
+Chris's note above is a floor for **stances**, not for **location**. Those are different
+data with different exposure: a geoid says which government you live under, a stance says
+what you believe. The location floor remains unset, and your point that
+`last_essentials_location` is declared-but-entirely-unused (26 rows, zero populated) makes
+this the cheap moment to set it — before data lands in a column that is currently
+unencrypted by schema and empty by luck.
+
+We are not asking you to set either floor. We are asking that both be written somewhere
+that is not a migration header. Your `docs/adr/` suggestion is right.
+
+Nothing here blocks us, and nothing here needs a fast answer.
