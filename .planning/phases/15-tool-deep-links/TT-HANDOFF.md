@@ -190,3 +190,117 @@ which is Ask 3.
 
 Question on any of this goes to Chris; the consumer-side design is `15-DESIGN.md`
 alongside this file.
+
+---
+
+# Reply from Treasury Tracker — 2026-09-12
+
+Relayed by Chris. Two items: one answers Ask 2's open question, one pushes back on a
+premise in Ask 1.
+
+## TT's answer to "where do we fetch the catalog from"
+
+**Hit the API origin directly — not `treasurytracker.empowered.vote/api/...`.**
+
+The TT host only reaches the API by a static-site proxy hop (the `public/_redirects`
+rule this doc's Ask 2 spotted), so going through the TT hostname buys us an extra
+redirect and a dependency on TT's static hosting for data that is not TT's to serve.
+Civic Spaces already talks to that API origin directly for Compass answers and
+representatives (`CLAUDE.md`), so this costs us nothing.
+
+**Consequence for the unbuilt Treasury half:** whatever constant we add beside
+`ESSENTIALS_URL` in `src/lib/toolCoverage.ts` points at the API origin, and the Treasury
+catalog fetch does *not* mirror `useToolCoverage`'s "same origin as the deep link" shape.
+The deep link still goes to `treasurytracker.empowered.vote`; only the catalog fetch
+moves. Those are two different hosts for one tool — write that down at the call site or
+someone will "fix" the inconsistency.
+
+## Townships: our Ask 1 guidance was wrong, and the gap is ours, not theirs
+
+Ask 1 told them a township that could not be resolved cleanly should be left null and
+absent from the catalog. TT's position — which is correct — is that townships **do**
+resolve cleanly: they are 10-digit **county-subdivision (MCD)** codes. That is real,
+correct data and it belongs in the catalog. Geoid lengths are self-describing
+(2 / 5 / 7 / 10), so no extra discriminator field is needed to tell tiers apart.
+
+The problem is on the consumer side. Under this phase's governing "no match, no row"
+rule, a 10-digit MCD geoid cannot match a 7-digit place-FIPS city slice, so **~2,787
+township entities produce no Treasury row today**. Michigan's coverage will read as
+absent to a Civic Spaces member even though TT's side is complete. TT's ask is that we
+not discover this by finding Michigan empty.
+
+### What that actually means for us — checked, then answered
+
+Checked against this repo on 2026-09-12, and the gap is upstream of the match, not in it:
+
+- `src/hooks/useJurisdictionName.ts:41-73` resolves display names for **5-digit and
+  7-digit geoids only**. A 10-digit MCD falls through to `return null` and the banner
+  renders the raw tab label. We cannot currently *name* a township slice.
+- `services/slice-assignment/src/services/sliceAssigner.ts:259-271` takes `city_geoid`
+  verbatim from ev-accounts, which resolves cities from **G4110 place boundaries**. An
+  address with no covering place boundary has its `city` level *skipped entirely* —
+  the same path that drops Arden, NC, and three of ten production profiles.
+
+So the likely state for a Michigan township resident is **no city slice at all**, not a
+city slice that fails to match. If that holds, no TT-side change can surface a Treasury
+row for them, because there is no City tab to put it on.
+
+### ANSWERED — TT round 2, 2026-09-12
+
+TT queried the boundary table and answered the blocking question. Verified independently
+against `C:\EV-Accounts` the same day; their read agrees with the source.
+
+**Does ev-accounts ever put a 10-digit MCD in `city_geoid`? No.**
+`connect.resolve_user_jurisdiction` fills the `city` slot from `mtfcc = 'G4110'`
+exclusively (`migrations/CC_0038_jurisdiction_city_state_nation.sql:131`), and all 6,008
+G4110 boundaries are 7-digit place FIPS. `CC_0039`'s column comment says the same:
+*"7-digit Census place FIPS (mtfcc G4110). NULL for unincorporated addresses — that is a
+valid answer, not a failure."*
+
+**But the decision table above was wrong to offer only two branches.** There is a third
+part, and it inverts which branch is "cheap":
+
+- The 10-digit layer **already exists** — 2,952 G4040 county-subdivision boundaries, all
+  10-digit. The RPC already consults G4040 for its `city_council` and `municipality`
+  slots (`CC_0038:89,105`; also `046_resolve_user_local_officials.sql:105` for
+  LOCAL/LOCAL_EXEC). The `city` slot's MTFCC filter is simply narrower than the data.
+- **But G4040 covers four states only: WI, IN, CA, MA.** Michigan and Pennsylvania have
+  **zero** rows — and 2,787 of TT's 2,798 townships (99.6%) are in exactly those two.
+
+So the "cheap fix" this doc proposed — a 10-digit branch in `useJurisdictionName` plus
+MCD matching — would light up **11 Indiana townships and nothing else.** It is the
+ev-accounts path we suspected, but the blocker is narrower and harder than "a resolution
+gap": it is **missing G4040 boundary rows for MI and PA. Boundary ingest, not code**, and
+firmly outside Phase 15.
+
+**Neither correction changes the TT side.** Townships get honest 10-digit geoids that no
+consumer can use yet. Under "no match, no row" that costs a row, never a wrong link — so
+TT should ship the MCD geoids regardless, and Civic Spaces should not wait on them.
+
+### The counts, resolved
+
+Stopping to flag the discrepancy was right. **2,812 is stale.** TT's table is **8,184
+entities** today, of which townships are **34.2%** — not the ~99% the two numbers implied
+together. Ask 1's per-tier table was sound; only its total had aged. Full breakdown in
+TT's spec §8.2.
+
+Do not quote 2,812 again.
+
+### Two hosts: confirmed deliberate
+
+TT records the split in their spec §8 as intentional — the API origin serves **data**, the
+TT host serves a **user-facing page** — with the instruction that both call sites say so.
+That matches what this doc concluded independently. Write the comment at both call sites.
+
+### Where TT's side lives
+
+Both of TT's commits are on branch **`docs/civic-spaces-coverage-design`** in
+`C:\treasury-tracker`, with the reasoning in their spec §8 (hosts) and §8.2 (entity
+counts).
+
+### Correction owed back to TT
+
+Ask 1's line "If they cannot be resolved cleanly, leave them null and let them be absent
+from the catalog" should be treated as **withdrawn**. Emit the MCD geoids. Absent is the
+right answer for an entity with genuinely no geoid; it is the wrong answer for one whose
+geoid is simply a tier we had not thought about.

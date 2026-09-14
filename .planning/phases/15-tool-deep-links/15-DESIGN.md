@@ -86,6 +86,68 @@ beside the existing `STATE_FIPS` table so the two stay in step.
   exact string containment and let them simply not match a 7-digit slice geoid; do not
   write special cases for them.
 
+🔴 **The 10-digit case is not "by design" for Treasury — and the reason is upstream of
+this repo.** Those ten-digit entries are **county-subdivision (MCD)** codes: townships.
+For Essentials' handful of them, shrugging is fine. For Treasury it is not: TT carries
+2,798 township entities, so silently not-matching them makes Michigan read as uncovered
+while being complete on TT's side.
+
+Settled 2026-09-12 (`TT-HANDOFF.md`, TT round 2 — verified against `C:\EV-Accounts`):
+
+- `city_geoid` is **never** a 10-digit MCD. `connect.resolve_user_jurisdiction` fills the
+  `city` slot from `mtfcc = 'G4110'` only, and all 6,008 of those are 7-digit place FIPS.
+  A township resident with no covering incorporated place gets `city_geoid = null`, and
+  `sliceAssigner` then **skips the city level entirely** — no city slice, so no tab to
+  hang a row on.
+- The G4040 layer exists (2,952 boundaries, already queried for `city_council`,
+  `municipality` and LOCAL/LOCAL\_EXEC) but **covers only WI, IN, CA and MA. MI and PA
+  have zero rows**, and 99.6% of TT's townships are in those two.
+
+**So do not "fix" this in the matcher.** Widening `useJurisdictionName` to 10 digits and
+matching MCDs would surface **11 Indiana townships and nothing else**. The real blocker is
+missing G4040 boundary ingest for MI/PA — an ev-accounts data question, not a Phase 15
+one. Ship Treasury without township coverage; a missing row is the correct behaviour here.
+
+### 🔴 Never key on geoid *length*. Key on `(geoid, layer)`.
+
+ev-accounts' reply of 2026-09-13 (`ACCOUNTS-HANDOFF.md`) killed the "lengths are
+self-describing, so branch on length" idea this design previously floated. **A 10-digit
+geoid does not mean one thing.** Of the 2,952 G4040 boundaries:
+
+| State | Rows | What they actually are |
+|---|---|---|
+| WI | 1,243 | active governments — FUNCSTAT-filtered |
+| MA | 293 | active governments (MCDs) — FUNCSTAT-filtered |
+| IN | 1,012 | probably governments, **unaudited** — no FUNCSTAT filter, no comment |
+| CA | 404 | 🔴 **Census County Divisions — statistical areas. No officials, no budget, no board.** |
+
+So a length branch would hand a Californian a city row pointing at a statistical Census
+division that Essentials and Treasury have nothing to show for. **That is a wrong link,
+not a missing row** — the one outcome the governing rule exists to prevent.
+
+**The rule for this phase:** match on **`(geoid, layer)`**, where `layer` is the MTFCC or
+an equivalent tag — today always `G4110` for the city row. It costs nearly nothing now,
+and if `subdivision_geo_id` ever lands it becomes a new *value* of an existing field
+rather than a new branch. A length test would also silently accept
+`municipality_geo_id`'s composite districts-namespace ids, which are 10+ characters and
+are not FIPS at all.
+
+**No live bug today.** Our Essentials matching is exact string containment against a
+7-digit slice geoid, so it already cannot mis-hit a 10-digit entry. This rule is about
+keeping it that way when Treasury is added.
+
+### "A city slice means an incorporated place" — a deliberate rule, as of now
+
+ev-accounts confirmed G4110-only was chosen to make the city slot *reliable* (Plano has no
+`LOCAL_EXEC`; Austin's `city_council` returns a council district rather than the city), and
+that **townships were never considered and rejected — they simply did not come up.** Under
+`CC_0038`'s own stated model, "a slice is a government you live under", a Michigan township
+*is* such a government, so excluding it is a coverage consequence rather than a principle.
+
+We adopt it as a principle anyway, and the California CCD rows above are the reason: a rule
+that the city slice means *an incorporated place* is defensible, and it is what protects us
+from the widening trap. Recorded as deliberate **now**, not backdated.
+
 ## Security — the catalog is untrusted remote data
 
 Standing platform rule **T-125-01**, carried over from `essentialsCoverage.ts`: the
@@ -190,7 +252,14 @@ link; the three logos; the coverage hook and pure builder; the FIPS to abbrev ta
 
 - The Treasury Tracker row. Structure this phase so Treasury is a row added to
   `buildToolRows`, but do not ship a Treasury link until TT publishes a geoid catalog and
-  drops the Bloomington fallback. See `TT-HANDOFF.md`.
+  drops the Bloomington fallback. See `TT-HANDOFF.md`; its 2026-09-12 exchange settles two
+  things. The Treasury **catalog** is fetched from the API origin while the Treasury
+  **deep link** still points at `treasurytracker.empowered.vote` — deliberate (data vs.
+  user-facing page), and **both call sites must say so** or someone will "fix" it. And
+  township coverage is **not** a gate: ship without it, because the blocker is MI/PA
+  boundary ingest in ev-accounts, not anything this phase can reach.
+
+- Township/MCD support. Tracked as an ev-accounts question in `ACCOUNTS-HANDOFF.md`.
 - Any change to what Essentials or TT *cover*. Coverage is the Knight cities programme.
 - Address handling of any kind. This app never geocodes (`CLAUDE.md`).
 
