@@ -37,6 +37,13 @@ errors outstanding, and had done for a long time — four of them predated the s
 work. It is `tsc -b` now, which actually builds the referenced project. If you add a
 `tsconfig.*.json`, add it to `references` or nothing will check it.
 
+**Branch from `origin/main`, after a `git fetch`** — local `main` here is routinely tens of
+commits behind. It does **not** diverge: measured 2026-09-14, `git rev-list --left-right
+--count origin/main...main` gave `22 0` (zero local-only commits) and `git merge --ff-only`
+was clean. So a plain fast-forward is all a stale `main` ever needs — no stash-and-rebranch
+dance, and nothing to salvage. If checking out `main` looks like it reverted files, that is
+a behind-by-N branch, not lost work; check the counts before reacting.
+
 **Merging: `main` needs a passing `build` and one approving review.** A PR whose files are
 *all* `.planning/**` or `*.md` is approved automatically by
 `.github/workflows/docs-auto-approve.yml`; one non-doc file and it is a normal review. The
