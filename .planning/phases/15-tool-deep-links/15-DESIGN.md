@@ -97,8 +97,9 @@ Settled 2026-09-12 (`TT-HANDOFF.md`, TT round 2 — verified against `C:\EV-Acco
 - `city_geoid` is **never** a 10-digit MCD. `connect.resolve_user_jurisdiction` fills the
   `city` slot from `mtfcc = 'G4110'` only, and all 6,008 of those are 7-digit place FIPS.
   A township resident with no covering incorporated place gets `city_geoid = null`, and
-  `sliceAssigner` then **skips the city level entirely** — no city slice, so no tab to
-  hang a row on.
+  the slice assigner then **skips the city level entirely** — no city slice, so no tab to
+  hang a row on. (Canonical: `ev-accounts/backend/src/civic_spaces/`. The frozen copy here
+  is `services/slice-assignment/src/services/sliceAssigner.ts:259-271` — read, don't edit.)
 - The G4040 layer exists (2,952 boundaries, already queried for `city_council`,
   `municipality` and LOCAL/LOCAL\_EXEC) but **covers only WI, IN, CA and MA. MI and PA
   have zero rows**, and 99.6% of TT's townships are in those two.

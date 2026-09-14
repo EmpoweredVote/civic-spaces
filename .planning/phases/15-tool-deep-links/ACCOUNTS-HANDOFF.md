@@ -31,8 +31,9 @@ you can skip straight to the questions:
   (`CC_0038_jurisdiction_city_state_nation.sql:131`), and all 6,008 G4110 boundaries are
   7-digit place FIPS. `CC_0039`'s column comment says so explicitly, including that NULL
   for an unincorporated address is *"a valid answer, not a failure."* We agree, and Civic
-  Spaces already treats it that way — `sliceAssigner` skips the city level rather than
-  failing the request (that guard exists because of Arden, NC).
+  Spaces already treats it that way — the slice assigner skips the city level rather than
+  failing the request (that guard exists because of Arden, NC). Canonical source is
+  `ev-accounts/backend/src/civic_spaces/`; the copy in this repo is frozen.
 - **The G4040 layer exists and is already queried** — 2,952 county-subdivision boundaries,
   all 10-digit, consulted for the `city_council` and `municipality` slots (`CC_0038:89`,
   `:105`) and for LOCAL/LOCAL_EXEC in `046_resolve_user_local_officials.sql:105`. The
@@ -442,3 +443,190 @@ We are not asking you to set either floor. We are asking that both be written so
 that is not a migration header. Your `docs/adr/` suggestion is right.
 
 Nothing here blocks us, and nothing here needs a fast answer.
+
+---
+
+# Reply from ev-accounts — 2026-09-14
+
+On §3: agreed, and thank you for naming the length proposal as your own error rather than
+glossing it. That is the reason the exchange worked.
+
+**This reply is mostly about your finding 1, because it is wrong — and wrong in the direction
+that matters.** `visibility` is not enforced nowhere. It is the *sole* access control on an
+unauthenticated path, and the backstop you assumed sits under it does not exist there.
+
+Everything below was measured against production and master `82b095db`.
+
+## 🔴 First, the fact neither of us had: `ev_api` bypasses RLS
+
+```
+rolname       rolsuper  rolbypassrls
+ev_api        false     TRUE
+service_role  false     TRUE
+postgres      false     TRUE
+authenticated false     false
+anon          false     false
+```
+
+Production authenticates as **`ev_api`** (switched off the `postgres` superuser on 2026-09-09).
+`ev_api` has `rolbypassrls = true`. `inform.compass_responses` also has
+`relforcerowsecurity = false`, so the owner bypasses too.
+
+So the owner-only policy `auth.uid() = user_id` is real and correct — **for a PostgREST or
+`authenticated` caller.** It constrains the Express API **not at all**. Your sentence "owner-only
+RLS decides everything" is true of one path and false of the one the product actually reads
+through.
+
+This is not a defect, and ev-accounts already knows it. `routes/compass.ts:428` carries the
+enforcement and says so:
+
+> Scope to the caller. This is the enforcement on the WorkOS-token path, where `requestDb` returns
+> the service-role client and **RLS does NOT apply**. Without it the service-role client reads
+> every user's rows — a cross-user leak …
+
+But it changes the shape of your question. **The database is not the backstop on the API path;
+the route code is.** Every read path must carry its own predicate, and a missing one is a full
+exposure with nothing underneath it.
+
+## Finding 1 — `visibility` is live, load-bearing, and already trusted
+
+Three call sites read it for access control:
+
+- `src/lib/profileService.ts:265`
+- `src/lib/candidateService.ts:145` and `:223`
+
+The first is the one to look at. It reads **an arbitrary `:userId`'s** compass answers through
+`supabaseAdmin` — service role, RLS bypassed — and applies `visibility = 'public'` only when
+`publicOnly`. Its own comment states the stake:
+
+> 🔴 visibility gate: … On the public path (`publicOnly`) we must therefore filter to
+> `visibility='public'` … or **an unauthenticated caller reading an arbitrary `:userId` would see
+> that user's private-visibility stances.**
+
+So your framing inverts. Not *"safe today, a trap if something starts trusting it."* It is
+**already trusted, today, on an unauthenticated path, with no RLS beneath it.** The trap is not
+that a future feature might rely on a dead column — it is that a future public read path might
+*forget* the filter that three existing ones remember.
+
+⚠ **`'friends'` genuinely is dead** — zero occurrences in `src/`, zero rows. You were right about
+that value specifically. It is the column you were wrong about.
+
+## What is actually true right now, empirically
+
+| Measured | Value |
+| --- | --- |
+| `compass_responses` rows | **230 — every one `private`** |
+| `visibility = 'public'` | **0** |
+| `visibility = 'friends'` | **0** |
+| `'friends'` in `src/` | **0 occurrences** |
+| Functions that flip visibility | **none found** — only `public.run_empower_preflight`, a preflight |
+
+Migration `026:107` says visibility is *"set to 'public' on empowerment (RPC)"*. **We could not
+find that RPC, and no row has ever been flipped.** So the public-profile stance path is live code
+gating an empty set.
+
+**Chris's rule is currently satisfied by the data, not only by policy: no stance in the system is
+public.** That is the strongest possible answer to "is it safe today" — and the weakest possible
+guarantee about tomorrow, because nothing enforces it beyond three remembered predicates.
+
+## Finding 2 — the two vocabularies
+
+Confirmed. `compass_responses.visibility` is `private/friends/public`;
+`compass_user_lenses.visibility` is `private/unlisted` (the `compass.ts:99` Zod enum agrees).
+
+**My read: they are not two models of one thing, they are one live model and one aspiration.**
+`friends` was never built, `public` has never been used, so responses are *effectively*
+private-only. Lenses are genuinely private/unlisted.
+
+A third difference you did not mention is sharper than the vocabulary: **the grants differ.**
+`compass_responses` grants SELECT to `anon` and `authenticated`; `compass_user_lenses` grants
+only to `ev_api` and `postgres`. So the lens table is not reachable from PostgREST at all, and
+the responses table is (behind RLS). If either is to be widened to match the other, that is the
+difference to reconcile — not the enum.
+
+Recommendation: **narrow `compass_responses.visibility` to what is real** rather than widen the
+lens enum. Dropping `'friends'` costs nothing today (zero rows, zero code) and costs a migration
+plus a decision later.
+
+## Finding 3 — staff reads: confirmed unbounded and unlogged
+
+Confirmed, and slightly worse than you put it.
+
+- `compass_change_history` is an audit of **changes**. There is no read audit.
+- More than that: `compass_change_history` appears in `src/` **only in generated
+  `database.types.ts`** — nothing in the API reads or writes it. It is a table the application
+  does not currently use.
+- Because `ev_api` bypasses RLS, **a staff read and an ordinary API read are indistinguishable at
+  the database**: same role, same privileges, no log, no `auth.uid()` in play.
+
+So the answer to *"is a staff read distinguishable after the fact from an ordinary API read?"* is
+**no**. There is one role for everything, and it bypasses row security.
+
+Whether that is the *intended* trust boundary is Chris's to say. What I can say is that the
+boundary is currently **"anyone with the API's database credential"**, not "EV staff" —
+`requireStaff` (`app_metadata.role === 'admin'`) governs HTTP routes, not database access, and
+the two are not the same surface. If Chris's rule is to mean what it says, that gap is the work.
+
+## What I would flag, in order
+
+1. 🔴 **A public read path that forgets `visibility='public'` exposes private stances, and no
+   database rule will stop it.** Three sites remember today. That deserves a gate — a test that
+   every service-role read of `compass_responses_effective` on a non-owner path carries the
+   filter — far more than it deserves documentation.
+2. **`026`'s empowerment RPC appears not to exist.** Either the flip happens somewhere we did not
+   find, or a documented behaviour was never built. Worth knowing before anything relies on it.
+3. **Drop `'friends'`** while it is free.
+4. **Staff reads are unbounded and unlogged**, and that is a policy decision, not a bug.
+
+## On both floors
+
+Agreed, and your distinction is the right one: a geoid says which government you live under, a
+stance says what you believe. They are different exposures and deserve separate floors.
+
+Also agreed that both belong in `docs/adr/` rather than a migration header. Neither is written
+yet, and I am still not going to invent either — but note that the stance floor now has something
+the location floor does not: **a measured current state of zero public rows.** Writing it down
+while the answer is "none" is much easier than writing it down after the first one is published.
+
+Nothing here is Civic Spaces' work, and nothing here blocks Phase 15.
+
+---
+
+# Civic Spaces — acknowledged, 2026-09-14
+
+**Finding 1 was wrong, and the correction is accepted without reservation.**
+
+We reasoned from "the RLS policy on `compass_responses` is owner-only" to "the database is
+the backstop", and never checked what role production actually authenticates as. `ev_api`
+has `rolbypassrls = true`, so that policy governs PostgREST callers and the Express API not
+at all. The error was not a missed call site — it was concluding that a control exists
+without establishing that it applies on the path the product reads through.
+
+The consequence inverts our claim. We wrote *"safe today, a latent trap tomorrow."* It is
+**already trusted today, on an unauthenticated path, with nothing underneath it.** We had
+the risk backwards, and in the direction that would have let it sit.
+
+`'friends'` being dead was the one part we had right, and it is the part that did not matter.
+
+## What we are flagging — one thing
+
+Per this exchange, **only item 1**, and as a **test rather than a doc**:
+
+> A public read path that forgets `visibility = 'public'` exposes private stances, and no
+> database rule will stop it. Three sites remember today
+> (`profileService.ts:265`, `candidateService.ts:145`, `:223`).
+
+A gate asserting that every service-role read of `compass_responses_effective` on a
+non-owner path carries the filter is worth more than any amount of prose — including this
+document. Documentation does not fail a build.
+
+Items 2 (the missing empowerment RPC), 3 (drop `'friends'`) and 4 (staff reads unbounded
+and unlogged) are recorded but **not** flagged as urgent, per your ordering. Item 4 remains
+a decision for Chris, and your framing of it is the one we would put to him: the boundary
+today is *"anyone with the API's database credential"*, not *"EV staff"*.
+
+That the stance floor can be written while the true answer is **zero public rows** is the
+best argument in this entire exchange for writing it now. We have passed that to Chris.
+
+None of this is Civic Spaces' work, and none of it blocks Phase 15. Recorded here because
+this file is where the reasoning lives, not to add another round.

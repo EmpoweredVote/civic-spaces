@@ -236,10 +236,15 @@ Checked against this repo on 2026-09-12, and the gap is upstream of the match, n
 - `src/hooks/useJurisdictionName.ts:41-73` resolves display names for **5-digit and
   7-digit geoids only**. A 10-digit MCD falls through to `return null` and the banner
   renders the raw tab label. We cannot currently *name* a township slice.
-- `services/slice-assignment/src/services/sliceAssigner.ts:259-271` takes `city_geoid`
-  verbatim from ev-accounts, which resolves cities from **G4110 place boundaries**. An
-  address with no covering place boundary has its `city` level *skipped entirely* —
-  the same path that drops Arden, NC, and three of ten production profiles.
+- The slice assigner takes `city_geoid` verbatim from ev-accounts, which resolves cities
+  from **G4110 place boundaries**. An address with no covering place boundary has its
+  `city` level *skipped entirely* — the same path that drops Arden, NC, and three of ten
+  production profiles.
+  📍 **Canonical source is `ev-accounts/backend/src/civic_spaces/`**, endpoint
+  `POST /api/civic-spaces/assign` (ev-cto decision 0018). The copy in this repo at
+  `services/slice-assignment/src/services/sliceAssigner.ts:259-271` still carries the
+  logic described here but is **FROZEN** — read it, do not change it. See
+  `services/slice-assignment/FROZEN.md`.
 
 So the likely state for a Michigan township resident is **no city slice at all**, not a
 city slice that fails to match. If that holds, no TT-side change can surface a Treasury
