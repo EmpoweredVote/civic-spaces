@@ -37,6 +37,12 @@ errors outstanding, and had done for a long time — four of them predated the s
 work. It is `tsc -b` now, which actually builds the referenced project. If you add a
 `tsconfig.*.json`, add it to `references` or nothing will check it.
 
+**Merging: `main` needs a passing `build` and one approving review.** A PR whose files are
+*all* `.planning/**` or `*.md` is approved automatically by
+`.github/workflows/docs-auto-approve.yml`; one non-doc file and it is a normal review. The
+allowlist is the security boundary, so `.github/**` is excluded — a PR touching CI never
+auto-approves, including one that edits that workflow. `build` is required either way.
+
 🔴 **`services/slice-assignment` is FROZEN — do not develop it.** It was folded into the
 ev-accounts engine (ev-cto decision 0018) and is **canonical at
 `ev-accounts/backend/src/civic_spaces/`**, endpoint `POST /api/civic-spaces/assign`. Any
