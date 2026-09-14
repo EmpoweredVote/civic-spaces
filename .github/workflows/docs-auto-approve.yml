@@ -1,0 +1,112 @@
+name: Auto-approve docs-only PRs
+
+# Why this exists
+# ---------------
+# `main` requires 1 approving review. GitHub cannot scope that requirement by
+# path — classic branch protection has no path conditions, and rulesets cannot
+# condition required approvals on changed files either. So the only way to say
+# "review code, not docs" is to have something supply the approval for PRs that
+# are provably docs-only. This is that something.
+#
+# It does NOT weaken protection for anything else: `build` is still required and
+# still runs on every PR (build-check.yml has no path filter), and any PR that
+# touches a single non-doc file gets no approval from here.
+#
+# 🔴 The allowlist is the security boundary. Keep it narrow. In particular
+# `.github/**` is denied outright — a PR that can edit CI can edit this file,
+# and "it's only a YAML" is exactly how that gets waved through.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  docs-only:
+    # Never auto-approve a fork PR. An outside contribution gets read by a
+    # person whatever it touches.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Classify the changed files
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+
+          # An empty file list is not "docs-only", it is "unknown". Fail closed.
+          if [ -z "$files" ]; then
+            echo "No files reported — treating as not docs-only."
+            echo "verdict=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          verdict=yes
+          blocker=""
+          while IFS= read -r f; do
+            case "$f" in
+              # Denied first, so a path can never be rescued by a later pattern.
+              .github/*)         verdict=no; blocker="$f" ;;
+              .planning/*|*.md)  : ;;
+              *)                 verdict=no; blocker="$f" ;;
+            esac
+            if [ "$verdict" = "no" ]; then break; fi
+          done <<< "$files"
+
+          echo "Changed files:"
+          echo "$files" | sed 's/^/  /'
+          if [ "$verdict" = "yes" ]; then
+            echo "Docs-only. Approving."
+          else
+            echo "Not docs-only — first non-doc path: $blocker"
+          fi
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+
+      - name: Approve
+        if: steps.check.outputs.verdict == 'yes'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh pr review "$PR" --repo "$REPO" --approve --body \
+            "Auto-approved: every changed file is documentation (\`.planning/**\` or \`*.md\`), and none is under \`.github/**\`.
+
+          \`build\` still had to pass. Any push that adds a non-doc file will dismiss this approval."
+
+      # Defence in depth. `require_last_push_approval` is currently true, so a
+      # later code push would already invalidate this approval on its own — but
+      # that is a setting somewhere else that someone could turn off without
+      # ever looking at this file. Dismiss explicitly so the guarantee lives here.
+      - name: Dismiss our own stale approval
+        if: steps.check.outputs.verdict == 'no'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          ids=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
+                  --jq '.[] | select(.user.login == "github-actions[bot]" and .state == "APPROVED") | .id')
+          if [ -z "$ids" ]; then
+            echo "No prior auto-approval to dismiss."
+            exit 0
+          fi
+          for id in $ids; do
+            echo "Dismissing review $id"
+            gh api -X PUT "repos/$REPO/pulls/$PR/reviews/$id/dismissals" \
+              -f message="This PR is no longer docs-only, so the automatic approval no longer applies. It needs a human review." \
+              -f event=DISMISS
+          done
