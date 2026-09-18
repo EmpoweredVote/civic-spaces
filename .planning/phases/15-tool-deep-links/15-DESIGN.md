@@ -108,10 +108,23 @@ originally said G4040 held 2,952 rows across WI, IN, CA and MA only, with MI and
 Treasury Tracker loaded TIGER/Line 2024 subdivisions and places for **MI, PA and OH** on
 2026-09-18. Re-measured against production the same day:
 
-| Layer | Was (2026-09-14) | Now | States |
-|---|---|---|---|
-| G4040 (MCD) | 2,952 | **8,712** | 4 → **7** |
-| G4110 (place) | 6,008 | **9,334** | — → **22** |
+| Layer | Was | TT's load (2026-09-18) | Now | States |
+|---|---|---|---|---|
+| G4040 (MCD) | 2,952 | +5,760 | **8,712** | 4 → **7** |
+| G4110 (place) | **6,863** | +2,471 | **9,334** | → **22** |
+
+⚠ **The G4110 "was" figure is 6,863, not the 6,008 quoted earlier in this doc** — corrected by
+TT 2026-09-18 and verified here against `imported_at`. The 6,008 baseline was measured on
+2026-09-13, and a **different writer** added 855 G4110 rows later that same day. Attributing
+`6,008 → 9,334` to TT's load credits it with 3,326 rows when it added 2,471. Their G4040 line
+reconciles exactly.
+
+🔴 **The lesson generalises, and it is the more useful half.**
+`essentials.geofence_boundaries` has **multiple writers across ~19 import days** (visible in
+`imported_at`: 06-08, 06-23, 07-08, 07-25, 08-14, 08-21, 08-22, 08-28, 09-01, 09-13, 09-18 …).
+**Never explain a change in its totals by one team's load — including ours.** If you need to
+attribute rows, group by `imported_at`; a before/after subtraction will silently absorb
+somebody else's import. One row also carries a NULL `imported_at`.
 
 **The conclusion is unchanged, and in one respect strengthened.** MI, PA and OH were loaded
 **without a FUNCSTAT filter**, so they belong in the "probably governments, unaudited" row

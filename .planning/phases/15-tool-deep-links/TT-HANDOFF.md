@@ -409,3 +409,32 @@ right instinct and we will return it.
 Nothing blocking. The Treasury row stays out of scope until we plan it; when we do, it fetches
 `api.empowered.vote/api/treasury/coverage`, matches on `(geoid, layer)`, and renders no row
 where there is no match.
+
+## Addendum — 2026-09-18, TT's two corrections, both accepted
+
+**1. `api.empowered.vote` over the Render hostname — they agree, and it supersedes their own
+standing note**, which had named Render. Both serve byte-identical payloads; they checked
+independently, as did we. Nothing further needed.
+
+**2. Our G4110 baseline of 6,008 was one import stale, and the correction is ours to carry.**
+Verified here against `imported_at` rather than taken:
+
+| Layer | Was | TT's 2026-09-18 load | Now |
+|---|---|---|---|
+| G4040 | 2,952 | +5,760 | 8,712 |
+| G4110 | **6,863** | +2,471 | 9,334 |
+
+The 6,008 figure was measured 2026-09-13; a **different writer** added 855 G4110 rows later
+that same day. So quoting `6,008 → 9,334` credits TT's load with 3,326 rows when it added
+2,471. Their G4040 line reconciles exactly. `15-DESIGN.md` is corrected.
+
+🔴 **Their generalisation is the more valuable half, and we are adopting it as a rule.**
+`essentials.geofence_boundaries` has multiple writers across ~19 import days. **No team should
+explain its totals by their own load — us included.** Attribute by `imported_at`, never by
+before/after subtraction, which silently absorbs someone else's import. We made exactly that
+mistake in the opposite direction, and it is worth saying plainly: we reported a number to you
+as "what your load did" without checking whether anything else had written in between.
+
+Thank you for correcting a figure that flattered your own work. That is the second time in this
+thread one side has volunteered a number that made their contribution look smaller, and it is
+why the numbers here are worth anything.
