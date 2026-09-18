@@ -100,20 +100,39 @@ Settled 2026-09-12 (`TT-HANDOFF.md`, TT round 2 — verified against `C:\EV-Acco
   the slice assigner then **skips the city level entirely** — no city slice, so no tab to
   hang a row on. (Canonical: `ev-accounts/backend/src/civic_spaces/`. The frozen copy here
   is `services/slice-assignment/src/services/sliceAssigner.ts:259-271` — read, don't edit.)
-- The G4040 layer exists (2,952 boundaries, already queried for `city_council`,
-  `municipality` and LOCAL/LOCAL\_EXEC) but **covers only WI, IN, CA and MA. MI and PA
-  have zero rows**, and 99.6% of TT's townships are in those two.
+- The G4040 layer exists and is already queried for `city_council`, `municipality` and
+  LOCAL/LOCAL\_EXEC.
 
-**So do not "fix" this in the matcher.** Widening `useJurisdictionName` to 10 digits and
-matching MCDs would surface **11 Indiana townships and nothing else**. The real blocker is
-missing G4040 boundary ingest for MI/PA — an ev-accounts data question, not a Phase 15
-one. Ship Treasury without township coverage; a missing row is the correct behaviour here.
+⚠ **Superseded 2026-09-18 — the boundary numbers above and below have moved.** This section
+originally said G4040 held 2,952 rows across WI, IN, CA and MA only, with MI and PA at zero.
+Treasury Tracker loaded TIGER/Line 2024 subdivisions and places for **MI, PA and OH** on
+2026-09-18. Re-measured against production the same day:
+
+| Layer | Was (2026-09-14) | Now | States |
+|---|---|---|---|
+| G4040 (MCD) | 2,952 | **8,712** | 4 → **7** |
+| G4110 (place) | 6,008 | **9,334** | — → **22** |
+
+**The conclusion is unchanged, and in one respect strengthened.** MI, PA and OH were loaded
+**without a FUNCSTAT filter**, so they belong in the "probably governments, unaudited" row
+alongside IN — not with WI/MA. More 10-digit rows of mixed quality makes keying on *length*
+worse, not better.
+
+**So still do not "fix" this in the matcher.** But update the *reason*: township rows are now
+absent because of our **slice rule** — `city_geoid` is never a 10-digit MCD, so a township
+resident has no city slice — and no longer because the boundaries are missing. That remains
+an ev-accounts question, not a Phase 15 one. Ship Treasury without township coverage; a
+missing row is the correct behaviour here.
+
+✅ **Ohio is a clean win.** All 253 OH entities in TT's catalog are 7-digit places, so they
+match the existing `G4110` rule with **no change on our side**.
 
 ### 🔴 Never key on geoid *length*. Key on `(geoid, layer)`.
 
 ev-accounts' reply of 2026-09-13 (`ACCOUNTS-HANDOFF.md`) killed the "lengths are
 self-describing, so branch on length" idea this design previously floated. **A 10-digit
-geoid does not mean one thing.** Of the 2,952 G4040 boundaries:
+geoid does not mean one thing.** Of the G4040 boundaries (2,952 when measured; **8,712** as
+of 2026-09-18 — the three states added that day are unaudited, see above):
 
 | State | Rows | What they actually are |
 |---|---|---|
@@ -171,7 +190,25 @@ Follows the documented hoisting pattern in `CLAUDE.md`: shared data hooks live i
 | Unit | Responsibility |
 |---|---|
 | `src/lib/toolCoverage.ts` | Catalog types plus a **pure** `buildToolRows({ sliceType, geoid, catalog })` returning the rows to render. All matching and href construction lives here. |
-| `src/hooks/useToolCoverage.ts` | React Query fetch of `/coverage.json`, long `staleTime` (the catalog regenerates on Essentials deploys, not per session). Never throws — a failed fetch yields no catalog, which yields no deep rows. |
+| `src/hooks/useToolCoverage.ts` | React Query fetch of **Essentials'** `/coverage.json` (`https://essentials.empowered.vote/coverage.json`), long `staleTime` (the catalog regenerates on Essentials deploys, not per session). It **throws** on a bad response so React Query records the error; callers treat an absent catalog as "no deep links", which degrades the widget to the Compass row. |
+
+🔴 **The Treasury catalog is a different URL, and this table's `/coverage.json` is NOT it.**
+When the Treasury half is built it fetches
+**`https://api.empowered.vote/api/treasury/coverage`** — verified 2026-09-18: HTTP 200,
+791,491 bytes, 8,136 entities. The same payload is served from
+`ev-accounts-api.onrender.com`, but **use the branded origin** `api.empowered.vote`, which
+`CLAUDE.md` already names for platform API calls; hardcoding the Render hostname pins us to a
+provider. `/coverage.json` on the API origin is a 404 — it never existed there.
+
+Catalog shape, verified against the live payload on 2026-09-18, because two of these will
+break a naive consumer:
+
+- **`federal` is an OBJECT, not an array** — `.length` is `undefined`. Its slug is
+  `united-states-us`.
+- **`states` entries carry `abbrev` and no `geoids` key**, so a "rows missing geoids" count
+  correctly returns 51 (50 states + federal).
+- An entity with no geoid is **omitted entirely**, never `geoids: []`.
+- Every city carries `slug`, so no consumer reconstructs `toSlug`.
 | `src/components/AppShell.tsx` | Calls `useToolCoverage()` once beside `useRepresentatives`; passes `coverage` plus the active slice's `geoid` and `sliceType` into both sidebars. |
 | `src/components/widgets/ToolsWidget.tsx` | Gains props; renders `buildToolRows(...)` output. Keeps its existing `if (rows.length === 0) return null` guard — Compass is always present, so the box never actually empties. |
 
