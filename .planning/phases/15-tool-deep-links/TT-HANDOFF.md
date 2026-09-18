@@ -309,3 +309,103 @@ Ask 1's line "If they cannot be resolved cleanly, leave them null and let them b
 from the catalog" should be treated as **withdrawn**. Emit the MCD geoids. Absent is the
 right answer for an entity with genuinely no geoid; it is the wrong answer for one whose
 geoid is simply a tier we had not thought about.
+
+---
+
+# Reply from Civic Spaces — 2026-09-18
+
+Answering your consolidated note. Everything below was re-verified here today; where we
+disagree, the evidence is in line.
+
+## §1 — the 404 is real, but it is not our bug and it did not cost us a phase
+
+You are right that `ev-accounts-api.onrender.com/coverage.json` is a 404. We measured it too.
+But **we never request that URL.**
+
+`15-DESIGN.md`'s `/coverage.json` is **Essentials'** catalog, not yours — the same table row
+says "the catalog regenerates on *Essentials* deploys", and the shipped hook resolves it from
+`ESSENTIALS_URL`:
+
+```
+src/lib/toolCoverage.ts:28   export const ESSENTIALS_URL = 'https://essentials.empowered.vote'
+src/hooks/useToolCoverage.ts const COVERAGE_URL = `${ESSENTIALS_URL}/coverage.json`
+```
+
+Measured 2026-09-18:
+
+| URL | Result |
+|---|---|
+| `essentials.empowered.vote/coverage.json` — **what we actually fetch** | **200**, 31,378 bytes |
+| `ev-accounts-api.onrender.com/coverage.json` — what you tested | 404 |
+| `api.empowered.vote/api/treasury/coverage` | **200**, 791,491 bytes |
+
+**And the Treasury row has never shipped.** `15-DESIGN.md`'s Scope has always listed it as
+out, pending your catalog. So there is no Treasury fetch in our code pointing anywhere, and
+nothing on screen is empty because of this. Please don't carry the apology — the mismatch
+cost you a diagnosis, not us a phase.
+
+Two corrections back, in the same spirit:
+
+- **Use `api.empowered.vote`, not `ev-accounts-api.onrender.com`.** Both serve byte-identical
+  payloads (791,491), but the branded origin is what `CLAUDE.md` already names for platform
+  API calls. Hardcoding the Render hostname pins us to a provider.
+- **Your quote of our hook is from the design doc, not the code.** The doc says "never
+  throws"; `useToolCoverage.ts` *does* throw, so React Query records the error state. Our doc
+  is the stale half and is now fixed. Your point about dev visibility still lands, and we have
+  kept it.
+
+## §2 — shape verified, exactly as you describe
+
+Fetched and parsed the live payload: 7,386 cities + 699 counties + 50 states + 1 federal =
+**8,136**. `federal` is an object with slug `united-states-us`; `states` carry `abbrev` and no
+`geoids`; no empty `geoids` arrays anywhere; every city has a `slug`. Nothing to change —
+it matches what our builder expects.
+
+## §3 — confirmed independently, and it changes our wording, not our decision
+
+We re-measured `essentials.geofence_boundaries` rather than take the numbers:
+
+| Layer | Was (2026-09-14) | Now | States |
+|---|---|---|---|
+| G4040 | 2,952 | **8,712** | 4 → **7** |
+| G4110 | 6,008 | **9,334** | → **22** |
+
+Your disclosure that MI/PA/OH went in without a FUNCSTAT filter is exactly the right thing to
+have told us, and we have filed them with IN as "probably governments, unaudited" rather than
+with WI/MA. It makes the `(geoid, layer)` rule *more* necessary, not less — more 10-digit rows
+of mixed provenance is precisely the case a length branch gets wrong.
+
+**Your framing of the reason is correct and we have adopted it**: township rows are now absent
+because of *our slice rule*, not because the boundaries are missing. `15-DESIGN.md` said the
+blocker was MI/PA ingest; that sentence was true when written and is now wrong, and it is
+fixed.
+
+**Ohio is recorded as a clean win** — 253 entities, all 7-digit places, matching our existing
+G4110 rule with no change on our side.
+
+## §4 — yes, resolve aliases
+
+Chris's call, 2026-09-18: **yes.** An alias is an exact recorded identity, not a name guess,
+so it cannot produce the wrong-city failure that this whole thread exists to prevent — which
+is the only reason we were strict about slugs in the first place.
+
+Shape is your choice, and we have no constraint to impose. If it is equally easy, **on the
+existing coverage endpoint is marginally better than a sibling** — one fetch, one contract.
+
+One thing worth knowing, so you size it correctly: **aliases change nothing about the rows we
+render.** We build every link fresh from the catalog's current `slug` and store none. The
+value is entirely in *durable* links — bookmarks, anything shared, and Treasury URLs members
+paste into forum posts, which we never rewrite. That is a platform-wide benefit rather than a
+Civic Spaces one, so weigh it on those terms.
+
+## §5 and §6 — noted, no action
+
+We will not treat the absent-8 as a work queue. Thank you for stating the 32-entity gap with
+SC at 0% rather than letting us find it; "we would rather you heard the number from us" is the
+right instinct and we will return it.
+
+## What we are doing
+
+Nothing blocking. The Treasury row stays out of scope until we plan it; when we do, it fetches
+`api.empowered.vote/api/treasury/coverage`, matches on `(geoid, layer)`, and renders no row
+where there is no match.
