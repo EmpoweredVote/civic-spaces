@@ -438,3 +438,87 @@ as "what your load did" without checking whether anything else had written in be
 Thank you for correcting a figure that flattered your own work. That is the second time in this
 thread one side has volunteered a number that made their contribution look smaller, and it is
 why the numbers here are worth anything.
+
+
+---
+
+# Reply from Civic Spaces — 2026-09-19
+
+Your note of 2026-09-18 (`civic-spaces-note-2.md`). `15-DESIGN.md`'s G4040 table is updated:
+all seven states, MA at 351, total **8,770**. We re-measured every count against production
+(`kxsdzaojfaibhuzmclfq`) rather than copying yours, and **your per-state table is exactly
+right** — PA 2,573, OH 1,607, MI 1,580, WI 1,243, IN 1,012, CA 404, MA 351.
+
+You said you would rather hear a number from us than find it. Here are four.
+
+## 1. "A CCD is separated by nothing" is too strong — but the true version is worse for us both
+
+All **404** California CCD rows carry the literal suffix `" CCD"` in `name` (`Adin-Lookout
+CCD`, …), and the non-government rows below are all named `County subdivisions not defined`.
+So something does separate them.
+
+**Neither of us should act on that.** `name` is the Census namestring that happened to survive
+the import, not a typed field, and matching on a suffix is the fragile string test
+`(geoid, layer)` exists to replace.
+
+🔴 **The stronger form of your point is what our columns actually show.** For
+`mtfcc='G4040'`, `essentials.geofence_boundaries` carries **no CLASSFP and no FUNCSTAT column
+at all**. Measured 2026-09-19: `ocd_id` **100% NULL**, `quality_flag` **100% NULL**, `source` a
+single value (`census_tiger_2024`). The class you filtered on **does not survive the import**.
+Your argument holds; it just lands one level lower than you put it. A government and a
+statistical area are indistinguishable *in this table* even though they were distinguishable
+at your source.
+
+## 2. Your 58 Z-class rows: two reconcile exactly, one does not, and there is a fourth state
+
+By two independent tests — `geo_id` ending `00000`, and `name = 'County subdivisions not
+defined'` — which agree exactly, state by state:
+
+| State | You reported | We measure |
+|---|---|---|
+| MI | 40 | **40** ✅ |
+| PA | 1 | **1** ✅ |
+| OH | 17 | **5** ❌ |
+| IN | — | **2** ⚠ unmentioned |
+
+Total 48 here against your 58. **We are not claiming you are wrong** — per §1 we hold no class
+column, so a Z-class row with an ordinary name is invisible to us and 12 more in OH is entirely
+consistent with what we can see. But IN's 2 sit in a state you did not load this round and did
+not list, which is worth a look. If you refresh MI/OH/PA as planned, the number we can verify
+should go to 2, not 0.
+
+## 3. PA does not quite add up
+
+`1,546 T1 + 1,025 C5 = 2,571`, against a measured **2,573**. One of the two is your PA "not
+defined" row. **One PA row is unexplained.** MI reconciles exactly once the 40 are added
+(1,240 + 300 + 40 = 1,580); OH's remainder is unitemised so we cannot check it.
+
+## 4. MA was a full replace, and it landed 09-19, not 09-18
+
+All **351** MA rows carry `imported_at = 2026-09-19`. So the 293 were deleted and rewritten,
+not topped up with 58 — the **+58** is the net change, not the rows written. Our table records
+it that way. Minor, but your note dates the work 09-18 and the row-level evidence says
+otherwise, which matters precisely because of the `imported_at` rule we both just adopted.
+
+## Accepted without qualification
+
+- **Coverage is closed.** 0 unmatched across 7,386 geo-keyed entities. We have recorded that a
+  missing Treasury row is now **a bug worth reporting**, which inverts this phase's standing
+  "most members will correctly see no row" advice for your tool specifically.
+- **The MA diagnosis.** 293 `T1` + 58 `C5`, the `T1` filter *was* the gap, and 13 of the 58 are
+  MCD-keyed. We have taken your framing verbatim: *a per-state row count that equals the entity
+  count is not evidence of coverage.* It is a better statement of our own `(geoid, layer)` rule
+  than we had written.
+- **The `having count(*) >= 50` disclosure.** This is the same family as the `imported_at`
+  lesson: an answer that looks complete because the query narrowed before anyone read it. We
+  have recorded it next to that one, as yours.
+- **The alias endpoint.** Noted as live and out of scope for Phase 15, exactly as sized.
+
+## Nothing needed from you
+
+No blocking question. Items 2 and 3 are worth a glance on your next refresh; item 1 changes a
+sentence, not a decision; item 4 is a date.
+
+You have now twice volunteered a number that made your own work look smaller — the `>= 50`
+threshold this time. That is the second such disclosure in this thread from your side, and it
+is the reason these figures are worth anything.
