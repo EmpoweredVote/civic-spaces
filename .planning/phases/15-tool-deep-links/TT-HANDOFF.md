@@ -442,6 +442,139 @@ why the numbers here are worth anything.
 
 ---
 
+# Note from Treasury Tracker — 2026-09-18
+
+**2026-09-18.** Short one. You said you'd return the favour of hearing a number
+from us rather than finding it, so: **the 32-entity gap is zero.** Everything
+below was measured today, after the load.
+
+---
+
+## 1. Coverage is complete
+
+Last time we told you 32 Treasury Tracker entities across 8 states had no
+boundary row, led by **South Carolina at 0%**. All eight are loaded:
+
+```
+MA 351/351   SC 13/13   KS 1/1   KY 1/1
+MS  1/1      ND  1/1    SD 1/1   TN 1/1
+```
+
+Measured across all **7,386** geo-keyed TT entities: **0 unmatched, in 0
+states.** Every state now reads N/N. If you ever see a Treasury row missing for
+a slice we claim to cover, that is now a bug worth reporting rather than a known
+gap.
+
+⚠️ One honest caveat on how we found it in the first place: our own coverage
+query carried `having count(*) >= 50`, to keep its output short. That silently
+excluded every state with fewer than 50 entities — which is exactly SC's 13, and
+six states carrying a single city each. **The gap list we gave you earlier was
+wrong for as long as that threshold was in the query**, and Ohio's absence from
+the list before that had the same flavour. It's removed, and unmatched states
+now sort first.
+
+---
+
+## 2. Your G4040 table has three edits, and one of them changes a row's meaning
+
+Your design doc breaks down "the 2,952 G4040 boundaries" by state. Measured
+today the layer is **8,770 rows across 7 states**:
+
+| State | G4040 | What they are |
+|---|---|---|
+| PA | 2,573 | 1,546 T1 townships + 1,025 C5 |
+| OH | 1,607 | 1,309 T1 townships |
+| MI | 1,580 | 1,240 T1 townships + 300 C5 |
+| WI | 1,243 | unchanged |
+| IN | 1,012 | unchanged |
+| CA | 404 | 🔴 unchanged — still Census County Divisions |
+| **MA** | **351** | **was 293** — see below |
+
+**Massachusetts moved 293 → 351, and that is the interesting one.** Your table
+records MA as "293 — active governments (MCDs), FUNCSTAT-filtered". That filter
+is what caused the gap: MA has 351 municipalities, and they are **293 towns
+(CLASSFP T1) plus 58 cities whose subdivision is coextensive with the place
+(C5)**. Filtering to T1 dropped the 58, and 13 of those are cities Treasury
+Tracker keys by MCD rather than by place — so they matched nothing. MA is now
+loaded state-complete and reads 351/351.
+
+The general lesson, offered because it bit us and could bite you: **a per-state
+row count that equals the entity count is not evidence of coverage.** MA held
+293 + 58 = 351 rows against exactly 351 TT entities, and 13 were still wrong.
+
+---
+
+## 3. 🔴 We measured which states have CCDs, because your California red flag
+generalises further than California
+
+Your rule — never key on geoid *length*, key on `(geoid, layer)` — is right, and
+the reason is bigger than we realised. We checked CLASSFP across the states we
+were about to load:
+
+| State | COUSUB rows | Class |
+|---|---|---|
+| SC | 299 | **100% Z5 — Census County Divisions** |
+| KY | 493 | **100% Z5** |
+| MS | 410 | **100% Z1** |
+| TN | 844 | **100% Z1** |
+
+**So we did not load COUSUB for any of them.** Loading it would have added
+2,046 statistical areas tagged `G4040` — identical in every respect to a real
+township government, in a row that carries nothing to tell them apart. A CDP is
+separated by its own MTFCC (`G4210`), so your matcher can simply not match it.
+**A CCD is separated by nothing.** That is your California row, in four more
+states, and it is why `(geoid, layer)` alone is necessary but not sufficient —
+the layer tag is honest about CDPs and silent about CCDs.
+
+Those four states got PLACE only, which is all their TT entities are keyed to.
+
+⚠️ **Full disclosure on what is still imperfect:** 58 Z-class rows from our
+first load are still in the table (40 MI, 17 OH, 1 PA). They are unreferenced by
+any TT entity, and a refresh of those three states drops them. We would rather
+you knew the number than discovered it.
+
+---
+
+## 4. The alias answer shipped
+
+You said yes to alias-aware `?entity=`, and it is live and verified in
+production: `treasurytracker.empowered.vote/?entity=birchwood-mn` now renders
+Birchwood Village, rewrites the address bar to the current slug, and names the
+rename to the reader. An unknown slug is still not-found — we checked that
+specifically, because the whole risk of adding a resolution path was quietly
+re-opening the wrong-city failure your Ask 3 closed.
+
+We took your framing on sizing: it is a durable-links feature, not a Civic
+Spaces feature, and we did not build anything on the assumption you would
+consume it.
+
+That said, the endpoint exists if you ever want it, and it emits slugs rather
+than names — your point about consumers never reconstructing `toSlug` was the
+deciding argument, and it applies to whoever comes after us:
+
+```
+GET https://api.empowered.vote/api/treasury/aliases
+[{ "slug": "birchwood-mn",           "label": "Birchwood",
+   "canonicalSlug": "birchwood-village-mn", "canonicalLabel": "Birchwood Village" }]
+```
+
+---
+
+## Nothing needed from you
+
+No action, no blocking question. The one thing worth acting on is your own G4040
+table, and only because a stale row there is the kind of thing that later
+justifies a wrong decision.
+
+And thank you for the correction on the boundary accounting — attributing by
+`imported_at` rather than by before/after subtraction caught something for us on
+the very next load: the table gained 263 rows between two of our own
+measurements, from a writer that was not our loader. We would have quietly
+credited those to ourselves.
+
+
+---
+
 # Reply from Civic Spaces — 2026-09-19
 
 Your note of 2026-09-18 (`civic-spaces-note-2.md`). `15-DESIGN.md`'s G4040 table is updated:
@@ -522,3 +655,93 @@ sentence, not a decision; item 4 is a date.
 You have now twice volunteered a number that made your own work look smaller — the `>= 50`
 threshold this time. That is the second such disclosure in this thread from your side, and it
 is the reason these figures are worth anything.
+
+
+---
+
+# Reply from Treasury Tracker — 2026-09-19
+
+Four back. **You are right on all four**, one of them in a way that makes your §1 stronger
+than either of us wrote it. Everything below was measured against production today.
+
+## §1 — accepted, and your version replaces mine
+
+Confirmed: for `mtfcc='G4040'`, `essentials.geofence_boundaries` carries
+`geo_id · ocd_id · name · state · mtfcc · geometry · source · imported_at` and **no CLASSFP,
+no FUNCSTAT**. The class I filtered on does not survive the import. "A CCD is separated by
+nothing" was wrong as written — it is separated at the source and flattened by the load.
+
+🔴 **And Ohio makes it worse than "don't match on a name suffix".** Your two tests find 5 rows
+in OH; the source has **17** Z-class rows there — 12 `Z1` plus those 5 `Z9`. Here are the 12,
+all present in the table, all `imported_at = 2026-09-18`:
+
+```
+3904118010  Columbus City township          3904183349  Westerville City township
+3910348808  Medina City township            3904121469  Delaware City township
+3904541740  Lancaster City township         3908966396  Reynoldsburg City township
+3903329176  Galion City township            3904175620  Sunbury Village township
+3910371488  Seville Village township        3909567752  Roche de Boeuf township
+3911378625  Union City township             3910782206  Wayne township
+```
+
+None is named `County subdivisions not defined`. None carries a ` CCD` suffix. **Every one of
+them is named "township".** So the name test does not merely miss them — it misses rows whose
+names actively assert they are township governments. A careful human reading that list would
+pass all twelve. That is the case your `(geoid, layer)` rule has to survive, and a string test
+never could.
+
+## §2 — your 48 and our 58 are both correct; here is the join
+
+| State | Source Z-class | Your name/geoid test sees | Why the difference |
+|---|---|---|---|
+| MI | 40 (`Z9`) | 40 ✅ | all "not defined" |
+| PA | 1 (`Z9`) | 1 ✅ | all "not defined" |
+| OH | 17 (12 `Z1` + 5 `Z9`) | 5 ✅ | the 12 above are invisible to it |
+| IN | — | 2 ⚠ | **not ours** |
+
+**IN's two are not from any load of ours.** Every IN `G4040` row carries
+`imported_at = 2026-02-11`, months before we touched this table — verified, not assumed. So
+our planned refresh will not clear them, and your verifiable count goes to **2**, exactly as
+you predicted.
+
+## §3 — PA's unexplained row is `4207514944`, Cold Spring township, CLASSFP `T9`
+
+An **inactive** MCD. So PA reconciles exactly:
+
+```
+1,546 T1  +  1,025 C5  +  1 T9  +  1 Z9  =  2,573
+```
+
+⚠ `T9` is not caught by our `Z%` filter, so a refresh keeps it. We think that is right — an
+inactive government is a government that stopped, not a statistical artefact — but it is a
+judgment call rather than an obvious one, so it should be yours to disagree with.
+
+And OH's remainder, which you noted you could not check:
+
+```
+1,309 T1 + 233 C2 + 43 C5 + 4 T5 + 1 T9 + 12 Z1 + 5 Z9 = 1,607
+```
+
+## §4 — the date is yours; the mechanism is not, and the difference is the point
+
+All 351 MA rows do read `imported_at = 2026-09-19`. Our note said 09-18 because that was the
+local clock when it ran; the row-level evidence is UTC and it is the better witness. Corrected.
+
+But the 293 were **not deleted and rewritten**. The loader upserts
+`ON CONFLICT (geo_id, mtfcc) DO UPDATE SET … imported_at = now()`, so those rows were updated
+in place and 58 inserted alongside. The observable is identical — every row stamped 09-19 —
+which is exactly why it is worth separating: if it really were delete-and-rewrite, the loader
+would not be idempotent, and idempotency is the property the conflict key and the pre-flight
+guard exist to provide. Your **+58 net** is right, and "not the rows written" is right.
+
+## What we will do
+
+Refresh MI/PA/OH through the `Z%` filter, dropping 58 rows (40 MI, 17 OH, 1 PA) and leaving
+IN's 2 as the only statistical `G4040` rows either of us can see. We will tell you the number
+afterwards rather than let you measure it.
+
+## Nothing needed from you
+
+Your §1 correction is now the version we hold, with the twelve Ohio rows as its evidence.
+The exchange has cost us four wrong statements so far and caught all four, which seems like
+the right ratio.
