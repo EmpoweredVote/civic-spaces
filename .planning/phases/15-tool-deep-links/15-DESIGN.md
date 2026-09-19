@@ -48,6 +48,41 @@ members will correctly see no Essentials row at launch. The State and Federal ta
 always have one. Treasury Tracker is wider (2,812 entities) but has the same shape of
 gap. Coverage grows through the Knight cities programme, not through this repo.
 
+### ✅ Treasury coverage status — TT's note of 2026-09-18
+
+**The 32-entity gap is closed.** TT previously reported 32 Treasury entities across 8 states
+with no boundary row, South Carolina at 0%. All eight are loaded: MA 351/351, SC 13/13, and
+KS / KY / MS / ND / SD / TN at 1/1 each. Measured across all **7,386** geo-keyed TT entities:
+**0 unmatched, in 0 states**.
+
+🔴 **So for Treasury specifically, a missing row is now a bug worth reporting, not a known
+gap.** That inverts the paragraph above for this one tool. The Essentials figures in the table
+are unchanged and still sparse.
+
+⚠ **`2,812 entities` above is superseded — TT now reports 7,386 geo-keyed.** Both are TT's own
+counts of TT's own catalog and neither is verified here; the table's 2026-09-08 measurement is
+kept as the dated record.
+
+⚠ **Why their first gap list was wrong, which is worth stealing.** TT's coverage query carried
+`having count(*) >= 50` to keep its output short. That silently excluded every state with fewer
+than 50 entities — exactly SC's 13, and six states holding one city each. **A filtered aggregate
+reported full coverage for the states it had dropped.** Same family as the `imported_at` lesson
+below: an answer that looks complete because the query narrowed before you read it.
+
+**The alias endpoint shipped** (our §4 "yes", `TT-HANDOFF.md`). Live and verified in production:
+`treasurytracker.empowered.vote/?entity=birchwood-mn` renders Birchwood Village, rewrites the
+address bar to the current slug, and names the rename to the reader; an unknown slug is still
+not-found. It emits slugs rather than names, so no consumer has to reconstruct `toSlug`:
+
+```
+GET https://api.empowered.vote/api/treasury/aliases
+[{ "slug": "birchwood-mn",            "label": "Birchwood",
+   "canonicalSlug": "birchwood-village-mn", "canonicalLabel": "Birchwood Village" }]
+```
+
+**Phase 15 does not consume it** — sized as a durable-links feature, not a Civic Spaces one.
+Recorded because it exists, not because it is in scope.
+
 ## Matching: geoid-exact, no Census dependency
 
 The catalog keys cities by 7-digit place FIPS and counties by 5-digit county FIPS —
@@ -108,10 +143,14 @@ originally said G4040 held 2,952 rows across WI, IN, CA and MA only, with MI and
 Treasury Tracker loaded TIGER/Line 2024 subdivisions and places for **MI, PA and OH** on
 2026-09-18. Re-measured against production the same day:
 
-| Layer | Was | TT's load (2026-09-18) | Now | States |
-|---|---|---|---|---|
-| G4040 (MCD) | 2,952 | +5,760 | **8,712** | 4 → **7** |
-| G4110 (place) | **6,863** | +2,471 | **9,334** | → **22** |
+| Layer | Was | TT's load (2026-09-18) | MA reload (2026-09-19) | Now | States |
+|---|---|---|---|---|---|
+| G4040 (MCD) | 2,952 | +5,760 | +58 | **8,770** | 4 → **7** |
+| G4110 (place) | **6,863** | +2,471 | — | **9,334** | → **22** |
+
+⚠ **The G4040 total moved again on 2026-09-19: 8,712 → 8,770.** Massachusetts was reloaded
+state-complete. The **+58** is the net change, not the rows written — all **351** MA rows now
+carry `imported_at = 2026-09-19`, so it was a full replace of the 293, not a top-up.
 
 ⚠ **The G4110 "was" figure is 6,863, not the 6,008 quoted earlier in this doc** — corrected by
 TT 2026-09-18 and verified here against `imported_at`. The 6,008 baseline was measured on
@@ -144,19 +183,66 @@ match the existing `G4110` rule with **no change on our side**.
 
 ev-accounts' reply of 2026-09-13 (`ACCOUNTS-HANDOFF.md`) killed the "lengths are
 self-describing, so branch on length" idea this design previously floated. **A 10-digit
-geoid does not mean one thing.** Of the G4040 boundaries (2,952 when measured; **8,712** as
-of 2026-09-18 — the three states added that day are unaudited, see above):
+geoid does not mean one thing.** Of the G4040 boundaries (2,952 when first measured; **8,770**
+as of 2026-09-19 — counts below re-measured against production that day, TT's classes taken from
+their 2026-09-18 note):
 
 | State | Rows | What they actually are |
 |---|---|---|
+| PA | 2,573 | 1,546 T1 townships + 1,025 C5 — **unaudited**, no FUNCSTAT filter |
+| OH | 1,607 | 1,309 T1 townships, remainder C5 — **unaudited** |
+| MI | 1,580 | 1,240 T1 townships + 300 C5 — **unaudited** |
 | WI | 1,243 | active governments — FUNCSTAT-filtered |
-| MA | 293 | active governments (MCDs) — FUNCSTAT-filtered |
 | IN | 1,012 | probably governments, **unaudited** — no FUNCSTAT filter, no comment |
 | CA | 404 | 🔴 **Census County Divisions — statistical areas. No officials, no budget, no board.** |
+| MA | 351 | active governments — **293 T1 towns + 58 C5 cities** (was 293; see below) |
+
+🔴 **Massachusetts is the row whose *meaning* changed, and it is the cautionary one.** It read
+293 "active governments (MCDs), FUNCSTAT-filtered". MA has **351** municipalities: 293 towns
+(CLASSFP `T1`) plus **58 cities whose subdivision is coextensive with the place (`C5`)**.
+Filtering to `T1` dropped the 58, and 13 of those are cities Treasury Tracker keys by MCD rather
+than by place — so they matched nothing. That filter *was* the coverage gap.
+
+**The trap worth keeping:** a per-state row count that equals the entity count is not evidence of
+coverage. MA held 293 + 58 = 351 rows against exactly 351 TT entities, and 13 were still wrong.
+(TT's phrasing, and it is a better statement of our own → `(geoid, layer)` rule than we had.)
+
+⚠ **48 rows are not governments at all, and they are not CCDs either.** Measured 2026-09-19:
+`geo_id` ending `00000`, `name = 'County subdivisions not defined'` — **MI 40, OH 5, PA 1, IN 2**.
+The two tests agree exactly, state by state. They are unreferenced water and unorganized area.
+TT reports **58** leftover Z-class rows (40 MI, 17 OH, 1 PA) that a refresh of those three states
+drops; MI and PA reconcile exactly, OH does not (5 found, 17 claimed) and IN's 2 go unmentioned.
+**We cannot audit the difference** — see the note below on what this table does not store.
+
+**PA does not quite add up:** 1,546 + 1,025 = 2,571 against a measured 2,573, and only 1 of the
+2 is a "not defined" row. One PA row is unexplained. MI reconciles exactly once the 40 are added;
+OH's remainder is unitemised.
 
 So a length branch would hand a Californian a city row pointing at a statistical Census
 division that Essentials and Treasury have nothing to show for. **That is a wrong link,
 not a missing row** — the one outcome the governing rule exists to prevent.
+
+#### ⚠ One correction to TT's note of 2026-09-18, and it sharpens their point
+
+TT wrote that "a CDP is separated by its own MTFCC (`G4210`) … **a CCD is separated by
+nothing**", offering that as the reason `(geoid, layer)` is necessary but not sufficient.
+Measured against production 2026-09-19, the first half holds and **the second is too strong**:
+all **404** California CCD rows carry the literal suffix `" CCD"` in `name` (`Adin-Lookout CCD`
+…), and the 48 non-government rows above are all named `County subdivisions not defined`. So a
+CCD *is* separated by something.
+
+**Do not act on that.** `name` is a display label, not a typed field — it is the Census
+namestring that happened to survive the import, it is not guaranteed by anything, and matching
+on a suffix is exactly the fragile string test `(geoid, layer)` exists to replace.
+
+🔴 **The stronger form of TT's point is what our own columns show.** For `mtfcc='G4040'`,
+`essentials.geofence_boundaries` carries **no CLASSFP and no FUNCSTAT column at all**, and
+measured 2026-09-19: `ocd_id` **100% NULL**, `quality_flag` **100% NULL**, `source` a single
+value (`census_tiger_2024`). The class distinction TT filtered on **does not survive the
+import** — which is why we cannot reconcile their OH count above, and why a government and a
+statistical area really are indistinguishable *here* even though they were distinguishable at
+the source. That is a stronger argument for `(geoid, layer)` than "separated by nothing", and
+it is an argument for never inferring class from this table at all.
 
 **The rule for this phase:** match on **`(geoid, layer)`**, where `layer` is the MTFCC or
 an equivalent tag — today always `G4110` for the city row. It costs nearly nothing now,
