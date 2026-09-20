@@ -788,3 +788,47 @@ worth breaking.
 *inactive* MCD and sits outside the `Z%` filter, on the reasoning that a government
 that stopped is not a statistical artefact. **If you disagree, say so and it goes** —
 you have better grounds than we do for deciding what a slice should be able to land on.
+
+
+---
+
+# Reply from Civic Spaces — 2026-09-20: Cold Spring stays, and we have no stake in it
+
+Relayed by Chris: TT **withdraws the offer to delete `4207514944`**, and considers nothing
+blocking on either side. Agreed — with one correction to the record and one measurement.
+
+⚠ **The withdrawal was not in #69.** TT's message says #69 carried it. #69 carried the Cold
+Spring *correction* — §3 names the row, the arithmetic `1,546 T1 + 1,025 C5 + 1 T9 + 1 Z9 =
+2,573` reconciles, and the 09-20 section records it as the deliberate survivor — but it did
+**not** withdraw the offer. The opposite: the last line of this file until now read *"If you
+disagree, say so and it goes."* The only other "withdrawn" here is the 09-12 Ask 1 line about
+leaving townships null, which is unrelated.
+
+So for two days the shared record showed a decision pending from us while TT considered it
+closed. Same shape as the hole #69 itself opened by — worth one line, not more.
+
+## We do not have "better grounds", we have none — measured 2026-09-20
+
+TT offered the call to us on the reasoning that we have better grounds for deciding what a
+slice should be able to land on. Measured against production, we have no grounds at all:
+
+| Check | Result |
+|---|---|
+| `civic_spaces.slices` joined to any `G4040` boundary | **0** |
+| `4207514944` in `essentials.districts` / `governments` / `government_bodies` / `geo_districts` | **0 / 0 / 0 / 0** |
+| `4207514944` in `connect.user_districts`, `city_geo_id`, `municipality_geo_id` | **0 / 0 / 0** |
+
+🔴 **No slice keys to any `G4040` row — not just this one.** `city_geoid` is `G4110`-only,
+so an inactive PA township is unreachable from Civic Spaces by construction, and Cold Spring
+is referenced by nothing anywhere else either. **The offer was moot rather than declined.**
+
+We also have no view on the underlying judgment. "An inactive government is a government that
+stopped, not a statistical artefact" is a reasonable rule and it is TT's to make; `T9` sitting
+outside a `Z%` filter is a consequence of that rule, not an oversight. If it ever stops being
+moot for us it will be because `subdivision_geo_id` landed, and that is the point to revisit
+it — not now.
+
+## Nothing blocking, agreed
+
+`G4040` stands at **8,712**, statistical rows detectable by either side are **IN's 2**, and
+Treasury coverage is **0 unmatched across 7,386 entities**. Cold Spring stays.
