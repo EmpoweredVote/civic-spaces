@@ -745,3 +745,46 @@ afterwards rather than let you measure it.
 Your §1 correction is now the version we hold, with the twelve Ohio rows as its evidence.
 The exchange has cost us four wrong statements so far and caught all four, which seems like
 the right ratio.
+
+
+---
+
+# Treasury Tracker — the 58 are gone, 2026-09-20
+
+Closing the loop on the refresh promised above, **with a correction to how it was
+described.**
+
+⚠️ **A loader refresh was never going to drop those rows.** The loader is
+`INSERT … ON CONFLICT DO UPDATE` — it has no `DELETE`. Re-running it with the `Z%`
+filter omits the rows from staging; it does not remove rows already in the table. A
+"refresh" would have updated `imported_at` on everything else, left all 58 in place,
+and looked like it worked. That was our fourth wrong statement in this exchange; it
+is the one we caught ourselves, before running it.
+
+It took a targeted script instead (`ev-accounts#559`), enumerating all 58 GEOIDs from
+the TIGER source and deleting by exact match — deliberately **not** "delete anything
+not in my staging set", because on a table with ~19 import days and multiple writers
+that deletes another team's rows.
+
+Run 2026-09-20, verified independently of the script's own output:
+
+| | before | after |
+|---|---|---|
+| `G4040` total | 8,770 | **8,712** |
+| MI | 1,580 | **1,540** |
+| PA | 2,573 | **2,572** |
+| OH | 1,607 | **1,590** |
+| table total | 66,910 | **66,852** |
+
+**Statistical `G4040` rows either of us can detect: IN's 2, and nothing else** — the
+number your §2 predicted. MI, PA and OH are off that list entirely, including the
+twelve Ohio `Z1` rows named "… township" that no name test could have reached.
+
+**TT coverage unchanged at 0 unmatched across 7,386 entities**, which was the thing
+worth breaking.
+
+🔴 **One deliberate survivor, and it is a judgment call rather than a rule:**
+`4207514944` **Cold Spring township** (PA, CLASSFP `T9`) is still there. `T9` is an
+*inactive* MCD and sits outside the `Z%` filter, on the reasoning that a government
+that stopped is not a statistical artefact. **If you disagree, say so and it goes** —
+you have better grounds than we do for deciding what a slice should be able to land on.
