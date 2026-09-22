@@ -2,6 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import type { PostWithAuthor, ConnectedProfile } from '../types/database'
 import type { FeedCursor } from '../lib/cursors'
+import { isMockSliceId, getMockFeedPage } from '../lib/devMockData'
 
 const PAGE_SIZE = 20
 
@@ -9,6 +10,12 @@ async function fetchFeedPage(
   sliceId: string,
   cursor: FeedCursor | undefined,
 ): Promise<PostWithAuthor[]> {
+  // Mock slices (local dev without a real login) never exist in Supabase —
+  // serve local fixture posts instead of hitting the RPC.
+  if (isMockSliceId(sliceId)) {
+    return cursor ? [] : getMockFeedPage(sliceId)
+  }
+
   // Step 1: Fetch block-filtered posts via RPC with composite cursor pagination
   const { data: posts, error: postsError } = await supabase.schema('civic_spaces').rpc('get_feed_filtered', {
     p_slice_id: sliceId,

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import type { SliceType, SliceInfo } from '../types/database'
+import { isSyntheticUserId, MOCK_SLICES } from '../lib/devMockData'
 
 interface UseAllSlicesResult {
   slices: Partial<Record<SliceType, SliceInfo>>
@@ -12,49 +13,63 @@ async function fetchAllSlicesData(userId: string): Promise<{
   slices: Partial<Record<SliceType, SliceInfo>>
   hasJurisdiction: boolean
 }> {
-  // Step 1: Get all slice_ids this user belongs to
-  const { data: memberships, error: memberError } = await supabase
-    .schema('civic_spaces')
-    .from('slice_members')
-    .select('slice_id')
-    .eq('user_id', userId)
+  try {
+    // Step 1: Get all slice_ids this user belongs to
+    const { data: memberships, error: memberError } = await supabase
+      .schema('civic_spaces')
+      .from('slice_members')
+      .select('slice_id')
+      .eq('user_id', userId)
 
-  if (memberError) throw memberError
+    if (memberError) throw memberError
 
-  if (!memberships || memberships.length === 0) {
-    return { slices: {}, hasJurisdiction: false }
-  }
-
-  const sliceIds = memberships.map((m) => m.slice_id)
-
-  // Step 2: Find all slices the user belongs to (all types, not filtered)
-  const { data: sliceRows, error: sliceError } = await supabase
-    .schema('civic_spaces')
-    .from('slices')
-    .select('id, slice_type, geoid, current_member_count, sibling_index, photo_url')
-    .in('id', sliceIds)
-
-  if (sliceError) throw sliceError
-
-  const slices: Partial<Record<SliceType, SliceInfo>> = {}
-
-  for (const row of sliceRows ?? []) {
-    const sliceType = row.slice_type as SliceType
-    slices[sliceType] = {
-      id: row.id,
-      sliceType,
-      geoid: row.geoid,
-      memberCount: row.current_member_count,
-      siblingIndex: row.sibling_index,
-      photoUrl: row.photo_url ?? null,
+    if (!memberships || memberships.length === 0) {
+      return isSyntheticUserId(userId)
+        ? { slices: MOCK_SLICES, hasJurisdiction: true }
+        : { slices: {}, hasJurisdiction: false }
     }
+
+    const sliceIds = memberships.map((m) => m.slice_id)
+
+    // Step 2: Find all slices the user belongs to (all types, not filtered)
+    const { data: sliceRows, error: sliceError } = await supabase
+      .schema('civic_spaces')
+      .from('slices')
+      .select('id, slice_type, geoid, current_member_count, sibling_index, photo_url')
+      .in('id', sliceIds)
+
+    if (sliceError) throw sliceError
+
+    const slices: Partial<Record<SliceType, SliceInfo>> = {}
+
+    for (const row of sliceRows ?? []) {
+      const sliceType = row.slice_type as SliceType
+      slices[sliceType] = {
+        id: row.id,
+        sliceType,
+        geoid: row.geoid,
+        memberCount: row.current_member_count,
+        siblingIndex: row.sibling_index,
+        photoUrl: row.photo_url ?? null,
+      }
+    }
+
+    // hasJurisdiction is true only when user has a federal geo slice
+    // (federal is always assigned when a user has a valid jurisdiction)
+    const hasGeoSlices = !!slices['federal']
+
+    return { slices, hasJurisdiction: hasGeoSlices }
+  } catch (err) {
+    // A synthetic (never-real) user id's request can fail auth outright
+    // (not just return zero rows) — fall back to fixture slices. The id
+    // itself is the safety boundary: a real Supabase user id can never
+    // collide with these reserved strings, so this is safe in production
+    // too, and never overrides a real user's real data.
+    if (isSyntheticUserId(userId)) {
+      return { slices: MOCK_SLICES, hasJurisdiction: true }
+    }
+    throw err
   }
-
-  // hasJurisdiction is true only when user has a federal geo slice
-  // (federal is always assigned when a user has a valid jurisdiction)
-  const hasGeoSlices = !!slices['federal']
-
-  return { slices, hasJurisdiction: hasGeoSlices }
 }
 
 export function useAllSlices(userId: string | null): UseAllSlicesResult {
