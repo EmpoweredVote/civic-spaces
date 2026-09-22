@@ -1,5 +1,6 @@
 import type { SliceType, SliceInfo, PostWithAuthor, BoostedPostWithAuthor, ConnectedProfile, ReplyWithAuthor } from '../types/database'
 import type { PoliticianFlatRecord } from '../types/representatives'
+import type { CompassTopic, CompassAnswer } from '../types/compass'
 
 /**
  * Local-only fallback data so `npm run dev` renders a populated dashboard
@@ -373,4 +374,304 @@ export const MOCK_REPRESENTATIVES: PoliticianFlatRecord[] = [
       },
     ],
   },
+]
+
+/**
+ * A real slice of the live Compass topic set (ids, titles and stances copied
+ * from api.empowered.vote) plus fixture answers, so the compass widget renders
+ * at ?dev=1. The Compass API sends no CORS headers for localhost, so without
+ * this the widget would be permanently empty in local dev.
+ */
+export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
+  {
+    "id": "af2fdfd6-02c4-49df-b09c-cf8536f4773f",
+    "short_title": "Abortion",
+    "title": "Reproductive Rights and Abortion Access",
+    "stances": [
+      {
+        "id": "e60a5950-d326-4862-83e3-76e1713f72ee",
+        "value": 1,
+        "text": "Keep abortion legal at every stage of pregnancy, with no time limit."
+      },
+      {
+        "id": "5d7f8951-91f3-43bc-94cb-1b280e7fd298",
+        "value": 2,
+        "text": "Keep abortion legal through the second trimester, and after that only to protect the mother's health."
+      },
+      {
+        "id": "0a88c836-8884-41bc-84dc-fe66963a265f",
+        "value": 3,
+        "text": "Allow abortion during the first trimester, and after that only to protect the mother's health."
+      },
+      {
+        "id": "9fd4fd44-de75-41ce-a16e-71588af9f141",
+        "value": 4,
+        "text": "Ban abortion except in cases of rape, incest, or a serious risk to the mother's life."
+      },
+      {
+        "id": "c49a07d8-c3bc-4689-b4ef-ad3d6978ae52",
+        "value": 5,
+        "text": "Ban abortion in all cases, with no exceptions."
+      }
+    ]
+  },
+  {
+    "id": "683c8084-2281-4920-a07c-18439b2dd413",
+    "short_title": "Tariffs",
+    "title": "United States Tariff Policy",
+    "stances": [
+      {
+        "id": "ac23505f-4269-418b-9574-d58f7629d6e8",
+        "value": 1,
+        "text": "Eliminate all tariffs and pursue completely free trade with every country."
+      },
+      {
+        "id": "18307ecb-5dfe-41b9-b9e3-76ed33b7972a",
+        "value": 2,
+        "text": "Reduce most tariffs, keeping only limited exceptions."
+      },
+      {
+        "id": "ccac5f1a-e4ba-460d-bf26-e44f52d3db65",
+        "value": 3,
+        "text": "Use tariffs selectively to protect key American industries and jobs."
+      },
+      {
+        "id": "5863b159-1a1a-465b-ac57-e43fa71255f5",
+        "value": 4,
+        "text": "Increase tariffs on countries that don't trade fairly with America."
+      },
+      {
+        "id": "534ce813-06a9-48f0-adc8-a9efa08ba554",
+        "value": 5,
+        "text": "Impose high tariffs on all imports to bring manufacturing back to America."
+      }
+    ]
+  },
+  {
+    "id": "c5ab4eab-702f-49b8-9277-8ea53f3835c6",
+    "short_title": "Same-Sex Marriage",
+    "title": "Same-Sex Marriage",
+    "stances": [
+      {
+        "id": "f5cb3178-40ce-430d-b9bf-2cf31914a884",
+        "value": 1,
+        "text": "Guarantee same-sex couples full legal equality — equal marriage plus protection from discrimination (such as in jobs and housing)."
+      },
+      {
+        "id": "ba1b3eb2-40c5-4167-8645-cf5051c201c8",
+        "value": 2,
+        "text": "Guarantee same-sex marriage the same benefits and protections as any other marriage."
+      },
+      {
+        "id": "d391c05d-4ea9-4b8b-8478-d5b6cee495b2",
+        "value": 3,
+        "text": "Allow same-sex marriage, but protect religious organizations' right to decline to perform or host these marriages."
+      },
+      {
+        "id": "c8b1d01b-5309-4283-9b11-27276475989f",
+        "value": 4,
+        "text": "Recognize civil unions for same-sex couples, but reserve marriage for opposite-sex couples."
+      },
+      {
+        "id": "65009889-417c-49fe-b280-063a39a78700",
+        "value": 5,
+        "text": "Make same-sex marriage illegal and define marriage as only between one man and one woman."
+      }
+    ]
+  },
+  {
+    "id": "6b9ba6d9-1001-43f5-b073-4d37130696fd",
+    "short_title": "Religious Freedom",
+    "title": "Religious Freedom",
+    "stances": [
+      {
+        "id": "7e33354e-01d3-4af7-a938-6d1c8da14a31",
+        "value": 1,
+        "text": "Prohibit religious exemptions from civil rights and anti-discrimination laws."
+      },
+      {
+        "id": "2b0558af-d115-4b93-8d04-e95276056dee",
+        "value": 2,
+        "text": "Protect religious freedom while ensuring it doesn't override anti-discrimination protections in employment and housing."
+      },
+      {
+        "id": "66143e45-3bb2-4bc1-bc6f-7db2a374f191",
+        "value": 3,
+        "text": "Balance protecting religious practices with maintaining equal treatment under the law for all citizens."
+      },
+      {
+        "id": "d47f12c7-36ba-4a19-bacb-0bf99bf13367",
+        "value": 4,
+        "text": "Protect religious freedom and allow faith-based exemptions from laws that conflict with sincere religious beliefs."
+      },
+      {
+        "id": "a538370a-01c9-4339-948b-a2142f6f0811",
+        "value": 5,
+        "text": "Strongly protect religious freedom and allow religious organizations complete autonomy in their operations and hiring practices."
+      }
+    ]
+  },
+  {
+    "id": "d1618b9c-0b9e-45af-b986-bb33d270b8e4",
+    "short_title": "Trans Athletes",
+    "title": "Transgender Athletes",
+    "stances": [
+      {
+        "id": "23e2674a-7544-41ee-b8c6-a26f6115d9b6",
+        "value": 1,
+        "text": "Allow all transgender athletes to compete on teams matching their gender identity without any restrictions or requirements."
+      },
+      {
+        "id": "7a41d927-4c1f-433e-bd90-703a8ae51bb6",
+        "value": 2,
+        "text": "Should allow transgender athletes to compete on teams matching their gender identity after completing basic documentation of their transition."
+      },
+      {
+        "id": "cb3a560e-4731-41d8-a8f2-5a285bc52402",
+        "value": 3,
+        "text": "Decide transgender athletes' eligibility case by case based on individual circumstances and the requirements of each sport."
+      },
+      {
+        "id": "327a45a3-74d0-4ade-a433-e11eb3575f7a",
+        "value": 4,
+        "text": "Require transgender athletes to compete only on teams matching their biological sex assigned at birth."
+      },
+      {
+        "id": "82485219-8032-476b-8473-8add808ced4e",
+        "value": 5,
+        "text": "Completely ban all transgender athletes from competing in any organized sports competitions."
+      }
+    ]
+  },
+  {
+    "id": "24e9212c-b011-422a-865c-093e35050901",
+    "short_title": "Ukraine Support",
+    "title": "Ukraine - Russia Conflict",
+    "stances": [
+      {
+        "id": "3194f8c2-b46c-44dd-848e-7e54b77eb992",
+        "value": 1,
+        "text": "Significantly increase military and financial aid to Ukraine."
+      },
+      {
+        "id": "87e4bd8a-565a-44be-a1f3-1f6f333dbef1",
+        "value": 2,
+        "text": "Continue providing current levels of military and economic aid to help Ukraine defend itself."
+      },
+      {
+        "id": "d70cf720-1315-4922-b5af-01cef9f052d6",
+        "value": 3,
+        "text": "Provide limited humanitarian aid to Ukraine while encouraging diplomatic negotiations to end the war."
+      },
+      {
+        "id": "b0364116-a39f-45da-8b8a-7c4bf154dd29",
+        "value": 4,
+        "text": "Reduce aid to Ukraine and focus American resources on domestic priorities instead."
+      },
+      {
+        "id": "a2047b9a-77a5-4d69-9ea4-f6bb3a871bd5",
+        "value": 5,
+        "text": "End all aid to Ukraine immediately and stay completely out of the conflict."
+      }
+    ]
+  },
+  {
+    "id": "cab61e8a-64fe-4bbd-bc08-fe9914d0091b",
+    "short_title": "Medicare/aid",
+    "title": "Medicare / Medicaid",
+    "stances": [
+      {
+        "id": "0b5bb170-4445-4c55-89cc-949811450bfe",
+        "value": 1,
+        "text": "Expand Medicare to cover everyone regardless of age"
+      },
+      {
+        "id": "96730cd2-f46d-48a0-8ad5-98afaea33d61",
+        "value": 2,
+        "text": "Significantly expand Medicare or Medicaid eligibility, stopping short of universal coverage"
+      },
+      {
+        "id": "cb8fa5d0-a288-4342-93b3-06ce1a481d1a",
+        "value": 3,
+        "text": "Improve current programs while controlling costs"
+      },
+      {
+        "id": "74086d42-a168-4b4a-b355-c78e3d29ece0",
+        "value": 4,
+        "text": "Scale back both programs, shifting more coverage to private insurance"
+      },
+      {
+        "id": "250a1325-2d3e-417e-9a94-25755447a7bc",
+        "value": 5,
+        "text": "Phase out both programs and use private insurance only"
+      }
+    ]
+  },
+  {
+    "id": "a22215c3-6693-4bc2-b248-01aebba14570",
+    "short_title": "Fossil Fuels",
+    "title": "Fossil Fuel Policy",
+    "stances": [
+      {
+        "id": "218ea469-3053-4747-83e1-701be1b231c9",
+        "value": 1,
+        "text": "Phase out fossil fuel production entirely."
+      },
+      {
+        "id": "0b611122-d397-4f96-8f62-431ef4d16c7b",
+        "value": 2,
+        "text": "Allow no new drilling and let production decline over time."
+      },
+      {
+        "id": "03593e5c-56f7-48f7-b981-653fbd35f1a1",
+        "value": 3,
+        "text": "Keep fossil fuel production steady at current levels."
+      },
+      {
+        "id": "65d3cc5c-21bc-408f-bcb4-499e8b51df77",
+        "value": 4,
+        "text": "Expand fossil fuel production with new drilling and permits."
+      },
+      {
+        "id": "3f054b50-2cc6-4838-ac91-5ad370e311bf",
+        "value": 5,
+        "text": "Maximize production and open more public land and waters to drilling."
+      }
+    ]
+  }
+]
+
+export const MOCK_COMPASS_ANSWERS: CompassAnswer[] = [
+  {
+    "topic_id": "af2fdfd6-02c4-49df-b09c-cf8536f4773f",
+    "value": 4
+  },
+  {
+    "topic_id": "683c8084-2281-4920-a07c-18439b2dd413",
+    "value": 2
+  },
+  {
+    "topic_id": "c5ab4eab-702f-49b8-9277-8ea53f3835c6",
+    "value": 5
+  },
+  {
+    "topic_id": "6b9ba6d9-1001-43f5-b073-4d37130696fd",
+    "value": 3
+  },
+  {
+    "topic_id": "d1618b9c-0b9e-45af-b986-bb33d270b8e4",
+    "value": 4
+  },
+  {
+    "topic_id": "24e9212c-b011-422a-865c-093e35050901",
+    "value": 1
+  },
+  {
+    "topic_id": "cab61e8a-64fe-4bbd-bc08-fe9914d0091b",
+    "value": 3
+  },
+  {
+    "topic_id": "a22215c3-6693-4bc2-b248-01aebba14570",
+    "value": 5
+  }
 ]
