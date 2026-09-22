@@ -4,6 +4,7 @@ import 'react-loading-skeleton/dist/skeleton.css'
 import type { PoliticianFlatRecord } from '../../types/representatives'
 import { BRANCH_ORDER, getRepPhoto } from '../../types/representatives'
 import { WidgetCard } from './WidgetCard'
+import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 
 interface RepresentativesWidgetProps {
   reps: PoliticianFlatRecord[]
@@ -51,10 +52,15 @@ function RepAvatar({ rep }: { rep: PoliticianFlatRecord }) {
 }
 
 export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidgetProps) {
+  const isDark = useIsDarkMode()
+
   if (isLoading) {
     return (
       <WidgetCard title="Representing This Community">
-        <SkeletonTheme baseColor="#e5e7eb" highlightColor="#f3f4f6">
+        <SkeletonTheme
+          baseColor={isDark ? '#4b5563' : '#e5e7eb'}
+          highlightColor={isDark ? '#374151' : '#f3f4f6'}
+        >
           <div className="flex flex-col gap-2">
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex items-center gap-3 py-2">
@@ -112,36 +118,120 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
         }
         return titlePriority(a.office_title) - titlePriority(b.office_title)
       }
+      // Within LOCAL, the Mayor leads the city council. Real Essentials data
+      // doesn't tag the mayor with a distinct district_type — LOCAL covers
+      // both — so this has to go by office_title instead.
+      if (a.district_type === 'LOCAL') {
+        const isMayor = (title: string) => title.toLowerCase().includes('mayor')
+        return Number(isMayor(b.office_title)) - Number(isMayor(a.office_title))
+      }
       return 0
     })
 
-  return (
-    <WidgetCard title="Representing This Community">
-      <div className="flex flex-col">
-        {sortedReps.map((rep, index) => (
+  // The local executive (mayor/village president/etc.) is the official most
+  // directly tied to this civic slice — highlighted the same way Essentials
+  // marks a "primary" contact, minus party affiliation (deliberately not in
+  // this data model — see the anti-partisan note in types/representatives.ts).
+  const primaryRep =
+    sortedReps.find((r) => r.district_type === 'LOCAL_EXEC') ??
+    sortedReps.find((r) => r.district_type === 'LOCAL' && r.office_title.toLowerCase().includes('mayor')) ??
+    null
+
+  // Every US address has 2 Senators + 1 House Representative — if the list
+  // has federal executive officials but neither of those, this is known-
+  // incomplete data, not a real "you have no Congressional representation."
+  // Say so rather than let the list look complete when it isn't.
+  const hasFederalExec = sortedReps.some((r) => r.district_type === 'NATIONAL_EXEC')
+  const hasFederalLegislature = sortedReps.some(
+    (r) => r.district_type === 'NATIONAL_UPPER' || r.district_type === 'NATIONAL_LOWER'
+  )
+  const missingFederalLegislature = hasFederalExec && !hasFederalLegislature
+
+  if (sortedReps.length === 0) {
+    return (
+      <WidgetCard title="Representing This Community">
+        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+          No elected officials are listed for this community yet.{' '}
           <a
-            key={rep.id}
-            href={`https://essentials.empowered.vote/politician/${rep.id}`}
+            href="https://app.empowered.vote/settings/location"
             target="_blank"
             rel="noopener noreferrer"
-            className={`flex items-center gap-3 py-2 -mx-2 px-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
-              index < sortedReps.length - 1
-                ? 'border-b border-gray-100 dark:border-gray-800'
-                : ''
-            }`}
+            className="font-medium text-brand underline hover:no-underline dark:text-brand-light"
           >
-            <RepAvatar rep={rep} />
-            <div className="flex flex-col min-w-0">
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                {rep.full_name}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {rep.office_title}
-              </span>
-            </div>
+            Check your address
           </a>
-        ))}
+          .
+        </p>
+      </WidgetCard>
+    )
+  }
+
+  return (
+    <WidgetCard title="Representing This Community">
+      {primaryRep && (
+        <a
+          href={`https://essentials.empowered.vote/politician/${primaryRep.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-lg bg-brand-muted dark:bg-brand/10 px-3 py-2.5 mb-3 text-xs leading-relaxed text-gray-700 dark:text-gray-300 hover:bg-brand-muted/70 dark:hover:bg-brand/15 transition-colors"
+        >
+          Discussions in this space are most directly connected to{' '}
+          <span className="font-semibold text-brand dark:text-brand-light">
+            {primaryRep.full_name}, {primaryRep.office_title}
+          </span>
+          .
+        </a>
+      )}
+
+      <div className="flex flex-col">
+        {sortedReps.map((rep, index) => {
+          const isPrimary = rep.id === primaryRep?.id
+          return (
+            <a
+              key={rep.id}
+              href={`https://essentials.empowered.vote/politician/${rep.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-3 py-2 -mx-2 px-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
+                index < sortedReps.length - 1
+                  ? 'border-b border-gray-100 dark:border-gray-800'
+                  : ''
+              }`}
+            >
+              <RepAvatar rep={rep} />
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                  {rep.full_name}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {rep.office_title}
+                </span>
+              </div>
+              {isPrimary && (
+                <span className="flex-shrink-0 rounded-full bg-brand dark:bg-brand-light text-white dark:text-gray-900 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5">
+                  Primary
+                </span>
+              )}
+            </a>
+          )
+        })}
       </div>
+
+      {missingFederalLegislature && (
+        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+          Your U.S. Senators and Representative aren't listed yet, so this list
+          is incomplete rather than complete.{' '}
+          <a
+            href="https://app.empowered.vote/settings/location"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-brand underline hover:no-underline dark:text-brand-light"
+          >
+            Check your address
+          </a>
+          .
+        </p>
+      )}
     </WidgetCard>
   )
 }

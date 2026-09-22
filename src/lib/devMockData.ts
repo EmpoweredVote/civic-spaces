@@ -336,6 +336,54 @@ export function getMockBoostedFeedPage(sliceId: string): BoostedPostWithAuthor[]
 // and the underlying Supabase photo storage) — not fabricated, since these
 // two offices are genuinely address-independent.
 export const MOCK_REPRESENTATIVES: PoliticianFlatRecord[] = [
+  // Local officials, so the City tab exercises the mayor-first sort and the
+  // primary-official highlight. Deliberately listed out of order here: the
+  // widget is what should put the mayor on top, not the fixture.
+  {
+    id: 'mock-rep-council-1',
+    full_name: 'Dana Whitfield',
+    office_title: 'City Council Member, District 2',
+    photo_origin_url: '',
+    district_type: 'LOCAL',
+    government_type: 'local',
+    is_vacant: false,
+    is_elected: true,
+    images: [],
+  },
+  {
+    id: 'mock-rep-mayor',
+    full_name: 'Marisol Okafor',
+    office_title: 'Mayor',
+    photo_origin_url: '',
+    district_type: 'LOCAL',
+    government_type: 'local',
+    is_vacant: false,
+    is_elected: true,
+    images: [],
+  },
+  {
+    id: 'mock-rep-council-2',
+    full_name: 'Terrence Boyd',
+    office_title: 'City Council Member, District 5',
+    photo_origin_url: '',
+    district_type: 'LOCAL',
+    government_type: 'local',
+    is_vacant: false,
+    is_elected: true,
+    images: [],
+  },
+  {
+    id: 'mock-rep-county',
+    full_name: 'Priya Raghunathan',
+    office_title: 'County Commissioner',
+    photo_origin_url: '',
+    district_type: 'COUNTY',
+    government_type: 'county',
+    is_vacant: false,
+    is_elected: true,
+    images: [],
+  },
+
   {
     id: '104102e6-08c1-494f-a9d4-6ef129595bf2',
     full_name: 'Donald J. Trump',
