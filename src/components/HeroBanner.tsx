@@ -37,7 +37,8 @@ export function HeroBanner({
   return (
     <div
       className={[
-        'relative overflow-hidden rounded-xl mx-4 mt-4 md:mx-0 md:mt-0',
+        // Spacing and corner radius come from the card this sits in (AppShell).
+        'relative overflow-hidden',
         // 🔴 shrink-0 IS LOAD-BEARING. This renders as the first child of
         // SliceFeedPanel's `flex flex-col h-full overflow-y-auto` scroll container. A
         // flex item defaults to flex-shrink:1, and aspect-ratio only supplies a
@@ -46,7 +47,11 @@ export function HeroBanner({
         // why this read as "the banner does not render on that tab" rather than as a
         // layout bug. A slice with no posts never showed it, because nothing pushed.
         'shrink-0',
-        'aspect-[16/9] md:aspect-[16/5]',
+        // On phones the banner is content-sized with a floor, not a fixed
+        // ratio: the copy is bottom-aligned, so a 16/9 box too short for a
+        // wrapped title clips it off the TOP. From md up the copy always fits,
+        // so the cinematic ratio is safe.
+        'min-h-[13.5rem] md:min-h-0 md:aspect-[16/5]',
         // Brand-gradient ground, not flat gray: it shows through whenever no banner
         // resolves (an uncovered county, a Wikipedia miss), and it is what a visitor
         // sees for a beat while an image decodes. EV teal, light and dark together.

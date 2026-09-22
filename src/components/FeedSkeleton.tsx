@@ -1,9 +1,10 @@
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
+import { useIsDarkMode } from '../hooks/useIsDarkMode'
 
 function SkeletonCard() {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
       {/* Top row: avatar circle + name/time */}
       <div className="flex items-center gap-3">
         <Skeleton circle width={40} height={40} />
@@ -27,8 +28,12 @@ function SkeletonCard() {
 }
 
 export default function FeedSkeleton() {
+  const isDark = useIsDarkMode()
   return (
-    <SkeletonTheme baseColor="#f3f4f6" highlightColor="#e5e7eb">
+    <SkeletonTheme
+      baseColor={isDark ? '#374151' : '#f3f4f6'}
+      highlightColor={isDark ? '#4b5563' : '#e5e7eb'}
+    >
       <div className="flex flex-col gap-3 p-4">
         <SkeletonCard />
         <SkeletonCard />

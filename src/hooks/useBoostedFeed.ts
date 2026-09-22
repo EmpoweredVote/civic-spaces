@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { BoostedPostWithAuthor } from '../types/database'
 import type { BoostedFeedCursor } from '../lib/cursors'
+import { isMockSliceId, getMockBoostedFeedPage } from '../lib/devMockData'
 
 const PAGE_SIZE = 20
 
@@ -10,6 +11,12 @@ async function fetchBoostedFeedPage(
   sliceId: string,
   cursor?: BoostedFeedCursor,
 ): Promise<BoostedPostWithAuthor[]> {
+  // Mock slices (local dev without a real login) never exist in Supabase —
+  // serve local fixture posts instead of hitting the RPC.
+  if (isMockSliceId(sliceId)) {
+    return cursor ? [] : getMockBoostedFeedPage(sliceId)
+  }
+
   // Call the RPC — returns posts with boosted_at synthetic sort key
   const { data: posts, error } = await supabase.schema('civic_spaces').rpc('get_boosted_feed_filtered', {
     p_slice_id: sliceId,

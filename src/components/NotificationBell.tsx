@@ -47,7 +47,7 @@ export default function NotificationBell({
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label={`Notifications${unreadCount > 0 ? `, ${badgeLabel} unread` : ''}`}
-        className="relative w-9 h-9 flex items-center justify-center rounded-full transition-colors text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+        className="relative w-9 h-9 flex items-center justify-center rounded-full transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
       >
         {/* Bell SVG */}
         <svg
@@ -86,7 +86,7 @@ export default function NotificationBell({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.95 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden"
+              className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden"
             >
               <NotificationList
                 onClose={() => setIsOpen(false)}

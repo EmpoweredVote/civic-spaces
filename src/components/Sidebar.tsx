@@ -4,15 +4,18 @@ import type { CoverageCatalog } from '../lib/toolCoverage'
 import { filterRepsByTab } from '../types/representatives'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
+import { CompassWidget } from './widgets/CompassWidget'
+import type { CompassData } from '../hooks/useCompassData'
 
 interface SidebarProps {
   repsData: ReturnType<typeof useRepresentatives>
   activeTab: string
   coverage: CoverageCatalog | null
   activeSlice: SliceInfo | undefined
+  compassData: CompassData
 }
 
-export function Sidebar({ repsData, activeTab, coverage, activeSlice }: SidebarProps) {
+export function Sidebar({ repsData, activeTab, coverage, activeSlice, compassData }: SidebarProps) {
   if (activeTab === 'volunteer') return null
 
   const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
@@ -45,6 +48,8 @@ export function Sidebar({ repsData, activeTab, coverage, activeSlice }: SidebarP
           </p>
         </div>
       )}
+
+      <CompassWidget {...compassData} />
 
       <ToolsWidget
         sliceType={activeSlice?.sliceType ?? null}
