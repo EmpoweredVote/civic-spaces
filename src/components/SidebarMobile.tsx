@@ -6,15 +6,18 @@ import type { CoverageCatalog } from '../lib/toolCoverage'
 import { filterRepsByTab } from '../types/representatives'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
+import { CompassWidget } from './widgets/CompassWidget'
+import type { CompassData } from '../hooks/useCompassData'
 
 interface SidebarMobileProps {
   repsData: ReturnType<typeof useRepresentatives>
   activeTab: string
   coverage: CoverageCatalog | null
   activeSlice: SliceInfo | undefined
+  compassData: CompassData
 }
 
-export function SidebarMobile({ repsData, activeTab, coverage, activeSlice }: SidebarMobileProps) {
+export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, compassData }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (activeTab === 'volunteer') return null
@@ -84,6 +87,8 @@ export function SidebarMobile({ repsData, activeTab, coverage, activeSlice }: Si
                   </p>
                 </div>
               )}
+
+              <CompassWidget {...compassData} />
 
               <ToolsWidget
                 sliceType={activeSlice?.sliceType ?? null}

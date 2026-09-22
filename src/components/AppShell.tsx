@@ -10,6 +10,7 @@ import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import { useToolCoverage } from '../hooks/useToolCoverage'
+import { useCompassData } from '../hooks/useCompassData'
 import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import NoJurisdictionBanner from './NoJurisdictionBanner'
@@ -158,6 +159,9 @@ export default function AppShell() {
   // Hoisted like repsData: called once here, passed to both sidebars. Never call
   // this inside a feed panel — all six mount at once and it would fire 6x.
   const toolCoverage = useToolCoverage()
+  // Hoisted for the same reason as repsData and toolCoverage: both sidebars
+  // need it, and a hook inside a feed panel would fire six times.
+  const compassData = useCompassData(userId)
   const { theme, toggleTheme } = useTheme()
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
@@ -442,6 +446,7 @@ export default function AppShell() {
                   activeTab={activeTab}
                   coverage={toolCoverage.data ?? null}
                   activeSlice={slices[activeTab]}
+                  compassData={compassData}
                 />
 
                 {/* Feed tab panels — flex-1 fills remaining space. Banner lives inside each
@@ -516,6 +521,7 @@ export default function AppShell() {
                   activeTab={activeTab}
                   coverage={toolCoverage.data ?? null}
                   activeSlice={slices[activeTab]}
+                  compassData={compassData}
                 />
               </div>
               </div>
