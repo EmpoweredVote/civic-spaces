@@ -1,0 +1,33 @@
+interface ProfileStatsStripProps {
+  postCount: number
+  replyCount: number
+  friendCount: number
+  isSelf: boolean
+}
+
+interface StatCellProps {
+  value: number
+  label: string
+  muted?: boolean
+}
+
+function StatCell({ value, label, muted = false }: StatCellProps) {
+  return (
+    <div className="flex flex-col items-center px-2 py-3">
+      <span className={`text-lg font-bold ${muted ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
+        {value}
+      </span>
+      <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{label}</span>
+    </div>
+  )
+}
+
+export default function ProfileStatsStrip({ postCount, replyCount, friendCount, isSelf }: ProfileStatsStripProps) {
+  return (
+    <div className={`grid ${isSelf ? 'grid-cols-3' : 'grid-cols-2'} divide-x divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900`}>
+      <StatCell value={postCount} label="Posts" />
+      <StatCell value={replyCount} label="Replies" />
+      {isSelf && <StatCell value={friendCount} label="Friends" muted />}
+    </div>
+  )
+}

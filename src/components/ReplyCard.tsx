@@ -1,0 +1,82 @@
+import { useLocation } from 'wouter'
+import { formatDistanceToNow } from 'date-fns'
+import type { ReplyWithAuthor } from '../types/database'
+import EmpoweredBadge from './EmpoweredBadge'
+import FlagButton from './FlagButton'
+
+interface ReplyCardProps {
+  reply: ReplyWithAuthor
+  depth: 0 | 1
+  onReply?: (replyId: string, authorName: string) => void
+  currentUserId?: string
+}
+
+export default function ReplyCard({ reply, depth, onReply, currentUserId }: ReplyCardProps) {
+  const [, navigate] = useLocation()
+  if (reply.is_deleted) {
+    return (
+      <div
+        className={`py-3 ${depth === 1 ? 'ml-8 border-l-2 border-gray-200 dark:border-gray-700 pl-4' : ''}`}
+      >
+        <p className="text-sm text-gray-400 dark:text-gray-500 italic">[Reply deleted]</p>
+      </div>
+    )
+  }
+
+  const timeAgo = formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })
+  const initial = reply.author.display_name.charAt(0).toUpperCase()
+
+  return (
+    <div className={`py-3 ${depth === 1 ? 'ml-8 border-l-2 border-gray-200 dark:border-gray-700 pl-4' : ''}`}>
+      {/* Author row */}
+      <button
+        type="button"
+        onClick={() => navigate('/profile/' + reply.user_id)}
+        className="flex items-center gap-2 text-left w-full"
+        aria-label={`View ${reply.author.display_name}'s profile`}
+      >
+        {reply.author.avatar_url ? (
+          <img
+            src={reply.author.avatar_url}
+            alt={reply.author.display_name}
+            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{initial}</span>
+          </div>
+        )}
+        <div className="flex items-baseline gap-1 min-w-0">
+          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+            {reply.author.display_name}
+          </span>
+          {reply.author.tier === 'empowered' && <EmpoweredBadge />}
+          <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{timeAgo}</span>
+        </div>
+      </button>
+
+      {/* Body */}
+      <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{reply.body}</p>
+
+      {/* Bottom row: reply button + flag button */}
+      <div className="mt-1.5 flex items-center justify-between">
+        {depth === 0 && onReply ? (
+          <button
+            onClick={() => onReply(reply.id, reply.author.display_name)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            Reply
+          </button>
+        ) : (
+          <span />
+        )}
+        {currentUserId && currentUserId !== reply.user_id && (
+          <FlagButton contentId={reply.id} contentType="reply" userId={currentUserId} />
+        )}
+      </div>
+    </div>
+  )
+}
