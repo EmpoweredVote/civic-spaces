@@ -27,8 +27,13 @@ export function HeroBanner({
   return (
     <div
       className={[
-        'relative overflow-hidden rounded-xl mx-4 mt-4 md:mx-0 md:mt-0',
-        'aspect-[16/9] md:aspect-[16/5]',
+        // Spacing and corner radius come from the card this sits in (AppShell).
+        'relative overflow-hidden',
+        // On phones the banner is content-sized with a floor, not a fixed
+        // ratio: the copy is bottom-aligned, so a 16/9 box too short for a
+        // wrapped title clips it off the TOP. From md up the copy always fits,
+        // so the cinematic ratio is safe.
+        'min-h-[13.5rem] md:min-h-0 md:aspect-[16/5]',
         'bg-gray-700 dark:bg-gray-800',
         'dark:ring-1 dark:ring-white/10',
       ]

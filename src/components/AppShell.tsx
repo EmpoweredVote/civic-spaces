@@ -20,7 +20,9 @@ import NotificationBell from './NotificationBell'
 import ModeratorQueue from './ModeratorQueue'
 import { Sidebar } from './Sidebar'
 import { SidebarMobile } from './SidebarMobile'
-import { HamburgerMenu } from './HamburgerMenu'
+import NavSidebar from './NavSidebar'
+import { ThemeToggle } from './ThemeToggle'
+import { ProfileMenu } from './ProfileMenu'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
@@ -106,6 +108,8 @@ export default function AppShell() {
   const [activePostIds, setActivePostIds] = useState<Record<TabKey, string | null>>(INITIAL_POST_IDS)
   const [scrollToLatestMap, setScrollToLatestMap] = useState<Record<TabKey, boolean>>(INITIAL_SCROLL_MAP)
   const [modQueueOpen, setModQueueOpen] = useState(false)
+  // The nav rail is pinned from lg up; below that it lives in this drawer.
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false)
 
   // Per-tab scroll position preservation (HUB-08)
   const scrollPositions = useRef<Record<string, number>>({})
@@ -114,6 +118,12 @@ export default function AppShell() {
   )
 
   const showVolunteerTab = !!slices['volunteer']
+
+  // The right sidebar is hidden entirely on Volunteer, so the content grid has
+  // to collapse to a single column there — otherwise the 320px track survives
+  // as dead space to the right of the feed.
+  const contentGridCols =
+    activeTab === 'volunteer' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-[1fr_320px]'
 
   // Keep the active tab on a slice the member actually has.
   //
@@ -131,6 +141,11 @@ export default function AppShell() {
     }
   }, [isLoading, hasAnySlices, slices, activeTab])
 
+  const handleTogglePanel = useCallback((panel: 'friends' | 'directory') => {
+    setActivePanel((prev) => (prev === panel ? null : panel))
+    setNavDrawerOpen(false)
+  }, [])
+
   const handleTabChange = useCallback((newTab: TabKey) => {
     // Save current tab's scroll position before switching
     const currentRef = scrollRefs.current[activeTab]
@@ -139,6 +154,7 @@ export default function AppShell() {
     }
     localStorage.setItem('cs_active_tab', newTab)
     setActiveTab(newTab)
+    setNavDrawerOpen(false)
   }, [activeTab])
 
   // Notification routing (SLCE-03): resolve reply notifications to the correct slice tab
@@ -165,20 +181,32 @@ export default function AppShell() {
     <div className="flex flex-col h-screen bg-white dark:bg-gray-950">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-brand dark:text-brand-light">Civic Spaces</h1>
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          {/* Opens the nav rail as a drawer below lg, where it is not pinned. */}
+          <button
+            type="button"
+            onClick={() => setNavDrawerOpen(true)}
+            aria-label="Open navigation"
+            aria-expanded={navDrawerOpen}
+            className="lg:hidden -ml-1 w-9 h-9 flex items-center justify-center rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <h1 className="text-lg font-semibold text-brand dark:text-brand-light whitespace-nowrap">Civic Spaces</h1>
           <a
             href="https://fc.empowered.vote"
-            className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+            className="hidden sm:inline text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors whitespace-nowrap"
           >
-            <span className="hidden sm:inline">Focused Communities</span>
-            <span className="sm:hidden">FC</span>
+            Focused Communities
           </a>
         </div>
 
-        {/* Social nav icons — only when authenticated */}
-        {isAuthenticated && (
-          <div className="flex items-center gap-2">
+        {/* Theme and account are always reachable; the social icons need a session. */}
+        <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
+          {isAuthenticated && (
+            <>
             {/* Moderator shield icon — moderators only */}
             {isModerator && (
               <button
@@ -250,13 +278,15 @@ export default function AppShell() {
                 />
               </svg>
             </button>
-            <HamburgerMenu theme={theme} onToggleTheme={toggleTheme} />
-          </div>
-        )}
+            </>
+          )}
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          <ProfileMenu isAuthenticated={isAuthenticated} loginUrl={loginUrl} />
+        </div>
       </header>
 
       {/* Content */}
-      <main className="flex flex-col flex-1 overflow-hidden min-h-0">
+      <main className="flex flex-col flex-1 overflow-hidden min-h-0 bg-gray-50 dark:bg-gray-950">
         {authLoading && (
           <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
             Loading&hellip;
@@ -293,17 +323,48 @@ export default function AppShell() {
 
         {isAuthenticated && !isLoading && !isAssigning && (hasJurisdiction || !!slices['unified']) && (
           <>
-            <SliceTabBar
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-              slices={slices}
-              showVolunteerTab={showVolunteerTab}
-            />
+            {/* Below lg the nav rail is a drawer, so the tab bar carries navigation. */}
+            <div className="lg:hidden">
+              <SliceTabBar
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                slices={slices}
+                showVolunteerTab={showVolunteerTab}
+              />
+            </div>
 
-            {/* Two-column grid: feed left (~82%), sidebar right (~18%) on desktop; single column on mobile */}
-            <div className="grid grid-cols-1 md:grid-cols-[82%_18%] flex-1 overflow-hidden min-h-0">
+            {/* Nav rail + content. The rail is pinned from lg up. */}
+            <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] grid-rows-[minmax(0,1fr)] gap-3 md:gap-4 p-3 md:p-4 flex-1 overflow-hidden min-h-0">
+              <NavSidebar
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                slices={slices}
+                showVolunteerTab={showVolunteerTab}
+                isModerator={!!isModerator}
+                activePanel={activePanel}
+                onTogglePanel={handleTogglePanel}
+                onOpenModQueue={() => setModQueueOpen(true)}
+                theme={theme}
+              />
+
+              {/* Everything right of the rail: banner on its own row, feed + sidebar
+                  below it. Nested in its own grid rather than spanning tracks of the
+                  outer one, so the rail's height can never inflate the banner row —
+                  a row-spanning item can force an `auto` row to grow to fit it even
+                  with overflow-y-auto, leaving dead space below the fold. */}
+              <div className={`grid ${contentGridCols} grid-rows-[auto_minmax(0,1fr)] gap-3 md:gap-4 min-h-0 overflow-hidden`}>
+                {/* Banner — spans the feed and sidebar columns, above both */}
+                {slices[activeTab] && (
+                  <div className="col-span-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm">
+                    <ActiveHeroBanner
+                      slice={slices[activeTab]!}
+                      fallbackName={TAB_LABELS[activeTab]}
+                    />
+                  </div>
+                )}
+
               {/* Feed column */}
-              <div className="flex flex-col overflow-hidden min-h-0">
+              <div className="flex flex-col overflow-hidden min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
                 <SidebarMobile
                   repsData={repsData}
                   activeTab={activeTab}
@@ -335,12 +396,6 @@ export default function AppShell() {
                           }}
                           scrollToLatest={scrollToLatestMap[tabKey]}
                           scrollRef={scrollRefs.current[tabKey]}
-                          header={isActive && slices[tabKey as SliceType] ? (
-                            <ActiveHeroBanner
-                              slice={slices[tabKey as SliceType]!}
-                              fallbackName={TAB_LABELS[tabKey]}
-                            />
-                          ) : undefined}
                         />
                       </div>
                     )
@@ -360,20 +415,14 @@ export default function AppShell() {
                         }}
                         scrollToLatest={scrollToLatestMap['volunteer']}
                         scrollRef={scrollRefs.current['volunteer']}
-                        header={activeTab === 'volunteer' && slices['volunteer'] ? (
-                          <ActiveHeroBanner
-                            slice={slices['volunteer']}
-                            fallbackName="Volunteer"
-                          />
-                        ) : undefined}
                       />
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Sidebar column — hidden on mobile, live on desktop; hidden entirely on volunteer tab */}
-              <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} flex-col border-l border-gray-200 dark:border-gray-700 overflow-y-auto sticky top-0 max-h-screen`}>
+              {/* Sidebar column — hidden below md, and on Volunteer entirely */}
+              <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} flex-col overflow-y-auto min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm`}>
                 <Sidebar
                   repsData={repsData}
                   activeTab={activeTab}
@@ -381,10 +430,40 @@ export default function AppShell() {
                   activeSlice={slices[activeTab]}
                 />
               </div>
+              </div>
             </div>
           </>
         )}
       </main>
+
+      {/* Nav drawer — the rail below lg, where it is not pinned */}
+      {navDrawerOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setNavDrawerOpen(false)}
+            className="absolute inset-0 bg-black/40"
+          />
+          <div className="relative w-72 max-w-[85vw] h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 shadow-xl">
+            <NavSidebar
+              variant="drawer"
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              slices={slices}
+              showVolunteerTab={showVolunteerTab}
+              isModerator={!!isModerator}
+              activePanel={activePanel}
+              onTogglePanel={handleTogglePanel}
+              onOpenModQueue={() => {
+                setModQueueOpen(true)
+                setNavDrawerOpen(false)
+              }}
+              theme={theme}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Friends panel overlay */}
       {activePanel === 'friends' && (
