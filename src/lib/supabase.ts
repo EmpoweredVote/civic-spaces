@@ -1,7 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Placeholder fallbacks keep `npm run dev` from crashing on boot when there is
+// no .env.local — the fixture data in src/lib/devMockData.ts then renders a
+// populated dashboard with no backend at all. Any real deployment sets both;
+// the warning makes a missing var loud rather than silent.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key'
+
+if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+  console.warn(
+    'Supabase env vars are not set — running without a backend connection. Data requests will fail.',
+  )
+}
 
 /**
  * The token supabase-js should present, or '' when there is no valid session.
