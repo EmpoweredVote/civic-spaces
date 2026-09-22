@@ -13,7 +13,7 @@ import { useToolCoverage } from '../hooks/useToolCoverage'
 import { useCompassData } from '../hooks/useCompassData'
 import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
-import NoJurisdictionBanner from './NoJurisdictionBanner'
+import LocationPrompt from './LocationPrompt'
 import SliceFeedPanel from './SliceFeedPanel'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
@@ -393,7 +393,7 @@ export default function AppShell() {
         )}
 
         {isAuthenticated && !isLoading && !isAssigning && !hasJurisdiction && !slices['unified'] && (
-          <NoJurisdictionBanner />
+          <LocationPrompt />
         )}
 
         {isAuthenticated && !isLoading && !isAssigning && (hasJurisdiction || !!slices['unified']) && (
