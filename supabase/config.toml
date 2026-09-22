@@ -51,3 +51,9 @@ enable_confirmations = false
 enabled = false
 port = 54327
 vector_port = 54328
+
+# GNews bills per request, so this proxy must never be reachable unauthenticated.
+# verify_jwt defaults to true; it is stated here so the requirement is visible in
+# the repo rather than inherited silently from the platform default.
+[functions.news-proxy]
+verify_jwt = true

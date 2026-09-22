@@ -6,6 +6,7 @@ import type { CoverageCatalog } from '../lib/toolCoverage'
 import { filterRepsByTab } from '../types/representatives'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
+import { SliceNewsWidget } from './widgets/NewsWidget'
 
 interface SidebarMobileProps {
   repsData: ReturnType<typeof useRepresentatives>
@@ -90,6 +91,10 @@ export function SidebarMobile({ repsData, activeTab, coverage, activeSlice }: Si
                 geoid={activeSlice?.geoid ?? null}
                 catalog={coverage}
               />
+
+              {activeSlice && (
+                <SliceNewsWidget slice={activeSlice} fallbackName={activeTab} />
+              )}
             </div>
           </motion.div>
         )}

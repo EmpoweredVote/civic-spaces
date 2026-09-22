@@ -4,6 +4,7 @@ import type { CoverageCatalog } from '../lib/toolCoverage'
 import { filterRepsByTab } from '../types/representatives'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
+import { SliceNewsWidget } from './widgets/NewsWidget'
 
 interface SidebarProps {
   repsData: ReturnType<typeof useRepresentatives>
@@ -51,6 +52,10 @@ export function Sidebar({ repsData, activeTab, coverage, activeSlice }: SidebarP
         geoid={activeSlice?.geoid ?? null}
         catalog={coverage}
       />
+
+      {activeSlice && (
+        <SliceNewsWidget slice={activeSlice} fallbackName={activeTab} />
+      )}
     </div>
   )
 }
