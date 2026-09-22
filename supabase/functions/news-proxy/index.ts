@@ -3,7 +3,15 @@
 // there) and builds the right search query per civic level.
 //
 // Deploy: `supabase functions deploy news-proxy`
-// Secret:  `supabase secrets set GNEWS_API_KEY=<key>` (get one at gnews.io)
+// Secret:  `supabase secrets set GNEWS_API_KEY=<key>` (gnews.io)
+//
+// 🔴 GNews' free tier does NOT permit commercial use and delays articles by 12
+// hours, so production needs a paid plan (Essential, 1,000 req/day, was
+// EUR 49.99/mo as of 2026-09). Before deploying, ADD CACHING BELOW: the query
+// depends only on (level, location), never on who is asking, so a cache makes
+// request volume scale with the number of active jurisdictions instead of with
+// the number of members. Uncached, every visitor to a slice costs a request and
+// no tier is safe.
 //
 // 🔴 This must stay JWT-verified. GNews bills per request, so an unauthenticated
 // proxy is someone else's free search API on our quota. verify_jwt is Supabase's
