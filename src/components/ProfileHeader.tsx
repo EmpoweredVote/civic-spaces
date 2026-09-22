@@ -18,14 +18,14 @@ function TierBadge({ tier }: { tier: ConnectedProfile['tier'] }) {
   }
   if (tier === 'connected') {
     return (
-      <span className="bg-brand-muted text-brand-btn rounded-full px-2 py-0.5 text-xs font-medium">
+      <span className="bg-brand-muted dark:bg-gray-800 text-brand-btn dark:text-brand-light rounded-full px-2 py-0.5 text-xs font-medium">
         Connected
       </span>
     )
   }
   // 'inform'
   return (
-    <span className="bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 text-xs font-medium">
+    <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full px-2 py-0.5 text-xs font-medium">
       Inform
     </span>
   )
@@ -40,7 +40,7 @@ function FriendRequestButton({ userId }: { userId: string }) {
 
   if (state === 'friends') {
     return (
-      <span className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600">
+      <span className="rounded-md bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-300">
         Friends
       </span>
     )
@@ -48,7 +48,7 @@ function FriendRequestButton({ userId }: { userId: string }) {
 
   if (state === 'pending_sent') {
     return (
-      <span className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-500">
+      <span className="rounded-md bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
         Pending
       </span>
     )
@@ -92,8 +92,8 @@ function FollowButton({ userId, tier }: { userId: string; tier: ConnectedProfile
       disabled={toggleFollow.isPending}
       className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
         isFollowing
-          ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          : 'bg-gray-800 text-white hover:bg-gray-700'
+          ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+          : 'bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-white'
       }`}
     >
       {isFollowing ? 'Following' : 'Follow'}
@@ -107,10 +107,10 @@ export default function ProfileHeader({ displayName, tier, joinDate, isSelf, use
   return (
     <div className="flex flex-col gap-1 pt-4 pb-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{displayName}</h1>
         <TierBadge tier={tier} />
       </div>
-      <p className="text-sm text-gray-500">Joined {formattedJoin}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">Joined {formattedJoin}</p>
       {!isSelf && (
         <div className="flex gap-2 mt-2 flex-wrap">
           <FriendRequestButton userId={userId} />

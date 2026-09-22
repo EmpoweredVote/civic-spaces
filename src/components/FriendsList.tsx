@@ -19,8 +19,8 @@ function AvatarCell({ profile }: { profile: FriendProfile }) {
     )
   }
   return (
-    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-      <span className="text-sm font-medium text-gray-600">
+    <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
         {profile.display_name.charAt(0).toUpperCase()}
       </span>
     </div>
@@ -34,14 +34,14 @@ export default function FriendsList({ onClose }: FriendsListProps) {
   const removeFriend = useRemoveFriend()
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col">
+    <div className="fixed inset-0 z-50 bg-white dark:bg-gray-900 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
-        <h2 className="text-base font-semibold text-gray-900">Friends</h2>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Friends</h2>
         <button
           onClick={onClose}
           aria-label="Close friends list"
-          className="p-1 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -63,7 +63,7 @@ export default function FriendsList({ onClose }: FriendsListProps) {
           <p className="text-sm text-gray-400 text-center py-8">Loading...</p>
         ) : friends.length === 0 && pendingReceived.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               No friends yet. Discover people in the Member Directory!
             </p>
           </div>
@@ -72,15 +72,15 @@ export default function FriendsList({ onClose }: FriendsListProps) {
             {/* Pending Requests section */}
             {pendingReceived.length > 0 && (
               <div className="px-4 pt-4 pb-2">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                   Pending Requests ({pendingReceived.length})
                 </h3>
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {pendingReceived.map((p) => (
                     <div key={p.user_id} className="flex items-center gap-3 py-3">
                       <AvatarCell profile={p} />
                       <div className="flex-1 min-w-0 flex items-center gap-1">
-                        <span className="text-sm font-medium text-gray-900 truncate">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                           {p.display_name}
                         </span>
                         {p.tier === 'empowered' && <EmpoweredBadge />}
@@ -96,7 +96,7 @@ export default function FriendsList({ onClose }: FriendsListProps) {
                         <button
                           onClick={() => removeFriend.mutate(p.user_id)}
                           disabled={removeFriend.isPending}
-                          className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                          className="rounded-md bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
                         >
                           Decline
                         </button>
@@ -110,10 +110,10 @@ export default function FriendsList({ onClose }: FriendsListProps) {
             {/* Friends section */}
             {friends.length > 0 && (
               <div className="px-4 pt-4 pb-2">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                   Friends ({friends.length})
                 </h3>
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {friends.map((p) => (
                     <button
                       key={p.user_id}
@@ -122,7 +122,7 @@ export default function FriendsList({ onClose }: FriendsListProps) {
                     >
                       <AvatarCell profile={p} />
                       <div className="flex-1 min-w-0 flex items-center gap-1">
-                        <span className="text-sm font-medium text-gray-900 truncate">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                           {p.display_name}
                         </span>
                         {p.tier === 'empowered' && <EmpoweredBadge />}

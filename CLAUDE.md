@@ -37,9 +37,32 @@ errors outstanding, and had done for a long time — four of them predated the s
 work. It is `tsc -b` now, which actually builds the referenced project. If you add a
 `tsconfig.*.json`, add it to `references` or nothing will check it.
 
-**`services/slice-assignment` does have tests** — vitest, `npm test` in that directory. It is
-a separate npm project with its own `tsconfig.json`; the root build does not reach it, so run
-both when you touch the service.
+**Branch from `origin/main`, after a `git fetch`** — local `main` here is routinely tens of
+commits behind. It does **not** diverge: measured 2026-09-14, `git rev-list --left-right
+--count origin/main...main` gave `22 0` (zero local-only commits) and `git merge --ff-only`
+was clean. So a plain fast-forward is all a stale `main` ever needs — no stash-and-rebranch
+dance, and nothing to salvage. If checking out `main` looks like it reverted files, that is
+a behind-by-N branch, not lost work; check the counts before reacting.
+
+**Merging: `main` needs a passing `build` and one approving review.** A PR whose files are
+*all* `.planning/**` or `*.md` is approved automatically by
+`.github/workflows/docs-auto-approve.yml`; one non-doc file and it is a normal review. The
+allowlist is the security boundary, so `.github/**` is excluded — a PR touching CI never
+auto-approves, including one that edits that workflow. `build` is required either way.
+
+🔴 **`services/slice-assignment` is FROZEN — do not develop it.** It was folded into the
+ev-accounts engine (ev-cto decision 0018) and is **canonical at
+`ev-accounts/backend/src/civic_spaces/`**, endpoint `POST /api/civic-spaces/assign`. Any
+change to slice-assignment behaviour goes there, not here. See
+`services/slice-assignment/FROZEN.md`; the local copy still runs and still compiles, so
+nothing stops you editing the wrong one.
+
+**The frontend half stays active.** `src/lib/sliceAssignment.ts` still builds
+`${VITE_SLICE_ASSIGNMENT_URL}/assign`; cutover is that one env var pointing at the engine
+base `https://api.empowered.vote/api/civic-spaces`.
+
+(The frozen service does still have vitest tests — `npm test` in that directory, a separate
+npm project the root build does not reach. Run them only if you are forced to touch it.)
 
 ## Where things are on screen
 
@@ -87,12 +110,24 @@ error:
 | layer | file |
 |---|---|
 | frontend | `decodeUserId` in `src/hooks/useAuth.ts` |
-| service | `internalUserId` in `services/slice-assignment/src/middleware/verifyToken.ts` |
+| service | `resolveInternalUserId` in **`ev-accounts`** `backend/src/lib/tokenIdentity.ts` |
 | database | `civic_spaces.current_user_id()` — 21 RLS policies across 9 tables call it |
 
-All three are `external_id` first, then `sub`. Change them together. An unlinked WorkOS
-account (no `external_id`) resolves to its own WorkOS sub, matches nothing, and sees
-nothing — fail-closed by design.
+The frontend and the database are `external_id` first, then `sub`. Change them together.
+An unlinked WorkOS account (no `external_id`) resolves to its own WorkOS sub, matches
+nothing, and sees nothing — fail-closed by design.
+
+🔴 **The service layer moved, and it does not use that rule.** Slice assignment is now the
+ev-accounts engine (`POST /api/civic-spaces/assign`), whose `requireAuth` resolves through
+`resolveInternalUserId` — which is **issuer-aware, not first-one-wins**: a Supabase token
+takes `sub`, a WorkOS token takes `external_id` *and returns null if it is absent*. So an
+unlinked WorkOS account is **rejected outright** there, rather than authenticating as its
+WorkOS sub and reading nothing. Both fail closed; they fail closed differently, and only
+one of them looks like an auth error.
+
+The old `services/slice-assignment/src/middleware/verifyToken.ts` is **frozen and was
+deliberately not carried into the engine** — it 401'd every WorkOS member after the
+cutover. Do not use it as the reference implementation.
 
 This broke production on 2026-09-02: a WorkOS member queried
 `user_id=eq.user_01M14T3W1R72ZQM70KRXH4K5E8`, matched zero rows, and sat on "Setting up
@@ -100,11 +135,12 @@ your civic spaces…" forever, because an empty membership list is indistinguish
 new account and `useEnsureSlices` kept retrying.
 
 **Both verifiers need the WorkOS issuer registered, or a WorkOS token is a 401:**
-- `services/slice-assignment` needs `WORKOS_ISSUER` and `WORKOS_JWKS_URL` alongside the
-  existing `ACCOUNTS_ISSUER` / `ACCOUNTS_JWKS_URL`. Defaults follow the WorkOS docs:
-  `https://api.workos.com/user_management/<WORKOS_CLIENT_ID>` and
+- The **frozen** `services/slice-assignment` needs `WORKOS_ISSUER` and `WORKOS_JWKS_URL`
+  alongside the existing `ACCOUNTS_ISSUER` / `ACCOUNTS_JWKS_URL`. Defaults follow the
+  WorkOS docs: `https://api.workos.com/user_management/<WORKOS_CLIENT_ID>` and
   `https://api.workos.com/sso/jwks/<WORKOS_CLIENT_ID>`. Take the client id from the
-  `ev-accounts-api` Render env — it is not in the local accounts `.env`.
+  `ev-accounts-api` Render env — it is not in the local accounts `.env`. This applies only
+  while that service still serves traffic; the engine carries its own issuer config.
 - **Supabase Third-Party Auth must trust the WorkOS issuer too**, or every `/rest/v1/*`
   call 401s. That is project config, not SQL, and not in this repo.
 

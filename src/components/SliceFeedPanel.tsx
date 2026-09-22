@@ -23,10 +23,30 @@ interface SliceFeedPanelProps {
   onNavigateToThread: (postId: string | null) => void
   scrollToLatest?: boolean
   scrollRef?: React.RefObject<HTMLDivElement | null>
-  header?: ReactNode
+  /** The sibling-slice switcher, rendered in the feed's header row. */
+  sliceSelector?: ReactNode
+  /** True when showing a sibling slice the member does not belong to. */
+  isViewOnly?: boolean
+  /** Sibling index currently displayed, and the member's own, for the notice. */
+  viewingSliceIndex?: number
+  ownSliceIndex?: number
+  onReturnToOwnSlice?: () => void
 }
 
-export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, activePostId, onNavigateToThread, scrollToLatest, scrollRef, header }: SliceFeedPanelProps) {
+export default function SliceFeedPanel({
+  sliceId,
+  sliceName,
+  siblingIndex,
+  activePostId,
+  onNavigateToThread,
+  scrollToLatest,
+  scrollRef,
+  sliceSelector,
+  isViewOnly = false,
+  viewingSliceIndex,
+  ownSliceIndex,
+  onReturnToOwnSlice,
+}: SliceFeedPanelProps) {
   const {
     data,
     fetchNextPage,
@@ -102,10 +122,44 @@ export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, activ
     <div className="relative h-full">
       {/* Feed — hidden (but mounted) when thread is open to preserve scroll */}
       <div ref={scrollRef} className={activePostId ? 'hidden' : 'flex flex-col h-full overflow-y-auto'}>
-        {header}
-        {sliceName && siblingIndex != null && (
-          <div className="px-4 py-2 text-sm font-medium text-gray-500 border-b border-gray-100">
-            {sliceName} #{siblingIndex}
+        {(sliceSelector || (sliceName && siblingIndex != null)) && (
+          <div className="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-gray-100 dark:border-gray-800">
+            {sliceSelector ?? (
+              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                {sliceName} #{siblingIndex}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Informational, not an error: posting simply is not available here,
+            because this is not the slice the member was assigned to. */}
+        {isViewOnly && (
+          <div className="flex items-start gap-2.5 m-4 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
+            <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p className="leading-snug">
+              You're browsing Slice {viewingSliceIndex ?? '—'} read-only.
+              {typeof ownSliceIndex === 'number' && (
+                <>
+                  {' '}Posting and replying stay in your own community, Slice {ownSliceIndex}.
+                  {onReturnToOwnSlice && (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        onClick={onReturnToOwnSlice}
+                        className="font-semibold underline hover:no-underline"
+                      >
+                        Switch back
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </p>
           </div>
         )}
         {posts.length === 0 ? (
@@ -145,14 +199,18 @@ export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, activ
           </div>
         )}
 
-        {/* FAB */}
-        <FAB
-          onClick={handleFABClick}
-          disabled={profile?.is_suspended === true}
-        />
+        {/* Hidden, not disabled, while view-only: RLS rejects an insert into a
+            slice the member is not in, so offering the control at all would only
+            produce an error. */}
+        {!isViewOnly && (
+          <FAB
+            onClick={handleFABClick}
+            disabled={profile?.is_suspended === true}
+          />
+        )}
 
         {/* Post composer sheet */}
-        {userId && (
+        {userId && !isViewOnly && (
           <PostComposer
             isOpen={composerOpen}
             onClose={handleCloseComposer}
@@ -177,7 +235,8 @@ export default function SliceFeedPanel({ sliceId, sliceName, siblingIndex, activ
             sliceId={sliceId}
             onBack={() => onNavigateToThread(null)}
             scrollToLatest={scrollToLatest}
-            header={header}
+            isViewOnly={isViewOnly}
+            ownSliceIndex={ownSliceIndex}
           />
         </div>
       )}

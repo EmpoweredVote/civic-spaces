@@ -71,6 +71,29 @@ function isTokenExpired(token: string): boolean {
   return Date.now() / 1000 > exp
 }
 
+const DEV_GUEST_ID = 'dev-guest'
+
+function b64url(obj: Record<string, unknown>): string {
+  return btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+}
+
+/**
+ * An unsigned, local-only token for previewing the signed-in experience with
+ * `npm run dev` — the accounts hub always redirects to the production origin,
+ * so there is otherwise no way to reach an authenticated screen on localhost.
+ *
+ * It is not a credential and cannot become one: `alg: 'none'` with a stub
+ * signature is rejected by PostgREST and by both verifiers. Its only job is to
+ * carry the reserved `dev-guest` id, which src/lib/devMockData.ts recognises
+ * and answers with fixture data. A real Supabase user id can never collide
+ * with that string.
+ */
+function createDevFallbackToken(): string {
+  const header = b64url({ alg: 'none', typ: 'JWT' })
+  const payload = b64url({ sub: DEV_GUEST_ID, exp: Math.floor(Date.now() / 1000) + 31536000 })
+  return `${header}.${payload}.dev-signature`
+}
+
 function storeToken(token: string): string | null {
   const userId = decodeUserId(token)
   if (userId) {
@@ -188,6 +211,15 @@ export function useAuth(): AuthState & { loginUrl: string } {
           setAuthState({ userId, isAuthenticated: true, isLoading: false })
           return
         }
+      }
+
+      // 4. Opt-in local dev session (?dev=1). Deliberately last: every real
+      // check above wins, so this can never mask a genuine session. Stripped
+      // from a production build by the import.meta.env.DEV guard.
+      if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('dev') === '1') {
+        localStorage.setItem('cs_token', createDevFallbackToken())
+        setAuthState({ userId: DEV_GUEST_ID, isAuthenticated: true, isLoading: false })
+        return
       }
 
       // 401 (signed out) or network error — show the guest UI. Do NOT redirect

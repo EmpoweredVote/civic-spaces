@@ -20,9 +20,9 @@ function FriendRow({ displayName, tier, onClick }: FriendRowProps) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-2 py-2.5 border-b border-gray-100 text-left last:border-b-0 hover:bg-gray-50 transition-colors -mx-1 px-1 rounded"
+      className="w-full flex items-center gap-2 py-2.5 border-b border-gray-100 dark:border-gray-800 text-left last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors -mx-1 px-1 rounded"
     >
-      <span className="text-sm text-gray-800 flex-1 truncate">{displayName}</span>
+      <span className="text-sm text-gray-800 dark:text-gray-200 flex-1 truncate">{displayName}</span>
       {tier === 'empowered' && <EmpoweredBadge />}
     </button>
   )
@@ -61,7 +61,7 @@ function MutualFriendsList({ userId }: { userId: string }) {
 
   return (
     <>
-      <h2 className="text-sm font-semibold text-gray-700 mb-2">
+      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
         Mutual Friends ({isLoading ? '…' : mutualFriends.length})
       </h2>
       {isLoading ? (
@@ -90,7 +90,7 @@ export default function ProfileFriends({ userId, isSelf }: ProfileFriendsProps) 
     <div>
       {isSelf ? (
         <>
-          <h2 className="text-sm font-semibold text-gray-700 mb-2">Friends</h2>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Friends</h2>
           <OwnFriendsList />
         </>
       ) : (

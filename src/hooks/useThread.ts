@@ -1,5 +1,6 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { isMockSliceId, getMockPostById, getMockReplies } from '../lib/devMockData'
 import type { PostWithAuthor, ReplyWithAuthor, ConnectedProfile } from '../types/database'
 
 interface ReplyCursor {
@@ -8,6 +9,13 @@ interface ReplyCursor {
 }
 
 async function fetchPostWithAuthor(postId: string): Promise<PostWithAuthor> {
+  // Fixture posts (from the mock feed) never exist in Supabase — serve the
+  // local fixture directly instead of hitting the real posts table.
+  if (isMockSliceId(postId)) {
+    const mockPost = getMockPostById(postId)
+    if (mockPost) return mockPost
+  }
+
   const { data: post, error: postError } = await supabase
     .schema('civic_spaces')
     .from('posts')
@@ -44,6 +52,10 @@ async function fetchRepliesPage(
   postId: string,
   cursor: ReplyCursor | undefined,
 ): Promise<ReplyWithAuthor[]> {
+  if (isMockSliceId(postId)) {
+    return cursor ? [] : getMockReplies(postId)
+  }
+
   let query = supabase
     .schema('civic_spaces')
     .from('replies')
