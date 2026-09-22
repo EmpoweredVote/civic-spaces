@@ -207,7 +207,53 @@ const MOCK_CITY_POSTS: PostWithAuthor[] = [
   },
 ]
 
+/**
+ * A second Federal shard, so the sibling-slice switcher is actually exercisable
+ * at `?dev=1`. Real siblings only appear once a jurisdiction passes its member
+ * cap, which no local fixture would otherwise reach. Its posts differ from
+ * Slice 1's so switching visibly changes the feed.
+ */
+export const MOCK_FEDERAL_SIBLING_ID = `${MOCK_ID_PREFIX}federal-2`
+
+const MOCK_FEDERAL_SIBLING_POSTS: PostWithAuthor[] = [
+  {
+    id: 'mock-federal-2-post-1',
+    slice_id: MOCK_FEDERAL_SIBLING_ID,
+    user_id: 'mock-user-sibling1',
+    title: null,
+    body: "This is Federal Slice 2. If you can read this but cannot post, the sibling-slice read-only path is working.",
+    reply_count: 0,
+    edit_history: [],
+    created_at: '2026-04-06T12:00:00.000Z',
+    updated_at: '2026-04-06T12:00:00.000Z',
+    is_deleted: false,
+    author: author('SecondShardMember'),
+  },
+]
+
+/**
+ * Sibling shards per mock slice, shaped like useSiblingSlices' return rows.
+ * Only Federal is sharded — one example is enough to drive the selector, and
+ * every other tab exercises the single-slice (non-interactive) state.
+ */
+const MOCK_SIBLINGS: Partial<Record<string, Array<{ id: string; siblingIndex: number; memberCount: number }>>> = {
+  [MOCK_SLICES.federal.id]: [
+    { id: MOCK_SLICES.federal.id, siblingIndex: 1, memberCount: MOCK_SLICES.federal.memberCount },
+    { id: MOCK_FEDERAL_SIBLING_ID, siblingIndex: 2, memberCount: 17 },
+  ],
+}
+
+/** Siblings for a fixture slice, or just itself when that slice is not sharded. */
+export function getMockSiblings(
+  sliceId: string,
+  ownSiblingIndex: number,
+  ownMemberCount: number,
+): Array<{ id: string; siblingIndex: number; memberCount: number }> {
+  return MOCK_SIBLINGS[sliceId] ?? [{ id: sliceId, siblingIndex: ownSiblingIndex, memberCount: ownMemberCount }]
+}
+
 const MOCK_FEEDS: Partial<Record<string, PostWithAuthor[]>> = {
+  [MOCK_FEDERAL_SIBLING_ID]: MOCK_FEDERAL_SIBLING_POSTS,
   [MOCK_SLICES.federal.id]: MOCK_FEDERAL_POSTS,
   [MOCK_SLICES.state.id]: MOCK_STATE_POSTS,
   [MOCK_SLICES.county.id]: MOCK_COUNTY_POSTS,
@@ -220,7 +266,7 @@ export function getMockFeedPage(sliceId: string): PostWithAuthor[] {
 
 /** Looks up a single fixture post by id — used when opening a mock post's thread. */
 export function getMockPostById(postId: string): PostWithAuthor | null {
-  const all = [...MOCK_FEDERAL_POSTS, ...MOCK_STATE_POSTS, ...MOCK_COUNTY_POSTS, ...MOCK_CITY_POSTS]
+  const all = [...MOCK_FEDERAL_POSTS, ...MOCK_FEDERAL_SIBLING_POSTS, ...MOCK_STATE_POSTS, ...MOCK_COUNTY_POSTS, ...MOCK_CITY_POSTS]
   return all.find((p) => p.id === postId) ?? null
 }
 

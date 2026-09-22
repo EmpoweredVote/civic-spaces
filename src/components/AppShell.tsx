@@ -7,6 +7,7 @@ import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
 import { useWikiHeroImage } from '../hooks/useWikiHeroImage'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
+import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import { useToolCoverage } from '../hooks/useToolCoverage'
 import { useTheme } from '../hooks/useTheme'
@@ -23,6 +24,7 @@ import { SidebarMobile } from './SidebarMobile'
 import NavSidebar from './NavSidebar'
 import { ThemeToggle } from './ThemeToggle'
 import { ProfileMenu } from './ProfileMenu'
+import { SliceSelector } from './SliceSelector'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
@@ -33,9 +35,13 @@ import type { TabKey, SliceType, SliceInfo } from '../types/database'
 function ActiveHeroBanner({
   slice,
   fallbackName,
+  siblingIndexOverride,
 }: {
   slice: SliceInfo
   fallbackName: string
+  /** Shard being viewed, when it is not the member's own — the banner should
+   *  name the slice on screen, not the one they belong to. */
+  siblingIndexOverride?: number
 }) {
   const wikiPhotoUrl = useWikiHeroImage(slice)
   const displayName = useJurisdictionName(slice, fallbackName)
@@ -44,8 +50,52 @@ function ActiveHeroBanner({
       sliceType={slice.sliceType}
       sliceName={displayName}
       memberCount={slice.memberCount}
-      siblingIndex={slice.siblingIndex}
+      siblingIndex={siblingIndexOverride ?? slice.siblingIndex}
       photoUrl={slice.photoUrl ?? wikiPhotoUrl}
+    />
+  )
+}
+
+/**
+ * The sibling-slice switcher for one slice.
+ *
+ * 🔴 Rendered ONLY for the active tab. All six feed panels are mounted at once,
+ * so putting useSiblingSlices inside the panel itself would fire it six times on
+ * load — the landmine in CLAUDE.md. Gating on isActive keeps it to one.
+ */
+function ActiveSliceSelector({
+  slice,
+  fallbackName,
+  viewingSliceId,
+  onSelect,
+}: {
+  slice: SliceInfo
+  fallbackName: string
+  viewingSliceId: string
+  onSelect: (sibling: SiblingSlice) => void
+}) {
+  const { siblings, isLoading, isError } = useSiblingSlices(
+    slice.sliceType,
+    slice.geoid,
+    slice.id,
+    slice.siblingIndex,
+    slice.memberCount,
+  )
+  const locationName = useJurisdictionName(slice, fallbackName)
+
+  return (
+    <SliceSelector
+      locationName={locationName}
+      ownSliceId={slice.id}
+      ownSiblingIndex={slice.siblingIndex}
+      viewingSliceId={viewingSliceId}
+      siblings={siblings}
+      isLoading={isLoading}
+      isError={isError}
+      onSelect={(id) => {
+        const picked = siblings.find((sib) => sib.id === id)
+        if (picked) onSelect(picked)
+      }}
     />
   )
 }
@@ -66,6 +116,16 @@ const TAB_LABELS: Record<TabKey, string> = {
 const ALL_TAB_KEYS: TabKey[] = ['city', 'county', 'state', 'federal', 'unified', 'volunteer']
 
 const INITIAL_POST_IDS: Record<TabKey, string | null> = {
+  city: null,
+  county: null,
+  state: null,
+  federal: null,
+  unified: null,
+  volunteer: null,
+}
+
+/** Which sibling each tab is currently showing; null means the member's own. */
+const INITIAL_VIEWING: Record<TabKey, SiblingSlice | null> = {
   city: null,
   county: null,
   state: null,
@@ -107,6 +167,7 @@ export default function AppShell() {
   })
   const [activePostIds, setActivePostIds] = useState<Record<TabKey, string | null>>(INITIAL_POST_IDS)
   const [scrollToLatestMap, setScrollToLatestMap] = useState<Record<TabKey, boolean>>(INITIAL_SCROLL_MAP)
+  const [viewingSlices, setViewingSlices] = useState<Record<TabKey, SiblingSlice | null>>(INITIAL_VIEWING)
   const [modQueueOpen, setModQueueOpen] = useState(false)
   // The nav rail is pinned from lg up; below that it lives in this drawer.
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
@@ -140,6 +201,16 @@ export default function AppShell() {
       localStorage.setItem('cs_active_tab', firstAvailable)
     }
   }, [isLoading, hasAnySlices, slices, activeTab])
+
+  const handleViewSlice = useCallback((tab: TabKey, sibling: SiblingSlice, ownSliceId: string) => {
+    setViewingSlices((prev) => ({ ...prev, [tab]: sibling.id === ownSliceId ? null : sibling }))
+    // The open thread and the saved scroll offset both belong to the slice being
+    // left, so neither means anything in the one being opened.
+    setActivePostIds((prev) => ({ ...prev, [tab]: null }))
+    scrollPositions.current[tab] = 0
+    const ref = scrollRefs.current[tab]
+    if (ref?.current) ref.current.scrollTop = 0
+  }, [])
 
   const handleTogglePanel = useCallback((panel: 'friends' | 'directory') => {
     setActivePanel((prev) => (prev === panel ? null : panel))
@@ -359,6 +430,7 @@ export default function AppShell() {
                     <ActiveHeroBanner
                       slice={slices[activeTab]!}
                       fallbackName={TAB_LABELS[activeTab]}
+                      siblingIndexOverride={viewingSlices[activeTab]?.siblingIndex}
                     />
                   </div>
                 )}
@@ -380,15 +452,31 @@ export default function AppShell() {
                     const slice = slices[tabKey]
                     if (!slice) return null
                     const isActive = activeTab === tabKey
+                    const viewing = viewingSlices[tabKey]
+                    const isViewOnly = !!viewing && viewing.id !== slice.id
                     return (
                       <div
                         key={tabKey}
                         className={isActive ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}
                       >
                         <SliceFeedPanel
-                          sliceId={slice.id}
+                          sliceId={viewing?.id ?? slice.id}
                           sliceName={TAB_LABELS[tabKey]}
                           siblingIndex={slice.siblingIndex}
+                          isViewOnly={isViewOnly}
+                          viewingSliceIndex={viewing?.siblingIndex}
+                          ownSliceIndex={slice.siblingIndex}
+                          onReturnToOwnSlice={() =>
+                            handleViewSlice(tabKey, { id: slice.id, siblingIndex: slice.siblingIndex, memberCount: slice.memberCount }, slice.id)
+                          }
+                          sliceSelector={isActive ? (
+                            <ActiveSliceSelector
+                              slice={slice}
+                              fallbackName={TAB_LABELS[tabKey]}
+                              viewingSliceId={viewing?.id ?? slice.id}
+                              onSelect={(sib) => handleViewSlice(tabKey, sib, slice.id)}
+                            />
+                          ) : undefined}
                           activePostId={activePostIds[tabKey]}
                           onNavigateToThread={(postId) => {
                             setScrollToLatestMap(prev => ({ ...prev, [tabKey]: false }))
