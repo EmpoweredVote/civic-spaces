@@ -23,7 +23,6 @@ interface SliceFeedPanelProps {
   onNavigateToThread: (postId: string | null) => void
   scrollToLatest?: boolean
   scrollRef?: React.RefObject<HTMLDivElement | null>
-  header?: ReactNode
   /** The sibling-slice switcher, rendered in the feed's header row. */
   sliceSelector?: ReactNode
   /** True when showing a sibling slice the member does not belong to. */
@@ -42,7 +41,6 @@ export default function SliceFeedPanel({
   onNavigateToThread,
   scrollToLatest,
   scrollRef,
-  header,
   sliceSelector,
   isViewOnly = false,
   viewingSliceIndex,
@@ -124,7 +122,6 @@ export default function SliceFeedPanel({
     <div className="relative h-full">
       {/* Feed — hidden (but mounted) when thread is open to preserve scroll */}
       <div ref={scrollRef} className={activePostId ? 'hidden' : 'flex flex-col h-full overflow-y-auto'}>
-        {header}
         {(sliceSelector || (sliceName && siblingIndex != null)) && (
           <div className="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-gray-100 dark:border-gray-800">
             {sliceSelector ?? (
@@ -238,7 +235,8 @@ export default function SliceFeedPanel({
             sliceId={sliceId}
             onBack={() => onNavigateToThread(null)}
             scrollToLatest={scrollToLatest}
-            header={header}
+            isViewOnly={isViewOnly}
+            ownSliceIndex={ownSliceIndex}
           />
         </div>
       )}
