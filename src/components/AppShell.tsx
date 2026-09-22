@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback, createRef } from 'react'
+import { useRoute, useLocation } from 'wouter'
+import { toast } from 'sonner'
 import type React from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useAllSlices } from '../hooks/useAllSlices'
@@ -116,6 +118,9 @@ const TAB_LABELS: Record<TabKey, string> = {
 
 const ALL_TAB_KEYS: TabKey[] = ['city', 'county', 'state', 'federal', 'unified', 'volunteer']
 
+/** A /post link followed while signed out, replayed once the session exists. */
+const PENDING_POST_KEY = 'cs_pending_post'
+
 const INITIAL_POST_IDS: Record<TabKey, string | null> = {
   city: null,
   county: null,
@@ -176,6 +181,13 @@ export default function AppShell() {
   // The nav rail is pinned from lg up; below that it lives in this drawer.
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
 
+  const [, navigate] = useLocation()
+  // The post id the route effect has already acted on, so a URL this component
+  // pushed itself does not bounce back through openPost.
+  const handledRoutePostRef = useRef<string | null>(null)
+  const [, postRouteParams] = useRoute('/post/:postId')
+  const routePostId = postRouteParams?.postId ?? null
+
   // Per-tab scroll position preservation (HUB-08)
   const scrollPositions = useRef<Record<string, number>>({})
   const scrollRefs = useRef<Record<string, React.RefObject<HTMLDivElement | null>>>(
@@ -232,15 +244,97 @@ export default function AppShell() {
     setNavDrawerOpen(false)
   }, [activeTab])
 
-  // Notification routing (SLCE-03): resolve reply notifications to the correct slice tab
-  const { resolveTabForPost } = useNotificationRouting(slices)
+  // One resolver behind both notification clicks and /post/:postId links, so a
+  // shared link and a notification land in the same place by the same route.
+  const { locatePost } = useNotificationRouting(slices)
 
-  const handleNotificationNavigate = useCallback(async (postId: string) => {
-    const resolvedTab = await resolveTabForPost(postId)
-    handleTabChange(resolvedTab)
-    setActivePostIds(prev => ({ ...prev, [resolvedTab]: postId }))
-    setScrollToLatestMap(prev => ({ ...prev, [resolvedTab]: true }))
-  }, [resolveTabForPost, handleTabChange])
+  const openPost = useCallback(async (postId: string, scrollToLatest: boolean) => {
+    const found = await locatePost(postId)
+
+    if (found.kind === 'unavailable') {
+      // One message for not-found, deleted and not-yours alike: saying which
+      // it was would tell someone whether a post they cannot read exists.
+      toast.error("That conversation isn't in one of your civic spaces")
+      navigate('/', { replace: true })
+      return
+    }
+
+    handleTabChange(found.tab)
+    // A sibling shard is readable but not writable, so open the tab pointed at
+    // that shard — the feed and thread both go view-only off this.
+    setViewingSlices((prev) => ({
+      ...prev,
+      [found.tab]: found.kind === 'sibling' ? found.sibling : null,
+    }))
+    setActivePostIds((prev) => ({ ...prev, [found.tab]: postId }))
+    setScrollToLatestMap((prev) => ({ ...prev, [found.tab]: scrollToLatest }))
+  }, [locatePost, handleTabChange, navigate])
+
+  const handleNotificationNavigate = useCallback(
+    (postId: string) => openPost(postId, true),
+    [openPost],
+  )
+
+  /**
+   * Opening or closing a thread moves the URL with it, so a thread can be
+   * shared, bookmarked, and closed with the browser's back button.
+   */
+  const handleNavigateToThread = useCallback((tab: TabKey, postId: string | null) => {
+    setScrollToLatestMap((prev) => ({ ...prev, [tab]: false }))
+    setActivePostIds((prev) => ({ ...prev, [tab]: postId }))
+    // Record it as already handled: the route effect below would otherwise see
+    // the URL we just pushed and re-resolve a thread that is already open.
+    handledRoutePostRef.current = postId
+    navigate(postId ? `/post/${postId}` : '/')
+  }, [navigate])
+
+  /**
+   * A /post/:postId link. Held until the member's slices have loaded, because
+   * resolving a post means matching its slice against theirs.
+   */
+  useEffect(() => {
+    if (!routePostId) {
+      handledRoutePostRef.current = null
+      return
+    }
+    if (handledRoutePostRef.current === routePostId) return
+    if (!isAuthenticated || isLoading || !hasAnySlices) return
+    handledRoutePostRef.current = routePostId
+    void openPost(routePostId, false)
+  }, [routePostId, isAuthenticated, isLoading, hasAnySlices, openPost])
+
+  /**
+   * A signed-out visitor following a link: remember the post across login.
+   *
+   * The accounts hub is sent a fixed `redirect` back to this app's origin, so
+   * the path does not survive the round trip. Stashing it here keeps the link
+   * working without changing LOGIN_URL — whether that hub accepts an arbitrary
+   * path is its policy, and a rejected redirect would break login itself.
+   */
+  useEffect(() => {
+    if (authLoading || isAuthenticated || !routePostId) return
+    try {
+      localStorage.setItem(PENDING_POST_KEY, routePostId)
+    } catch {
+      // Storage blocked — the link simply will not survive login.
+    }
+  }, [authLoading, isAuthenticated, routePostId])
+
+  useEffect(() => {
+    if (!isAuthenticated || isLoading || !hasAnySlices || routePostId) return
+    let pending: string | null = null
+    try {
+      pending = localStorage.getItem(PENDING_POST_KEY)
+      if (pending) localStorage.removeItem(PENDING_POST_KEY)
+    } catch {
+      return
+    }
+    if (pending) {
+      handledRoutePostRef.current = pending
+      void openPost(pending, false)
+      navigate(`/post/${pending}`, { replace: true })
+    }
+  }, [isAuthenticated, isLoading, hasAnySlices, routePostId, openPost, navigate])
 
   // Restore scroll position after the new tab becomes visible
   useEffect(() => {
@@ -483,10 +577,7 @@ export default function AppShell() {
                             />
                           ) : undefined}
                           activePostId={activePostIds[tabKey]}
-                          onNavigateToThread={(postId) => {
-                            setScrollToLatestMap(prev => ({ ...prev, [tabKey]: false }))
-                            setActivePostIds(prev => ({ ...prev, [tabKey]: postId }))
-                          }}
+                          onNavigateToThread={(postId) => handleNavigateToThread(tabKey, postId)}
                           scrollToLatest={scrollToLatestMap[tabKey]}
                           scrollRef={scrollRefs.current[tabKey]}
                         />
@@ -502,10 +593,7 @@ export default function AppShell() {
                         sliceName="Volunteer"
                         siblingIndex={slices['volunteer'].siblingIndex}
                         activePostId={activePostIds['volunteer']}
-                        onNavigateToThread={(postId) => {
-                          setScrollToLatestMap(prev => ({ ...prev, volunteer: false }))
-                          setActivePostIds(prev => ({ ...prev, volunteer: postId }))
-                        }}
+                        onNavigateToThread={(postId) => handleNavigateToThread('volunteer', postId)}
                         scrollToLatest={scrollToLatestMap['volunteer']}
                         scrollRef={scrollRefs.current['volunteer']}
                       />
