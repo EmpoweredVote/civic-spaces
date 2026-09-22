@@ -29,14 +29,14 @@ function MemberRow({
           className="w-10 h-10 rounded-full object-cover flex-shrink-0"
         />
       ) : (
-        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-          <span className="text-sm font-medium text-gray-600">
+        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
             {member.display_name.charAt(0).toUpperCase()}
           </span>
         </div>
       )}
       <div className="flex items-center gap-1 min-w-0">
-        <span className="text-sm font-medium text-gray-900 truncate">{member.display_name}</span>
+        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{member.display_name}</span>
         {member.tier === 'empowered' && <EmpoweredBadge />}
       </div>
     </button>
@@ -60,7 +60,7 @@ function DirectoryList({
 
   return (
     <>
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-gray-100 dark:divide-gray-800">
         {members.map((m) => (
           <MemberRow key={m.user_id} member={m} onTap={onTap} />
         ))}
@@ -98,7 +98,7 @@ function SearchResults({
     return <p className="text-sm text-gray-400 text-center py-6">No results for "{term}".</p>
 
   return (
-    <div className="divide-y divide-gray-100">
+    <div className="divide-y divide-gray-100 dark:divide-gray-800">
       {data.map((m) => (
         <MemberRow key={m.user_id} member={m} onTap={onTap} />
       ))}
@@ -118,14 +118,14 @@ export default function MemberDirectory({ sliceId, onClose }: MemberDirectoryPro
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col">
+    <div className="fixed inset-0 z-50 bg-white dark:bg-gray-900 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
-        <h2 className="text-base font-semibold text-gray-900">Member Directory</h2>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Member Directory</h2>
         <button
           onClick={onClose}
           aria-label="Close member directory"
-          className="p-1 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -142,22 +142,22 @@ export default function MemberDirectory({ sliceId, onClose }: MemberDirectoryPro
       </div>
 
       {/* Search controls */}
-      <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0 space-y-2">
+      <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 space-y-2">
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search members..."
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
+          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
         />
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={crossSlice}
             onChange={(e) => setCrossSlice(e.target.checked)}
-            className="rounded border-gray-300 text-brand focus:ring-brand"
+            className="rounded border-gray-300 dark:border-gray-600 text-brand focus:ring-brand"
           />
-          <span className="text-sm text-gray-600">Search beyond your slice</span>
+          <span className="text-sm text-gray-600 dark:text-gray-300">Search beyond your slice</span>
         </label>
       </div>
 

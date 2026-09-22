@@ -71,7 +71,7 @@ export default function NotificationItem({ notification, onTap }: NotificationIt
     <button
       type="button"
       onClick={() => onTap(notification)}
-      className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors focus:outline-none focus-visible:bg-gray-100"
+      className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus:outline-none focus-visible:bg-gray-100 dark:focus-visible:bg-gray-800"
     >
       {/* Unread indicator */}
       <div className="flex-shrink-0 flex items-center justify-center w-4 pt-1">
@@ -89,8 +89,8 @@ export default function NotificationItem({ notification, onTap }: NotificationIt
             className="w-6 h-6 rounded-full object-cover"
           />
         ) : (
-          <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
-            <span className="text-[10px] text-gray-500 font-medium">
+          <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+            <span className="text-[10px] text-gray-500 dark:text-gray-300 font-medium">
               {actorName.charAt(0).toUpperCase()}
             </span>
           </div>
@@ -99,7 +99,7 @@ export default function NotificationItem({ notification, onTap }: NotificationIt
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm leading-snug ${isUnread ? 'font-semibold text-gray-900' : 'font-normal text-gray-700'}`}>
+        <p className={`text-sm leading-snug ${isUnread ? 'font-semibold text-gray-900 dark:text-gray-100' : 'font-normal text-gray-700 dark:text-gray-300'}`}>
           {actorSegment && primaryActorId ? (
             <>
               <span
@@ -115,7 +115,7 @@ export default function NotificationItem({ notification, onTap }: NotificationIt
                     navigate('/profile/' + primaryActorId)
                   }
                 }}
-                className="underline underline-offset-2 hover:text-brand transition-colors cursor-pointer"
+                className="underline underline-offset-2 hover:text-brand dark:hover:text-brand-light transition-colors cursor-pointer"
                 aria-label={`View ${actorSegment}'s profile`}
               >
                 {actorSegment}
@@ -126,7 +126,7 @@ export default function NotificationItem({ notification, onTap }: NotificationIt
             restSegment
           )}
         </p>
-        <p className="text-xs text-gray-400 mt-0.5">{relativeTime}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-400 mt-0.5">{relativeTime}</p>
       </div>
     </button>
   )
