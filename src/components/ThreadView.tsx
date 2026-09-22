@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import type { ReactNode } from 'react'
 import { useLocation } from 'wouter'
 import { formatDistanceToNow } from 'date-fns'
 import { useThread } from '../hooks/useThread'
@@ -16,7 +15,10 @@ interface ThreadViewProps {
   onBack: () => void
   sliceId: string
   scrollToLatest?: boolean
-  header?: ReactNode
+  /** True when this thread belongs to a sibling slice the user is browsing, not their own. */
+  isViewOnly?: boolean
+  /** The user's own slice number for this location — used in the view-only explanation. */
+  ownSliceIndex?: number
 }
 
 interface ReplyTarget {
@@ -24,7 +26,7 @@ interface ReplyTarget {
   authorName: string
 }
 
-export default function ThreadView({ postId, onBack, scrollToLatest, header }: ThreadViewProps) {
+export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly = false, ownSliceIndex }: ThreadViewProps) {
   const [, navigate] = useLocation()
   const { post, replies, fetchMoreReplies, hasMoreReplies, isLoading } = useThread(postId)
   const { userId } = useAuth()
@@ -84,10 +86,12 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
           <button
             onClick={onBack}
-            className="text-brand hover:text-brand-btn text-sm font-medium"
             aria-label="Back to feed"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
-            ← Back
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
           </button>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Thread</h2>
         </div>
@@ -100,57 +104,56 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      {header}
-      {/* Header */}
+      {/* Header — back button merged with the post author's identity, like a post-detail page */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0 sticky top-0 z-10">
         <button
           onClick={onBack}
-          className="text-brand hover:text-brand-btn text-sm font-medium"
           aria-label="Back to feed"
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
         >
-          ← Back
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
         </button>
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Thread</h2>
+
+        {post ? (
+          <button
+            type="button"
+            onClick={() => navigate('/profile/' + post.user_id)}
+            className="flex items-center gap-2.5 min-w-0 text-left"
+            aria-label={`View ${post.author.display_name}'s profile`}
+          >
+            {post.author.avatar_url ? (
+              <img
+                src={post.author.avatar_url}
+                alt={post.author.display_name}
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                  {post.author.display_name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+            <span className="flex items-baseline gap-1 min-w-0">
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{post.author.display_name}</span>
+              {post.author.tier === 'empowered' && <EmpoweredBadge />}
+              <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                {post.edit_history.length > 0 && ' · edited'}
+              </span>
+            </span>
+          </button>
+        ) : (
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Thread</h2>
+        )}
       </div>
 
       <div className="flex-1 px-4 pb-8">
-        {/* Original post */}
+        {/* 1. The post */}
         {post && (
-          <div className="py-4 border-b border-gray-200 dark:border-gray-700">
-            {/* Author row */}
-            <button
-              type="button"
-              onClick={() => navigate('/profile/' + post.user_id)}
-              className="flex items-center gap-3 w-full text-left"
-              aria-label={`View ${post.author.display_name}'s profile`}
-            >
-              {post.author.avatar_url ? (
-                <img
-                  src={post.author.avatar_url}
-                  alt={post.author.display_name}
-                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    {post.author.display_name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              )}
-              <div>
-                <div className="flex items-center gap-1">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{post.author.display_name}</p>
-                  {post.author.tier === 'empowered' && <EmpoweredBadge />}
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                  {post.edit_history.length > 0 && (
-                    <span className="text-gray-400 dark:text-gray-500"> · edited</span>
-                  )}
-                </p>
-              </div>
-            </button>
-
+          <div className="py-4">
             {/* Post title */}
             {post.title && (
               <p className="mt-3 text-base font-semibold text-gray-900 dark:text-gray-100">{post.title}</p>
@@ -159,46 +162,54 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
             {/* Post body */}
             <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{post.body}</p>
 
-            {/* Reply count separator */}
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
-              {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+            {/* Action row: comment count + share */}
+            <div className="mt-3 flex items-center gap-2">
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+              </span>
             </div>
           </div>
         )}
 
-        {/* Reply to post action */}
-        {userId && (
-          <div className="py-3 border-b border-gray-100 dark:border-gray-700">
-            {canWrite ? (
-              <>
-                {!replyComposerOpen || activeReplyTarget !== null ? (
-                  <button
-                    onClick={handleReplyToPost}
-                    className="text-sm text-brand hover:underline"
-                  >
-                    Reply to post
-                  </button>
-                ) : null}
-                {replyComposerOpen && activeReplyTarget === null && (
-                  <ReplyComposer
-                    postId={postId}
-                    userId={userId}
-                    onClose={closeComposer}
-                  />
-                )}
-              </>
-            ) : profile?.tier === 'inform' ? (
-              <button
-                onClick={handleReplyToPost}
-                className="text-sm text-brand hover:underline"
-              >
-                Reply
-              </button>
-            ) : null}
+        {/* 2. Join the conversation — hidden when browsing a sibling slice
+            read-only. */}
+        {isViewOnly ? (
+          <div className="py-3 flex items-start gap-2.5 rounded-lg bg-amber-50 dark:bg-amber-400/10 border border-amber-200 dark:border-amber-400/20 px-3.5 py-2.5 text-sm text-amber-800 dark:text-amber-200">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p className="leading-snug">
+              You're viewing this thread read-only.
+              {typeof ownSliceIndex === 'number' && ` Replying is limited to your assigned community, Slice ${ownSliceIndex}.`}
+            </p>
           </div>
+        ) : (
+          (!userId || !profile?.is_suspended) && (
+            <div className="py-3">
+              {(!replyComposerOpen || activeReplyTarget !== null) && (
+                <button
+                  onClick={handleReplyToPost}
+                  className="w-full text-left px-3 py-2.5 rounded-full border border-gray-300 dark:border-gray-700 text-sm text-gray-400 dark:text-gray-500 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+                >
+                  Join the conversation
+                </button>
+              )}
+              {canWrite && replyComposerOpen && activeReplyTarget === null && (
+                <ReplyComposer
+                  postId={postId}
+                  userId={userId!}
+                  onClose={closeComposer}
+                />
+              )}
+            </div>
+          )
         )}
 
-        {/* Reply tree */}
+        {/* 3. All other comments */}
         <div ref={replyListRef} className="divide-y divide-gray-100 dark:divide-gray-700">
           {rootReplies.map((rootReply) => {
             const children = childMap.get(rootReply.id) ?? []
@@ -209,9 +220,9 @@ export default function ThreadView({ postId, onBack, scrollToLatest, header }: T
                 <ReplyCard
                   depth={0}
                   reply={rootReply}
-                  canWrite={canWrite}
+                  canWrite={canWrite && !isViewOnly}
                   currentUserId={userId ?? undefined}
-                  onReply={handleReply}
+                  onReply={isViewOnly ? undefined : handleReply}
                 />
 
                 {/* Inline composer for this reply */}
