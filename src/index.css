@@ -15,3 +15,31 @@
 body {
   font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
 }
+
+/* Scroll behavior stays native — just hide the scrollbar chrome everywhere */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Edge, Safari */
+}
+
+/* Opt back in wherever hiding the scrollbar would also hide the fact that
+   there IS more content. The nav rail overflows on short viewports, and with
+   no scrollbar its lower groups are unreachable-looking rather than just
+   scrolled away. */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgb(156 163 175 / 0.5);
+  border-radius: 9999px;
+}
