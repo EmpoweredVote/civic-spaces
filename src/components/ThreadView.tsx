@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation } from 'wouter'
+import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import { useThread } from '../hooks/useThread'
 import { useAuth } from '../hooks/useAuth'
@@ -61,6 +62,24 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
     }
     setActiveReplyTarget(null)
     setReplyComposerOpen(true)
+  }
+
+  /**
+   * Copies the thread's own address rather than whatever is in the address bar.
+   * They are the same while a thread is open, but building it from postId keeps
+   * this correct if a thread is ever opened without pushing a URL.
+   */
+  const handleShare = async () => {
+    const url = `${window.location.origin}/post/${postId}`
+    try {
+      // Undefined outside a secure context, so this needs the guard as much as
+      // it needs the catch.
+      if (!navigator.clipboard) throw new Error('clipboard unavailable')
+      await navigator.clipboard.writeText(url)
+      toast.success('Link copied')
+    } catch {
+      toast.error('Could not copy the link')
+    }
   }
 
   // Build nested reply tree
@@ -170,6 +189,16 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
                 </svg>
                 {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
               </span>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v6a2 2 0 002 2h12a2 2 0 002-2v-6M16 6l-4-4-4 4M12 2v13" />
+                </svg>
+                Share
+              </button>
             </div>
           </div>
         )}
