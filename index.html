@@ -15,7 +15,11 @@
     <meta property="og:image" content="https://civicspaces.empowered.vote/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <script>
-      (function(){var s=localStorage.getItem('ev:color-scheme');if(s==='dark'||(!s&&!window.matchMedia('(prefers-color-scheme: light)').matches))document.documentElement.classList.add('dark')})();
+      // Applies the colour scheme before first paint, so there is no flash.
+      // Dark is the default: only an explicit 'light' opts out. The cookie is
+      // read first because it is shared across *.empowered.vote, so a choice
+      // made in another EV product carries here. See src/lib/colorScheme.ts.
+      (function(){var m=document.cookie.match(/(?:^|;\s*)ev_color_scheme=(light|dark)(?:;|$)/);var s=m?m[1]:null;if(!s){try{s=localStorage.getItem('ev:color-scheme')}catch(e){}}if(s!=='light')document.documentElement.classList.add('dark')})();
     </script>
   </head>
   <body>

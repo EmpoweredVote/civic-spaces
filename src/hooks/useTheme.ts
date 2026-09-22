@@ -1,39 +1,54 @@
 import { useState, useEffect, useCallback } from 'react'
+import {
+  applyColorScheme,
+  resolveColorScheme,
+  writeColorScheme,
+  type ColorScheme,
+} from '../lib/colorScheme'
 
-export type Theme = 'light' | 'dark'
+export type Theme = ColorScheme
 
-const KEY = 'ev:color-scheme'
-
-function applyTheme(theme: Theme) {
-  document.documentElement.classList.toggle('dark', theme === 'dark')
-}
-
+/**
+ * Reads the scheme the inline bootstrap in index.html already applied, and
+ * lets the member invert it.
+ *
+ * The default is dark and `prefers-color-scheme` is deliberately not consulted:
+ * an EV visitor gets dark until they choose otherwise. The choice is written to
+ * a `.empowered.vote` cookie so it carries to the other EV products rather than
+ * resetting at every subdomain — see src/lib/colorScheme.ts.
+ */
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(
-    () => document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+  // index.html sets the class before first paint, so trusting the DOM here
+  // keeps the hook and the rendered page from ever disagreeing.
+  const [theme, setTheme] = useState<Theme>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+      ? 'dark'
+      : 'light',
   )
 
+  // Another EV tab (or another EV product sharing the cookie) may have changed
+  // the preference since this tab loaded. Re-sync when the tab regains focus.
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: light)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem(KEY)) {
-        const next: Theme = e.matches ? 'light' : 'dark'
-        setTheme(next)
-        applyTheme(next)
-      }
+    function resync() {
+      const next = resolveColorScheme()
+      setTheme((prev) => {
+        if (prev === next) return prev
+        applyColorScheme(next)
+        return next
+      })
     }
-    mq.addEventListener('change', handleChange)
-    return () => mq.removeEventListener('change', handleChange)
+    window.addEventListener('focus', resync)
+    return () => window.removeEventListener('focus', resync)
   }, [])
 
   const toggleTheme = useCallback(() => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark'
-    setTheme(next)
-    applyTheme(next)
-    localStorage.setItem(KEY, next)
-    // TODO: also persist to connected_profiles.ui_theme via accounts API
-    // when account preferences land in the schema.
-  }, [theme])
+    setTheme((prev) => {
+      const next: Theme = prev === 'dark' ? 'light' : 'dark'
+      applyColorScheme(next)
+      writeColorScheme(next)
+      return next
+    })
+  }, [])
 
   return { theme, toggleTheme }
 }
