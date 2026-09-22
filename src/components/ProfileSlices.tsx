@@ -15,7 +15,7 @@ function SharedSliceChip() {
   return (
     <span className="flex items-center gap-1">
       <span className="w-1.5 h-1.5 rounded-full bg-brand-light flex-shrink-0" aria-hidden="true" />
-      <span className="text-xs text-brand">you&apos;re here too</span>
+      <span className="text-xs text-brand dark:text-brand-light">you&apos;re here too</span>
     </span>
   )
 }
@@ -31,16 +31,16 @@ export default function ProfileSlices({ subjectSlices, viewerSlices, isSelf }: P
 
   return (
     <div>
-      <h2 className="text-sm font-semibold text-gray-700 mb-2">Slice Memberships</h2>
+      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Slice Memberships</h2>
       {presentSlices.length === 0 ? (
-        <p className="text-sm text-gray-400">No slice memberships</p>
+        <p className="text-sm text-gray-400 dark:text-gray-400">No slice memberships</p>
       ) : (
-        <div className="flex flex-col divide-y divide-gray-100">
+        <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
           {presentSlices.map((type) => {
             const isShared = !isSelf && subjectSlices[type] != null && viewerSlices[type] != null
             return (
               <div key={type} className="flex items-center justify-between py-2.5">
-                <span className="text-sm text-gray-800">{LABEL_MAP[type]}</span>
+                <span className="text-sm text-gray-800 dark:text-gray-200">{LABEL_MAP[type]}</span>
                 {isShared && <SharedSliceChip />}
               </div>
             )
