@@ -48,7 +48,7 @@ function FriendRequestButton({ userId }: { userId: string }) {
 
   if (state === 'pending_sent') {
     return (
-      <span className="rounded-md bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
+      <span className="rounded-md bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
         Pending
       </span>
     )
@@ -110,7 +110,7 @@ export default function ProfileHeader({ displayName, tier, joinDate, isSelf, use
         <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{displayName}</h1>
         <TierBadge tier={tier} />
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400">Joined {formattedJoin}</p>
+      <p className="text-sm text-gray-600 dark:text-gray-400">Joined {formattedJoin}</p>
       {!isSelf && (
         <div className="flex gap-2 mt-2 flex-wrap">
           <FriendRequestButton userId={userId} />

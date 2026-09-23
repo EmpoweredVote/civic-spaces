@@ -69,7 +69,7 @@ export default function ModeratorQueue({ onClose }: ModeratorQueueProps) {
           </select>
           <button
             onClick={onClose}
-            className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-full text-gray-600 hover:text-gray-700 hover:bg-gray-100 transition-colors"
             aria-label="Close moderation queue"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -82,11 +82,11 @@ export default function ModeratorQueue({ onClose }: ModeratorQueueProps) {
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center h-full text-sm text-gray-400">
+          <div className="flex items-center justify-center h-full text-sm text-gray-500">
             Loading queue...
           </div>
         ) : data.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-500">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -95,7 +95,7 @@ export default function ModeratorQueue({ onClose }: ModeratorQueueProps) {
         ) : item ? (
           <div className="px-4 py-4 space-y-4">
             {/* Navigation */}
-            <div className="flex items-center justify-between text-sm text-gray-500">
+            <div className="flex items-center justify-between text-sm text-gray-600">
               <button
                 onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                 disabled={currentIndex === 0}
@@ -124,7 +124,7 @@ export default function ModeratorQueue({ onClose }: ModeratorQueueProps) {
                 {item.title && <p className="font-semibold text-gray-900">{item.title}</p>}
               </div>
               <p className="text-sm text-gray-800">{item.body}</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 by {item.author_id.slice(0, 8)}... · {new Date(item.post_created_at).toLocaleDateString()}
               </p>
             </div>
@@ -138,7 +138,7 @@ export default function ModeratorQueue({ onClose }: ModeratorQueueProps) {
               }`}>
                 {item.priority === 'high' ? 'HIGH' : 'NORMAL'}
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-600">
                 {item.flag_count} flag{item.flag_count !== 1 ? 's' : ''}
               </span>
               {item.flag_categories.map((cat: FlagCategory) => (
@@ -146,7 +146,7 @@ export default function ModeratorQueue({ onClose }: ModeratorQueueProps) {
                   {cat}
                 </span>
               ))}
-              <span className="text-xs text-gray-400 ml-auto">
+              <span className="text-xs text-gray-500 ml-auto">
                 First flagged {new Date(item.first_flagged_at).toLocaleDateString()}
               </span>
             </div>

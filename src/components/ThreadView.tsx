@@ -114,7 +114,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
           </button>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Thread</h2>
         </div>
-        <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
+        <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
           Loading thread...
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
             <span className="flex items-baseline gap-1 min-w-0">
               <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{post.author.display_name}</span>
               {post.author.tier === 'empowered' && <EmpoweredBadge />}
-              <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+              <span className="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0">
                 · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                 {post.edit_history.length > 0 && ' · edited'}
               </span>
@@ -222,7 +222,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
               {(!replyComposerOpen || activeReplyTarget !== null) && (
                 <button
                   onClick={handleReplyToPost}
-                  className="w-full text-left px-3 py-2.5 rounded-full border border-gray-300 dark:border-gray-700 text-sm text-gray-400 dark:text-gray-500 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+                  className="w-full text-left px-3 py-2.5 rounded-full border border-gray-300 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-500 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                 >
                   Join the conversation
                 </button>

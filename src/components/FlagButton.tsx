@@ -25,7 +25,7 @@ export default function FlagButton({ contentId, contentType, userId }: FlagButto
         className={`p-1 rounded transition-colors ${
           isFlagged
             ? 'text-red-500 cursor-default'
-            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+            : 'text-gray-500 hover:text-gray-600 hover:bg-gray-100'
         }`}
       >
         {isFlagged ? (

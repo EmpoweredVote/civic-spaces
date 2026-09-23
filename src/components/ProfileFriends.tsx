@@ -33,11 +33,11 @@ function OwnFriendsList() {
   const { friends, isLoading } = useFriendsList()
 
   if (isLoading) {
-    return <p className="text-sm text-gray-400">Loading...</p>
+    return <p className="text-sm text-gray-500">Loading...</p>
   }
 
   if (friends.length === 0) {
-    return <p className="text-sm text-gray-400">You haven&apos;t added any friends yet</p>
+    return <p className="text-sm text-gray-500">You haven&apos;t added any friends yet</p>
   }
 
   return (
@@ -65,9 +65,9 @@ function MutualFriendsList({ userId }: { userId: string }) {
         Mutual Friends ({isLoading ? '…' : mutualFriends.length})
       </h2>
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading...</p>
+        <p className="text-sm text-gray-500">Loading...</p>
       ) : mutualFriends.length === 0 ? (
-        <p className="text-sm text-gray-400">No mutual friends</p>
+        <p className="text-sm text-gray-500">No mutual friends</p>
       ) : (
         <div className="flex flex-col">
           {mutualFriends.map((friend) => (

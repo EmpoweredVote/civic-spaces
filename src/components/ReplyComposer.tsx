@@ -57,7 +57,7 @@ export default function ReplyComposer({
   return (
     <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
       {replyingToName && (
-        <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+        <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
           Replying to {replyingToName}
           {replyingToTier === 'empowered' && <EmpoweredBadge />}
         </p>
@@ -73,7 +73,7 @@ export default function ReplyComposer({
           <button
             type="button"
             onClick={onClose}
-            className="text-sm text-gray-500 hover:text-gray-700 hover:underline"
+            className="text-sm text-gray-600 hover:text-gray-700 hover:underline"
           >
             Cancel
           </button>

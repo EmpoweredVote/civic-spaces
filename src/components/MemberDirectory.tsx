@@ -54,9 +54,9 @@ function DirectoryList({
     useMemberDirectory(sliceId)
   const members = data?.pages.flatMap((page) => page) ?? []
 
-  if (isLoading) return <p className="text-sm text-gray-400 text-center py-6">Loading...</p>
+  if (isLoading) return <p className="text-sm text-gray-500 text-center py-6">Loading...</p>
   if (members.length === 0)
-    return <p className="text-sm text-gray-400 text-center py-6">No members found.</p>
+    return <p className="text-sm text-gray-500 text-center py-6">No members found.</p>
 
   return (
     <>
@@ -93,9 +93,9 @@ function SearchResults({
 }) {
   const { data, isLoading } = useMemberSearch(term, crossSlice, sliceId)
 
-  if (isLoading) return <p className="text-sm text-gray-400 text-center py-6">Searching...</p>
+  if (isLoading) return <p className="text-sm text-gray-500 text-center py-6">Searching...</p>
   if (!data || data.length === 0)
-    return <p className="text-sm text-gray-400 text-center py-6">No results for "{term}".</p>
+    return <p className="text-sm text-gray-500 text-center py-6">No results for "{term}".</p>
 
   return (
     <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -125,7 +125,7 @@ export default function MemberDirectory({ sliceId, onClose }: MemberDirectoryPro
         <button
           onClick={onClose}
           aria-label="Close member directory"
-          className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="p-1 rounded-full text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

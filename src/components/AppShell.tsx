@@ -366,7 +366,7 @@ export default function AppShell() {
           <h1 className="text-lg font-semibold text-brand dark:text-brand-light whitespace-nowrap">Civic Spaces</h1>
           <a
             href="https://fc.empowered.vote"
-            className="hidden sm:inline text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors whitespace-nowrap"
+            className="hidden sm:inline text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors whitespace-nowrap"
           >
             Focused Communities
           </a>
@@ -401,7 +401,7 @@ export default function AppShell() {
               className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                 activePanel === 'friends'
                   ? 'bg-brand-muted text-brand'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
               <svg
@@ -428,7 +428,7 @@ export default function AppShell() {
               className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                 activePanel === 'directory'
                   ? 'bg-brand-muted text-brand'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
               <svg
@@ -457,14 +457,14 @@ export default function AppShell() {
       {/* Content */}
       <main className="flex flex-col flex-1 overflow-hidden min-h-0 bg-gray-50 dark:bg-gray-950">
         {authLoading && (
-          <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
+          <div className="flex flex-1 items-center justify-center text-gray-500 text-sm">
             Loading&hellip;
           </div>
         )}
 
         {!authLoading && !isAuthenticated && (
           <div className="flex flex-col flex-1 items-center justify-center gap-4">
-            <p className="text-gray-500 text-sm">Log in to view your civic community.</p>
+            <p className="text-gray-600 text-sm">Log in to view your civic community.</p>
             <a
               href={loginUrl}
               className="px-5 py-2 bg-brand-btn text-white text-sm font-medium rounded-full hover:bg-brand-hover transition-colors"
@@ -475,13 +475,13 @@ export default function AppShell() {
         )}
 
         {isAuthenticated && isLoading && (
-          <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
+          <div className="flex flex-1 items-center justify-center text-gray-500 text-sm">
             Loading your slices&hellip;
           </div>
         )}
 
         {isAuthenticated && !isLoading && isAssigning && (
-          <div className="flex flex-1 items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+          <div className="flex flex-1 items-center justify-center text-gray-500 dark:text-gray-500 text-sm">
             Setting up your civic spaces&hellip;
           </div>
         )}
