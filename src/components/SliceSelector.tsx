@@ -121,7 +121,7 @@ export function SliceSelector({
           aria-label="Switch slice"
           className="absolute left-0 top-full mt-2 w-64 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg z-30 py-1.5 max-h-72 overflow-y-auto"
         >
-          <p className="px-3 pt-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          <p className="px-3 pt-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">
             {locationName} — {siblings.length} slices
           </p>
           {siblings.map((s) => {
@@ -152,7 +152,7 @@ export function SliceSelector({
                     </span>
                   )}
                 </span>
-                <span className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500">
+                <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-500">
                   {s.memberCount.toLocaleString()}
                 </span>
               </button>

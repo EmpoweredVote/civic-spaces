@@ -21,7 +21,7 @@ function FallbackAvatar() {
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
         fill="currentColor"
-        className="w-6 h-6 text-gray-400 dark:text-gray-500"
+        className="w-6 h-6 text-gray-500 dark:text-gray-500"
       >
         <path
           fillRule="evenodd"
@@ -150,7 +150,7 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
   if (sortedReps.length === 0) {
     return (
       <WidgetCard title="Representing This Community">
-        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
           No elected officials are listed for this community yet.{' '}
           <a
             href="https://app.empowered.vote/settings/location"
@@ -203,7 +203,7 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                   {rep.full_name}
                 </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                <span className="text-xs text-gray-600 dark:text-gray-400 truncate">
                   {rep.office_title}
                 </span>
               </div>
@@ -218,7 +218,7 @@ export function RepresentativesWidget({ reps, isLoading }: RepresentativesWidget
       </div>
 
       {missingFederalLegislature && (
-        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+        <p className="mt-3 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
           Your U.S. Senators and Representative aren't listed yet, so this list
           is incomplete rather than complete.{' '}
           <a

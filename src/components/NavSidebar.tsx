@@ -390,7 +390,7 @@ function ToolGroup({
         <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${classes.chip}`}>
           {label}
         </span>
-        <span className="text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300">
+        <span className="text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">
           <span className={isOpen ? 'block transition-transform' : 'block -rotate-90 transition-transform'}>
             <NavIcon type="chevron-down" />
           </span>
@@ -423,7 +423,7 @@ function NavSidebarContent({
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        <span className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        <span className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Your Civic Spaces
         </span>
         {visibleGeoTabs.map((tab) => (
@@ -438,7 +438,7 @@ function NavSidebarContent({
       </div>
 
       <div className="flex flex-col gap-1.5 border-t border-gray-100 dark:border-gray-800 pt-5">
-        <span className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        <span className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Community
         </span>
         {showVolunteerTab && (

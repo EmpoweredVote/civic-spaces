@@ -88,7 +88,7 @@ export default function PostComposer({
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="p-1 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                className="p-1 rounded-full text-gray-600 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -153,7 +153,7 @@ export default function PostComposer({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="text-sm text-gray-500 hover:text-gray-700 hover:underline"
+                    className="text-sm text-gray-600 hover:text-gray-700 hover:underline"
                   >
                     Cancel
                   </button>
@@ -188,7 +188,7 @@ export default function PostComposer({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="text-sm text-gray-500 hover:text-gray-700 hover:underline"
+                    className="text-sm text-gray-600 hover:text-gray-700 hover:underline"
                   >
                     Cancel
                   </button>

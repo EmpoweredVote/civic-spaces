@@ -47,7 +47,7 @@ export default function NotificationBell({
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label={`Notifications${unreadCount > 0 ? `, ${badgeLabel} unread` : ''}`}
-        className="relative w-9 h-9 flex items-center justify-center rounded-full transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+        className="relative w-9 h-9 flex items-center justify-center rounded-full transition-colors text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
       >
         {/* Bell SVG */}
         <svg

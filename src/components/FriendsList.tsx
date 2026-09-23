@@ -41,7 +41,7 @@ export default function FriendsList({ onClose }: FriendsListProps) {
         <button
           onClick={onClose}
           aria-label="Close friends list"
-          className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="p-1 rounded-full text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -60,10 +60,10 @@ export default function FriendsList({ onClose }: FriendsListProps) {
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <p className="text-sm text-gray-400 text-center py-8">Loading...</p>
+          <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
         ) : friends.length === 0 && pendingReceived.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               No friends yet. Discover people in the Member Directory!
             </p>
           </div>
@@ -72,7 +72,7 @@ export default function FriendsList({ onClose }: FriendsListProps) {
             {/* Pending Requests section */}
             {pendingReceived.length > 0 && (
               <div className="px-4 pt-4 pb-2">
-                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
                   Pending Requests ({pendingReceived.length})
                 </h3>
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -110,7 +110,7 @@ export default function FriendsList({ onClose }: FriendsListProps) {
             {/* Friends section */}
             {friends.length > 0 && (
               <div className="px-4 pt-4 pb-2">
-                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
                   Friends ({friends.length})
                 </h3>
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">

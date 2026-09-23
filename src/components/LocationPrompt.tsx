@@ -50,7 +50,7 @@ export default function LocationPrompt() {
           Add your address
         </a>
 
-        <p className="mt-4 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+        <p className="mt-4 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
           Civic Spaces never sees or stores your address. It stays in your
           Empowered Vote account, which tells this app only which communities
           you belong to.

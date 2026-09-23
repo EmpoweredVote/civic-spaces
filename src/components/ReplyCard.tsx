@@ -19,7 +19,7 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, currentUser
       <div
         className={`py-3 ${depth === 1 ? 'ml-8 border-l-2 border-gray-200 dark:border-gray-700 pl-4' : ''}`}
       >
-        <p className="text-sm text-gray-400 dark:text-gray-500 italic">[Reply deleted]</p>
+        <p className="text-sm text-gray-500 dark:text-gray-500 italic">[Reply deleted]</p>
       </div>
     )
   }
@@ -52,7 +52,7 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, currentUser
             {reply.author.display_name}
           </span>
           {reply.author.tier === 'empowered' && <EmpoweredBadge />}
-          <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{timeAgo}</span>
+          <span className="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0">{timeAgo}</span>
         </div>
       </button>
 

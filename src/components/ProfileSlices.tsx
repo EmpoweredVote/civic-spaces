@@ -33,7 +33,7 @@ export default function ProfileSlices({ subjectSlices, viewerSlices, isSelf }: P
     <div>
       <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Slice Memberships</h2>
       {presentSlices.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-400">No slice memberships</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">No slice memberships</p>
       ) : (
         <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
           {presentSlices.map((type) => {

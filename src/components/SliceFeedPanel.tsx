@@ -104,7 +104,7 @@ export default function SliceFeedPanel({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-500">
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-600">
         <p className="text-sm">Failed to load posts. Please try again.</p>
         <button
           onClick={() => refetch()}
@@ -125,7 +125,7 @@ export default function SliceFeedPanel({
         {(sliceSelector || (sliceName && siblingIndex != null)) && (
           <div className="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-gray-100 dark:border-gray-800">
             {sliceSelector ?? (
-              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 {sliceName} #{siblingIndex}
               </span>
             )}
@@ -164,7 +164,7 @@ export default function SliceFeedPanel({
         )}
         {posts.length === 0 ? (
           <div className="flex flex-1 items-center justify-center py-16 text-center px-6">
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-gray-500">
               No posts yet. Be the first to start a conversation!
             </p>
           </div>
