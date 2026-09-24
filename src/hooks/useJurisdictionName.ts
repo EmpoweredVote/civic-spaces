@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { SliceInfo } from '../types/database'
 import { geoidToDisplayName } from '../lib/geoidToWiki'
+import { censusPlUrl } from '../lib/census'
 
 /** Session-level cache: geoid → resolved display name */
 const cache = new Map<string, string>()
@@ -45,7 +46,7 @@ async function fetchCensusDisplayName(geoid: string): Promise<string | null> {
       // County FIPS
       const countyFips = geoid.slice(2)
       const resp = await fetch(
-        `https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:${countyFips}&in=state:${stateFips}`
+        censusPlUrl(`get=NAME&for=county:${countyFips}&in=state:${stateFips}`)
       )
       if (!resp.ok) return null
       const data = await resp.json()
@@ -59,7 +60,7 @@ async function fetchCensusDisplayName(geoid: string): Promise<string | null> {
       // FIPS place code (state 2 + place 5) — cities and places
       const placeFips = geoid.slice(2)
       const resp = await fetch(
-        `https://api.census.gov/data/2020/dec/pl?get=NAME&for=place:${placeFips}&in=state:${stateFips}`
+        censusPlUrl(`get=NAME&for=place:${placeFips}&in=state:${stateFips}`)
       )
       if (!resp.ok) return null
       const data = await resp.json()

@@ -7,12 +7,15 @@ import { useAllSlices } from '../hooks/useAllSlices'
 import { useEnsureSlices } from '../hooks/useEnsureSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
-import { useWikiHeroImage } from '../hooks/useWikiHeroImage'
+import { useHeroBanner } from '../hooks/useHeroBanner'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import { useToolCoverage } from '../hooks/useToolCoverage'
 import { useCompassData } from '../hooks/useCompassData'
+import { useNextElection, electionAreaFor, type NextElection } from '../hooks/useNextElection'
+import { forecastUrlFor } from '../lib/forecastLink'
+import { usePopulation } from '../hooks/usePopulation'
 import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
@@ -28,55 +31,34 @@ import NavSidebar from './NavSidebar'
 import { ThemeToggle } from './ThemeToggle'
 import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
+import { NewsWidget } from './widgets/NewsWidget'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
- * Small wrapper that calls useWikiHeroImage for the active slice.
- * Extracted as its own component so the hook is called unconditionally
- * (React rules of hooks forbid calling hooks inside callbacks or IIFEs).
+ * The location banner for the active slice: hero image, name, the sibling-slice
+ * switcher, member counts, and the civic facts row.
+ *
+ * 🔴 Rendered ONLY for the active tab. All six feed panels are mounted at once, so
+ * useSiblingSlices inside a panel would fire six times on load — the landmine in
+ * CLAUDE.md. It lives here, where there is exactly one.
  */
 function ActiveHeroBanner({
   slice,
   fallbackName,
-  siblingIndexOverride,
-}: {
-  slice: SliceInfo
-  fallbackName: string
-  /** Shard being viewed, when it is not the member's own — the banner should
-   *  name the slice on screen, not the one they belong to. */
-  siblingIndexOverride?: number
-}) {
-  const wikiPhotoUrl = useWikiHeroImage(slice)
-  const displayName = useJurisdictionName(slice, fallbackName)
-  return (
-    <HeroBanner
-      sliceType={slice.sliceType}
-      sliceName={displayName}
-      memberCount={slice.memberCount}
-      siblingIndex={siblingIndexOverride ?? slice.siblingIndex}
-      photoUrl={slice.photoUrl ?? wikiPhotoUrl}
-    />
-  )
-}
-
-/**
- * The sibling-slice switcher for one slice.
- *
- * 🔴 Rendered ONLY for the active tab. All six feed panels are mounted at once,
- * so putting useSiblingSlices inside the panel itself would fire it six times on
- * load — the landmine in CLAUDE.md. Gating on isActive keeps it to one.
- */
-function ActiveSliceSelector({
-  slice,
-  fallbackName,
   viewingSliceId,
-  onSelect,
+  onSelectSibling,
+  nextElection,
 }: {
   slice: SliceInfo
   fallbackName: string
+  /** The shard on screen — the member's own, or a sibling they are browsing read-only. */
   viewingSliceId: string
-  onSelect: (sibling: SiblingSlice) => void
+  onSelectSibling: (sibling: SiblingSlice) => void
+  nextElection: NextElection | null | undefined
 }) {
+  const hero = useHeroBanner(slice)
+  const displayName = useJurisdictionName(slice, fallbackName)
+  const population = usePopulation(slice.sliceType, slice.geoid)
   const { siblings, isLoading, isError } = useSiblingSlices(
     slice.sliceType,
     slice.geoid,
@@ -84,23 +66,70 @@ function ActiveSliceSelector({
     slice.siblingIndex,
     slice.memberCount,
   )
-  const locationName = useJurisdictionName(slice, fallbackName)
+
+  // A DB photo_url is an explicit per-slice override and wins outright. Its
+  // provenance is unknown, so it carries no credit — whoever sets one owns the
+  // licensing for it. Everything else comes from the hook with a credit attached.
+  //
+  // The `undefined` case must survive: it means "still resolving", and HeroBanner
+  // uses it to hold the gradient rather than flash a fallback photo it will replace.
+  const photoUrl = slice.photoUrl ?? (hero === undefined ? undefined : (hero?.url ?? null))
+  const credit = slice.photoUrl ? null : (hero?.credit ?? null)
+
+  // Counts come straight from slices.current_member_count (trigger-maintained). The
+  // location total is only shown once the siblings query has answered with more than
+  // one shard; with one, it would just repeat the slice count.
+  const viewing = siblings.find((s) => s.id === viewingSliceId)
+  const memberCount = viewing?.memberCount ?? slice.memberCount
+  const locationMemberCount = !isLoading && !isError && siblings.length > 1
+    ? siblings.reduce((sum, s) => sum + s.memberCount, 0)
+    : undefined
+
+  // useJurisdictionName hands back the tab label when it cannot resolve a real name.
+  const resolvedName = displayName !== fallbackName ? displayName : null
 
   return (
-    <SliceSelector
-      locationName={locationName}
-      ownSliceId={slice.id}
-      ownSiblingIndex={slice.siblingIndex}
-      viewingSliceId={viewingSliceId}
-      siblings={siblings}
-      isLoading={isLoading}
-      isError={isError}
-      onSelect={(id) => {
-        const picked = siblings.find((sib) => sib.id === id)
-        if (picked) onSelect(picked)
-      }}
+    <HeroBanner
+      sliceType={slice.sliceType}
+      geoid={slice.geoid}
+      sliceName={displayName}
+      levelLabel={fallbackName}
+      memberCount={memberCount}
+      locationMemberCount={locationMemberCount}
+      population={population}
+      switcher={
+        <SliceSelector
+          tone="image"
+          locationName={displayName}
+          ownSliceId={slice.id}
+          ownSiblingIndex={slice.siblingIndex}
+          viewingSliceId={viewingSliceId}
+          siblings={siblings}
+          isLoading={isLoading}
+          isError={isError}
+          onSelect={(id) => {
+            const picked = siblings.find((sib) => sib.id === id)
+            if (picked) onSelectSibling(picked)
+          }}
+        />
+      }
+      nextElection={nextElection}
+      forecastUrl={forecastUrlFor(slice.sliceType, slice.geoid, resolvedName)}
+      photoUrl={photoUrl}
+      credit={credit}
     />
   )
+}
+
+/**
+ * News for the active slice, wrapped like ActiveHeroBanner so the name lookup
+ * runs once for the active tab rather than inside a feed panel. Volunteer is
+ * not a geographic space, so it has no local news.
+ */
+function ActiveNewsWidget({ slice, fallbackName }: { slice: SliceInfo; fallbackName: string }) {
+  const displayName = useJurisdictionName(slice, fallbackName)
+  if (slice.sliceType === 'volunteer') return null
+  return <NewsWidget level={slice.sliceType} locationName={displayName} />
 }
 
 type ActivePanel = 'friends' | 'directory' | null
@@ -177,6 +206,8 @@ export default function AppShell() {
   const [activePostIds, setActivePostIds] = useState<Record<TabKey, string | null>>(INITIAL_POST_IDS)
   const [scrollToLatestMap, setScrollToLatestMap] = useState<Record<TabKey, boolean>>(INITIAL_SCROLL_MAP)
   const [viewingSlices, setViewingSlices] = useState<Record<TabKey, SiblingSlice | null>>(INITIAL_VIEWING)
+  // Hoisted like repsData, and for the active tab only: the banner is the one consumer.
+  const nextElection = useNextElection(electionAreaFor(slices[activeTab], slices['state']), userId)
   const [modQueueOpen, setModQueueOpen] = useState(false)
   // The nav rail is pinned from lg up; below that it lives in this drawer.
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
@@ -349,7 +380,7 @@ export default function AppShell() {
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-950">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      <header className="flex items-center justify-between px-4 md:px-8 py-3 md:py-5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {/* Opens the nav rail as a drawer below lg, where it is not pinned. */}
           <button
@@ -363,13 +394,18 @@ export default function AppShell() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="text-lg font-semibold text-brand dark:text-brand-light whitespace-nowrap">Civic Spaces</h1>
-          <a
-            href="https://fc.empowered.vote"
-            className="hidden sm:inline text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors whitespace-nowrap"
-          >
-            Focused Communities
+          <a href="https://empowered.vote" className="hidden sm:flex flex-shrink-0 items-center">
+            <img
+              src={theme === 'dark' ? '/images/ev-logo-dark-bg.png' : '/images/ev-logo.png'}
+              alt="Empowered Vote"
+              className="h-9 w-auto"
+            />
           </a>
+          <div className="hidden sm:block w-px h-7 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
+          <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">
+            <span className="text-brand dark:text-brand-light">Civic</span>{' '}
+            <span className="text-[#FF5740]">Spaces</span>
+          </h1>
         </div>
 
         {/* Theme and account are always reachable; the social icons need a session. */}
@@ -394,11 +430,11 @@ export default function AppShell() {
               onNavigateToSliceThread={handleNotificationNavigate}
             />
 
-            {/* Friends icon */}
+            {/* Friends icon — below lg only; the pinned rail carries it from lg up */}
             <button
               onClick={() => setActivePanel(activePanel === 'friends' ? null : 'friends')}
               aria-label="Friends"
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+              className={`lg:hidden w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                 activePanel === 'friends'
                   ? 'bg-brand-muted text-brand'
                   : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'
@@ -421,11 +457,11 @@ export default function AppShell() {
               </svg>
             </button>
 
-            {/* Directory icon */}
+            {/* Directory icon — below lg only, like Friends */}
             <button
               onClick={() => setActivePanel(activePanel === 'directory' ? null : 'directory')}
               aria-label="Member Directory"
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+              className={`lg:hidden w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                 activePanel === 'directory'
                   ? 'bg-brand-muted text-brand'
                   : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'
@@ -524,23 +560,30 @@ export default function AppShell() {
               <div className={`grid ${contentGridCols} grid-rows-[auto_minmax(0,1fr)] gap-3 md:gap-4 min-h-0 overflow-hidden`}>
                 {/* Banner — spans the feed and sidebar columns, above both */}
                 {slices[activeTab] && (
-                  <div className="col-span-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm">
+                  // Not overflow-hidden: the banner's slice switcher opens a menu over the
+                  // feed below. relative z-20 lifts that menu above the feed card.
+                  <div className="relative z-20 col-span-full rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
                     <ActiveHeroBanner
                       slice={slices[activeTab]!}
                       fallbackName={TAB_LABELS[activeTab]}
-                      siblingIndexOverride={viewingSlices[activeTab]?.siblingIndex}
+                      viewingSliceId={viewingSlices[activeTab]?.id ?? slices[activeTab]!.id}
+                      onSelectSibling={(sib) => handleViewSlice(activeTab, sib, slices[activeTab]!.id)}
+                      nextElection={nextElection}
                     />
                   </div>
                 )}
 
               {/* Feed column */}
-              <div className="flex flex-col overflow-hidden min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
+              <div className="relative flex flex-col overflow-hidden min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
                 <SidebarMobile
                   repsData={repsData}
                   activeTab={activeTab}
                   coverage={toolCoverage.data ?? null}
                   activeSlice={slices[activeTab]}
                   compassData={compassData}
+                  news={slices[activeTab] && (
+                    <ActiveNewsWidget slice={slices[activeTab]!} fallbackName={TAB_LABELS[activeTab]} />
+                  )}
                 />
 
                 {/* Feed tab panels — flex-1 fills remaining space. Banner lives inside each
@@ -560,22 +603,12 @@ export default function AppShell() {
                       >
                         <SliceFeedPanel
                           sliceId={viewing?.id ?? slice.id}
-                          sliceName={TAB_LABELS[tabKey]}
-                          siblingIndex={slice.siblingIndex}
                           isViewOnly={isViewOnly}
                           viewingSliceIndex={viewing?.siblingIndex}
                           ownSliceIndex={slice.siblingIndex}
                           onReturnToOwnSlice={() =>
                             handleViewSlice(tabKey, { id: slice.id, siblingIndex: slice.siblingIndex, memberCount: slice.memberCount }, slice.id)
                           }
-                          sliceSelector={isActive ? (
-                            <ActiveSliceSelector
-                              slice={slice}
-                              fallbackName={TAB_LABELS[tabKey]}
-                              viewingSliceId={viewing?.id ?? slice.id}
-                              onSelect={(sib) => handleViewSlice(tabKey, sib, slice.id)}
-                            />
-                          ) : undefined}
                           activePostId={activePostIds[tabKey]}
                           onNavigateToThread={(postId) => handleNavigateToThread(tabKey, postId)}
                           scrollToLatest={scrollToLatestMap[tabKey]}
@@ -590,8 +623,6 @@ export default function AppShell() {
                     <div className={activeTab === 'volunteer' ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}>
                       <SliceFeedPanel
                         sliceId={slices['volunteer'].id}
-                        sliceName="Volunteer"
-                        siblingIndex={slices['volunteer'].siblingIndex}
                         activePostId={activePostIds['volunteer']}
                         onNavigateToThread={(postId) => handleNavigateToThread('volunteer', postId)}
                         scrollToLatest={scrollToLatestMap['volunteer']}
@@ -602,14 +633,23 @@ export default function AppShell() {
                 </div>
               </div>
 
-              {/* Sidebar column — hidden below md, and on Volunteer entirely */}
-              <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} flex-col overflow-y-auto min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm`}>
+              {/* Sidebar column — hidden below md, and on Volunteer entirely.
+                  `relative` (here and on the feed column) makes each column the
+                  containing block for absolute descendants. Without it an `sr-only`
+                  <p> in CompassWidget resolves against the viewport, lands below the
+                  fold, and gives the whole page a blank scroll. Not contain-paint:
+                  that also captures position:fixed, and pulls the FAB off the
+                  viewport corner into the feed column. */}
+              <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} relative flex-col overflow-y-auto min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm`}>
                 <Sidebar
                   repsData={repsData}
                   activeTab={activeTab}
                   coverage={toolCoverage.data ?? null}
                   activeSlice={slices[activeTab]}
                   compassData={compassData}
+                  news={slices[activeTab] && (
+                    <ActiveNewsWidget slice={slices[activeTab]!} fallbackName={TAB_LABELS[activeTab]} />
+                  )}
                 />
               </div>
               </div>

@@ -1,6 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
 import type React from 'react'
-import type { ReactNode } from 'react'
 // import { useFeed } from '../hooks/useFeed' // Fallback: chronological feed
 import { useBoostedFeed } from '../hooks/useBoostedFeed'
 import { useRealtimeInvalidation } from '../hooks/useRealtimeInvalidation'
@@ -13,18 +12,39 @@ import FAB from './FAB'
 import PostComposer from './PostComposer'
 import ThreadView from './ThreadView'
 import InformUpgradePrompt from './InformUpgradePrompt'
+import FeedToolbar, { type SortMode, type ViewMode } from './FeedToolbar'
 import type { PostWithAuthor } from '../types/database'
+
+function sortPosts(posts: PostWithAuthor[], sort: SortMode): PostWithAuthor[] {
+  // No upvote/score system exists yet — Best/Hot/Rising keep the feed's
+  // existing ranking (boosted_at from get_boosted_feed_filtered); New and
+  // Top are genuine client-side sorts over the currently loaded posts.
+  if (sort === 'new') {
+    return [...posts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }
+  if (sort === 'top') {
+    return [...posts].sort((a, b) => b.reply_count - a.reply_count)
+  }
+  return posts
+}
+
+// Client-side match over the currently loaded posts (title/body) — there's
+// no full-text search endpoint to call, so this only searches what's
+// already been fetched into this feed, not the whole history.
+function filterPosts(posts: PostWithAuthor[], query: string): PostWithAuthor[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return posts
+  return posts.filter(
+    (post) => post.title?.toLowerCase().includes(q) || post.body.toLowerCase().includes(q)
+  )
+}
 
 interface SliceFeedPanelProps {
   sliceId: string
-  sliceName?: string
-  siblingIndex?: number
   activePostId: string | null
   onNavigateToThread: (postId: string | null) => void
   scrollToLatest?: boolean
   scrollRef?: React.RefObject<HTMLDivElement | null>
-  /** The sibling-slice switcher, rendered in the feed's header row. */
-  sliceSelector?: ReactNode
   /** True when showing a sibling slice the member does not belong to. */
   isViewOnly?: boolean
   /** Sibling index currently displayed, and the member's own, for the notice. */
@@ -35,13 +55,10 @@ interface SliceFeedPanelProps {
 
 export default function SliceFeedPanel({
   sliceId,
-  sliceName,
-  siblingIndex,
   activePostId,
   onNavigateToThread,
   scrollToLatest,
   scrollRef,
-  sliceSelector,
   isViewOnly = false,
   viewingSliceIndex,
   ownSliceIndex,
@@ -66,6 +83,9 @@ export default function SliceFeedPanel({
   const [composerOpen, setComposerOpen] = useState(false)
   const [editingPost, setEditingPost] = useState<PostWithAuthor | null>(null)
   const [informPromptOpen, setInformPromptOpen] = useState(false)
+  const [sort, setSort] = useState<SortMode>('best')
+  const [view, setView] = useState<ViewMode>('card')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -116,21 +136,23 @@ export default function SliceFeedPanel({
     )
   }
 
-  const posts = data?.pages.flatMap((page) => page) ?? []
+  const posts = sortPosts(filterPosts(data?.pages.flatMap((page) => page) ?? [], searchQuery), sort)
 
   return (
     <div className="relative h-full">
       {/* Feed — hidden (but mounted) when thread is open to preserve scroll */}
       <div ref={scrollRef} className={activePostId ? 'hidden' : 'flex flex-col h-full overflow-y-auto'}>
-        {(sliceSelector || (sliceName && siblingIndex != null)) && (
-          <div className="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-gray-100 dark:border-gray-800">
-            {sliceSelector ?? (
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                {sliceName} #{siblingIndex}
-              </span>
-            )}
-          </div>
-        )}
+        {/* The slice switcher lives in the location banner above; this row is the feed's own controls. */}
+        <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+          <FeedToolbar
+            sort={sort}
+            onSortChange={setSort}
+            view={view}
+            onViewChange={setView}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+        </div>
 
         {/* Informational, not an error: posting simply is not available here,
             because this is not the slice the member was assigned to. */}
@@ -164,12 +186,14 @@ export default function SliceFeedPanel({
         )}
         {posts.length === 0 ? (
           <div className="flex flex-1 items-center justify-center py-16 text-center px-6">
-            <p className="text-sm text-gray-500">
-              No posts yet. Be the first to start a conversation!
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {searchQuery.trim()
+                ? `No posts match "${searchQuery.trim()}".`
+                : 'No posts yet. Be the first to start a conversation!'}
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 p-4">
+          <div className={view === 'compact' ? 'flex flex-col gap-1.5 p-4' : 'flex flex-col gap-3 p-4'}>
             {posts.map((post) => (
               <PostCard
                 key={post.id}
@@ -181,6 +205,7 @@ export default function SliceFeedPanel({
                   setComposerOpen(true)
                 }}
                 onDelete={(postId) => deletePost.mutate({ postId, sliceId })}
+                compact={view === 'compact'}
               />
             ))}
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
 import type { SliceInfo } from '../types/database'
@@ -7,6 +7,7 @@ import { filterRepsByTab } from '../types/representatives'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
 import { CompassWidget } from './widgets/CompassWidget'
+import { ChangeAddressLink } from './Sidebar'
 import type { CompassData } from '../hooks/useCompassData'
 
 interface SidebarMobileProps {
@@ -15,9 +16,10 @@ interface SidebarMobileProps {
   coverage: CoverageCatalog | null
   activeSlice: SliceInfo | undefined
   compassData: CompassData
+  news?: ReactNode
 }
 
-export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, compassData }: SidebarMobileProps) {
+export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, compassData, news }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (activeTab === 'volunteer') return null
@@ -64,6 +66,10 @@ export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, comp
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-3 p-3">
+              <ChangeAddressLink />
+
+              {news}
+
               {showReps && (
                 <RepresentativesWidget
                   reps={filteredReps}
