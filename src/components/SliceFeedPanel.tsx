@@ -16,16 +16,13 @@ import type { SortMode } from './FeedTabs'
 import type { PostWithAuthor } from '../types/database'
 
 function sortPosts(posts: PostWithAuthor[], sort: SortMode): PostWithAuthor[] {
-  // No upvote/score system exists yet — Hot keeps the feed's existing ranking
-  // (boosted_at from get_boosted_feed_filtered); New and Top are genuine
-  // client-side sorts over the currently loaded posts.
-  if (sort === 'new') {
-    return [...posts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  }
+  // 🔴 CLIENT-SIDE OVER LOADED PAGES ONLY. The feed is paginated, so this orders the
+  // pages fetched so far, not the slice: under Top, a high-reply post from page 3 jumps
+  // to the top once page 3 loads, mid-scroll. Only a server-side ORDER BY fixes that.
   if (sort === 'top') {
     return [...posts].sort((a, b) => b.reply_count - a.reply_count)
   }
-  return posts
+  return [...posts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
 // Client-side match over the currently loaded posts (title/body) — there's
@@ -95,6 +92,7 @@ export default function SliceFeedPanel({
   const [informPromptOpen, setInformPromptOpen] = useState(false)
 
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const isSearching = searchQuery.trim() !== ''
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
@@ -109,7 +107,7 @@ export default function SliceFeedPanel({
     )
     observer.observe(sentinelRef.current)
     return () => observer.disconnect()
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, isSearching, isLoading])
 
   const handleFABClick = () => {
     if (profile?.is_suspended) return
@@ -146,7 +144,9 @@ export default function SliceFeedPanel({
     )
   }
 
-  const posts = sortPosts(filterPosts(data?.pages.flatMap((page) => page) ?? [], searchQuery), sort)
+  const loaded = data?.pages.flatMap((page) => page) ?? []
+  const loadedCount = loaded.length
+  const posts = sortPosts(filterPosts(loaded, searchQuery), sort)
 
   return (
     <div className="relative">
@@ -208,8 +208,6 @@ export default function SliceFeedPanel({
               />
             ))}
 
-            {/* Sentinel for IntersectionObserver */}
-            <div ref={sentinelRef} className="h-1" aria-hidden="true" />
 
             {/* Loading spinner for next page */}
             {isFetchingNextPage && (
@@ -221,6 +219,30 @@ export default function SliceFeedPanel({
               </div>
             )}
           </div>
+        )}
+
+        {/* Pagination. Always mounted (not inside the posts branch, where zero search
+            matches used to unmount it). While a search is active it is a button, not an
+            observer: filtering is client-side, so a short filtered list would otherwise
+            keep the sentinel in view and page through the whole slice history. */}
+        {isSearching ? (
+          hasNextPage && (
+            <div className="flex flex-col items-center gap-2 px-4 pb-4 text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Search only covers the {loadedCount} posts loaded so far.
+              </p>
+              <button
+                type="button"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-brand dark:text-brand-light bg-brand-muted dark:bg-brand/10 hover:bg-brand/15 disabled:opacity-60"
+              >
+                {isFetchingNextPage ? 'Loading…' : 'Load more posts to search'}
+              </button>
+            </div>
+          )
+        ) : (
+          <div ref={sentinelRef} className="h-1" aria-hidden="true" />
         )}
 
         {/* Hidden, not disabled, while view-only: RLS rejects an insert into a

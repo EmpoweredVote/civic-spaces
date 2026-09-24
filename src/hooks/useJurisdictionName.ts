@@ -37,7 +37,8 @@ function extractDisplayName(censusName: string): string {
  *  - 5-digit county FIPS (state 2 + county 3): "06037" → "Los Angeles County"
  *  - 7-digit place FIPS (state 2 + place 5):   "0622710" → "Del Mar"
  *
- * Free API, no key required.
+ * Needs VITE_CENSUS_API_KEY: since 2026-09 the API answers keyless requests with a
+ * 302 to missing_key.html (see lib/census.ts), and this falls back to the tab label.
  */
 async function fetchCensusDisplayName(geoid: string): Promise<string | null> {
   const stateFips = geoid.slice(0, 2)

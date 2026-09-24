@@ -23,7 +23,7 @@ import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
 import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
-import { FeedTabs, FeedSearch, PostButton, type FeedMode } from './FeedTabs'
+import { FeedTabs, FeedSearch, PostButton, type SortMode } from './FeedTabs'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
@@ -36,8 +36,6 @@ import NavSidebar from './NavSidebar'
 import { ThemeToggle } from './ThemeToggle'
 import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
-import { NewsWidget } from './widgets/NewsWidget'
-import { NEWS_LEVELS } from '../hooks/useNews'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
@@ -113,37 +111,6 @@ function ActiveHeroBanner({
 }
 
 /**
- * News for the active slice, wrapped like ActiveHeroBanner so the name lookup
- * runs once for the active tab rather than inside a feed panel. Volunteer is
- * not a geographic space, so it has no local news.
- */
-function ActiveNewsWidget({
-  slice,
-  fallbackName,
-  limit,
-  onSeeAll,
-}: {
-  slice: SliceInfo
-  fallbackName: string
-  limit?: number
-  onSeeAll?: () => void
-}) {
-  const displayName = useJurisdictionName(slice, fallbackName)
-  // City and county only (see NEWS_LEVELS), and only once the real name resolved: a
-  // search for the tab label "City" would return nothing about this place.
-  if (!NEWS_LEVELS.includes(slice.sliceType) || displayName === fallbackName) return null
-  return (
-    <NewsWidget
-      level={slice.sliceType}
-      locationName={displayName}
-      stateName={geoidToDisplayName('state', slice.geoid.slice(0, 2))}
-      limit={limit}
-      onSeeAll={onSeeAll}
-    />
-  )
-}
-
-/**
  * The sibling-slice switcher for one slice, in the feed header.
  *
  * 🔴 Rendered ONLY for the active tab. All six feed panels are mounted at once,
@@ -203,7 +170,7 @@ function ActiveFeedSearch({
   className?: string
 }) {
   const name = useJurisdictionName(slice, fallbackName)
-  return <FeedSearch value={value} onChange={onChange} placeholder={`Search ${name}…`} className={className} />
+  return <FeedSearch value={value} onChange={onChange} placeholder={`Search loaded posts in ${name}…`} className={className} />
 }
 
 /**
@@ -322,13 +289,13 @@ const INITIAL_VIEWING: Record<TabKey, SiblingSlice | null> = {
   volunteer: null,
 }
 
-const INITIAL_FEED_MODES: Record<TabKey, FeedMode> = {
-  city: 'hot',
-  county: 'hot',
-  state: 'hot',
-  federal: 'hot',
-  unified: 'hot',
-  volunteer: 'hot',
+const INITIAL_FEED_MODES: Record<TabKey, SortMode> = {
+  city: 'new',
+  county: 'new',
+  state: 'new',
+  federal: 'new',
+  unified: 'new',
+  volunteer: 'new',
 }
 
 const INITIAL_SCROLL_MAP: Record<TabKey, boolean> = {
@@ -362,9 +329,9 @@ export default function AppShell() {
   const [activePostIds, setActivePostIds] = useState<Record<TabKey, string | null>>(INITIAL_POST_IDS)
   const [scrollToLatestMap, setScrollToLatestMap] = useState<Record<TabKey, boolean>>(INITIAL_SCROLL_MAP)
   const [viewingSlices, setViewingSlices] = useState<Record<TabKey, SiblingSlice | null>>(INITIAL_VIEWING)
-  // The tab bar (Hot/New/Top/News) and search live above the panels now, so their
-  // state does too: one mode per tab, one search box for whichever tab is showing.
-  const [feedModes, setFeedModes] = useState<Record<TabKey, FeedMode>>(INITIAL_FEED_MODES)
+  // The tab bar (New/Top) and search live above the panels now, so their state does
+  // too: one sort per tab, one search box for whichever tab is showing.
+  const [feedModes, setFeedModes] = useState<Record<TabKey, SortMode>>(INITIAL_FEED_MODES)
   const [searchQuery, setSearchQuery] = useState('')
   // Hoisted like repsData, and for the active tab only: the banner is the one consumer.
   const nextElection = useNextElection(electionAreaFor(slices[activeTab], slices['state']), userId)
@@ -566,11 +533,6 @@ export default function AppShell() {
   const activeIsViewOnly = !!activeSlice && !!activeViewing && activeViewing.id !== activeSlice.id
   const activeMode = feedModes[activeTab]
   const showFeed = isAuthenticated && !isLoading && !isAssigning && (hasJurisdiction || !!slices['unified'])
-  /** "See all" on the sidebar news card: the News tab, with the tab bar brought into view. */
-  const openNewsTab = () => {
-    setFeedModes((prev) => ({ ...prev, [activeTab]: 'news' }))
-    scrollToContentTop()
-  }
   // "Showing content for …" names the member's most local space.
   const homeSlice = slices['city'] ?? slices['county'] ?? slices['state']
 
@@ -602,7 +564,7 @@ export default function AppShell() {
           <div className="hidden sm:block w-px h-7 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
           <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">
             <span className="text-brand dark:text-brand-light">Civic</span>{' '}
-            <span className="text-[#FF5740]">Spaces</span>
+            <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
           </h1>
         </div>
 
@@ -802,7 +764,6 @@ export default function AppShell() {
                         setFeedModes((prev) => ({ ...prev, [activeTab]: mode }))
                         scrollToContentTop()
                       }}
-                      showNews={NEWS_LEVELS.includes(activeTab)}
                     />
                     </div>
                     {/* Hidden, not disabled, while view-only: RLS rejects an insert into a
@@ -836,26 +797,17 @@ export default function AppShell() {
                       events={activeSlice && (
                         <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={slices['state']} userId={userId} />
                       )}
-                      news={activeSlice && activeMode !== 'news' && (
-                        // Hidden while the News tab shows the same headlines in the feed column.
-                        <ActiveNewsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} limit={3} onSeeAll={openNewsTab} />
-                      )}
                       about={activeSlice && (
                         <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={slices['county']} />
                       )}
                     />
-
-                    {/* News view — the place's headlines in the feed column */}
-                    {activeMode === 'news' && activeSlice && (
-                      <ActiveNewsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} />
-                    )}
 
                     {/* All FEED_TABS feeds mounted simultaneously — CSS hidden preserves the
                         React Query cache; AppShell restores each tab's scroll position. */}
                     {FEED_TABS.map((tabKey) => {
                       const slice = slices[tabKey]
                       if (!slice) return null
-                      const isShown = activeTab === tabKey && feedModes[tabKey] !== 'news'
+                      const isShown = activeTab === tabKey
                       const viewing = viewingSlices[tabKey]
                       const isViewOnly = !!viewing && viewing.id !== slice.id
                       const mode = feedModes[tabKey]
@@ -872,7 +824,7 @@ export default function AppShell() {
                             activePostId={activePostIds[tabKey]}
                             onNavigateToThread={(postId) => handleNavigateToThread(tabKey, postId)}
                             scrollToLatest={scrollToLatestMap[tabKey]}
-                            sort={mode === 'news' ? 'hot' : mode}
+                            sort={mode}
                             searchQuery={activeTab === tabKey ? searchQuery : ''}
                             panelRef={panelRefs.current[tabKey]}
                           />
@@ -888,7 +840,7 @@ export default function AppShell() {
                           activePostId={activePostIds['volunteer']}
                           onNavigateToThread={(postId) => handleNavigateToThread('volunteer', postId)}
                           scrollToLatest={scrollToLatestMap['volunteer']}
-                          sort={feedModes['volunteer'] === 'news' ? 'hot' : feedModes['volunteer']}
+                          sort={feedModes['volunteer']}
                           searchQuery={activeTab === 'volunteer' ? searchQuery : ''}
                           panelRef={panelRefs.current['volunteer']}
                         />
@@ -908,10 +860,6 @@ export default function AppShell() {
                       )}
                       events={activeSlice && (
                         <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={slices['state']} userId={userId} />
-                      )}
-                      news={activeSlice && activeMode !== 'news' && (
-                        // Hidden while the News tab shows the same headlines in the feed column.
-                        <ActiveNewsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} limit={3} onSeeAll={openNewsTab} />
                       )}
                       about={activeSlice && (
                         <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={slices['county']} />

@@ -9,11 +9,10 @@ interface SidebarMobileProps {
   activeTab: string
   location?: ReactNode
   events?: ReactNode
-  news?: ReactNode
   about?: ReactNode
 }
 
-export function SidebarMobile({ repsData, activeTab, location, events, news, about }: SidebarMobileProps) {
+export function SidebarMobile({ repsData, activeTab, location, events, about }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (activeTab === 'volunteer') return null
@@ -63,7 +62,6 @@ export function SidebarMobile({ repsData, activeTab, location, events, news, abo
               {location}
               {events}
 
-              {news}
 
               {showReps && (
                 <RepresentativesWidget

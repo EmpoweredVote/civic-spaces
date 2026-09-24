@@ -10,6 +10,17 @@
   --color-brand-hover: #003E4D; /* Hover / pressed state */
   --color-brand-muted: #F0F8FA; /* Teal background tint */
   --color-brand-light: #59B0C4; /* Light teal — dark mode primary / light mode accent */
+
+  /* EV coral. #FF5740 is 3.14:1 on white, so text on light backgrounds uses the
+     darker coral-text (4.68:1); #FF5740 itself stays for dark mode (5.65:1 on
+     gray-900) and for non-text decoration. */
+  --color-brand-coral:      #FF5740;
+  --color-brand-coral-text: #CC4633;
+
+  /* EV yellow (not Tailwind's yellow-400, #FACC15). 1.46:1 on white, so a yellow
+     control needs its own edge in light mode. */
+  --color-brand-yellow:       #FED12E;
+  --color-brand-yellow-hover: #F2C21A;
 }
 
 body {

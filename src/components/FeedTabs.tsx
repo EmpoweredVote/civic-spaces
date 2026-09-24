@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react'
 import { Emoji } from './Emoji'
 
-/** How the feed is ordered. There is no vote or score yet, so these are the honest three. */
-export type SortMode = 'hot' | 'new' | 'top'
-/** What the feed column shows: posts in an order, or the place's news. */
-export type FeedMode = SortMode | 'news'
+/**
+ * How the feed is ordered. Only orders that actually re-order something: there is no
+ * vote or score yet, so "Hot" (the unchanged boosted order) read as broken and is gone
+ * until a score exists to sort on.
+ */
+export type SortMode = 'new' | 'top'
 
 // The secondary control colour, shared with SliceSelector's "Your Community" pill so
 // the whole bar reads as one row of controls. Teal on the brand tint is 6.3:1 in
@@ -31,27 +33,16 @@ function Icon({ d }: { d: string }) {
   )
 }
 
-const TABS: { key: FeedMode; label: string; emoji: string; hint: string }[] = [
-  { key: 'hot', label: 'Hot', emoji: '🔥', hint: 'Most active conversations first' },
+const TABS: { key: SortMode; label: string; emoji: string; hint: string }[] = [
   { key: 'new', label: 'New', emoji: '✨', hint: 'Newest posts first' },
   { key: 'top', label: 'Top', emoji: '📈', hint: 'Posts with the most replies first' },
-  { key: 'news', label: 'News', emoji: '📰', hint: 'Headlines for this place' },
 ]
 
-/** Hot / New / Top / News — the feed's views, as a tablist. */
-export function FeedTabs({
-  mode,
-  onChange,
-  showNews = true,
-}: {
-  mode: FeedMode
-  onChange: (mode: FeedMode) => void
-  /** News is city/county only (NEWS_LEVELS), so the tab is hidden elsewhere. */
-  showNews?: boolean
-}) {
+/** New / Top — the feed's orders, as a tablist. */
+export function FeedTabs({ mode, onChange }: { mode: SortMode; onChange: (mode: SortMode) => void }) {
   return (
     <div role="tablist" aria-label="Feed view" className="flex flex-nowrap items-center gap-1 p-px [&>*]:flex-shrink-0">
-      {TABS.filter((tab) => showNews || tab.key !== 'news').map((tab) => {
+      {TABS.map((tab) => {
         const active = tab.key === mode
         return (
           <button
@@ -99,20 +90,20 @@ export function FeedSearch({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label="Search this feed"
-        className={`h-8 w-full pl-8 pr-3 rounded-full ${SECONDARY} focus:bg-white dark:focus:bg-gray-900 text-xs font-medium placeholder:text-brand/80 dark:placeholder:text-brand-light/80 placeholder:font-medium focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors`}
+        className={`h-8 w-full pl-8 pr-3 rounded-full ${SECONDARY} focus:bg-white dark:focus:bg-gray-900 text-xs font-medium placeholder:text-gray-500 dark:placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors`}
       />
     </div>
   )
 }
 
-/** The yellow "Post" action — the desktop stand-in for the phone FAB. */
+/** The yellow "Post" action — the desktop stand-in for the phone FAB. EV yellow is 1.46:1 on the light page, hence the ring. */
 export function PostButton({ onClick, disabled, children = 'Post' }: { onClick: () => void; disabled?: boolean; children?: ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-1.5 rounded-full bg-yellow-400 px-4 py-1.5 text-xs font-semibold text-gray-900 shadow-sm hover:bg-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/60"
+      className="flex items-center gap-1.5 rounded-full bg-brand-yellow px-4 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-gray-900/25 dark:ring-0 hover:bg-brand-yellow-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/60"
     >
       <Icon d="M12 5v14M5 12h14" />
       {children}

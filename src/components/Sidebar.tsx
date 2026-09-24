@@ -9,7 +9,6 @@ interface SidebarProps {
   /** Built by AppShell, which owns the name and Census lookups these need. */
   location?: ReactNode
   events?: ReactNode
-  news?: ReactNode
   about?: ReactNode
 }
 
@@ -42,7 +41,7 @@ export function LocationCard({ label }: { label: string }) {
   )
 }
 
-export function Sidebar({ repsData, activeTab, location, events, news, about }: SidebarProps) {
+export function Sidebar({ repsData, activeTab, location, events, about }: SidebarProps) {
   if (activeTab === 'volunteer') return null
 
   const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
@@ -55,7 +54,6 @@ export function Sidebar({ repsData, activeTab, location, events, news, about }: 
       {location}
       {events}
 
-      {news}
 
       {showReps && (
         <RepresentativesWidget
