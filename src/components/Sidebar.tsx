@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
 import type { SliceInfo } from '../types/database'
 import type { CoverageCatalog } from '../lib/toolCoverage'
@@ -13,9 +14,28 @@ interface SidebarProps {
   coverage: CoverageCatalog | null
   activeSlice: SliceInfo | undefined
   compassData: CompassData
+  /** The active slice's NewsWidget. Built by AppShell, which owns the name lookup. */
+  news?: ReactNode
 }
 
-export function Sidebar({ repsData, activeTab, coverage, activeSlice, compassData }: SidebarProps) {
+/**
+ * Address changes happen in the accounts app, never here: this app does not
+ * geocode or store a location (see CLAUDE.md, "Talking to the rest of the platform").
+ */
+export function ChangeAddressLink() {
+  return (
+    <a
+      href="https://app.empowered.vote/settings/location"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="self-start px-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:underline"
+    >
+      Not my address? Change it
+    </a>
+  )
+}
+
+export function Sidebar({ repsData, activeTab, coverage, activeSlice, compassData, news }: SidebarProps) {
   if (activeTab === 'volunteer') return null
 
   const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
@@ -25,6 +45,10 @@ export function Sidebar({ repsData, activeTab, coverage, activeSlice, compassDat
 
   return (
     <div className="flex flex-col gap-3 p-3">
+      <ChangeAddressLink />
+
+      {news}
+
       {showReps && (
         <RepresentativesWidget
           reps={filteredReps}
