@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
 import type { SliceInfo } from '../types/database'
 import type { CoverageCatalog } from '../lib/toolCoverage'
@@ -14,8 +13,6 @@ interface SidebarProps {
   coverage: CoverageCatalog | null
   activeSlice: SliceInfo | undefined
   compassData: CompassData
-  /** The active slice's NewsWidget. Built by AppShell, which owns the name lookup. */
-  news?: ReactNode
 }
 
 /**
@@ -35,7 +32,7 @@ export function ChangeAddressLink() {
   )
 }
 
-export function Sidebar({ repsData, activeTab, coverage, activeSlice, compassData, news }: SidebarProps) {
+export function Sidebar({ repsData, activeTab, coverage, activeSlice, compassData }: SidebarProps) {
   if (activeTab === 'volunteer') return null
 
   const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
@@ -47,7 +44,6 @@ export function Sidebar({ repsData, activeTab, coverage, activeSlice, compassDat
     <div className="flex flex-col gap-3 p-3">
       <ChangeAddressLink />
 
-      {news}
 
       {showReps && (
         <RepresentativesWidget

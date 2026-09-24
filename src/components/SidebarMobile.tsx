@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
 import type { SliceInfo } from '../types/database'
@@ -16,10 +16,9 @@ interface SidebarMobileProps {
   coverage: CoverageCatalog | null
   activeSlice: SliceInfo | undefined
   compassData: CompassData
-  news?: ReactNode
 }
 
-export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, compassData, news }: SidebarMobileProps) {
+export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, compassData }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (activeTab === 'volunteer') return null
@@ -68,7 +67,6 @@ export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, comp
             <div className="flex flex-col gap-3 p-3">
               <ChangeAddressLink />
 
-              {news}
 
               {showReps && (
                 <RepresentativesWidget

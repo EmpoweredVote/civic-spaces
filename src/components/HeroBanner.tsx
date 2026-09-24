@@ -34,9 +34,10 @@ export function HeroBanner({
     <div
       className={[
         // Spacing and corner radius come from the card this sits in (AppShell).
-        // A fixed, compact height per breakpoint keeps the feed above the fold;
-        // the tagline is hidden below sm so the title and pills always fit.
-        'relative overflow-hidden h-40 sm:h-48 md:h-56 lg:h-64',
+        // The tagline is hidden below sm so the title and pills fit the phone floor.
+        // Heights are floors, not fixed (matching #87): the copy is bottom-anchored, so a
+        // long name plus wrapped pills grows the banner instead of clipping the title.
+        'relative overflow-hidden flex flex-col justify-end min-h-40 sm:min-h-48 md:min-h-56 lg:min-h-64',
         'bg-gray-700 dark:bg-gray-800',
         'dark:ring-1 dark:ring-white/10',
       ]
@@ -58,7 +59,7 @@ export function HeroBanner({
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/5" aria-hidden="true" />
 
       {/* Text content — sits above gradient via z-10 */}
-      <div className="relative z-10 flex h-full flex-col justify-end gap-2 p-4 sm:p-6">
+      <div className="relative z-10 flex flex-col justify-end gap-2 p-4 sm:p-6">
         <h2 className="text-xl font-bold text-white [text-shadow:0_1px_3px_rgb(0_0_0_/_0.6)] sm:text-2xl md:text-3xl">
           {sliceName}
         </h2>

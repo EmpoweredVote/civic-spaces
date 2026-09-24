@@ -28,7 +28,6 @@ import NavSidebar from './NavSidebar'
 import { ThemeToggle } from './ThemeToggle'
 import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
-import { NewsWidget } from './widgets/NewsWidget'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
@@ -59,17 +58,6 @@ function ActiveHeroBanner({
       photoUrl={slice.photoUrl ?? wikiPhotoUrl}
     />
   )
-}
-
-/**
- * News for the active slice, wrapped like ActiveHeroBanner so the name lookup
- * runs once for the active tab rather than inside a feed panel. Volunteer is
- * not a geographic space, so it has no local news.
- */
-function ActiveNewsWidget({ slice, fallbackName }: { slice: SliceInfo; fallbackName: string }) {
-  const displayName = useJurisdictionName(slice, fallbackName)
-  if (slice.sliceType === 'volunteer') return null
-  return <NewsWidget level={slice.sliceType} locationName={displayName} />
 }
 
 /**
@@ -386,7 +374,7 @@ export default function AppShell() {
           <div className="hidden sm:block w-px h-7 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
           <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">
             <span className="text-brand dark:text-brand-light">Civic</span>{' '}
-            <span className="text-[#FF5740]">Spaces</span>
+            <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
           </h1>
         </div>
 
@@ -559,9 +547,6 @@ export default function AppShell() {
                   coverage={toolCoverage.data ?? null}
                   activeSlice={slices[activeTab]}
                   compassData={compassData}
-                  news={slices[activeTab] && (
-                    <ActiveNewsWidget slice={slices[activeTab]!} fallbackName={TAB_LABELS[activeTab]} />
-                  )}
                 />
 
                 {/* Feed tab panels — flex-1 fills remaining space. Banner lives inside each
@@ -637,9 +622,6 @@ export default function AppShell() {
                   coverage={toolCoverage.data ?? null}
                   activeSlice={slices[activeTab]}
                   compassData={compassData}
-                  news={slices[activeTab] && (
-                    <ActiveNewsWidget slice={slices[activeTab]!} fallbackName={TAB_LABELS[activeTab]} />
-                  )}
                 />
               </div>
               </div>
