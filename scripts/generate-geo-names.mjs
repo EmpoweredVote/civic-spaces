@@ -35,9 +35,24 @@ const OUT_DIR = join(ROOT, 'public', 'geo')
 
 const GAZETTEER = 'https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2024_Gazetteer'
 const SOURCES = [
-  { kind: 'place', file: '2024_Gaz_place_national.zip' },
-  { kind: 'county', file: '2024_Gaz_counties_national.zip' },
+  { kind: 'place', file: '2024_Gaz_place_national.zip', geoidLength: 7 },
+  { kind: 'county', file: '2024_Gaz_counties_national.zip', geoidLength: 5 },
+  { kind: 'state', file: '2024_Gaz_state_national.zip', geoidLength: 2 },
 ]
+
+// 2020 Decennial PL 94-171. P1_001N is total resident population.
+//
+// Unlike the gazetteer this DOES need a key, because api.census.gov started
+// answering keyless requests with a 302 — the very failure this script exists
+// to route around. That is fine here: the key is read from the environment at
+// build time and the numbers are committed, so nothing about it reaches the
+// browser. It is deliberately CENSUS_API_KEY and not VITE_CENSUS_API_KEY,
+// since Vite bundles every VITE_-prefixed variable into the client.
+//
+// Get one free at https://api.census.gov/data/key_signup.html and put it in
+// .env.local, which is gitignored. Without a key the script still runs and
+// simply omits population — a fresh clone is never broken by a missing key.
+const CENSUS_PL = 'https://api.census.gov/data/2020/dec/pl'
 
 // ---------------------------------------------------------------------------
 // Minimal zip reader
@@ -112,12 +127,23 @@ function parseGazetteer(text) {
 // County names deliberately keep their suffix — "Buncombe County" is clearer
 // than "Buncombe", and the county slice's banner has always read that way.
 const PLACE_SUFFIX =
-  /\s+(city and borough|consolidated government|metropolitan government|unified government|city|town|township|borough|municipality|village|CDP|comunidad|zona urbana)$/i
+  /\s+(city and borough|consolidated government|metropolitan government|metro government|unified government|city|town|township|borough|municipality|village|CDP|comunidad|zona urbana)$/i
+
+// Consolidated city-county governments carry a "(balance)" qualifier AFTER the
+// entity word — "Indianapolis city (balance)", "Louisville/Jefferson County
+// metro government (balance)" — which defeats an end-anchored suffix match. It
+// has to come off first or the largest city in Indiana renders as
+// "Indianapolis city (balance)" on its own banner. Eight places nationwide.
+//
+// Every other parenthetical is a Census alternate name for a CDP, such as
+// "San Buenaventura (Ventura)" or "Addison (Webster Springs)". Those are part
+// of the name and are deliberately kept.
+const BALANCE_QUALIFIER = /\s+\(balance\)$/i
 
 function cleanPlaceName(name) {
   // Only ", {State}" style trailers appear in gazetteer NAMEs, but strip
   // defensively: the API form carried them and the two should agree.
-  const base = name.split(', ')[0] ?? name
+  const base = (name.split(', ')[0] ?? name).replace(BALANCE_QUALIFIER, '')
   const stripped = base.replace(PLACE_SUFFIX, '').trim()
   // "Town of Purgatory" style names are entirely suffix once stripped; never
   // return an empty label.
@@ -128,35 +154,92 @@ function cleanPlaceName(name) {
 // Build
 // ---------------------------------------------------------------------------
 
-async function fetchSource({ kind, file }) {
+async function fetchSource({ kind, file, geoidLength }) {
   const url = `${GAZETTEER}/${file}`
   const resp = await fetch(url)
   if (!resp.ok) throw new Error(`${url} -> HTTP ${resp.status}`)
   const text = unzipSingleFile(Buffer.from(await resp.arrayBuffer())).toString('utf8')
   const rows = parseGazetteer(text)
   console.log(`  ${file}  ${rows.length.toLocaleString()} rows`)
-  return { kind, rows }
+  return { kind, rows, geoidLength }
 }
 
-function buildShards(sources) {
-  /** @type {Map<string, Record<string, { name: string, lat: number, lon: number }>>} */
+// ---------------------------------------------------------------------------
+// Population
+// ---------------------------------------------------------------------------
+
+async function censusRows(query, key) {
+  const resp = await fetch(`${CENSUS_PL}?${query}&key=${encodeURIComponent(key)}`)
+  if (!resp.ok) throw new Error(`census ${query} -> HTTP ${resp.status}`)
+  const rows = await resp.json()
+  // [["P1_001N","state","place"], ["94589","37","02140"], …] — the header row
+  // names the geography columns, and a geoid is those columns concatenated in
+  // the order given.
+  const [header, ...body] = rows
+  const valueIdx = header.indexOf('P1_001N')
+  const geoIdx = header.map((h, i) => (h === 'P1_001N' ? -1 : i)).filter((i) => i >= 0)
+  return body.map((row) => ({
+    geoid: geoIdx.map((i) => row[i]).join(''),
+    pop: Number(row[valueIdx]),
+  }))
+}
+
+/**
+ * geoid -> 2020 population, for every place, county and state, plus "US".
+ *
+ * Wildcards keep this to 53 requests for the whole country: counties and states
+ * each come back nationwide in a single call, and only places have to be asked
+ * for state by state.
+ */
+async function fetchPopulations(key, stateFipsList) {
+  const pop = new Map()
+  const add = (rows) => {
+    for (const { geoid, pop: n } of rows) if (Number.isFinite(n) && n >= 0) pop.set(geoid, n)
+  }
+
+  add(await censusRows('get=P1_001N&for=county:*', key))
+  add(await censusRows('get=P1_001N&for=state:*', key))
+
+  const [us] = await censusRows('get=P1_001N&for=us:1', key)
+  if (us) pop.set('US', us.pop)
+
+  // Places are not available nationwide in one call; ask per state.
+  let done = 0
+  for (const stateFips of stateFipsList) {
+    add(await censusRows(`get=P1_001N&for=place:*&in=state:${stateFips}`, key))
+    done += 1
+    if (done % 10 === 0) process.stdout.write(`  …${done}/${stateFipsList.length} states\n`)
+  }
+
+  console.log(`  ${pop.size.toLocaleString()} population figures`)
+  return pop
+}
+
+function buildShards(sources, pop) {
+  /** @type {Map<string, Record<string, { name: string, lat: number, lon: number, pop?: number }>>} */
   const byState = new Map()
 
-  for (const { kind, rows } of sources) {
+  for (const { kind, rows, geoidLength } of sources) {
     for (const row of rows) {
-      // Places are 7-digit and counties 5-digit; anything else is a gazetteer
-      // row we do not serve and would only bloat the shard.
-      const expected = kind === 'place' ? 7 : 5
-      if (row.geoid.length !== expected) continue
+      // Anything that is not the level's own geoid shape is a gazetteer row we
+      // do not serve, and would only bloat the shard.
+      if (row.geoid.length !== geoidLength) continue
       if (!Number.isFinite(row.lat) || !Number.isFinite(row.lon)) continue
 
       const stateFips = row.geoid.slice(0, 2)
       if (!byState.has(stateFips)) byState.set(stateFips, {})
-      byState.get(stateFips)[row.geoid] = {
+      const entry = {
+        // Only places carry a Census entity suffix worth stripping. "Buncombe
+        // County" and "North Carolina" are already what the banner should read.
         name: kind === 'place' ? cleanPlaceName(row.name) : row.name,
         lat: row.lat,
         lon: row.lon,
       }
+      // Omitted rather than nulled when there is no key, so a keyless run
+      // produces the same shape as today's committed files for every other field.
+      const n = pop.get(row.geoid)
+      if (n !== undefined) entry.pop = n
+      byState.get(stateFips)[row.geoid] = entry
     }
   }
 
@@ -167,11 +250,28 @@ function buildShards(sources) {
     const sorted = Object.fromEntries(Object.keys(names).sort().map((k) => [k, names[k]]))
     shards.set(stateFips, JSON.stringify({ state: stateFips, names: sorted }, null, 0) + '\n')
   }
+
+  // The nation is its own shard so that a federal slice reads through exactly
+  // the same path as every other level, rather than needing a special case.
+  // The gazetteer has no US row, so the name is spelled out here; it matches
+  // what geoidToDisplayName already returns for a federal slice.
+  const nation = { name: 'United States of America', lat: 39.828175, lon: -98.5795 }
+  const usPop = pop.get('US')
+  if (usPop !== undefined) nation.pop = usPop
+  shards.set('us', JSON.stringify({ state: 'us', names: { US: nation } }, null, 0) + '\n')
+
   return shards
 }
 
 function digest(s) {
   return createHash('sha256').update(s).digest('hex').slice(0, 12)
+}
+
+/** Re-serialises a shard with every `pop` removed, for a keyless --check. */
+function stripPop(json) {
+  const shard = JSON.parse(json)
+  for (const entry of Object.values(shard.names)) delete entry.pop
+  return JSON.stringify(shard, null, 0) + '\n'
 }
 
 async function main() {
@@ -181,7 +281,22 @@ async function main() {
   const sources = []
   for (const source of SOURCES) sources.push(await fetchSource(source))
 
-  const shards = buildShards(sources)
+  const key = process.env.CENSUS_API_KEY
+  let pop = new Map()
+  if (key) {
+    const states = sources
+      .find((s) => s.kind === 'state')
+      .rows.map((r) => r.geoid)
+      .filter((g) => g.length === 2)
+    pop = await fetchPopulations(key, states)
+  } else {
+    // Not an error. A contributor without a key gets names and coordinates,
+    // which is everything the app needs today; only the population figures
+    // that #87's banner wants require one.
+    console.log('  no CENSUS_API_KEY — skipping population (see the header comment)')
+  }
+
+  const shards = buildShards(sources, pop)
   const total = [...shards.values()].reduce((n, s) => n + s.length, 0)
   const rows = [...shards.values()].reduce((n, s) => n + Object.keys(JSON.parse(s).names).length, 0)
 
@@ -205,8 +320,16 @@ async function main() {
       // to LF, but a clone made before that landed — or any checkout with
       // core.autocrlf=true and stale attributes — would otherwise report every
       // shard as drifted on nothing but a CR.
-      const actual = (await readFile(path, 'utf8')).replace(/\r\n/g, '\n')
-      if (actual !== content) drift.push(`changed   ${file}  ${digest(actual)} -> ${digest(content)}`)
+      let actual = (await readFile(path, 'utf8')).replace(/\r\n/g, '\n')
+      let expected = content
+      // Without a key this run has no population to compare, so drop it from
+      // both sides rather than reporting all 53 shards as drifted. A keyless
+      // check still verifies every name and coordinate.
+      if (!key) {
+        actual = stripPop(actual)
+        expected = stripPop(expected)
+      }
+      if (actual !== expected) drift.push(`changed   ${file}  ${digest(actual)} -> ${digest(expected)}`)
     }
     for (const stale of onDisk) drift.push(`orphaned  ${stale}`)
 

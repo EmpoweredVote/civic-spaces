@@ -23,6 +23,15 @@ export interface GeoName {
   /** Census internal point. Not used yet; here because the gazetteer carries it. */
   lat: number
   lon: number
+  /**
+   * 2020 Decennial total resident population (P1_001N).
+   *
+   * Absent for ~470 of 35,600 rows: small CDPs that the 2024 gazetteer lists
+   * but the 2020 place enumeration does not, so there is genuinely no figure to
+   * show. Callers must treat it as optional and render nothing when it is
+   * missing, rather than a zero.
+   */
+  pop?: number
 }
 
 interface GeoShard {
@@ -55,21 +64,30 @@ function loadShard(stateFips: string): Promise<Record<string, GeoName> | null> {
 }
 
 /**
- * Resolves a geoid to its place name, or null if it is not a shape we carry.
+ * Resolves a geoid to its entry, or null if it is not a shape we carry.
  *
- * Only two shapes reach here, both verified against production slices:
+ * Four shapes resolve, all verified against the production slices table:
  *   7-digit place FIPS  "3702140" -> Asheville
  *   5-digit county FIPS "37021"   -> Buncombe County
+ *   2-digit state FIPS  "37"      -> North Carolina
+ *   the literal         "US"      -> United States of America
  *
- * The sentinel geoids ("US", "UNIFIED", "VOLUNTEER") and state FIPS resolve
- * synchronously in `geoidToDisplayName` and never get this far. Note that
- * "UNIFIED" is also seven characters, so callers must dispatch on slice type
- * before length — which `geoidToDisplayName` does.
+ * Names for state and federal also resolve synchronously in
+ * `geoidToDisplayName`, which is the cheaper path and stays the one the banner
+ * title uses. This covers all four so that a caller wanting population —
+ * which only lives here — does not need a second code path per level.
+ *
+ * The other sentinels are rejected by shape: "UNIFIED" is seven characters but
+ * not numeric, and "VOLUNTEER" is nine. Neither is a place and neither has a
+ * population.
  */
 export async function lookupGeoName(geoid: string): Promise<GeoName | null> {
-  if (geoid.length !== 5 && geoid.length !== 7) return null
-  if (!/^\d+$/.test(geoid)) return null
+  const isNation = geoid === 'US'
+  if (!isNation) {
+    if (geoid.length !== 2 && geoid.length !== 5 && geoid.length !== 7) return null
+    if (!/^\d+$/.test(geoid)) return null
+  }
 
-  const names = await loadShard(geoid.slice(0, 2))
+  const names = await loadShard(isNation ? 'us' : geoid.slice(0, 2))
   return names?.[geoid] ?? null
 }
