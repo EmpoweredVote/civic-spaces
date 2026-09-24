@@ -1,6 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
 import type React from 'react'
-import type { ReactNode } from 'react'
 // import { useFeed } from '../hooks/useFeed' // Fallback: chronological feed
 import { useBoostedFeed } from '../hooks/useBoostedFeed'
 import { useRealtimeInvalidation } from '../hooks/useRealtimeInvalidation'
@@ -42,14 +41,10 @@ function filterPosts(posts: PostWithAuthor[], query: string): PostWithAuthor[] {
 
 interface SliceFeedPanelProps {
   sliceId: string
-  sliceName?: string
-  siblingIndex?: number
   activePostId: string | null
   onNavigateToThread: (postId: string | null) => void
   scrollToLatest?: boolean
   scrollRef?: React.RefObject<HTMLDivElement | null>
-  /** The sibling-slice switcher, rendered in the feed's header row. */
-  sliceSelector?: ReactNode
   /** True when showing a sibling slice the member does not belong to. */
   isViewOnly?: boolean
   /** Sibling index currently displayed, and the member's own, for the notice. */
@@ -60,13 +55,10 @@ interface SliceFeedPanelProps {
 
 export default function SliceFeedPanel({
   sliceId,
-  sliceName,
-  siblingIndex,
   activePostId,
   onNavigateToThread,
   scrollToLatest,
   scrollRef,
-  sliceSelector,
   isViewOnly = false,
   viewingSliceIndex,
   ownSliceIndex,
@@ -150,14 +142,8 @@ export default function SliceFeedPanel({
     <div className="relative h-full">
       {/* Feed — hidden (but mounted) when thread is open to preserve scroll */}
       <div ref={scrollRef} className={activePostId ? 'hidden' : 'flex flex-col h-full overflow-y-auto'}>
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-          <div>
-            {sliceSelector ?? (sliceName && siblingIndex != null && (
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                {sliceName} #{siblingIndex}
-              </span>
-            ))}
-          </div>
+        {/* The slice switcher lives in the location banner above; this row is the feed's own controls. */}
+        <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
           <FeedToolbar
             sort={sort}
             onSortChange={setSort}

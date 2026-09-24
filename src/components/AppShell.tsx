@@ -7,12 +7,14 @@ import { useAllSlices } from '../hooks/useAllSlices'
 import { useEnsureSlices } from '../hooks/useEnsureSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
-import { useWikiHeroImage } from '../hooks/useWikiHeroImage'
+import { useHeroBanner } from '../hooks/useHeroBanner'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import { useToolCoverage } from '../hooks/useToolCoverage'
 import { useCompassData } from '../hooks/useCompassData'
+import { useNextElection, electionAreaFor, type NextElection } from '../hooks/useNextElection'
+import { forecastUrlFor } from '../lib/forecastLink'
 import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
@@ -32,31 +34,86 @@ import { NewsWidget } from './widgets/NewsWidget'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
- * Small wrapper that calls useWikiHeroImage for the active slice.
- * Extracted as its own component so the hook is called unconditionally
- * (React rules of hooks forbid calling hooks inside callbacks or IIFEs).
+ * The location banner for the active slice: hero image, name, the sibling-slice
+ * switcher, member counts, and the civic facts row.
+ *
+ * 🔴 Rendered ONLY for the active tab. All six feed panels are mounted at once, so
+ * useSiblingSlices inside a panel would fire six times on load — the landmine in
+ * CLAUDE.md. It lives here, where there is exactly one.
  */
 function ActiveHeroBanner({
   slice,
   fallbackName,
-  siblingIndexOverride,
+  viewingSliceId,
+  onSelectSibling,
+  nextElection,
 }: {
   slice: SliceInfo
   fallbackName: string
-  /** Shard being viewed, when it is not the member's own — the banner should
-   *  name the slice on screen, not the one they belong to. */
-  siblingIndexOverride?: number
+  /** The shard on screen — the member's own, or a sibling they are browsing read-only. */
+  viewingSliceId: string
+  onSelectSibling: (sibling: SiblingSlice) => void
+  nextElection: NextElection | null | undefined
 }) {
-  const wikiPhotoUrl = useWikiHeroImage(slice)
+  const hero = useHeroBanner(slice)
   const displayName = useJurisdictionName(slice, fallbackName)
+  const { siblings, isLoading, isError } = useSiblingSlices(
+    slice.sliceType,
+    slice.geoid,
+    slice.id,
+    slice.siblingIndex,
+    slice.memberCount,
+  )
+
+  // A DB photo_url is an explicit per-slice override and wins outright. Its
+  // provenance is unknown, so it carries no credit — whoever sets one owns the
+  // licensing for it. Everything else comes from the hook with a credit attached.
+  //
+  // The `undefined` case must survive: it means "still resolving", and HeroBanner
+  // uses it to hold the gradient rather than flash a fallback photo it will replace.
+  const photoUrl = slice.photoUrl ?? (hero === undefined ? undefined : (hero?.url ?? null))
+  const credit = slice.photoUrl ? null : (hero?.credit ?? null)
+
+  // Counts come straight from slices.current_member_count (trigger-maintained). The
+  // location total is only shown once the siblings query has answered with more than
+  // one shard; with one, it would just repeat the slice count.
+  const viewing = siblings.find((s) => s.id === viewingSliceId)
+  const memberCount = viewing?.memberCount ?? slice.memberCount
+  const locationMemberCount = !isLoading && !isError && siblings.length > 1
+    ? siblings.reduce((sum, s) => sum + s.memberCount, 0)
+    : undefined
+
+  // useJurisdictionName hands back the tab label when it cannot resolve a real name.
+  const resolvedName = displayName !== fallbackName ? displayName : null
+
   return (
     <HeroBanner
       sliceType={slice.sliceType}
+      geoid={slice.geoid}
       sliceName={displayName}
       levelLabel={fallbackName}
-      memberCount={slice.memberCount}
-      siblingIndex={siblingIndexOverride ?? slice.siblingIndex}
-      photoUrl={slice.photoUrl ?? wikiPhotoUrl}
+      memberCount={memberCount}
+      locationMemberCount={locationMemberCount}
+      switcher={
+        <SliceSelector
+          tone="image"
+          locationName={displayName}
+          ownSliceId={slice.id}
+          ownSiblingIndex={slice.siblingIndex}
+          viewingSliceId={viewingSliceId}
+          siblings={siblings}
+          isLoading={isLoading}
+          isError={isError}
+          onSelect={(id) => {
+            const picked = siblings.find((sib) => sib.id === id)
+            if (picked) onSelectSibling(picked)
+          }}
+        />
+      }
+      nextElection={nextElection}
+      forecastUrl={forecastUrlFor(slice.sliceType, slice.geoid, resolvedName)}
+      photoUrl={photoUrl}
+      credit={credit}
     />
   )
 }
@@ -70,50 +127,6 @@ function ActiveNewsWidget({ slice, fallbackName }: { slice: SliceInfo; fallbackN
   const displayName = useJurisdictionName(slice, fallbackName)
   if (slice.sliceType === 'volunteer') return null
   return <NewsWidget level={slice.sliceType} locationName={displayName} />
-}
-
-/**
- * The sibling-slice switcher for one slice.
- *
- * 🔴 Rendered ONLY for the active tab. All six feed panels are mounted at once,
- * so putting useSiblingSlices inside the panel itself would fire it six times on
- * load — the landmine in CLAUDE.md. Gating on isActive keeps it to one.
- */
-function ActiveSliceSelector({
-  slice,
-  fallbackName,
-  viewingSliceId,
-  onSelect,
-}: {
-  slice: SliceInfo
-  fallbackName: string
-  viewingSliceId: string
-  onSelect: (sibling: SiblingSlice) => void
-}) {
-  const { siblings, isLoading, isError } = useSiblingSlices(
-    slice.sliceType,
-    slice.geoid,
-    slice.id,
-    slice.siblingIndex,
-    slice.memberCount,
-  )
-  const locationName = useJurisdictionName(slice, fallbackName)
-
-  return (
-    <SliceSelector
-      locationName={locationName}
-      ownSliceId={slice.id}
-      ownSiblingIndex={slice.siblingIndex}
-      viewingSliceId={viewingSliceId}
-      siblings={siblings}
-      isLoading={isLoading}
-      isError={isError}
-      onSelect={(id) => {
-        const picked = siblings.find((sib) => sib.id === id)
-        if (picked) onSelect(picked)
-      }}
-    />
-  )
 }
 
 type ActivePanel = 'friends' | 'directory' | null
@@ -190,6 +203,8 @@ export default function AppShell() {
   const [activePostIds, setActivePostIds] = useState<Record<TabKey, string | null>>(INITIAL_POST_IDS)
   const [scrollToLatestMap, setScrollToLatestMap] = useState<Record<TabKey, boolean>>(INITIAL_SCROLL_MAP)
   const [viewingSlices, setViewingSlices] = useState<Record<TabKey, SiblingSlice | null>>(INITIAL_VIEWING)
+  // Hoisted like repsData, and for the active tab only: the banner is the one consumer.
+  const nextElection = useNextElection(electionAreaFor(slices[activeTab], slices['state']), userId)
   const [modQueueOpen, setModQueueOpen] = useState(false)
   // The nav rail is pinned from lg up; below that it lives in this drawer.
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
@@ -542,11 +557,15 @@ export default function AppShell() {
               <div className={`grid ${contentGridCols} grid-rows-[auto_minmax(0,1fr)] gap-3 md:gap-4 min-h-0 overflow-hidden`}>
                 {/* Banner — spans the feed and sidebar columns, above both */}
                 {slices[activeTab] && (
-                  <div className="col-span-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm">
+                  // Not overflow-hidden: the banner's slice switcher opens a menu over the
+                  // feed below. relative z-20 lifts that menu above the feed card.
+                  <div className="relative z-20 col-span-full rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
                     <ActiveHeroBanner
                       slice={slices[activeTab]!}
                       fallbackName={TAB_LABELS[activeTab]}
-                      siblingIndexOverride={viewingSlices[activeTab]?.siblingIndex}
+                      viewingSliceId={viewingSlices[activeTab]?.id ?? slices[activeTab]!.id}
+                      onSelectSibling={(sib) => handleViewSlice(activeTab, sib, slices[activeTab]!.id)}
+                      nextElection={nextElection}
                     />
                   </div>
                 )}
@@ -581,22 +600,12 @@ export default function AppShell() {
                       >
                         <SliceFeedPanel
                           sliceId={viewing?.id ?? slice.id}
-                          sliceName={TAB_LABELS[tabKey]}
-                          siblingIndex={slice.siblingIndex}
                           isViewOnly={isViewOnly}
                           viewingSliceIndex={viewing?.siblingIndex}
                           ownSliceIndex={slice.siblingIndex}
                           onReturnToOwnSlice={() =>
                             handleViewSlice(tabKey, { id: slice.id, siblingIndex: slice.siblingIndex, memberCount: slice.memberCount }, slice.id)
                           }
-                          sliceSelector={isActive ? (
-                            <ActiveSliceSelector
-                              slice={slice}
-                              fallbackName={TAB_LABELS[tabKey]}
-                              viewingSliceId={viewing?.id ?? slice.id}
-                              onSelect={(sib) => handleViewSlice(tabKey, sib, slice.id)}
-                            />
-                          ) : undefined}
                           activePostId={activePostIds[tabKey]}
                           onNavigateToThread={(postId) => handleNavigateToThread(tabKey, postId)}
                           scrollToLatest={scrollToLatestMap[tabKey]}
@@ -611,8 +620,6 @@ export default function AppShell() {
                     <div className={activeTab === 'volunteer' ? 'flex flex-col flex-1 overflow-hidden min-h-0' : 'hidden'}>
                       <SliceFeedPanel
                         sliceId={slices['volunteer'].id}
-                        sliceName="Volunteer"
-                        siblingIndex={slices['volunteer'].siblingIndex}
                         activePostId={activePostIds['volunteer']}
                         onNavigateToThread={(postId) => handleNavigateToThread('volunteer', postId)}
                         scrollToLatest={scrollToLatestMap['volunteer']}
