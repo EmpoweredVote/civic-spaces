@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { SliceInfo } from '../types/database'
-import { geoidToWikiTitle } from '../lib/geoidToWiki'
+import { geoidToWikiTitle, STATE_FIPS } from '../lib/geoidToWiki'
+import { lookupGeoName } from '../lib/geoNames'
 
 /** Session-level cache: cacheKey → image URL or null (null means "fetched, no image found") */
 const cache = new Map<string, string | null>()
@@ -23,32 +24,29 @@ async function fetchWikiImage(title: string): Promise<string | null> {
 }
 
 /**
- * Calls the free Census Bureau FIPS API to get a county's canonical name,
- * then looks it up on Wikipedia.
+ * Resolves a county's canonical name from the offline table, then looks that
+ * name up on Wikipedia.
  *
- * Used for local slices whose county isn't in our hardcoded Indiana lookup table.
+ * Used for county slices that are not in the hardcoded Indiana lookup table.
  * Returns a Wikipedia image URL, or null if the county or image can't be found.
  *
- * Census API docs: https://api.census.gov/data/2020/dec/pl
- * Example: ?get=NAME&for=county:037&in=state:06 → "Los Angeles County, California"
+ * This read the Census API until 2026-09-24, when that endpoint began answering
+ * keyless requests with `302 -> missing_key.html`. The failure was invisible:
+ * the hook returns null on error and HeroBanner quietly shows the slice's
+ * default photo, so every non-Indiana county lost its real image without
+ * anything surfacing. See `src/lib/geoNames.ts`.
  */
-async function fetchLocalImageViaCensus(geoid: string): Promise<string | null> {
+async function fetchLocalImageViaGeoTable(geoid: string): Promise<string | null> {
   if (geoid.length !== 5) return null
-  const stateFips = geoid.slice(0, 2)
-  const countyFips = geoid.slice(2)
-  try {
-    const resp = await fetch(
-      `https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:${countyFips}&in=state:${stateFips}`
-    )
-    if (!resp.ok) return null
-    const data = await resp.json()
-    // Response format: [["NAME","state","county"], ["Los Angeles County, California","06","037"]]
-    const countyName: string | undefined = data?.[1]?.[0]
-    if (!countyName) return null
-    return fetchWikiImage(countyName)
-  } catch {
-    return null
-  }
+  const entry = await lookupGeoName(geoid)
+  if (!entry) return null
+
+  // Wikipedia disambiguates county articles by state — "Buncombe County" alone
+  // is a redirect at best. The Census API used to return the qualified form
+  // ("Buncombe County, North Carolina") directly; the table stores the bare
+  // name, so the state is appended here.
+  const stateName = STATE_FIPS[geoid.slice(0, 2)]
+  return fetchWikiImage(stateName ? `${entry.name}, ${stateName}` : entry.name)
 }
 
 /**
@@ -57,7 +55,7 @@ async function fetchLocalImageViaCensus(geoid: string): Promise<string | null> {
  * Resolution order:
  *  1. Session cache (instant)
  *  2. geoidToWikiTitle lookup (hardcoded fast path: US Capitol, state capitols, Indiana counties)
- *  3. Census Bureau API (for local slices with counties not in our hardcoded table)
+ *  3. Offline geo table (for counties not in our hardcoded table)
  *  4. null → HeroBanner falls back to sliceCopy defaultPhoto
  */
 /**
@@ -99,8 +97,8 @@ export function useWikiHeroImage(slice: SliceInfo): string | null | undefined {
       if (title) {
         result = await fetchWikiImage(title)
       } else if (slice.sliceType === 'county' && slice.geoid.length === 5) {
-        // County not in hardcoded table — ask Census Bureau for the name
-        result = await fetchLocalImageViaCensus(slice.geoid)
+        // County not in the hardcoded table — resolve its name offline
+        result = await fetchLocalImageViaGeoTable(slice.geoid)
       }
 
       cache.set(cacheKey, result)
