@@ -13,8 +13,23 @@
  * server-side proxy in ev-accounts would keep it out of the bundle if that is preferred.
  */
 const CENSUS_PL_URL = 'https://api.census.gov/data/2020/dec/pl'
+/**
+ * Census geography attributes. Carries INTPTLAT/INTPTLON, the Bureau's official
+ * internal point for each place and county — which 2020/dec/pl does not (it answers
+ * "unknown variable"). Used for weather, keyed by the slice's geoid: a lookup of
+ * public data about a place, not geocoding anyone's address.
+ */
+const CENSUS_GEOINFO_URL = 'https://api.census.gov/data/2023/geoinfo'
+
+function withKey(base: string, query: string): string {
+  const key = import.meta.env.VITE_CENSUS_API_KEY
+  return `${base}?${query}${key ? `&key=${encodeURIComponent(key)}` : ''}`
+}
 
 export function censusPlUrl(query: string): string {
-  const key = import.meta.env.VITE_CENSUS_API_KEY
-  return `${CENSUS_PL_URL}?${query}${key ? `&key=${encodeURIComponent(key)}` : ''}`
+  return withKey(CENSUS_PL_URL, query)
+}
+
+export function censusGeoinfoUrl(query: string): string {
+  return withKey(CENSUS_GEOINFO_URL, query)
 }

@@ -9,6 +9,12 @@ import type { SliceType } from '../../types/database'
 interface NewsWidgetProps {
   level: SliceType
   locationName: string | null
+  /** Full state name; disambiguates same-named places in the search. */
+  stateName: string | null
+  /** Show at most this many headlines (the sidebar card shows 3; the News tab, all). */
+  limit?: number
+  /** Opens the full list — the News tab. Offered only when headlines were cut. */
+  onSeeAll?: () => void
 }
 
 function timeAgo(iso: string): string {
@@ -22,10 +28,11 @@ function hideImg(e: React.SyntheticEvent<HTMLImageElement>) {
   e.currentTarget.style.display = 'none'
 }
 
-export function NewsWidget({ level, locationName }: NewsWidgetProps) {
+export function NewsWidget({ level, locationName, stateName, limit, onSeeAll }: NewsWidgetProps) {
   const isDark = useIsDarkMode()
-  const { articles, isLoading, isError } = useNews(level, locationName)
+  const { articles, isLoading, isError } = useNews(level, locationName, stateName)
   const title = locationName ? `${locationName} News` : 'News'
+  const shown = limit === undefined ? articles : articles.slice(0, limit)
 
   if (isLoading) {
     return (
@@ -61,16 +68,28 @@ export function NewsWidget({ level, locationName }: NewsWidgetProps) {
   }
 
   return (
-    <WidgetCard title={title}>
+    <WidgetCard
+      title={title}
+      action={onSeeAll && limit !== undefined && articles.length > limit && (
+        <button
+          type="button"
+          onClick={onSeeAll}
+          className="flex-shrink-0 rounded text-xs font-semibold text-brand dark:text-brand-light hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+        >
+          See all
+          <span className="sr-only"> {articles.length} headlines in the News tab</span>
+        </button>
+      )}
+    >
       <div className="flex flex-col">
-        {articles.map((article, index) => (
+        {shown.map((article, index) => (
           <a
             key={article.id}
             href={article.url}
             target="_blank"
             rel="noopener noreferrer"
             className={`flex items-start gap-3 py-3 -mx-2 px-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
-              index < articles.length - 1 ? 'border-b border-gray-100 dark:border-gray-800' : ''
+              index < shown.length - 1 ? 'border-b border-gray-100 dark:border-gray-800' : ''
             }`}
           >
             <div className="flex-1 min-w-0">

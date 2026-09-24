@@ -12,7 +12,6 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
 import { HeroBanner } from '../components/HeroBanner'
-import { SliceSelector } from '../components/SliceSelector'
 import { bannerFor } from '../lib/banners'
 import { forecastUrlFor } from '../lib/forecastLink'
 import type { NextElection } from '../hooks/useNextElection'
@@ -20,25 +19,6 @@ import type { SliceType } from '../types/database'
 
 // The real NC answer, captured 2026-09-24 (see MOCK_ELECTIONS). Harness-only.
 const NC_GENERAL: NextElection = { name: 'NC 2026 Statewide General', date: '2026-11-03' }
-
-/** A switcher with no siblings renders as the plain "Your Community" label. */
-function staticSwitcher(name: string, viewOnly = false) {
-  const own = { id: 'own', siblingIndex: 1, memberCount: 1234 }
-  const other = { id: 'other', siblingIndex: 2, memberCount: 980 }
-  return (
-    <SliceSelector
-      tone="image"
-      locationName={name}
-      ownSliceId="own"
-      ownSiblingIndex={1}
-      viewingSliceId={viewOnly ? 'other' : 'own'}
-      siblings={viewOnly ? [own, other] : [own]}
-      isLoading={false}
-      isError={false}
-      onSelect={() => {}}
-    />
-  )
-}
 
 type Case = {
   label: string
@@ -53,7 +33,7 @@ type Case = {
 
 const CASES: Case[] = [
   { label: 'City — Asheville (curated) · election + forecast + 3 slices', sliceType: 'city', geoid: '3702140', name: 'Asheville', level: 'City', election: NC_GENERAL, location: 3214 },
-  { label: 'City — Santa Monica (curated) · browsing a sibling read-only', sliceType: 'city', geoid: '0670000', name: 'Santa Monica', level: 'City', election: undefined, viewOnly: true, location: 2214 },
+  { label: 'City — Santa Monica (curated) · viewing a sibling slice', sliceType: 'city', geoid: '0670000', name: 'Santa Monica', level: 'City', election: undefined, viewOnly: true, location: 2214 },
   { label: 'City — uncovered geoid · NO election on file', sliceType: 'city', geoid: '1836003', name: 'Indianapolis', level: 'City', election: null },
   { label: 'State — Indiana', sliceType: 'state', geoid: '18', name: 'Indiana', level: 'State', election: NC_GENERAL },
   { label: 'State — California (v2 crop)', sliceType: 'state', geoid: '06', name: 'California', level: 'State', election: undefined },
@@ -83,7 +63,6 @@ function FeedSimulation() {
             sliceName="United States of America"
             levelLabel="Federal"
             memberCount={6}
-            switcher={staticSwitcher('United States of America')}
             nextElection={NC_GENERAL}
             forecastUrl={null}
             photoUrl={banner ? banner.url : null}
@@ -124,7 +103,6 @@ function Harness() {
               levelLabel={c.level}
               memberCount={c.viewOnly ? 980 : 1234}
               locationMemberCount={c.location}
-              switcher={staticSwitcher(c.name, c.viewOnly)}
               nextElection={c.election}
               forecastUrl={forecastUrlFor(c.sliceType, c.geoid, c.name)}
               photoUrl={banner ? banner.url : null}

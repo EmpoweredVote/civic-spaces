@@ -16,7 +16,8 @@ export default function FAB({ onClick, disabled }: FABProps) {
         zIndex: 50,
       }}
       className={[
-        'w-14 h-14 rounded-full bg-yellow-400 text-gray-900 shadow-lg flex items-center justify-center text-2xl',
+        // Phones only: from md up the tab bar's Post button does this job.
+        'md:hidden w-14 h-14 rounded-full bg-yellow-400 text-gray-900 shadow-lg flex items-center justify-center text-2xl',
         disabled
           ? 'opacity-50 cursor-not-allowed'
           : 'hover:bg-yellow-300 hover:scale-105 transition-all',

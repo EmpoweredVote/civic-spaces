@@ -2,6 +2,11 @@ import { useState } from 'react'
 import type React from 'react'
 import type { SliceType, TabKey, SliceInfo } from '../types/database'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
+import { Emoji } from './Emoji'
+import civicSpacesLight from '../assets/tools/civic-spaces-symbol-light.svg'
+import civicSpacesDark from '../assets/tools/civic-spaces-symbol-dark.svg'
+import focusedCommunitiesLight from '../assets/tools/focused-communities-symbol-light.svg'
+import focusedCommunitiesDark from '../assets/tools/focused-communities-symbol-dark.svg'
 
 interface NavSidebarProps {
   activeTab: TabKey
@@ -26,9 +31,9 @@ const GEO_TABS: { key: TabKey; label: string; icon: string }[] = [
 ]
 
 /**
- * Resources — links to the other live Empowered Vote products, each using
- * that product's own real favicon (fetched directly from its site) rather
- * than a hand-drawn icon.
+ * Resources — links to the other live Empowered Vote products. Inform tools use
+ * each product's own real favicon (fetched directly from its site); the Connect
+ * tools use bundled symbols instead — see CONNECT_TOOLS for why.
  *
  * Split into two groups by product family:
  *  - Inform Tools: help someone learn about candidates/issues/spending
@@ -90,25 +95,47 @@ interface ConnectToolDef extends ResourceLinkDef {
   sameTab?: boolean
 }
 
+/**
+ * The two Connect tools use their own symbols, bundled here, not a fetched favicon:
+ * Civic Spaces' favicon is the Empowered Vote mark, and fc.empowered.vote/favicon-32.png
+ * serves the SPA's HTML (a broken image). Drawn in the Inform tools' flat style —
+ * solid shapes, EV yellow and coral accents — in the bluer range Chris asked for:
+ * #1464A8 on light, #4FA3E3 on dark.
+ *   Civic Spaces         a place pin holding a speech bubble: talk about where you live
+ *   Focused Communities  three people under a "#" topic tag: a community per issue
+ */
 const CONNECT_TOOLS: ConnectToolDef[] = [
   {
     key: 'civic-spaces',
     label: 'Civic Spaces',
     href: 'https://civicspaces.empowered.vote/',
-    logoLight: '/favicon.png',
-    logoDark: '/favicon.png',
+    logoLight: civicSpacesLight,
+    logoDark: civicSpacesDark,
     isCurrent: true,
   },
   {
     key: 'focused-communities',
     label: 'Focused Communities',
     href: 'https://fc.empowered.vote/',
-    logoLight: 'https://fc.empowered.vote/favicon-32.png',
-    logoDark: 'https://fc.empowered.vote/favicon-32.png',
+    logoLight: focusedCommunitiesLight,
+    logoDark: focusedCommunitiesDark,
     sameTab: true,
   },
   // Future Connect tools (Civic Listening, debate tools, ...) — add here.
 ]
+
+/** The mockup's playful icons for the rail's rows. Anything not listed keeps its line icon. */
+const NAV_EMOJI: Record<string, string> = {
+  home: '🏠',
+  building: '🏢',
+  flag: '🚩',
+  landmark: '🏛️',
+  globe: '🌐',
+  volunteer: '❤️',
+  friends: '👥',
+  directory: '🔍',
+  shield: '🛡️',
+}
 
 function NavIcon({ type }: { type: string }) {
   const common = {
@@ -223,7 +250,7 @@ function NavItem({
           : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200',
       ].join(' ')}
     >
-      <NavIcon type={icon} />
+      {NAV_EMOJI[icon] ? <Emoji symbol={NAV_EMOJI[icon]} className="w-5 text-[17px]" /> : <NavIcon type={icon} />}
       <span>{label}</span>
     </button>
   )
@@ -503,7 +530,7 @@ export default function NavSidebar({ variant = 'pinned', ...props }: NavSidebarP
 
   return (
     <nav
-      className="hidden lg:flex flex-col gap-6 p-4 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-y-auto contain-paint scrollbar-thin"
+      className="hidden lg:flex h-full flex-col gap-6 p-4 rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 shadow-sm overflow-y-auto contain-paint scrollbar-thin"
       aria-label="Civic space navigation"
     >
       <NavSidebarContent {...props} />
