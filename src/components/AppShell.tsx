@@ -52,6 +52,7 @@ function ActiveHeroBanner({
     <HeroBanner
       sliceType={slice.sliceType}
       sliceName={displayName}
+      levelLabel={fallbackName}
       memberCount={slice.memberCount}
       siblingIndex={siblingIndexOverride ?? slice.siblingIndex}
       photoUrl={slice.photoUrl ?? wikiPhotoUrl}
@@ -349,7 +350,7 @@ export default function AppShell() {
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-950">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      <header className="flex items-center justify-between px-4 md:px-8 py-3 md:py-5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {/* Opens the nav rail as a drawer below lg, where it is not pinned. */}
           <button
@@ -363,13 +364,18 @@ export default function AppShell() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="text-lg font-semibold text-brand dark:text-brand-light whitespace-nowrap">Civic Spaces</h1>
-          <a
-            href="https://fc.empowered.vote"
-            className="hidden sm:inline text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors whitespace-nowrap"
-          >
-            Focused Communities
+          <a href="https://empowered.vote" className="hidden sm:flex flex-shrink-0 items-center">
+            <img
+              src={theme === 'dark' ? '/images/ev-logo-dark-bg.png' : '/images/ev-logo.png'}
+              alt="Empowered Vote"
+              className="h-9 w-auto"
+            />
           </a>
+          <div className="hidden sm:block w-px h-7 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
+          <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">
+            <span className="text-brand dark:text-brand-light">Civic</span>{' '}
+            <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
+          </h1>
         </div>
 
         {/* Theme and account are always reachable; the social icons need a session. */}
@@ -394,11 +400,11 @@ export default function AppShell() {
               onNavigateToSliceThread={handleNotificationNavigate}
             />
 
-            {/* Friends icon */}
+            {/* Friends icon — below lg only; the pinned rail carries it from lg up */}
             <button
               onClick={() => setActivePanel(activePanel === 'friends' ? null : 'friends')}
               aria-label="Friends"
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+              className={`lg:hidden w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                 activePanel === 'friends'
                   ? 'bg-brand-muted text-brand'
                   : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'
@@ -421,11 +427,11 @@ export default function AppShell() {
               </svg>
             </button>
 
-            {/* Directory icon */}
+            {/* Directory icon — below lg only, like Friends */}
             <button
               onClick={() => setActivePanel(activePanel === 'directory' ? null : 'directory')}
               aria-label="Member Directory"
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+              className={`lg:hidden w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                 activePanel === 'directory'
                   ? 'bg-brand-muted text-brand'
                   : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'
@@ -534,7 +540,7 @@ export default function AppShell() {
                 )}
 
               {/* Feed column */}
-              <div className="flex flex-col overflow-hidden min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
+              <div className="relative flex flex-col overflow-hidden min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
                 <SidebarMobile
                   repsData={repsData}
                   activeTab={activeTab}
@@ -602,8 +608,14 @@ export default function AppShell() {
                 </div>
               </div>
 
-              {/* Sidebar column — hidden below md, and on Volunteer entirely */}
-              <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} flex-col overflow-y-auto min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm`}>
+              {/* Sidebar column — hidden below md, and on Volunteer entirely.
+                  `relative` (here and on the feed column) makes each column the
+                  containing block for absolute descendants. Without it an `sr-only`
+                  <p> in CompassWidget resolves against the viewport, lands below the
+                  fold, and gives the whole page a blank scroll. Not contain-paint:
+                  that also captures position:fixed, and pulls the FAB off the
+                  viewport corner into the feed column. */}
+              <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} relative flex-col overflow-y-auto min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm`}>
                 <Sidebar
                   repsData={repsData}
                   activeTab={activeTab}

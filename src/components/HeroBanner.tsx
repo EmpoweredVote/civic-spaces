@@ -4,14 +4,20 @@ import { SLICE_COPY } from '../lib/sliceCopy'
 interface HeroBannerProps {
   sliceType: SliceType
   sliceName: string
+  /** The level's tab label ("City", "Federal", …) — the first pill. */
+  levelLabel: string
   memberCount: number
   siblingIndex: number
   photoUrl?: string | null
 }
 
+const PILL_CLASS =
+  'rounded-full bg-black/35 backdrop-blur-sm border border-white/15 text-white px-3 py-1 text-xs sm:text-sm font-medium'
+
 export function HeroBanner({
   sliceType,
   sliceName,
+  levelLabel,
   memberCount,
   siblingIndex,
   photoUrl,
@@ -28,12 +34,10 @@ export function HeroBanner({
     <div
       className={[
         // Spacing and corner radius come from the card this sits in (AppShell).
-        'relative overflow-hidden',
-        // On phones the banner is content-sized with a floor, not a fixed
-        // ratio: the copy is bottom-aligned, so a 16/9 box too short for a
-        // wrapped title clips it off the TOP. From md up the copy always fits,
-        // so the cinematic ratio is safe.
-        'min-h-[13.5rem] md:min-h-0 md:aspect-[16/5]',
+        // The tagline is hidden below sm so the title and pills fit the phone floor.
+        // Heights are floors, not fixed (matching #87): the copy is bottom-anchored, so a
+        // long name plus wrapped pills grows the banner instead of clipping the title.
+        'relative overflow-hidden flex flex-col justify-end min-h-40 sm:min-h-48 md:min-h-56 lg:min-h-64',
         'bg-gray-700 dark:bg-gray-800',
         'dark:ring-1 dark:ring-white/10',
       ]
@@ -52,41 +56,27 @@ export function HeroBanner({
       )}
 
       {/* Gradient: strong at bottom where text lives, fades to near-transparent at top */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/5" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/5" aria-hidden="true" />
 
       {/* Text content — sits above gradient via z-10 */}
-      <div
-        className="relative z-10 flex h-full flex-col justify-end p-6 md:p-8"
-        style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}
-      >
-        {/* Slice name */}
-        <h2 className="text-2xl font-bold text-white md:text-3xl">{sliceName}</h2>
+      <div className="relative z-10 flex flex-col justify-end gap-2 p-4 sm:p-6">
+        <h2 className="text-xl font-bold text-white [text-shadow:0_1px_3px_rgb(0_0_0_/_0.6)] sm:text-2xl md:text-3xl">
+          {sliceName}
+        </h2>
 
-        {/* Tagline */}
-        <p className="mt-1 text-sm text-white/90 md:text-base">{copy?.tagline}</p>
+        {copy?.tagline && (
+          <p className="hidden max-w-xl text-sm text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0_/_0.6)] sm:block">
+            {copy.tagline}
+          </p>
+        )}
 
-        {/* Pill badges */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {/* Jurisdiction pill */}
-          <span className="rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
-            {sliceName}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={PILL_CLASS}>{levelLabel}</span>
+          <span className={PILL_CLASS}>
+            {memberCount.toLocaleString()} {memberCount === 1 ? 'verified resident' : 'verified residents'}
           </span>
-
-          {/* Member count pill */}
-          <span className="rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
-            {memberCount.toLocaleString()} verified residents
-          </span>
-
-          {/* Slice number pill */}
-          <span className="rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
-            Slice {siblingIndex}
-          </span>
+          <span className={PILL_CLASS}>Slice {siblingIndex}</span>
         </div>
-
-        {/* Description — hidden on mobile to prevent overflow; visible on desktop */}
-        <p className="hidden md:block mt-3 max-w-2xl text-xs leading-relaxed text-white/80 md:text-sm">
-          {copy?.description}
-        </p>
       </div>
     </div>
   )

@@ -16,10 +16,11 @@ export default function FAB({ onClick, disabled }: FABProps) {
         zIndex: 50,
       }}
       className={[
-        'w-14 h-14 rounded-full bg-brand-btn text-white shadow-lg flex items-center justify-center text-2xl',
+        // EV yellow is 1.46:1 on the white feed card, so the edge comes from a ring in light mode.
+        'w-14 h-14 rounded-full bg-brand-yellow text-gray-900 shadow-lg ring-1 ring-gray-900/25 dark:ring-0 flex items-center justify-center text-2xl',
         disabled
           ? 'opacity-50 cursor-not-allowed'
-          : 'hover:bg-brand-hover hover:scale-105 transition-all',
+          : 'hover:bg-brand-yellow-hover hover:scale-105 transition-all',
       ].join(' ')}
     >
       <svg

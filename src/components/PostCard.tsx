@@ -13,6 +13,7 @@ interface PostCardProps {
   currentUserId?: string
   onEdit?: (post: PostWithAuthor) => void
   onDelete?: (postId: string) => void
+  /** One-line row for the feed's compact view. */
 }
 
 export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEdit, onDelete }: PostCardProps) {

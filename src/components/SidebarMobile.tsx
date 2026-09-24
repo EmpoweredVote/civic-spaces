@@ -7,6 +7,7 @@ import { filterRepsByTab } from '../types/representatives'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
 import { CompassWidget } from './widgets/CompassWidget'
+import { ChangeAddressLink } from './Sidebar'
 import type { CompassData } from '../hooks/useCompassData'
 
 interface SidebarMobileProps {
@@ -64,6 +65,9 @@ export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, comp
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-3 p-3">
+              <ChangeAddressLink />
+
+
               {showReps && (
                 <RepresentativesWidget
                   reps={filteredReps}
