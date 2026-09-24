@@ -19,6 +19,8 @@ interface HeroBannerProps {
    * there is more than one. Omitted otherwise: with one slice it equals memberCount.
    */
   locationMemberCount?: number
+  /** 2020 Census total population of the area, when Census answered. */
+  population?: number
   /** The slice switcher (SliceSelector, image tone). Rendered by the caller, which owns the sibling query. */
   switcher: ReactNode
   /** undefined = unknown (loading or failed, render nothing); null = nothing upcoming on file. */
@@ -93,6 +95,7 @@ export function HeroBanner({
   levelLabel,
   memberCount,
   locationMemberCount,
+  population,
   switcher,
   nextElection,
   forecastUrl,
@@ -157,11 +160,13 @@ export function HeroBanner({
       <div className={`relative z-10 flex flex-col gap-3 p-4 sm:p-5 md:flex-row md:items-end md:justify-between md:gap-6 ${showCredit ? 'pb-2 sm:pb-2 md:pb-7' : ''}`}>
         {/* Where you are, and which slice of it */}
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85 [text-shadow:0_1px_2px_rgb(0_0_0_/_0.6)]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white [text-shadow:0_0_2px_rgb(0_0_0_/_0.9),0_1px_6px_rgb(0_0_0_/_0.8)]">
             {levelLabel}
-            {stateName && <span className="text-white/70"> · {stateName}</span>}
+            {/* No top scrim (the photo stays clear up there), so on a phone, where the
+                copy fills the banner, these two lines carry their own heavy shadow. */}
+            {stateName && <span className="text-white/85"> · {stateName}</span>}
           </p>
-          <h2 className="mt-0.5 text-2xl font-bold leading-tight text-white [text-shadow:0_1px_3px_rgb(0_0_0_/_0.6)] md:text-3xl">
+          <h2 className="mt-0.5 text-2xl font-bold leading-tight text-white [text-shadow:0_0_3px_rgb(0_0_0_/_0.7),0_1px_8px_rgb(0_0_0_/_0.6)] md:text-3xl">
             {sliceName}
           </h2>
 
@@ -176,6 +181,12 @@ export function HeroBanner({
             {locationMemberCount !== undefined && (
               <span className={CHIP}>
                 {locationMemberCount.toLocaleString()} across {sliceName}
+              </span>
+            )}
+            {population !== undefined && (
+              <span className={CHIP} title="Total population, 2020 U.S. Census">
+                {population.toLocaleString()} residents
+                <span className="hidden sm:inline text-white/80">· 2020 Census</span>
               </span>
             )}
           </div>

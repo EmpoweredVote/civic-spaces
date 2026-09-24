@@ -15,6 +15,7 @@ import { useToolCoverage } from '../hooks/useToolCoverage'
 import { useCompassData } from '../hooks/useCompassData'
 import { useNextElection, electionAreaFor, type NextElection } from '../hooks/useNextElection'
 import { forecastUrlFor } from '../lib/forecastLink'
+import { usePopulation } from '../hooks/usePopulation'
 import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
@@ -57,6 +58,7 @@ function ActiveHeroBanner({
 }) {
   const hero = useHeroBanner(slice)
   const displayName = useJurisdictionName(slice, fallbackName)
+  const population = usePopulation(slice.sliceType, slice.geoid)
   const { siblings, isLoading, isError } = useSiblingSlices(
     slice.sliceType,
     slice.geoid,
@@ -94,6 +96,7 @@ function ActiveHeroBanner({
       levelLabel={fallbackName}
       memberCount={memberCount}
       locationMemberCount={locationMemberCount}
+      population={population}
       switcher={
         <SliceSelector
           tone="image"
