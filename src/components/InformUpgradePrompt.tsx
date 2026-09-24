@@ -32,7 +32,7 @@ export default function InformUpgradePrompt({ isOpen, onClose }: InformUpgradePr
           </a>
           <button
             onClick={onClose}
-            className="text-sm text-gray-500 hover:text-gray-700 hover:underline"
+            className="text-sm text-gray-600 hover:text-gray-700 hover:underline"
           >
             Not now
           </button>

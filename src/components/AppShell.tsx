@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback, createRef } from 'react'
+import { useRoute, useLocation } from 'wouter'
+import { toast } from 'sonner'
 import type React from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useAllSlices } from '../hooks/useAllSlices'
@@ -60,6 +62,7 @@ function ActiveHeroBanner({
     <HeroBanner
       sliceType={slice.sliceType}
       sliceName={displayName}
+      levelLabel={fallbackName}
       memberCount={slice.memberCount}
       siblingIndex={siblingIndexOverride ?? slice.siblingIndex}
       photoUrl={photoUrl}
@@ -127,6 +130,9 @@ const TAB_LABELS: Record<TabKey, string> = {
 
 const ALL_TAB_KEYS: TabKey[] = ['city', 'county', 'state', 'federal', 'unified', 'volunteer']
 
+/** A /post link followed while signed out, replayed once the session exists. */
+const PENDING_POST_KEY = 'cs_pending_post'
+
 const INITIAL_POST_IDS: Record<TabKey, string | null> = {
   city: null,
   county: null,
@@ -187,6 +193,13 @@ export default function AppShell() {
   // The nav rail is pinned from lg up; below that it lives in this drawer.
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
 
+  const [, navigate] = useLocation()
+  // The post id the route effect has already acted on, so a URL this component
+  // pushed itself does not bounce back through openPost.
+  const handledRoutePostRef = useRef<string | null>(null)
+  const [, postRouteParams] = useRoute('/post/:postId')
+  const routePostId = postRouteParams?.postId ?? null
+
   // Per-tab scroll position preservation (HUB-08)
   const scrollPositions = useRef<Record<string, number>>({})
   const scrollRefs = useRef<Record<string, React.RefObject<HTMLDivElement | null>>>(
@@ -243,15 +256,97 @@ export default function AppShell() {
     setNavDrawerOpen(false)
   }, [activeTab])
 
-  // Notification routing (SLCE-03): resolve reply notifications to the correct slice tab
-  const { resolveTabForPost } = useNotificationRouting(slices)
+  // One resolver behind both notification clicks and /post/:postId links, so a
+  // shared link and a notification land in the same place by the same route.
+  const { locatePost } = useNotificationRouting(slices)
 
-  const handleNotificationNavigate = useCallback(async (postId: string) => {
-    const resolvedTab = await resolveTabForPost(postId)
-    handleTabChange(resolvedTab)
-    setActivePostIds(prev => ({ ...prev, [resolvedTab]: postId }))
-    setScrollToLatestMap(prev => ({ ...prev, [resolvedTab]: true }))
-  }, [resolveTabForPost, handleTabChange])
+  const openPost = useCallback(async (postId: string, scrollToLatest: boolean) => {
+    const found = await locatePost(postId)
+
+    if (found.kind === 'unavailable') {
+      // One message for not-found, deleted and not-yours alike: saying which
+      // it was would tell someone whether a post they cannot read exists.
+      toast.error("That conversation isn't in one of your civic spaces")
+      navigate('/', { replace: true })
+      return
+    }
+
+    handleTabChange(found.tab)
+    // A sibling shard is readable but not writable, so open the tab pointed at
+    // that shard — the feed and thread both go view-only off this.
+    setViewingSlices((prev) => ({
+      ...prev,
+      [found.tab]: found.kind === 'sibling' ? found.sibling : null,
+    }))
+    setActivePostIds((prev) => ({ ...prev, [found.tab]: postId }))
+    setScrollToLatestMap((prev) => ({ ...prev, [found.tab]: scrollToLatest }))
+  }, [locatePost, handleTabChange, navigate])
+
+  const handleNotificationNavigate = useCallback(
+    (postId: string) => openPost(postId, true),
+    [openPost],
+  )
+
+  /**
+   * Opening or closing a thread moves the URL with it, so a thread can be
+   * shared, bookmarked, and closed with the browser's back button.
+   */
+  const handleNavigateToThread = useCallback((tab: TabKey, postId: string | null) => {
+    setScrollToLatestMap((prev) => ({ ...prev, [tab]: false }))
+    setActivePostIds((prev) => ({ ...prev, [tab]: postId }))
+    // Record it as already handled: the route effect below would otherwise see
+    // the URL we just pushed and re-resolve a thread that is already open.
+    handledRoutePostRef.current = postId
+    navigate(postId ? `/post/${postId}` : '/')
+  }, [navigate])
+
+  /**
+   * A /post/:postId link. Held until the member's slices have loaded, because
+   * resolving a post means matching its slice against theirs.
+   */
+  useEffect(() => {
+    if (!routePostId) {
+      handledRoutePostRef.current = null
+      return
+    }
+    if (handledRoutePostRef.current === routePostId) return
+    if (!isAuthenticated || isLoading || !hasAnySlices) return
+    handledRoutePostRef.current = routePostId
+    void openPost(routePostId, false)
+  }, [routePostId, isAuthenticated, isLoading, hasAnySlices, openPost])
+
+  /**
+   * A signed-out visitor following a link: remember the post across login.
+   *
+   * The accounts hub is sent a fixed `redirect` back to this app's origin, so
+   * the path does not survive the round trip. Stashing it here keeps the link
+   * working without changing LOGIN_URL — whether that hub accepts an arbitrary
+   * path is its policy, and a rejected redirect would break login itself.
+   */
+  useEffect(() => {
+    if (authLoading || isAuthenticated || !routePostId) return
+    try {
+      localStorage.setItem(PENDING_POST_KEY, routePostId)
+    } catch {
+      // Storage blocked — the link simply will not survive login.
+    }
+  }, [authLoading, isAuthenticated, routePostId])
+
+  useEffect(() => {
+    if (!isAuthenticated || isLoading || !hasAnySlices || routePostId) return
+    let pending: string | null = null
+    try {
+      pending = localStorage.getItem(PENDING_POST_KEY)
+      if (pending) localStorage.removeItem(PENDING_POST_KEY)
+    } catch {
+      return
+    }
+    if (pending) {
+      handledRoutePostRef.current = pending
+      void openPost(pending, false)
+      navigate(`/post/${pending}`, { replace: true })
+    }
+  }, [isAuthenticated, isLoading, hasAnySlices, routePostId, openPost, navigate])
 
   // Restore scroll position after the new tab becomes visible
   useEffect(() => {
@@ -266,7 +361,7 @@ export default function AppShell() {
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-950">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      <header className="flex items-center justify-between px-4 md:px-8 py-3 md:py-5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {/* Opens the nav rail as a drawer below lg, where it is not pinned. */}
           <button
@@ -280,13 +375,18 @@ export default function AppShell() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="text-lg font-semibold text-brand dark:text-brand-light whitespace-nowrap">Civic Spaces</h1>
-          <a
-            href="https://fc.empowered.vote"
-            className="hidden sm:inline text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors whitespace-nowrap"
-          >
-            Focused Communities
+          <a href="https://empowered.vote" className="hidden sm:flex flex-shrink-0 items-center">
+            <img
+              src={theme === 'dark' ? '/images/ev-logo-dark-bg.png' : '/images/ev-logo.png'}
+              alt="Empowered Vote"
+              className="h-9 w-auto"
+            />
           </a>
+          <div className="hidden sm:block w-px h-7 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
+          <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">
+            <span className="text-brand dark:text-brand-light">Civic</span>{' '}
+            <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
+          </h1>
         </div>
 
         {/* Theme and account are always reachable; the social icons need a session. */}
@@ -311,14 +411,14 @@ export default function AppShell() {
               onNavigateToSliceThread={handleNotificationNavigate}
             />
 
-            {/* Friends icon */}
+            {/* Friends icon — below lg only; the pinned rail carries it from lg up */}
             <button
               onClick={() => setActivePanel(activePanel === 'friends' ? null : 'friends')}
               aria-label="Friends"
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+              className={`lg:hidden w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                 activePanel === 'friends'
                   ? 'bg-brand-muted text-brand'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
               <svg
@@ -338,14 +438,14 @@ export default function AppShell() {
               </svg>
             </button>
 
-            {/* Directory icon */}
+            {/* Directory icon — below lg only, like Friends */}
             <button
               onClick={() => setActivePanel(activePanel === 'directory' ? null : 'directory')}
               aria-label="Member Directory"
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+              className={`lg:hidden w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                 activePanel === 'directory'
                   ? 'bg-brand-muted text-brand'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
               <svg
@@ -374,14 +474,14 @@ export default function AppShell() {
       {/* Content */}
       <main className="flex flex-col flex-1 overflow-hidden min-h-0 bg-gray-50 dark:bg-gray-950">
         {authLoading && (
-          <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
+          <div className="flex flex-1 items-center justify-center text-gray-500 text-sm">
             Loading&hellip;
           </div>
         )}
 
         {!authLoading && !isAuthenticated && (
           <div className="flex flex-col flex-1 items-center justify-center gap-4">
-            <p className="text-gray-500 text-sm">Log in to view your civic community.</p>
+            <p className="text-gray-600 text-sm">Log in to view your civic community.</p>
             <a
               href={loginUrl}
               className="px-5 py-2 bg-brand-btn text-white text-sm font-medium rounded-full hover:bg-brand-hover transition-colors"
@@ -392,13 +492,13 @@ export default function AppShell() {
         )}
 
         {isAuthenticated && isLoading && (
-          <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
+          <div className="flex flex-1 items-center justify-center text-gray-500 text-sm">
             Loading your slices&hellip;
           </div>
         )}
 
         {isAuthenticated && !isLoading && isAssigning && (
-          <div className="flex flex-1 items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+          <div className="flex flex-1 items-center justify-center text-gray-500 dark:text-gray-500 text-sm">
             Setting up your civic spaces&hellip;
           </div>
         )}
@@ -451,7 +551,7 @@ export default function AppShell() {
                 )}
 
               {/* Feed column */}
-              <div className="flex flex-col overflow-hidden min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
+              <div className="relative flex flex-col overflow-hidden min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
                 <SidebarMobile
                   repsData={repsData}
                   activeTab={activeTab}
@@ -494,10 +594,7 @@ export default function AppShell() {
                             />
                           ) : undefined}
                           activePostId={activePostIds[tabKey]}
-                          onNavigateToThread={(postId) => {
-                            setScrollToLatestMap(prev => ({ ...prev, [tabKey]: false }))
-                            setActivePostIds(prev => ({ ...prev, [tabKey]: postId }))
-                          }}
+                          onNavigateToThread={(postId) => handleNavigateToThread(tabKey, postId)}
                           scrollToLatest={scrollToLatestMap[tabKey]}
                           scrollRef={scrollRefs.current[tabKey]}
                         />
@@ -513,10 +610,7 @@ export default function AppShell() {
                         sliceName="Volunteer"
                         siblingIndex={slices['volunteer'].siblingIndex}
                         activePostId={activePostIds['volunteer']}
-                        onNavigateToThread={(postId) => {
-                          setScrollToLatestMap(prev => ({ ...prev, volunteer: false }))
-                          setActivePostIds(prev => ({ ...prev, volunteer: postId }))
-                        }}
+                        onNavigateToThread={(postId) => handleNavigateToThread('volunteer', postId)}
                         scrollToLatest={scrollToLatestMap['volunteer']}
                         scrollRef={scrollRefs.current['volunteer']}
                       />
@@ -525,8 +619,14 @@ export default function AppShell() {
                 </div>
               </div>
 
-              {/* Sidebar column — hidden below md, and on Volunteer entirely */}
-              <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} flex-col overflow-y-auto min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm`}>
+              {/* Sidebar column — hidden below md, and on Volunteer entirely.
+                  `relative` (here and on the feed column) makes each column the
+                  containing block for absolute descendants. Without it an `sr-only`
+                  <p> in CompassWidget resolves against the viewport, lands below the
+                  fold, and gives the whole page a blank scroll. Not contain-paint:
+                  that also captures position:fixed, and pulls the FAB off the
+                  viewport corner into the feed column. */}
+              <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} relative flex-col overflow-y-auto min-h-0 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm`}>
                 <Sidebar
                   repsData={repsData}
                   activeTab={activeTab}

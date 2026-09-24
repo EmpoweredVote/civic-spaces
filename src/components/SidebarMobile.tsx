@@ -7,6 +7,7 @@ import { filterRepsByTab } from '../types/representatives'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 import { ToolsWidget } from './widgets/ToolsWidget'
 import { CompassWidget } from './widgets/CompassWidget'
+import { ChangeAddressLink } from './Sidebar'
 import type { CompassData } from '../hooks/useCompassData'
 
 interface SidebarMobileProps {
@@ -39,7 +40,7 @@ export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, comp
         <span>Community Sidebar</span>
         <motion.svg
           xmlns="http://www.w3.org/2000/svg"
-          className="h-4 w-4 text-gray-400"
+          className="h-4 w-4 text-gray-500"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -64,6 +65,9 @@ export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, comp
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-3 p-3">
+              <ChangeAddressLink />
+
+
               {showReps && (
                 <RepresentativesWidget
                   reps={filteredReps}

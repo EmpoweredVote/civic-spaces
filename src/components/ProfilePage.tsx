@@ -35,7 +35,7 @@ export default function ProfilePage({ userId }: ProfilePageProps) {
         <div className="flex items-center pt-3 pb-1">
           <button
             onClick={handleBack}
-            className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors -ml-1 px-1 py-1 rounded"
+            className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors -ml-1 px-1 py-1 rounded"
             aria-label="Go back"
           >
             <svg
@@ -57,7 +57,7 @@ export default function ProfilePage({ userId }: ProfilePageProps) {
           <ProfileSkeleton />
         ) : !profile ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-gray-500 dark:text-gray-400 text-sm">User not found</p>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">User not found</p>
           </div>
         ) : (
           <>

@@ -20,11 +20,21 @@ Copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_ANON_KEY`. `VITE_SLICE_ASSIGNMENT_URL` is optional in dev; without it the
 fire-and-forget slice-assignment POST fails silently and you see the "no jurisdiction" state.
 
-🔴 **You cannot log in locally by clicking Sign in.** `useAuth.ts` hardcodes the redirect to
+**To see a signed-in screen locally, visit `http://localhost:5173/?dev=1`.** That mints an
+unsigned, local-only token for a reserved `dev-guest` id, and the feed/thread/slice/reps/compass
+hooks answer that id with fixtures from `src/lib/devMockData.ts`. It is behind
+`import.meta.env.DEV` and is checked last, after the hash, localStorage and silent-SSO paths, so
+a real session always wins.
+
+🔴 **You still cannot log in by clicking Sign in.** `useAuth.ts` hardcodes the redirect to
 `https://civicspaces.empowered.vote`, so the accounts hub sends you to production, not back to
-localhost. To see any signed-in screen, log in on production, copy the `cs_token` value out of
-that tab's localStorage, and paste it into localhost's localStorage under the same key. The app
-reads the token from there (or from an `access_token` in the URL hash).
+localhost. `?dev=1` exists because of that. The other way in is still to log in on production,
+copy `cs_token` out of that tab's localStorage, and paste it into localhost's under the same key
+(or pass an `access_token` in the URL hash).
+
+**Several APIs send no CORS headers for localhost** — the Compass API and the representatives
+endpoint among them. That is why fixtures exist; without them those panels are permanently empty
+in dev, which looks like a bug and is not one.
 
 **The frontend has no test framework.** No test script, no test files. `npm run build` is the
 whole safety net there — run it before you claim anything works.
@@ -71,7 +81,10 @@ npm project the root build does not reach. Run them only if you are forced to to
 | On screen | File |
 |---|---|
 | Top bar, tab bar, the whole grid | `components/AppShell.tsx` |
-| Slice tabs | `components/SliceTabBar.tsx` |
+| Left nav rail (and its mobile drawer) | `components/NavSidebar.tsx` |
+| Slice tabs (below `lg`, where the rail is a drawer) | `components/SliceTabBar.tsx` |
+| Sibling-shard switcher | `components/SliceSelector.tsx` |
+| No-jurisdiction empty state | `components/LocationPrompt.tsx` |
 | One slice's feed (posts + composer) | `components/SliceFeedPanel.tsx` |
 | A post / a reply / a thread | `components/PostCard.tsx`, `ReplyCard.tsx`, `ThreadView.tsx` |
 | Banner above the feed | `components/HeroBanner.tsx` |
@@ -80,11 +93,23 @@ npm project the root build does not reach. Run them only if you are forced to to
 | The sidebar widgets | `components/widgets/` |
 | Profile page | `components/ProfilePage.tsx` + `Profile*.tsx` |
 
-Layout is `md:grid-cols-[82%_18%]` — feed left, sidebar right. The sidebar column is hidden on
-mobile (`SidebarMobile` takes over, above the feed) and hidden entirely on the Volunteer tab.
+Layout is a nav rail plus a nested content grid: `lg:grid-cols-[240px_1fr]` outside, and
+`md:grid-cols-[1fr_320px]` inside for feed and sidebar, with the hero banner spanning both on
+its own row. Each is a rounded card on a tinted page. The rail is pinned from `lg` up and
+becomes a slide-over drawer below it, where `SliceTabBar` carries navigation instead. The right
+sidebar is hidden below `md` (`SidebarMobile` takes over, above the feed) and hidden entirely on
+the Volunteer tab — where the content grid also collapses to one column, or the 320px track
+would survive as dead space.
 
-Routing is **wouter**, and there is exactly one route: `/profile/:userId`. Everything else is
-tab state inside `AppShell`, persisted to `localStorage` under `cs_active_tab`.
+Routing is **wouter**, with two routes: `/profile/:userId` and `/post/:postId`. Everything else
+is tab state inside `AppShell`, persisted to `localStorage` under `cs_active_tab`.
+
+🔴 **A thread's URL is the only URL the feed has.** `/post/:postId` resolves through `locatePost`
+in `useNotificationRouting`, which returns `own` / `sibling` / `unavailable` — one resolver behind
+both notification clicks and shared links. `unavailable` is deliberately one outcome for
+not-found, deleted and not-yours alike: splitting it would reveal whether a post the member
+cannot read exists. A signed-out visitor's link is stashed at `localStorage['cs_pending_post']`
+and replayed after login, because the accounts hub is sent a fixed redirect with no path.
 
 ## Landmines
 
@@ -94,8 +119,24 @@ That is deliberate: it preserves scroll position and the React Query cache acros
 The consequence is that any hook you add inside `SliceFeedPanel` runs six times on load.
 
 **So sidebar and shell data hooks are hoisted to `AppShell` and passed down as props.**
-`useRepresentatives` is called once there, and `Sidebar` / `SidebarMobile` receive `repsData`
-and `activeTab`. Follow that pattern; do not call a shared hook inside a panel.
+`useRepresentatives`, `useToolCoverage` and `useCompassData` are each called once there, and
+`Sidebar` / `SidebarMobile` receive the results. Follow that pattern; do not call a shared hook
+inside a panel. Where a hook genuinely needs per-slice data, render its component only for the
+active tab (`SliceSelector` does this) or wrap it so the hook still runs unconditionally
+(`ActiveHeroBanner`, `SliceNewsWidget`).
+
+🔴 **A member can READ other shards of their own jurisdiction, and must not be offered a write.**
+Two permissive SELECT policies grant read access to posts and replies in any slice sharing
+`(slice_type, geoid)` with one they belong to — see
+`supabase/migrations/20260917000000_sibling_slice_read_access.sql`. Nothing crosses a
+jurisdiction, because the join requires geoid equality, and every write path stays closed
+(`slice_members` has no INSERT/UPDATE/DELETE policy at all).
+
+The trap is the UI half. RLS rejects those inserts, so any control that offers one can only
+produce an error — and gating it in the feed is not enough. **Gate the feed AND the thread.**
+`isViewOnly` has to reach `SliceFeedPanel` (hides the FAB and composer) and `ThreadView`
+(hides the reply composer, and passes `canWrite={canWrite && !isViewOnly}` plus no `onReply`
+to `ReplyCard`). Shipping only the first half is exactly what happened once already.
 
 🔴 **A member's id is NOT the token's `sub`.** The accounts platform accepts tokens from
 two issuers since the WorkOS AuthKit cutover (2026-08-28, ev-accounts decision 0002).
@@ -190,10 +231,19 @@ fix is always to send them to the accounts app — never to add address handling
 both light and dark mode and on both desktop and mobile. A change that looks right in only one
 of those four is not done.
 
-- **Dark mode is class-based.** `index.html` sets the `dark` class before first paint from
-  `localStorage['ev:color-scheme']`, falling back to the system preference. `useTheme()` reads
-  and toggles it. Never define a colour only inside a `dark:` variant — write the light value
-  and the `dark:` counterpart together, every time.
+- **Dark mode is class-based, and dark is the default.** `index.html` sets the `dark` class
+  before first paint, reading the `ev_color_scheme` cookie first and `localStorage['ev:color-scheme']`
+  second. `prefers-color-scheme` is deliberately not consulted: only an explicit `light` opts out,
+  which is why the bootstrap tests `s !== 'light'` rather than `s === 'dark'`. The cookie is
+  scoped to `.empowered.vote` so the choice carries across EV subdomains — localStorage cannot,
+  which is the whole reason it exists. See `src/lib/colorScheme.ts` and
+  `.planning/research/ev-color-scheme-contract.md`. Never define a colour only inside a `dark:`
+  variant — write the light value and the `dark:` counterpart together, every time.
+- **Light-mode text runs `gray-900` / `gray-600` / `gray-500`.** `gray-400` is decoration only:
+  on white it is 2.54:1, under both the 4.5:1 AA wants for text and the 3:1 for a meaningful
+  icon. In dark mode `gray-500` is 3.67:1 on `gray-900` and fails too — use `gray-400` there.
+  🔴 Tailwind v4 emits `oklch()`, so any contrast check that parses `getComputedStyle().color`
+  as `rgb()` reports confident nonsense; resolve colours through a canvas instead.
 - Use the **EV brand tokens** (teal `#00657C`, coral `#FF5740`, yellow `#FED12E`) and the
   existing component vocabulary rather than inventing new colours or spacing.
 - Reuse `WidgetCard` for anything sidebar-shaped, and `react-loading-skeleton` for loading

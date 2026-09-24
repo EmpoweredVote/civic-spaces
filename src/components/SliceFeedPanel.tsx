@@ -13,7 +13,29 @@ import FAB from './FAB'
 import PostComposer from './PostComposer'
 import ThreadView from './ThreadView'
 import InformUpgradePrompt from './InformUpgradePrompt'
+import FeedToolbar, { type SortMode } from './FeedToolbar'
 import type { PostWithAuthor } from '../types/database'
+
+function sortPosts(posts: PostWithAuthor[], sort: SortMode): PostWithAuthor[] {
+  // 🔴 CLIENT-SIDE OVER LOADED PAGES ONLY. The feed is paginated, so this orders the
+  // pages fetched so far, not the slice: under Top, a high-reply post from page 3 jumps
+  // to the top once page 3 loads, mid-scroll. Only a server-side ORDER BY fixes that.
+  if (sort === 'top') {
+    return [...posts].sort((a, b) => b.reply_count - a.reply_count)
+  }
+  return [...posts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+}
+
+// Client-side match over the currently loaded posts (title/body) — there's
+// no full-text search endpoint to call, so this only searches what's
+// already been fetched into this feed, not the whole history.
+function filterPosts(posts: PostWithAuthor[], query: string): PostWithAuthor[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return posts
+  return posts.filter(
+    (post) => post.title?.toLowerCase().includes(q) || post.body.toLowerCase().includes(q)
+  )
+}
 
 interface SliceFeedPanelProps {
   sliceId: string
@@ -23,7 +45,6 @@ interface SliceFeedPanelProps {
   onNavigateToThread: (postId: string | null) => void
   scrollToLatest?: boolean
   scrollRef?: React.RefObject<HTMLDivElement | null>
-  header?: ReactNode
   /** The sibling-slice switcher, rendered in the feed's header row. */
   sliceSelector?: ReactNode
   /** True when showing a sibling slice the member does not belong to. */
@@ -42,7 +63,6 @@ export default function SliceFeedPanel({
   onNavigateToThread,
   scrollToLatest,
   scrollRef,
-  header,
   sliceSelector,
   isViewOnly = false,
   viewingSliceIndex,
@@ -68,8 +88,11 @@ export default function SliceFeedPanel({
   const [composerOpen, setComposerOpen] = useState(false)
   const [editingPost, setEditingPost] = useState<PostWithAuthor | null>(null)
   const [informPromptOpen, setInformPromptOpen] = useState(false)
+  const [sort, setSort] = useState<SortMode>('new')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const isSearching = searchQuery.trim() !== ''
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
@@ -84,7 +107,7 @@ export default function SliceFeedPanel({
     )
     observer.observe(sentinelRef.current)
     return () => observer.disconnect()
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, isSearching, isLoading])
 
   const handleFABClick = () => {
     if (profile?.is_suspended) return
@@ -106,7 +129,7 @@ export default function SliceFeedPanel({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-500">
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-600">
         <p className="text-sm">Failed to load posts. Please try again.</p>
         <button
           onClick={() => refetch()}
@@ -118,22 +141,29 @@ export default function SliceFeedPanel({
     )
   }
 
-  const posts = data?.pages.flatMap((page) => page) ?? []
+  const loaded = data?.pages.flatMap((page) => page) ?? []
+  const loadedCount = loaded.length
+  const posts = sortPosts(filterPosts(loaded, searchQuery), sort)
 
   return (
     <div className="relative h-full">
       {/* Feed — hidden (but mounted) when thread is open to preserve scroll */}
       <div ref={scrollRef} className={activePostId ? 'hidden' : 'flex flex-col h-full overflow-y-auto'}>
-        {header}
-        {(sliceSelector || (sliceName && siblingIndex != null)) && (
-          <div className="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-gray-100 dark:border-gray-800">
-            {sliceSelector ?? (
-              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+          <div>
+            {sliceSelector ?? (sliceName && siblingIndex != null && (
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 {sliceName} #{siblingIndex}
               </span>
-            )}
+            ))}
           </div>
-        )}
+          <FeedToolbar
+            sort={sort}
+            onSortChange={setSort}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+        </div>
 
         {/* Informational, not an error: posting simply is not available here,
             because this is not the slice the member was assigned to. */}
@@ -167,8 +197,10 @@ export default function SliceFeedPanel({
         )}
         {posts.length === 0 ? (
           <div className="flex flex-1 items-center justify-center py-16 text-center px-6">
-            <p className="text-sm text-gray-400">
-              No posts yet. Be the first to start a conversation!
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {searchQuery.trim()
+                ? `No posts match "${searchQuery.trim()}".`
+                : 'No posts yet. Be the first to start a conversation!'}
             </p>
           </div>
         ) : (
@@ -187,8 +219,6 @@ export default function SliceFeedPanel({
               />
             ))}
 
-            {/* Sentinel for IntersectionObserver */}
-            <div ref={sentinelRef} className="h-1" aria-hidden="true" />
 
             {/* Loading spinner for next page */}
             {isFetchingNextPage && (
@@ -200,6 +230,30 @@ export default function SliceFeedPanel({
               </div>
             )}
           </div>
+        )}
+
+        {/* Pagination. Always mounted (not inside the posts branch, where zero search
+            matches used to unmount it). While a search is active it is a button, not an
+            observer: filtering is client-side, so a short filtered list would otherwise
+            keep the sentinel in view and page through the whole slice history. */}
+        {isSearching ? (
+          hasNextPage && (
+            <div className="flex flex-col items-center gap-2 px-4 pb-4 text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Search only covers the {loadedCount} posts loaded so far.
+              </p>
+              <button
+                type="button"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-brand dark:text-brand-light bg-brand-muted dark:bg-brand/10 hover:bg-brand/15 disabled:opacity-60"
+              >
+                {isFetchingNextPage ? 'Loading…' : 'Load more posts to search'}
+              </button>
+            </div>
+          )
+        ) : (
+          <div ref={sentinelRef} className="h-1" aria-hidden="true" />
         )}
 
         {/* Hidden, not disabled, while view-only: RLS rejects an insert into a
@@ -238,7 +292,8 @@ export default function SliceFeedPanel({
             sliceId={sliceId}
             onBack={() => onNavigateToThread(null)}
             scrollToLatest={scrollToLatest}
-            header={header}
+            isViewOnly={isViewOnly}
+            ownSliceIndex={ownSliceIndex}
           />
         </div>
       )}

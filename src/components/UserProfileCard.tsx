@@ -46,7 +46,7 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
           <Sheet.Header />
           <Sheet.Content>
             <div className="px-6 pb-8 flex flex-col items-center justify-center py-8">
-              <p className="text-sm text-gray-500">This profile is unavailable.</p>
+              <p className="text-sm text-gray-600">This profile is unavailable.</p>
             </div>
           </Sheet.Content>
         </Sheet.Container>
@@ -64,7 +64,7 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
         <Sheet.Content>
           <div className="px-6 pb-8">
             {isLoading ? (
-              <div className="flex items-center justify-center py-8 text-sm text-gray-400">
+              <div className="flex items-center justify-center py-8 text-sm text-gray-500">
                 Loading profile...
               </div>
             ) : profile ? (
@@ -95,20 +95,20 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
                     </div>
 
                     {/* Tier label */}
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <p className="text-sm text-gray-600 mt-0.5">
                       {isEmpowered ? 'Empowered Civic Leader' : 'Connected'}
                     </p>
 
                     {/* Slice name */}
                     {sliceName && (
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">{sliceName}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{sliceName}</p>
                     )}
                   </div>
                 </div>
 
                 {/* Action button */}
                 {isSelf ? (
-                  <p className="text-sm text-gray-400 text-center py-2">This is you</p>
+                  <p className="text-sm text-gray-500 text-center py-2">This is you</p>
                 ) : isEmpowered ? (
                   /* Follow / Unfollow for Empowered users */
                   <button
@@ -140,7 +140,7 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
                     {relationshipState === 'pending_sent' && (
                       <button
                         disabled
-                        className="w-full rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-400 cursor-not-allowed"
+                        className="w-full rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500 cursor-not-allowed"
                       >
                         Pending
                       </button>
@@ -196,7 +196,7 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
                     }}
                     className={`w-full text-sm mt-3 py-1 ${
                       isBlocked
-                        ? 'text-gray-500 hover:text-gray-700'
+                        ? 'text-gray-600 hover:text-gray-700'
                         : 'text-red-500 hover:text-red-700'
                     }`}
                   >
@@ -205,7 +205,7 @@ export default function UserProfileCard({ isOpen, onClose, userId }: UserProfile
                 )}
               </>
             ) : (
-              <p className="text-sm text-gray-400 text-center py-8">Profile not found.</p>
+              <p className="text-sm text-gray-500 text-center py-8">Profile not found.</p>
             )}
           </div>
         </Sheet.Content>

@@ -90,7 +90,7 @@ export default function NotificationItem({ notification, onTap }: NotificationIt
           />
         ) : (
           <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-            <span className="text-[10px] text-gray-500 dark:text-gray-300 font-medium">
+            <span className="text-[10px] text-gray-600 dark:text-gray-300 font-medium">
               {actorName.charAt(0).toUpperCase()}
             </span>
           </div>
@@ -126,7 +126,7 @@ export default function NotificationItem({ notification, onTap }: NotificationIt
             restSegment
           )}
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-400 mt-0.5">{relativeTime}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{relativeTime}</p>
       </div>
     </button>
   )

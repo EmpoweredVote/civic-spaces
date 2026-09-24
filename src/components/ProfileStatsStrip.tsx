@@ -14,10 +14,10 @@ interface StatCellProps {
 function StatCell({ value, label, muted = false }: StatCellProps) {
   return (
     <div className="flex flex-col items-center px-2 py-3">
-      <span className={`text-lg font-bold ${muted ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
+      <span className={`text-lg font-bold ${muted ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
         {value}
       </span>
-      <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{label}</span>
+      <span className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{label}</span>
     </div>
   )
 }

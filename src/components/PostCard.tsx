@@ -13,6 +13,7 @@ interface PostCardProps {
   currentUserId?: string
   onEdit?: (post: PostWithAuthor) => void
   onDelete?: (postId: string) => void
+  /** One-line row for the feed's compact view. */
 }
 
 export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEdit, onDelete }: PostCardProps) {
@@ -37,7 +38,7 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
   if (post.is_deleted) {
     return (
       <div className="w-full text-left rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
-        <p className="text-sm text-gray-400 dark:text-gray-500 italic">[Post deleted]</p>
+        <p className="text-sm text-gray-500 dark:text-gray-500 italic">[Post deleted]</p>
       </div>
     )
   }
@@ -84,9 +85,9 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
                 </p>
                 {post.author.tier === 'empowered' && <EmpoweredBadge />}
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
                 {timeAgo}
-                {wasEdited && <span className="text-gray-400 dark:text-gray-500"> · edited</span>}
+                {wasEdited && <span className="text-gray-500 dark:text-gray-500"> · edited</span>}
               </p>
             </div>
           </button>
@@ -109,7 +110,7 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
 
         {/* Bottom row: reply count + flag button */}
         <div className="mt-2 flex items-center justify-between">
-          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-4 w-4"
@@ -144,7 +145,7 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
               e.stopPropagation()
               setMenuOpen((prev) => !prev)
             }}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-500 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <span className="text-base leading-none tracking-widest">···</span>
           </button>

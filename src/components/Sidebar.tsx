@@ -15,6 +15,23 @@ interface SidebarProps {
   compassData: CompassData
 }
 
+/**
+ * Address changes happen in the accounts app, never here: this app does not
+ * geocode or store a location (see CLAUDE.md, "Talking to the rest of the platform").
+ */
+export function ChangeAddressLink() {
+  return (
+    <a
+      href="https://app.empowered.vote/settings/location"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="self-start px-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:underline"
+    >
+      Not my address? Change it
+    </a>
+  )
+}
+
 export function Sidebar({ repsData, activeTab, coverage, activeSlice, compassData }: SidebarProps) {
   if (activeTab === 'volunteer') return null
 
@@ -25,6 +42,9 @@ export function Sidebar({ repsData, activeTab, coverage, activeSlice, compassDat
 
   return (
     <div className="flex flex-col gap-3 p-3">
+      <ChangeAddressLink />
+
+
       {showReps && (
         <RepresentativesWidget
           reps={filteredReps}

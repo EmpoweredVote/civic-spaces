@@ -15,6 +15,17 @@ import { HeroBanner } from '../components/HeroBanner'
 import { bannerFor } from '../lib/banners'
 import type { SliceType } from '../types/database'
 
+// Mirrors AppShell's TAB_LABELS. HeroBanner's first pill shows the LEVEL, not the
+// place name, so the harness has to supply it the same way the real shell does.
+const LEVEL_LABEL: Record<SliceType, string> = {
+  city: 'City',
+  county: 'County',
+  state: 'State',
+  federal: 'Federal',
+  unified: 'Unified',
+  volunteer: 'Volunteer',
+}
+
 const CASES: Array<{ label: string; sliceType: SliceType; geoid: string; name: string }> = [
   { label: 'City — Santa Monica (curated, geoid-joined)', sliceType: 'city', geoid: '0670000', name: 'Santa Monica' },
   { label: 'City — uncovered geoid, falls through', sliceType: 'city', geoid: '1836003', name: 'Indianapolis' },
@@ -43,6 +54,7 @@ function FeedSimulation() {
           <HeroBanner
             sliceType="federal"
             sliceName="United States of America"
+            levelLabel={LEVEL_LABEL.federal}
             memberCount={6}
             siblingIndex={1}
             photoUrl={banner ? banner.url : null}
@@ -79,6 +91,7 @@ function Harness() {
             <HeroBanner
               sliceType={c.sliceType}
               sliceName={c.name}
+              levelLabel={LEVEL_LABEL[c.sliceType]}
               memberCount={1234}
               siblingIndex={1}
               photoUrl={banner ? banner.url : null}

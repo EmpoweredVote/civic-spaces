@@ -4,6 +4,8 @@ import { SLICE_COPY } from '../lib/sliceCopy'
 interface HeroBannerProps {
   sliceType: SliceType
   sliceName: string
+  /** The level's tab label ("City", "Federal", …) — the first pill. */
+  levelLabel: string
   memberCount: number
   siblingIndex: number
   photoUrl?: string | null
@@ -18,9 +20,13 @@ interface HeroBannerProps {
   credit?: string | null
 }
 
+const PILL_CLASS =
+  'rounded-full bg-black/35 backdrop-blur-sm border border-white/15 text-white px-3 py-1 text-xs sm:text-sm font-medium'
+
 export function HeroBanner({
   sliceType,
   sliceName,
+  levelLabel,
   memberCount,
   siblingIndex,
   photoUrl,
@@ -38,20 +44,19 @@ export function HeroBanner({
     <div
       className={[
         // Spacing and corner radius come from the card this sits in (AppShell).
-        'relative overflow-hidden',
+        // The tagline is hidden below sm so the title and pills fit the phone floor.
+        // Heights are floors, not fixed: the copy is bottom-anchored, so a long name
+        // plus wrapped pills grows the banner instead of clipping the title.
+        'relative overflow-hidden flex flex-col justify-end min-h-40 sm:min-h-48 md:min-h-56 lg:min-h-64',
         // 🔴 shrink-0 IS LOAD-BEARING. This renders as the first child of
         // SliceFeedPanel's `flex flex-col h-full overflow-y-auto` scroll container. A
-        // flex item defaults to flex-shrink:1, and aspect-ratio only supplies a
-        // preferred height — so as soon as there were posts below, the column squashed
-        // the banner to nothing. It stayed in the DOM with its image loaded, which is
-        // why this read as "the banner does not render on that tab" rather than as a
-        // layout bug. A slice with no posts never showed it, because nothing pushed.
+        // flex item defaults to flex-shrink:1, and a min-height only sets a floor for
+        // the box's own content — so as soon as there were posts below, the column
+        // squashed the banner to nothing. It stayed in the DOM with its image loaded,
+        // which is why this read as "the banner does not render on that tab" rather
+        // than as a layout bug. A slice with no posts never showed it, because nothing
+        // pushed.
         'shrink-0',
-        // On phones the banner is content-sized with a floor, not a fixed
-        // ratio: the copy is bottom-aligned, so a 16/9 box too short for a
-        // wrapped title clips it off the TOP. From md up the copy always fits,
-        // so the cinematic ratio is safe.
-        'min-h-[13.5rem] md:min-h-0 md:aspect-[16/5]',
         // Brand-gradient ground, not flat gray: it shows through whenever no banner
         // resolves (an uncovered county, a Wikipedia miss), and it is what a visitor
         // sees for a beat while an image decodes. EV teal, light and dark together.
@@ -74,44 +79,35 @@ export function HeroBanner({
       )}
 
       {/* Gradient: strong at bottom where text lives, fades to near-transparent at top */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/15" />
+      {/* Kept stronger than the photo-less design wants (via-black/50, not /35): this
+          banner carries a required image credit over an arbitrary Wikimedia photo, and
+          a light sky behind white 11px text is the case that has to stay legible. */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/15" aria-hidden="true" />
 
-      {/* Text content — sits above gradient via z-10 */}
-      <div
-        className="relative z-10 flex h-full flex-col justify-end p-6 pb-9 md:p-8 md:pb-8"
-        style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}
-      >
-        {/* Slice name */}
-        <h2 className="text-2xl font-bold text-white md:text-3xl">{sliceName}</h2>
+      {/* Text content — sits above gradient via z-10. The extra bottom padding keeps
+          the name/pills stack clear of the credit, which is absolutely positioned
+          bottom-right and may wrap to two lines. */}
+      <div className="relative z-10 flex flex-col justify-end gap-2 p-4 pb-9 sm:p-6 sm:pb-8">
+        <h2 className="text-xl font-bold text-white [text-shadow:0_1px_3px_rgb(0_0_0_/_0.6)] sm:text-2xl md:text-3xl">
+          {sliceName}
+        </h2>
 
-        {/* Tagline */}
-        <p className="mt-1 text-sm text-white/90 md:text-base">{copy?.tagline}</p>
+        {copy?.tagline && (
+          <p className="hidden max-w-xl text-sm text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0_/_0.6)] sm:block">
+            {copy.tagline}
+          </p>
+        )}
 
-        {/* Pill badges */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {/* Jurisdiction pill — hidden on mobile: it repeats the <h2> verbatim, and
-              that redundant row is what pushed a long jurisdiction name off the top
-              of the 16/9 box ("United States of America" wrapped to two lines, the
-              tagline to two more, and justify-end clipped the title). */}
-          <span className="hidden md:inline-block rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
-            {sliceName}
+        {/* #52 hid the first pill below md because it repeated the <h2> verbatim and
+            a long name pushed the title off the top. That is moot now: the pill shows
+            the level ("City"), not the name, so it no longer duplicates anything. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={PILL_CLASS}>{levelLabel}</span>
+          <span className={PILL_CLASS}>
+            {memberCount.toLocaleString()} {memberCount === 1 ? 'verified resident' : 'verified residents'}
           </span>
-
-          {/* Member count pill */}
-          <span className="rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
-            {memberCount.toLocaleString()} verified residents
-          </span>
-
-          {/* Slice number pill */}
-          <span className="rounded-full bg-black/30 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
-            Slice {siblingIndex}
-          </span>
+          <span className={PILL_CLASS}>Slice {siblingIndex}</span>
         </div>
-
-        {/* Description — hidden on mobile to prevent overflow; visible on desktop */}
-        <p className="hidden md:block mt-3 max-w-2xl text-xs leading-relaxed text-white/80 md:text-sm">
-          {copy?.description}
-        </p>
       </div>
 
       {/* Image credit — a licence condition on the shared banner library, so it sits
