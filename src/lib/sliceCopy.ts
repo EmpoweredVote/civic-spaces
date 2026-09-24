@@ -3,8 +3,18 @@ import type { SliceType } from '../types/database'
 export interface SliceCopy {
   tagline: string
   description: string
-  /** Type-default hero photo URL — overridden by DB photo_url when set */
-  defaultPhoto: string
+  /**
+   * Static fallback hero photo, used only when no real banner resolves for this
+   * slice — a DB `photo_url`, the shared banner library, and the Wikipedia path
+   * all take precedence.
+   *
+   * OPTIONAL, and absent on purpose for the tiers the shared library covers
+   * outright (see lib/banners.ts). `state` and `federal` resolve a real banner for
+   * every jurisdiction, so a generic stand-in there was unreachable in practice and
+   * only ever risked showing stock photography in place of the actual state. Where
+   * this is absent and nothing else resolves, HeroBanner renders its brand gradient.
+   */
+  defaultPhoto?: string
 }
 
 export const SLICE_COPY: Record<SliceType, SliceCopy> = {
@@ -19,22 +29,21 @@ export const SLICE_COPY: Record<SliceType, SliceCopy> = {
     tagline: 'Engage with county-wide issues and governance in your region',
     description:
       'This county civic space connects residents across your county to discuss local governance, community priorities, and civic engagement opportunities.',
-    defaultPhoto:
-      'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&h=400&fit=crop',
+    // No fallback: a stock courthouse stood in for every uncovered county, which read
+    // as this county's courthouse and was not. An uncovered county gets the brand
+    // gradient until the shared library or the Wikipedia path resolves a real place.
   },
   state: {
     tagline: 'Connect with fellow residents on state-level policy and governance',
     description:
       'This state civic space connects all state residents to discuss state legislation, budget priorities, and policies that affect the entire state.',
-    defaultPhoto:
-      'https://images.unsplash.com/photo-1555685812-4b943f1cb0eb?w=1200&h=400&fit=crop',
+    // No fallback: the shared banner library covers all 50 states.
   },
   federal: {
     tagline: 'Participate in national discourse on federal policies and legislation',
     description:
       'This federal civic space connects Americans nationwide to discuss national legislation, federal policy priorities, and issues that affect all citizens across the country.',
-    defaultPhoto:
-      'https://images.unsplash.com/photo-1501466044931-62695aada8e9?w=1200&h=400&fit=crop',
+    // No fallback: the shared banner library covers the federal band with one asset.
   },
   unified: {
     tagline: 'Join a global civic conversation that transcends geographic boundaries',

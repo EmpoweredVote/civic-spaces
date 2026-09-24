@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:banners": "node scripts/check-banner-drift.mjs",
+    "shoot:banners": "node scripts/shoot-banners.mjs",
+    "shoot:app": "node scripts/shoot-app.mjs",
+    "gen:banners": "node scripts/generate-banners.mjs"
   },
   "dependencies": {
     "@empoweredvote/ev-ui": "^0.11.1",
