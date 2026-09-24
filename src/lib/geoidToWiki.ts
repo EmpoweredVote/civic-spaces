@@ -1,7 +1,7 @@
 import type { SliceType } from '../types/database'
 
 /** Maps 2-digit state FIPS codes to full state names for Wikipedia lookups */
-const STATE_FIPS: Record<string, string> = {
+export const STATE_FIPS: Record<string, string> = {
   '01': 'Alabama',
   '02': 'Alaska',
   '04': 'Arizona',
@@ -206,13 +206,13 @@ export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | 
 
 /**
  * Returns a display name for the slice's jurisdiction synchronously where possible.
- * Returns null for county/city slices that need a Census API lookup.
+ * Returns null for county/city slices, which `useJurisdictionName` then resolves
+ * through the offline table in `src/lib/geoNames.ts`.
  *
  * Used by useJurisdictionName to populate the hero banner title.
  */
 export function geoidToDisplayName(sliceType: SliceType, geoid: string): string | null {
-  const stateFips = geoid.slice(0, 2)
-  const stateName = STATE_FIPS[stateFips] ?? null
+  const stateName = STATE_FIPS[geoid.slice(0, 2)] ?? null
 
   switch (sliceType) {
     case 'federal':
@@ -221,16 +221,15 @@ export function geoidToDisplayName(sliceType: SliceType, geoid: string): string 
     case 'state':
       return stateName
 
-    case 'county': {
-      if (geoid.length !== 5 || !stateName) return null
-      const countyFips = geoid.slice(2)
-      const countyName = COUNTY_NAMES[`${stateFips}-${countyFips}`]
-      // Indiana fast-path: return county name without "County" suffix
-      return countyName ?? null
-    }
+    case 'county':
+      // Every state, including Indiana, resolves through the offline table.
+      // Indiana used to take a hardcoded fast-path here that returned a bare
+      // "Monroe" where every other state read "Monroe County"; the table ends
+      // that split.
+      return null
 
     case 'city':
-      // Place FIPS (7-digit) or census tract (11-digit) — needs Census API
+      // 7-digit place FIPS — resolved from the offline table.
       return null
 
     case 'unified':
