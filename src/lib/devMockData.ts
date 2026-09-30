@@ -1,6 +1,7 @@
 import type { SliceType, SliceInfo, PostWithAuthor, BoostedPostWithAuthor, ConnectedProfile, ReplyWithAuthor } from '../types/database'
 import type { PoliticianFlatRecord } from '../types/representatives'
 import type { CompassTopic, CompassAnswer } from '../types/compass'
+import type { ElectionRecord } from '../hooks/useNextElection'
 
 /**
  * Local-only fallback data so `npm run dev` renders a populated dashboard
@@ -722,4 +723,24 @@ export const MOCK_COMPASS_ANSWERS: CompassAnswer[] = [
     "topic_id": "a22215c3-6693-4bc2-b248-01aebba14570",
     "value": 5
   }
+]
+
+// ---------------------------------------------------------------------------
+// Elections (?dev=1 only)
+//
+// NOT INVENTED: captured from the production endpoint on 2026-09-24 —
+// POST api.empowered.vote/api/essentials/browse/elections-by-area with
+// { geo_id: '3702140', mtfcc: 'G4110' } (Asheville), races stripped. Needed because
+// that API sends no CORS header for localhost. The date is real, so the countdown
+// the banner derives from it is real too; it simply will not update if the
+// election is rescheduled.
+// ---------------------------------------------------------------------------
+
+export const MOCK_ELECTIONS: ElectionRecord[] = [
+  {
+    election_id: '12e0bce3-d4c3-4e09-ba5d-18e8bc68be5e',
+    election_name: 'NC 2026 Statewide General',
+    election_date: '2026-11-03',
+    election_type: 'general',
+  },
 ]

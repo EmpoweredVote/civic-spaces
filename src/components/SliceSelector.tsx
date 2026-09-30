@@ -11,6 +11,8 @@ interface SliceSelectorProps {
   isLoading: boolean
   isError: boolean
   onSelect: (sliceId: string) => void
+  /** 'image' when the trigger sits on the hero photo, which needs its own contrast. */
+  tone?: 'surface' | 'image'
 }
 
 function HomeIcon() {
@@ -40,6 +42,31 @@ function ChevronIcon() {
 
 const TRIGGER_BASE = 'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors'
 
+// [own view, view-only] per tone. On the photo, the surface tints would sit on an
+// arbitrary image, so the own view is a dark glass pill and view-only is solid amber.
+const TONE_CLASSES = {
+  surface: [
+    'bg-brand-muted dark:bg-brand/10 text-brand dark:text-brand-light',
+    'bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300',
+  ],
+  image: [
+    'bg-black/40 backdrop-blur-sm border border-white/25 text-white',
+    'bg-amber-300 border border-amber-200 text-gray-900',
+  ],
+} as const
+
+/** "Your Community · " drops below sm, where the banner's chips have to share a row. */
+function TriggerLabel({ isOwnView, ownSiblingIndex, viewingIndex }: { isOwnView: boolean; ownSiblingIndex: number; viewingIndex: number }) {
+  if (isOwnView) {
+    return (
+      <span>
+        <span className="hidden sm:inline">Your Community · </span>Slice {ownSiblingIndex}
+      </span>
+    )
+  }
+  return <span>Slice {viewingIndex} · View Only</span>
+}
+
 /**
  * Lets a member of one slice browse "sibling" slices at the same location
  * (same jurisdiction, split apart once a slice hit its member cap) read-only.
@@ -55,6 +82,7 @@ export function SliceSelector({
   isLoading,
   isError,
   onSelect,
+  tone = 'surface',
 }: SliceSelectorProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -71,6 +99,7 @@ export function SliceSelector({
   const isOwnView = viewingSliceId === ownSliceId
   const viewingIndex = siblings.find((s) => s.id === viewingSliceId)?.siblingIndex ?? ownSiblingIndex
   const tooltip = `${locationName} — Slice ${viewingIndex}`
+  const toneClass = TONE_CLASSES[tone][isOwnView ? 0 : 1]
 
   // Fewer than 2 siblings (or we can't yet confirm there are more) — show a
   // plain, non-interactive label instead of a dropdown with nothing in it.
@@ -83,13 +112,11 @@ export function SliceSelector({
         title={tooltip}
         className={[
           TRIGGER_BASE,
-          isOwnView
-            ? 'bg-brand-muted dark:bg-brand/10 text-brand dark:text-brand-light'
-            : 'bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300',
+          toneClass,
         ].join(' ')}
       >
         {isOwnView ? <HomeIcon /> : <EyeIcon />}
-        {isOwnView ? `Your Community · Slice ${ownSiblingIndex}` : `Slice ${viewingIndex} · View Only`}
+        <TriggerLabel isOwnView={isOwnView} ownSiblingIndex={ownSiblingIndex} viewingIndex={viewingIndex} />
       </span>
     )
   }
@@ -105,13 +132,11 @@ export function SliceSelector({
         className={[
           TRIGGER_BASE,
           'hover:opacity-90',
-          isOwnView
-            ? 'bg-brand-muted dark:bg-brand/10 text-brand dark:text-brand-light'
-            : 'bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300',
+          toneClass,
         ].join(' ')}
       >
         {isOwnView ? <HomeIcon /> : <EyeIcon />}
-        {isOwnView ? `Your Community · Slice ${ownSiblingIndex}` : `Slice ${viewingIndex} · View Only`}
+        <TriggerLabel isOwnView={isOwnView} ownSiblingIndex={ownSiblingIndex} viewingIndex={viewingIndex} />
         <ChevronIcon />
       </button>
 
@@ -121,7 +146,7 @@ export function SliceSelector({
           aria-label="Switch slice"
           className="absolute left-0 top-full mt-2 w-64 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg z-30 py-1.5 max-h-72 overflow-y-auto"
         >
-          <p className="px-3 pt-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">
+          <p className="px-3 pt-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
             {locationName} — {siblings.length} slices
           </p>
           {siblings.map((s) => {
@@ -152,7 +177,7 @@ export function SliceSelector({
                     </span>
                   )}
                 </span>
-                <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-500">
+                <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
                   {s.memberCount.toLocaleString()}
                 </span>
               </button>
