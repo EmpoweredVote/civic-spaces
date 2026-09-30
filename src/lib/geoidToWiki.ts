@@ -165,10 +165,10 @@ const COUNTY_NAMES: Record<string, string> = Object.fromEntries(
  * - state: "{State} State Capitol" (e.g. "California State Capitol" → building photo)
  * - county (5-digit county FIPS): returns '{County} County, {State}' if county is in
  *   our lookup table; returns null otherwise (hook will call Census API as fallback)
- * - city/unified/volunteer: returns null (use sliceCopy defaultPhoto)
+ * - city/unified/volunteer: returns null (use sliceCopy defaultPhoto, where set)
  *
  * Returns null if no mapping is found (Wikipedia fetch will be skipped or
- * deferred to the Census API fallback in useWikiHeroImage).
+ * deferred to the Census API fallback in useHeroBanner).
  */
 export function geoidToWikiTitle(sliceType: SliceType, geoid: string): string | null {
   const stateFips = geoid.slice(0, 2)

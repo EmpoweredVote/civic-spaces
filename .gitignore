@@ -29,3 +29,12 @@ __pycache__/
 
 # tsc -b incremental build state
 *.tsbuildinfo
+
+# local visual-check output (scripts/shoot-banners.mjs)
+banner-shots*/
+
+# local signed-in visual check — NEVER commit a session token
+.auth-token.local*
+
+# signed-in visual check output
+app-shots/

@@ -7,7 +7,7 @@ import { useAllSlices } from '../hooks/useAllSlices'
 import { useEnsureSlices } from '../hooks/useEnsureSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
-import { useWikiHeroImage } from '../hooks/useWikiHeroImage'
+import { useHeroBanner } from '../hooks/useHeroBanner'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
@@ -31,7 +31,7 @@ import { SliceSelector } from './SliceSelector'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
- * Small wrapper that calls useWikiHeroImage for the active slice.
+ * Small wrapper that resolves the hero image for the active slice.
  * Extracted as its own component so the hook is called unconditionally
  * (React rules of hooks forbid calling hooks inside callbacks or IIFEs).
  */
@@ -46,8 +46,18 @@ function ActiveHeroBanner({
    *  name the slice on screen, not the one they belong to. */
   siblingIndexOverride?: number
 }) {
-  const wikiPhotoUrl = useWikiHeroImage(slice)
+  const hero = useHeroBanner(slice)
   const displayName = useJurisdictionName(slice, fallbackName)
+
+  // A DB photo_url is an explicit per-slice override and wins outright. Its
+  // provenance is unknown, so it carries no credit — whoever sets one owns the
+  // licensing for it. Everything else comes from the hook with a credit attached.
+  //
+  // The `undefined` case must survive: it means "still resolving", and HeroBanner
+  // uses it to hold the gradient rather than flash a fallback photo it will replace.
+  const photoUrl = slice.photoUrl ?? (hero === undefined ? undefined : (hero?.url ?? null))
+  const credit = slice.photoUrl ? null : (hero?.credit ?? null)
+
   return (
     <HeroBanner
       sliceType={slice.sliceType}
@@ -55,7 +65,8 @@ function ActiveHeroBanner({
       levelLabel={fallbackName}
       memberCount={slice.memberCount}
       siblingIndex={siblingIndexOverride ?? slice.siblingIndex}
-      photoUrl={slice.photoUrl ?? wikiPhotoUrl}
+      photoUrl={photoUrl}
+      credit={credit}
     />
   )
 }
