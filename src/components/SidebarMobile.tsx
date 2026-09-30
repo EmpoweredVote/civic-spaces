@@ -1,24 +1,18 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import type { useRepresentatives } from '../hooks/useRepresentatives'
-import type { SliceInfo } from '../types/database'
-import type { CoverageCatalog } from '../lib/toolCoverage'
 import { filterRepsByTab } from '../types/representatives'
 import { RepresentativesWidget } from './widgets/RepresentativesWidget'
-import { ToolsWidget } from './widgets/ToolsWidget'
-import { CompassWidget } from './widgets/CompassWidget'
-import { ChangeAddressLink } from './Sidebar'
-import type { CompassData } from '../hooks/useCompassData'
 
 interface SidebarMobileProps {
   repsData: ReturnType<typeof useRepresentatives>
   activeTab: string
-  coverage: CoverageCatalog | null
-  activeSlice: SliceInfo | undefined
-  compassData: CompassData
+  location?: ReactNode
+  events?: ReactNode
+  about?: ReactNode
 }
 
-export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, compassData }: SidebarMobileProps) {
+export function SidebarMobile({ repsData, activeTab, location, events, about }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (activeTab === 'volunteer') return null
@@ -29,18 +23,18 @@ export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, comp
     !repsData.isLoading && repsData.data !== undefined && repsData.data.length === 0
 
   return (
-    <div className="md:hidden border-b border-gray-200 dark:border-gray-700">
+    <div className="md:hidden overflow-hidden rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900">
       {/* Collapsible header */}
       <button
         type="button"
         onClick={() => setIsExpanded((prev) => !prev)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-900 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         aria-expanded={isExpanded}
       >
         <span>Community Sidebar</span>
         <motion.svg
           xmlns="http://www.w3.org/2000/svg"
-          className="h-4 w-4 text-gray-500"
+          className="h-4 w-4 text-gray-500 dark:text-gray-400"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -65,7 +59,8 @@ export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, comp
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-3 p-3">
-              <ChangeAddressLink />
+              {location}
+              {events}
 
 
               {showReps && (
@@ -92,13 +87,7 @@ export function SidebarMobile({ repsData, activeTab, coverage, activeSlice, comp
                 </div>
               )}
 
-              <CompassWidget {...compassData} />
-
-              <ToolsWidget
-                sliceType={activeSlice?.sliceType ?? null}
-                geoid={activeSlice?.geoid ?? null}
-                catalog={coverage}
-              />
+              {about}
             </div>
           </motion.div>
         )}

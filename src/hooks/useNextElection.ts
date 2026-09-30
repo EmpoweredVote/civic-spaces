@@ -97,19 +97,48 @@ async function fetchElections(area: ElectionArea, userId: string | null): Promis
   }
 }
 
-/**
- * The next election for an area.
- * - `undefined` = still loading, or the lookup failed (the banner shows nothing)
- * - `null`      = answered, and nothing upcoming is on file for this area
- */
-export function useNextElection(area: ElectionArea | null, userId: string | null): NextElection | null | undefined {
-  const { data, isSuccess } = useQuery({
+/** The raw election list for an area. One query, shared by the banner and the events widget. */
+function useElectionsQuery(area: ElectionArea | null, userId: string | null) {
+  return useQuery({
     queryKey: ['next-election', area?.geoid, area?.mtfcc, userId],
     queryFn: () => fetchElections(area!, userId),
     enabled: !!area,
     staleTime: 60 * 60 * 1000,
     retry: 1,
   })
+}
+
+/**
+ * The next election for an area.
+ * - `undefined` = still loading, or the lookup failed (the banner shows nothing)
+ * - `null`      = answered, and nothing upcoming is on file for this area
+ */
+export function useNextElection(area: ElectionArea | null, userId: string | null): NextElection | null | undefined {
+  const { data, isSuccess } = useElectionsQuery(area, userId)
   if (!area || !isSuccess) return undefined
   return pickNextElection(data)
+}
+
+export interface UpcomingElection extends NextElection {
+  /** 'general', 'primary', ... as Essentials records it. */
+  type: string
+}
+
+/**
+ * Every election on or after today for an area, soonest first.
+ * `elections` is undefined until answered — and stays undefined on failure, which
+ * `isLoading` (false once settled either way) tells apart from still-waiting.
+ */
+export function useUpcomingElections(
+  area: ElectionArea | null,
+  userId: string | null,
+): { elections: UpcomingElection[] | undefined; isLoading: boolean } {
+  const { data, isSuccess, isLoading } = useElectionsQuery(area, userId)
+  if (!area || !isSuccess) return { elections: undefined, isLoading: !!area && isLoading }
+  const today = localIsoDate()
+  const elections = data
+    .filter((e) => e.election_date >= today)
+    .sort((a, b) => a.election_date.localeCompare(b.election_date))
+    .map((e) => ({ name: e.election_name, date: e.election_date, type: e.election_type }))
+  return { elections, isLoading: false }
 }

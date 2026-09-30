@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { SiblingSlice } from '../hooks/useSiblingSlices'
+import { Emoji } from './Emoji'
+import { CONTROL_BASE, CONTROL_IDLE } from './FeedTabs'
 
 interface SliceSelectorProps {
   /** Resolved jurisdiction name, e.g. "Asheville" — used in the tooltip ("Asheville — Slice 3"). */
@@ -11,25 +13,6 @@ interface SliceSelectorProps {
   isLoading: boolean
   isError: boolean
   onSelect: (sliceId: string) => void
-  /** 'image' when the trigger sits on the hero photo, which needs its own contrast. */
-  tone?: 'surface' | 'image'
-}
-
-function HomeIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1v-9" />
-    </svg>
-  )
-}
-
-function EyeIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  )
 }
 
 function ChevronIcon() {
@@ -40,32 +23,8 @@ function ChevronIcon() {
   )
 }
 
-const TRIGGER_BASE = 'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors'
-
-// [own view, view-only] per tone. On the photo, the surface tints would sit on an
-// arbitrary image, so the own view is a dark glass pill and view-only is solid amber.
-const TONE_CLASSES = {
-  surface: [
-    'bg-brand-muted dark:bg-brand/10 text-brand dark:text-brand-light',
-    'bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300',
-  ],
-  image: [
-    'bg-black/40 backdrop-blur-sm border border-white/25 text-white',
-    'bg-amber-300 border border-amber-200 text-gray-900',
-  ],
-} as const
-
-/** "Your Community · " drops below sm, where the banner's chips have to share a row. */
-function TriggerLabel({ isOwnView, ownSiblingIndex, viewingIndex }: { isOwnView: boolean; ownSiblingIndex: number; viewingIndex: number }) {
-  if (isOwnView) {
-    return (
-      <span>
-        <span className="hidden sm:inline">Your Community · </span>Slice {ownSiblingIndex}
-      </span>
-    )
-  }
-  return <span>Slice {viewingIndex} · View Only</span>
-}
+// Exactly the tab bar's control box, so the pill sits in that row as one of its buttons.
+const TRIGGER_BASE = CONTROL_BASE
 
 /**
  * Lets a member of one slice browse "sibling" slices at the same location
@@ -82,7 +41,6 @@ export function SliceSelector({
   isLoading,
   isError,
   onSelect,
-  tone = 'surface',
 }: SliceSelectorProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -99,27 +57,15 @@ export function SliceSelector({
   const isOwnView = viewingSliceId === ownSliceId
   const viewingIndex = siblings.find((s) => s.id === viewingSliceId)?.siblingIndex ?? ownSiblingIndex
   const tooltip = `${locationName} — Slice ${viewingIndex}`
-  const toneClass = TONE_CLASSES[tone][isOwnView ? 0 : 1]
 
-  // Fewer than 2 siblings (or we can't yet confirm there are more) — show a
-  // plain, non-interactive label instead of a dropdown with nothing in it.
-  // Loading/error both degrade to this same safe, non-broken state.
-  const canSwitch = !isLoading && !isError && siblings.length > 1
-
-  if (!canSwitch) {
-    return (
-      <span
-        title={tooltip}
-        className={[
-          TRIGGER_BASE,
-          toneClass,
-        ].join(' ')}
-      >
-        {isOwnView ? <HomeIcon /> : <EyeIcon />}
-        <TriggerLabel isOwnView={isOwnView} ownSiblingIndex={ownSiblingIndex} viewingIndex={viewingIndex} />
-      </span>
-    )
-  }
+  // Always a menu, even for a place with one slice: the member can see which slice
+  // they are in and why there is nothing else to pick, rather than meeting a label
+  // that looks like a control and does nothing. While loading, or if the query
+  // failed, the list is just their own slice — the one thing known for certain.
+  const listed = isLoading || isError || siblings.length === 0
+    ? [{ id: ownSliceId, siblingIndex: ownSiblingIndex, memberCount: null as number | null }]
+    : siblings
+  const isOnlySlice = !isLoading && !isError && siblings.length <= 1
 
   return (
     <div ref={ref} className="relative">
@@ -131,12 +77,16 @@ export function SliceSelector({
         title={tooltip}
         className={[
           TRIGGER_BASE,
-          'hover:opacity-90',
-          toneClass,
+          // Styled as one of the tab bar's tabs (FeedTabs' inactive tab), not as a tinted
+          // chip: it sits first in that row. Read-only browsing keeps an amber colour so
+          // "this is not your slice" still reads at a glance.
+          isOwnView
+            ? CONTROL_IDLE
+            : 'border-amber-300 dark:border-amber-400/40 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-400/10',
         ].join(' ')}
       >
-        {isOwnView ? <HomeIcon /> : <EyeIcon />}
-        <TriggerLabel isOwnView={isOwnView} ownSiblingIndex={ownSiblingIndex} viewingIndex={viewingIndex} />
+        <Emoji symbol={isOwnView ? '🏠' : '👀'} className="text-[13px]" />
+        {isOwnView ? `Your Community · Slice ${ownSiblingIndex}` : `Slice ${viewingIndex} · View Only`}
         <ChevronIcon />
       </button>
 
@@ -147,9 +97,11 @@ export function SliceSelector({
           className="absolute left-0 top-full mt-2 w-64 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg z-30 py-1.5 max-h-72 overflow-y-auto"
         >
           <p className="px-3 pt-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            {locationName} — {siblings.length} slices
+            {isLoading || isError
+              ? locationName
+              : `${locationName} — ${siblings.length} ${siblings.length === 1 ? 'slice' : 'slices'}`}
           </p>
-          {siblings.map((s) => {
+          {listed.map((s) => {
             const isMine = s.id === ownSliceId
             const isCurrent = s.id === viewingSliceId
             return (
@@ -177,12 +129,28 @@ export function SliceSelector({
                     </span>
                   )}
                 </span>
-                <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                  {s.memberCount.toLocaleString()}
-                </span>
+                {s.memberCount !== null && (
+                  <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                    {s.memberCount.toLocaleString()}
+                  </span>
+                )}
               </button>
             )
           })}
+          {isLoading && (
+            <p className="px-3 pt-2 pb-1 text-xs text-gray-500 dark:text-gray-400">Loading other slices…</p>
+          )}
+          {isError && (
+            <p className="px-3 pt-2 pb-1 text-xs text-gray-500 dark:text-gray-400">
+              Couldn't load other slices. Try again in a moment.
+            </p>
+          )}
+          {/* The cap is slices_count_max_check (current_member_count <= 6000). */}
+          {isOnlySlice && (
+            <p className="px-3 pt-2 pb-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800 mt-1">
+              This is the only slice in {locationName} so far. A new slice opens when one reaches 6,000 members.
+            </p>
+          )}
         </div>
       )}
     </div>

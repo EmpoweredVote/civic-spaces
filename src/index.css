@@ -43,6 +43,9 @@ body {
    scrolled away. */
 .scrollbar-thin {
   scrollbar-width: thin;
+  /* Without a colour, Chrome paints its default light track — a white strip down the
+     dark-mode rail. Thumb matches the WebKit rule below; the track stays transparent. */
+  scrollbar-color: rgb(156 163 175 / 0.5) transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar {

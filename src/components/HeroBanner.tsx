@@ -1,9 +1,12 @@
-import type { ReactNode } from 'react'
+import { useState } from 'react'
 import type { SliceType } from '../types/database'
+import type { CurrentWeather } from '../hooks/useCurrentWeather'
+import { toCelsius } from '../hooks/useCurrentWeather'
 import type { NextElection } from '../hooks/useNextElection'
 import { daysUntil } from '../hooks/useNextElection'
 import { SLICE_COPY } from '../lib/sliceCopy'
 import { geoidToDisplayName } from '../lib/geoidToWiki'
+import { Emoji } from './Emoji'
 
 interface HeroBannerProps {
   sliceType: SliceType
@@ -21,11 +24,12 @@ interface HeroBannerProps {
   locationMemberCount?: number
   /** 2020 Census total population of the area, when Census answered. */
   population?: number
-  /** The slice switcher (SliceSelector, image tone). Rendered by the caller, which owns the sibling query. */
-  switcher: ReactNode
   /** undefined = unknown (loading or failed, render nothing); null = nothing upcoming on file. */
   nextElection: NextElection | null | undefined
+  /** Plain weather.gov link, used only when live conditions are unavailable. */
   forecastUrl: string | null
+  /** Live NWS conditions for a city or county, when the lookup answered. */
+  weather?: CurrentWeather
   photoUrl?: string | null
   /**
    * Attribution for `photoUrl`, rendered bottom-right.
@@ -42,36 +46,49 @@ interface HeroBannerProps {
 // relying on the gradient: white on black/40 stays legible over a bright sky.
 const CHIP = 'inline-flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 px-3 py-1.5 text-xs font-medium text-white'
 
-function UsersIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  )
-}
-
-function BallotIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-    </svg>
-  )
-}
-
-function CloudIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-    </svg>
-  )
-}
-
 function ExternalIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 flex-shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M14 5h5v5M19 5l-8 8M10 5H6a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1v-4" />
     </svg>
   )
+}
+
+type TempUnit = 'F' | 'C'
+const TEMP_UNIT_KEY = 'cs_temp_unit'
+
+/** Per-viewer display preference only, so browser storage is enough; it can be absent or throw. */
+function readTempUnit(): TempUnit {
+  try {
+    return localStorage.getItem(TEMP_UNIT_KEY) === 'C' ? 'C' : 'F'
+  } catch {
+    return 'F'
+  }
+}
+
+function writeTempUnit(unit: TempUnit) {
+  try {
+    localStorage.setItem(TEMP_UNIT_KEY, unit)
+  } catch {
+    // Private mode or blocked storage: the choice just won't persist.
+  }
+}
+
+/**
+ * An emoji for NWS's short forecast ("Mostly Cloudy", "Chance Showers", ...). Checked
+ * most-severe first, so "Chance T-storms, Rain" reads as a storm, not rain.
+ */
+function weatherEmoji(summary: string): string {
+  const s = summary.toLowerCase()
+  if (/thunder|t-storm|storm/.test(s)) return '⛈️'
+  if (/snow|flurr|sleet|ice|blizzard/.test(s)) return '🌨️'
+  if (/rain|shower|drizzle/.test(s)) return '🌧️'
+  if (/fog|haze|smoke|mist/.test(s)) return '🌫️'
+  if (/wind|breez/.test(s)) return '💨'
+  if (/partly|mostly sunny|mostly clear/.test(s)) return '⛅'
+  if (/cloud|overcast/.test(s)) return '☁️'
+  if (/sun|clear|fair/.test(s)) return '☀️'
+  return '🌤️'
 }
 
 function formatElectionDate(date: string): string {
@@ -96,9 +113,9 @@ export function HeroBanner({
   memberCount,
   locationMemberCount,
   population,
-  switcher,
   nextElection,
   forecastUrl,
+  weather,
   photoUrl,
   credit,
 }: HeroBannerProps) {
@@ -110,7 +127,11 @@ export function HeroBanner({
     ? null
     : (photoUrl ?? copy?.defaultPhoto ?? null)
 
-  const hasFacts = nextElection !== undefined || !!forecastUrl
+  const [unit, setUnit] = useState<TempUnit>(readTempUnit)
+  const chooseUnit = (next: TempUnit) => {
+    setUnit(next)
+    writeTempUnit(next)
+  }
   const showCredit = !!resolvedPhoto && !!credit
 
   // City and county name their state too — always known from the geoid, even when the
@@ -122,8 +143,8 @@ export function HeroBanner({
   return (
     <div
       className={[
-        // No overflow-hidden here: the slice switcher's menu has to drop out of the
-        // banner over the feed. The photo layer below clips itself instead.
+        // The photo layer below clips itself to the corners, so the frame needs no
+        // overflow-hidden — and anything positioned later is free to overhang.
         'relative rounded-2xl',
         // PR #86's banner heights, as floors rather than fixed heights: the copy is
         // bottom-anchored, and on a narrow phone the chips can need more than 10rem, so
@@ -157,7 +178,7 @@ export function HeroBanner({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
       </div>
 
-      <div className={`relative z-10 flex flex-col gap-3 p-4 sm:p-5 md:flex-row md:items-end md:justify-between md:gap-6 ${showCredit ? 'pb-2 sm:pb-2 md:pb-7' : ''}`}>
+      <div className={`relative z-10 flex flex-col gap-3 p-4 sm:p-5 ${showCredit ? 'pb-2 sm:pb-2 md:pb-7' : ''}`}>
         {/* Where you are, and which slice of it */}
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white [text-shadow:0_0_2px_rgb(0_0_0_/_0.9),0_1px_6px_rgb(0_0_0_/_0.8)]">
@@ -171,9 +192,8 @@ export function HeroBanner({
           </h2>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {switcher}
             <span className={CHIP}>
-              <UsersIcon />
+              <Emoji symbol="👥" className="text-sm" />
               {memberCount.toLocaleString()}
               <span className="sm:hidden">in slice</span>
               <span className="hidden sm:inline">{memberCount === 1 ? 'member' : 'members'} in this slice</span>
@@ -185,19 +205,16 @@ export function HeroBanner({
             )}
             {population !== undefined && (
               <span className={CHIP} title="Total population, 2020 U.S. Census">
+                <Emoji symbol="🏘️" className="text-sm" />
                 {population.toLocaleString()} residents
                 <span className="hidden sm:inline text-white/80">· 2020 Census</span>
               </span>
             )}
-          </div>
-        </div>
-
-        {/* Civic facts — only what a real source answered */}
-        {hasFacts && (
-          <div className="flex flex-wrap items-center gap-2 md:flex-col md:items-end md:flex-shrink-0">
+            {/* Civic facts — only what a real source answered — on the same row as
+                the counts, so the banner reads as one line of facts under the name. */}
             {nextElection && (
               <span className={CHIP} title={nextElection.name}>
-                <BallotIcon />
+                <Emoji symbol="🗳️" className="text-sm" />
                 <span>
                   <span className="hidden sm:inline">Next election </span>
                   <span className="sm:hidden">Election </span>
@@ -208,32 +225,68 @@ export function HeroBanner({
             )}
             {nextElection === null && (
               <span className={CHIP}>
-                <BallotIcon />
+                <Emoji symbol="🗳️" className="text-sm" />
                 No upcoming election on file
               </span>
             )}
-            {forecastUrl && (
+            {weather && (
+              <span className={`${CHIP} pr-1`}>
+                <a
+                  href={weather.forecastUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`${weather.summary} — full forecast at weather.gov`}
+                  className="inline-flex items-center gap-1.5 rounded-full hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                >
+                  <Emoji symbol={weatherEmoji(weather.summary)} className="text-sm" />
+                  <span className="font-semibold tabular-nums">
+                    {unit === 'F' ? Math.round(weather.tempF) : toCelsius(weather.tempF)}°{unit}
+                  </span>
+                  <span className="hidden sm:inline text-white/80">· {weather.summary}</span>
+                  <span className="sr-only">, now. Full forecast at the National Weather Service, opens in a new tab</span>
+                </a>
+                {/* Two-state switch, so the unit on screen is always the one pressed. */}
+                <span role="group" aria-label="Temperature unit" className="ml-1 inline-flex rounded-full bg-white/15 p-0.5">
+                  {(['F', 'C'] as const).map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      aria-pressed={unit === u}
+                      onClick={() => chooseUnit(u)}
+                      className={[
+                        'rounded-full px-1.5 py-0.5 text-[11px] leading-none font-semibold transition-colors',
+                        unit === u ? 'bg-white text-gray-900' : 'text-white/85 hover:text-white',
+                      ].join(' ')}
+                    >
+                      °{u}
+                    </button>
+                  ))}
+                </span>
+              </span>
+            )}
+            {!weather && forecastUrl && (
               <a
                 href={forecastUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`${CHIP} hover:bg-black/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition-colors`}
               >
-                <CloudIcon />
+                <Emoji symbol="🌤️" className="text-sm" />
                 Forecast
                 <ExternalIcon />
                 <span className="sr-only">(National Weather Service, opens in a new tab)</span>
               </a>
             )}
           </div>
-        )}
+        </div>
+
       </div>
 
       {/* Image credit — a licence condition on the shared banner library, so it sits
           above the scrims and stays visible at every breakpoint. In flow on phones, where
           a credit that wraps to two lines would otherwise land on the chips; pinned
-          bottom-right from md up, under the facts column. z-[5], below the content
-          layer's z-10, so the slice switcher's open menu paints over it. */}
+          bottom-right from md up, under the facts column. z-[5] keeps it beneath the
+          content layer (z-10), so no chip tooltip or overlay is ever painted over. */}
       {showCredit && (
         <p
           className="relative z-[5] px-4 pb-2 text-right text-[11px] leading-tight text-white/75 sm:px-5 md:absolute md:bottom-1.5 md:right-3 md:max-w-[70%] md:p-0"

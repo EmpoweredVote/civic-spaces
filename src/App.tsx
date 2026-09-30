@@ -11,7 +11,7 @@ function AppContent() {
       <Route path="/profile/:userId">
         {(params) => <ProfilePage userId={params?.userId ?? ''} />}
       </Route>
-      <div style={{ display: isProfileRoute ? 'none' : undefined }} className="flex flex-col h-screen">
+      <div style={{ display: isProfileRoute ? 'none' : undefined }} className="flex flex-col min-h-screen">
         <AppShell />
       </div>
     </>
