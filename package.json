@@ -10,7 +10,9 @@
     "check:banners": "node scripts/check-banner-drift.mjs",
     "shoot:banners": "node scripts/shoot-banners.mjs",
     "shoot:app": "node scripts/shoot-app.mjs",
-    "gen:banners": "node scripts/generate-banners.mjs"
+    "gen:banners": "node scripts/generate-banners.mjs",
+    "geo:generate": "node --env-file-if-exists=.env.local scripts/generate-geo-names.mjs",
+    "geo:check": "node --env-file-if-exists=.env.local scripts/generate-geo-names.mjs --check"
   },
   "dependencies": {
     "@empoweredvote/ev-ui": "^0.11.1",
