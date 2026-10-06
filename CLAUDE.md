@@ -4,7 +4,7 @@ Conventions that are not obvious from the code and that are expensive to get wro
 short; if something needs a page, put it in `.planning/` and link it here.
 
 Civic Spaces is the **Connect** pillar's forum: a member is placed into civic "slices"
-(Neighborhood, Local, State, Federal, Unified, Volunteer) based on where they live, and each
+(City, County, State, Federal, Unified, Volunteer) based on where they live, and each
 slice has its own feed, posts and replies. Identity, location and representatives all come from
 **ev-accounts** — this repo owns none of that, it reads it.
 
@@ -39,20 +39,16 @@ in dev, which looks like a bug and is not one.
 **The frontend has no test framework.** No test script, no test files. `npm run build` is the
 whole safety net there — run it before you claim anything works.
 
-🔴 **It only became a safety net on 2026-09-01, so distrust any "build passed" older than
-that.** The script was `tsc && vite build`, but the root `tsconfig.json` is a solution file
-(`"files": []` plus `references`), and plain `tsc` on one of those compiles **zero files**.
-Vite transpiles with esbuild and does not type-check. So the build exited 0 with 25 type
-errors outstanding, and had done for a long time — four of them predated the slice-taxonomy
-work. It is `tsc -b` now, which actually builds the referenced project. If you add a
-`tsconfig.*.json`, add it to `references` or nothing will check it.
+🔴 **The type-check depends on `tsc -b`.** The root `tsconfig.json` is a solution file
+(`"files": []` plus `references`): plain `tsc` on it compiles zero files, and Vite transpiles
+with esbuild without type-checking. If you add a `tsconfig.*.json`, add it to `references` or
+nothing will check it.
 
 **Branch from `origin/main`, after a `git fetch`** — local `main` here is routinely tens of
-commits behind. It does **not** diverge: measured 2026-09-14, `git rev-list --left-right
---count origin/main...main` gave `22 0` (zero local-only commits) and `git merge --ff-only`
-was clean. So a plain fast-forward is all a stale `main` ever needs — no stash-and-rebranch
-dance, and nothing to salvage. If checking out `main` looks like it reverted files, that is
-a behind-by-N branch, not lost work; check the counts before reacting.
+commits behind. It does **not** diverge (no local-only commits), so a plain fast-forward is
+all a stale `main` needs — nothing to salvage. If checking out `main` looks like it reverted
+files, that is a behind-by-N branch, not lost work; check the counts
+(`git rev-list --left-right --count origin/main...main`) before reacting.
 
 **Merging: `main` needs a passing `build` and one approving review.** A PR whose files are
 *all* `.planning/**` or `*.md` is approved automatically by
@@ -170,10 +166,9 @@ The old `services/slice-assignment/src/middleware/verifyToken.ts` is **frozen an
 deliberately not carried into the engine** — it 401'd every WorkOS member after the
 cutover. Do not use it as the reference implementation.
 
-This broke production on 2026-09-02: a WorkOS member queried
-`user_id=eq.user_01M14T3W1R72ZQM70KRXH4K5E8`, matched zero rows, and sat on "Setting up
-your civic spaces…" forever, because an empty membership list is indistinguishable from a
-new account and `useEnsureSlices` kept retrying.
+The symptom of a mismatch: the member queries `user_id=eq.<WorkOS sub>`, matches zero rows,
+and sits on "Setting up your civic spaces…" forever, because an empty membership list is
+indistinguishable from a new account and `useEnsureSlices` keeps retrying.
 
 **Both verifiers need the WorkOS issuer registered, or a WorkOS token is a 401:**
 - The **frozen** `services/slice-assignment` needs `WORKOS_ISSUER` and `WORKOS_JWKS_URL`
@@ -272,6 +267,6 @@ wouter · TanStack Query · motion · `@supabase/supabase-js` ·
 ## Planning
 
 This repo uses the GSD workflow in `.planning/` — `ROADMAP.md` at the top, then
-`phases/NN-name/` with `NN-RESEARCH.md`, `NN-MM-PLAN.md` and `NN-VERIFICATION.md`. Phases 1–13
-are shipped (v1.0 forum, v2.0 all slices, v3.0 UI redesign). Read the relevant phase's
+`phases/NN-name/` with `NN-RESEARCH.md`, `NN-MM-PLAN.md` and `NN-VERIFICATION.md`.
+`ROADMAP.md` lists which phases and milestones have shipped. Read the relevant phase's
 research doc before changing an area — it usually records why something is the way it is.
