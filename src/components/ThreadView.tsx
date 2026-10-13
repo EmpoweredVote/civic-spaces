@@ -34,7 +34,6 @@ function TopicHeader({ headline, onBack, stuck }: { headline: string | null; onB
         </svg>
       </button>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-brand dark:text-brand-light">Discussion</p>
         <h1
           className={`mt-0.5 text-lg md:text-xl font-bold leading-snug text-gray-900 dark:text-gray-50 [overflow-wrap:anywhere] ${
             stuck ? 'line-clamp-2' : ''
