@@ -7,6 +7,7 @@ import { daysUntil } from '../hooks/useNextElection'
 import { SLICE_COPY } from '../lib/sliceCopy'
 import { geoidToDisplayName } from '../lib/geoidToWiki'
 import { POPULATION_SOURCE } from '../lib/census'
+import { creditParts } from '../lib/banners'
 import { Emoji } from './Emoji'
 
 interface HeroBannerProps {
@@ -245,6 +246,7 @@ export function HeroBanner({
     writeTempUnit(next)
   }
   const showCredit = !!resolvedPhoto && !!credit
+  const parts = credit ? creditParts(credit) : null
 
   // City and county name their state too — always known from the geoid, even when the
   // place name itself could not be resolved and the title falls back to "City".
@@ -433,12 +435,34 @@ export function HeroBanner({
           a credit that wraps to two lines would otherwise land on the chips; pinned
           bottom-right from md up, under the facts column. z-[5] keeps it beneath the
           content layer (z-10), so no chip details panel is ever painted over. */}
+      {/* Short form, "Photo: Author · Licence": author and licence are the conditions,
+          so both stay visible; the licence links to its deed when it has one. Dimmer
+          than the facts, but the 11px size and shadow keep it readable on any photo. */}
       {showCredit && (
         <p
-          className="relative z-[5] px-4 pb-2 text-right text-[11px] leading-tight text-white/75 sm:px-5 md:absolute md:bottom-1.5 md:right-3 md:max-w-[70%] md:p-0"
+          className="relative z-[5] px-4 pb-2 text-right text-[11px] leading-tight text-white/70 sm:px-5 md:absolute md:bottom-1.5 md:right-3 md:max-w-[70%] md:p-0"
           style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
         >
-          {credit}
+          {parts ? (
+            <>
+              Photo: {parts.author} ·{' '}
+              {parts.licenseUrl ? (
+                <a
+                  href={parts.licenseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer license"
+                  className="rounded underline decoration-white/40 underline-offset-2 hover:text-white hover:decoration-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                >
+                  {parts.license}
+                  <span className="sr-only"> (licence, opens in a new tab)</span>
+                </a>
+              ) : (
+                parts.license
+              )}
+            </>
+          ) : (
+            credit
+          )}
         </p>
       )}
     </div>
