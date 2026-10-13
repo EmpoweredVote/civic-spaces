@@ -7,6 +7,16 @@ import civicSpacesLight from '../assets/tools/civic-spaces-symbol-light.svg'
 import civicSpacesDark from '../assets/tools/civic-spaces-symbol-dark.svg'
 import focusedCommunitiesLight from '../assets/tools/focused-communities-symbol-light.svg'
 import focusedCommunitiesDark from '../assets/tools/focused-communities-symbol-dark.svg'
+import essentialsLogoLight from '../assets/tools/essentials-logo-light.svg'
+import essentialsLogoDark from '../assets/tools/essentials-logo-dark.svg'
+import compassLogoLight from '../assets/tools/compass-logo-light.svg'
+import compassLogoDark from '../assets/tools/compass-logo-dark.svg'
+import readRankLogoLight from '../assets/tools/readrank-logo-light.svg'
+import readRankLogoDark from '../assets/tools/readrank-logo-dark.svg'
+import treasuryLogoLight from '../assets/tools/treasury-tracker-logo-light.svg'
+import treasuryLogoDark from '../assets/tools/treasury-tracker-logo-dark.svg'
+import triviaLogoLight from '../assets/tools/ctc-logo-light.svg'
+import triviaLogoDark from '../assets/tools/ctc-logo-dark.svg'
 
 interface NavSidebarProps {
   activeTab: TabKey
@@ -31,9 +41,12 @@ const GEO_TABS: { key: TabKey; label: string; icon: string }[] = [
 ]
 
 /**
- * Resources — links to the other live Empowered Vote products. Inform tools use
- * each product's own real favicon (fetched directly from its site); the Connect
- * tools use bundled symbols instead — see CONNECT_TOOLS for why.
+ * Resources — links to the other live Empowered Vote products. Inform tools show
+ * each product's full wordmark logo (name + symbol): the same files empowered.vote
+ * renders on its homepage (/icons/*-logo-lg-*.svg; Compass from /brand/compass/),
+ * bundled here so a path change on that site can't break the rail. The logo is
+ * the label, so those rows carry no separate text. The Connect tools use bundled
+ * symbols plus a text label instead — see CONNECT_TOOLS for why.
  *
  * Split into two groups by product family:
  *  - Inform Tools: help someone learn about candidates/issues/spending
@@ -55,36 +68,36 @@ const INFORM_TOOLS: ResourceLinkDef[] = [
     key: 'essentials',
     label: 'Essentials',
     href: 'https://essentials.empowered.vote/',
-    logoLight: 'https://essentials.empowered.vote/essentials-favicon-light-32.png',
-    logoDark: 'https://essentials.empowered.vote/essentials-favicon-dark-32.png',
+    logoLight: essentialsLogoLight,
+    logoDark: essentialsLogoDark,
   },
   {
     key: 'compass',
     label: 'Issue Alignment Compass',
     href: 'https://compass.empowered.vote/',
-    logoLight: 'https://compass.empowered.vote/compass-favicon-light-32.png',
-    logoDark: 'https://compass.empowered.vote/compass-favicon-dark-32.png',
+    logoLight: compassLogoLight,
+    logoDark: compassLogoDark,
   },
   {
     key: 'readrank',
     label: 'Read & Rank',
     href: 'https://readrank.empowered.vote/',
-    logoLight: 'https://readrank.empowered.vote/read-and-rank-favicon-light-32.png',
-    logoDark: 'https://readrank.empowered.vote/read-and-rank-favicon-dark-32.png',
+    logoLight: readRankLogoLight,
+    logoDark: readRankLogoDark,
   },
   {
     key: 'treasury',
     label: 'Treasury Tracker',
     href: 'https://treasurytracker.empowered.vote/',
-    logoLight: 'https://treasurytracker.empowered.vote/treasury-tracker-favicon-32.png',
-    logoDark: 'https://treasurytracker.empowered.vote/treasury-tracker-favicon-32.png',
+    logoLight: treasuryLogoLight,
+    logoDark: treasuryLogoDark,
   },
   {
     key: 'trivia',
     label: 'Civic Trivia Championship',
     href: 'https://ctc.empowered.vote/',
-    logoLight: 'https://ctc.empowered.vote/favicon-32.png',
-    logoDark: 'https://ctc.empowered.vote/favicon-dark-32.png',
+    logoLight: triviaLogoLight,
+    logoDark: triviaLogoDark,
   },
 ]
 
@@ -297,10 +310,8 @@ function GeoNavItem({
 }
 
 /**
- * These favicons are fetched from each product's live site, so a path change
- * there would otherwise render a broken-image glyph in the rail. Hide the
- * image rather than remove it, so the row's text stays aligned with its
- * siblings.
+ * Hide a Connect tool's symbol rather than show a broken-image glyph, keeping
+ * the row's text aligned with its siblings.
  */
 function hideBrokenIcon(e: React.SyntheticEvent<HTMLImageElement>) {
   e.currentTarget.style.visibility = 'hidden'
@@ -312,17 +323,14 @@ function ResourceRow({ item, theme }: { item: ResourceLinkDef; theme: 'light' | 
       href={item.href}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+      title={item.label}
+      className="flex items-center w-full px-3 py-2 rounded-xl transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
     >
       <img
         src={theme === 'dark' ? item.logoDark : item.logoLight}
-        alt=""
-        aria-hidden="true"
-        loading="lazy"
-        onError={hideBrokenIcon}
-        className="h-5 w-5 flex-shrink-0 rounded"
+        alt={item.label}
+        className="h-9 w-auto max-w-full"
       />
-      <span className="flex-1 truncate">{item.label}</span>
     </a>
   )
 }
