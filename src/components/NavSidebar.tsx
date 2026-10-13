@@ -329,7 +329,7 @@ function ResourceRow({ item, theme }: { item: ResourceLinkDef; theme: 'light' | 
       <img
         src={theme === 'dark' ? item.logoDark : item.logoLight}
         alt={item.label}
-        className="h-9 w-auto max-w-full"
+        className="w-40 h-auto max-w-full"
       />
     </a>
   )
