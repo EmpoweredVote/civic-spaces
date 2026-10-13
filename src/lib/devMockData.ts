@@ -103,6 +103,20 @@ const author = (name: string, tier: 'connected' | 'inform' | 'empowered' = 'conn
 
 const MOCK_FEDERAL_POSTS: PostWithAuthor[] = [
   {
+    // An explicit title, long enough to wrap — exercises the thread's topic header.
+    id: 'mock-post-titled',
+    slice_id: MOCK_SLICES.federal.id,
+    user_id: 'mock-user-civicparticipant',
+    title: 'Should Congress make the expanded Child Tax Credit permanent, and how would it change things for working families in our area?',
+    body: 'The expansion lapsed at the end of 2021. Several bills would bring it back in some form. If you received the monthly payments, what did they change for your household? And if you think it is the wrong approach, what would you do instead?',
+    reply_count: 5,
+    edit_history: [],
+    created_at: '2026-04-08T16:00:00.000Z',
+    updated_at: '2026-04-08T16:00:00.000Z',
+    is_deleted: false,
+    author: author('CivicParticipant'),
+  },
+  {
     id: 'mock-post-1',
     slice_id: MOCK_SLICES.federal.id,
     user_id: 'mock-user-kades',
@@ -272,7 +286,26 @@ export function getMockPostById(postId: string): PostWithAuthor | null {
   return all.find((p) => p.id === postId) ?? null
 }
 
+const titledReply = (n: number, name: string, parent: number | null, body: string, at: string): ReplyWithAuthor => ({
+  id: `mock-reply-titled-${n}`,
+  post_id: 'mock-post-titled',
+  parent_reply_id: parent === null ? null : `mock-reply-titled-${parent}`,
+  user_id: `mock-user-titled-${n}`,
+  body,
+  created_at: at,
+  updated_at: at,
+  is_deleted: false,
+  author: author(name),
+})
+
 const MOCK_REPLIES: Record<string, ReplyWithAuthor[]> = {
+  'mock-post-titled': [
+    titledReply(1, 'ConcernedVoter', null, 'We got the monthly payments for our two kids. It covered most of our childcare gap over the summer — we kept both jobs instead of one of us cutting hours.', '2026-04-08T17:00:00.000Z'),
+    titledReply(2, 'MonroeNeighbor', 1, 'Same here. The monthly schedule mattered more to us than the total.', '2026-04-08T17:40:00.000Z'),
+    titledReply(3, 'EarlyMember', null, 'I support it in principle but want to see how it is paid for before saying permanent. The 2021 version was not offset at all.', '2026-04-08T18:10:00.000Z'),
+    titledReply(4, 'Kades', null, 'Worth noting the refundability piece is what reached the lowest-income families. Several current proposals keep the size but drop full refundability, which changes who benefits.', '2026-04-08T19:30:00.000Z'),
+    titledReply(5, 'CivicParticipant', null, 'Good point on refundability. Does anyone know where our representative stands on the current House version?', '2026-04-08T20:15:00.000Z'),
+  ],
   'mock-post-1': [
     {
       id: 'mock-reply-1',

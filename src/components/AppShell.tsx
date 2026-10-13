@@ -362,6 +362,27 @@ export default function AppShell() {
     Object.fromEntries(ALL_TAB_KEYS.map((tab) => [tab, createRef<FeedPanelHandle>()]))
   )
 
+  // Header + stuck tab bar, as --cs-sticky-offset: where content that sticks inside the
+  // feed column (ThreadView's topic header) has to stop. The tab bar wraps to two rows
+  // below md, so this is measured rather than hardcoded. A callback ref, because the bar
+  // only mounts once the feed does.
+  const tabBarRef = useCallback((bar: HTMLDivElement | null) => {
+    const header = document.querySelector('header')
+    if (!bar || !header) return
+    const root = document.documentElement
+    const update = () => {
+      root.style.setProperty('--cs-sticky-offset', `${header.offsetHeight + bar.offsetHeight}px`)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(bar)
+    observer.observe(header)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--cs-sticky-offset')
+    }
+  }, [])
+
   /** Brings the tab bar up under the header if the page is scrolled past it; never scrolls down. */
   const scrollToContentTop = useCallback(() => {
     requestAnimationFrame(() => {
@@ -744,7 +765,7 @@ export default function AppShell() {
                 <div ref={contentTopRef} className="-mt-3 md:-mt-4" aria-hidden="true" />
 
                 {/* Tab bar — sticks under the header. Slice pill, feed views, Post. */}
-                <div className="sticky top-16 md:top-20 z-30 -my-1 py-2 bg-gray-50/95 dark:bg-gray-950/95 backdrop-blur-sm">
+                <div ref={tabBarRef} className="sticky top-16 md:top-20 z-30 -my-1 py-2 bg-gray-50/95 dark:bg-gray-950/95 backdrop-blur-sm">
                   {/* Phones: pill + swipeable tabs on one row, search below, so the stuck bar
                       stays two rows tall. Only the tabs scroll sideways — the pill stays
                       outside the scroller, which would otherwise clip its dropdown menu. */}
