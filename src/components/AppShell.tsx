@@ -37,8 +37,7 @@ import NavSidebar from './NavSidebar'
 import { ThemeToggle } from './ThemeToggle'
 import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
-import civicSpacesSymbolLight from '../assets/tools/civic-spaces-symbol-light.svg'
-import civicSpacesSymbolDark from '../assets/tools/civic-spaces-symbol-dark.svg'
+import { CivicSpacesMark } from './CivicSpacesMark'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
@@ -596,11 +595,7 @@ export default function AppShell() {
             needed), so phones that narrow show the mark alone; the name stays in the
             accessible text, and the logo is never truncated or drawn over the bell. */}
         <h1 className="flex flex-1 md:flex-none items-center gap-2 min-w-0 md:justify-center text-lg md:text-xl font-extrabold tracking-tight whitespace-nowrap">
-          <img
-            src={theme === 'dark' ? civicSpacesSymbolDark : civicSpacesSymbolLight}
-            alt=""
-            className="h-7 w-7 md:h-8 md:w-8 flex-shrink-0"
-          />
+          <CivicSpacesMark className="h-7 w-7 md:h-8 md:w-8 flex-shrink-0" />
           <span className="sr-only min-[430px]:not-sr-only">
             <span className="text-brand dark:text-brand-light">Civic</span>{' '}
             <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
