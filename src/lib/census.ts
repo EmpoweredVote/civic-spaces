@@ -12,7 +12,20 @@
  * That is how Census issues them (a per-app key for rate limiting, not a secret), but a
  * server-side proxy in ev-accounts would keep it out of the bundle if that is preferred.
  */
-const CENSUS_PL_URL = 'https://api.census.gov/data/2020/dec/pl'
+const CENSUS_PL_YEAR = 2020
+const CENSUS_PL_URL = `https://api.census.gov/data/${CENSUS_PL_YEAR}/dec/pl`
+
+/**
+ * Where the banner's population figure comes from, for its source note. Derived from
+ * the same constant as the request URL, so the year shown cannot drift from the data.
+ * `url` is the Bureau's own page for this dataset (verified 2026-10-13) — not a
+ * per-place deep link, which data.census.gov does not let us verify.
+ */
+export const POPULATION_SOURCE = {
+  year: CENSUS_PL_YEAR,
+  name: `${CENSUS_PL_YEAR} Census Redistricting Data (P.L. 94-171)`,
+  url: 'https://www.census.gov/programs-surveys/decennial-census/about/rdo/summary-files.html',
+} as const
 /**
  * Census geography attributes. Carries INTPTLAT/INTPTLON, the Bureau's official
  * internal point for each place and county — which 2020/dec/pl does not (it answers
