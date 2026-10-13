@@ -37,6 +37,8 @@ import NavSidebar from './NavSidebar'
 import { ThemeToggle } from './ThemeToggle'
 import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
+import civicSpacesSymbolLight from '../assets/tools/civic-spaces-symbol-light.svg'
+import civicSpacesSymbolDark from '../assets/tools/civic-spaces-symbol-dark.svg'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
@@ -560,7 +562,11 @@ export default function AppShell() {
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header — sticky, with fixed heights (h-16 / md:h-20) that the tab bar's and
           rail's sticky offsets below are measured against. Change them together. */}
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-4 h-16 md:h-20 px-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      {/* Phones: one row, menu + brand left, controls right. md+: a three-column grid —
+          Empowered Vote left, Civic Spaces centred, controls right. The two outer tracks
+          are equal (1fr each), so the centre is the true centre of the bar, and grid
+          tracks cannot overlap, so the brand can never sit on top of a control. */}
+      <header className="sticky top-0 z-40 flex md:grid md:grid-cols-[1fr_auto_1fr] items-center justify-between gap-3 md:gap-6 h-16 md:h-20 px-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {/* Opens the nav rail as a drawer below lg, where it is not pinned. */}
           <button
@@ -581,26 +587,28 @@ export default function AppShell() {
               className="h-9 w-auto"
             />
           </a>
-          <div className="hidden sm:block w-px h-7 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
-          <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">
-            <span className="text-brand dark:text-brand-light">Civic</span>{' '}
-            <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
-          </h1>
+          {/* Divider only while the brand sits beside the EV logo (sm to md). */}
+          <div className="hidden sm:block md:hidden w-px h-7 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
         </div>
 
-        {/* Feed search, centred (md+). Phones get the same field in the tab bar. */}
-        {showFeed && activeSlice && (
-          <ActiveFeedSearch
-            slice={activeSlice}
-            fallbackName={TAB_LABELS[activeTab]}
-            value={searchQuery}
-            onChange={setSearchQuery}
-            className="hidden md:block flex-1 max-w-md"
+        {/* This app's mark — the same pin/chat-bubble symbol the nav rail uses for it.
+            Below 430px the wordmark cannot fit beside the menu and every control (~424px
+            needed), so phones that narrow show the mark alone; the name stays in the
+            accessible text, and the logo is never truncated or drawn over the bell. */}
+        <h1 className="flex flex-1 md:flex-none items-center gap-2 min-w-0 md:justify-center text-lg md:text-xl font-extrabold tracking-tight whitespace-nowrap">
+          <img
+            src={theme === 'dark' ? civicSpacesSymbolDark : civicSpacesSymbolLight}
+            alt=""
+            className="h-7 w-7 md:h-8 md:w-8 flex-shrink-0"
           />
-        )}
+          <span className="sr-only min-[430px]:not-sr-only">
+            <span className="text-brand dark:text-brand-light">Civic</span>{' '}
+            <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
+          </span>
+        </h1>
 
         {/* Theme and account are always reachable; the social icons need a session. */}
-        <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
+        <div className="flex items-center justify-end gap-0.5 sm:gap-2 flex-shrink-0">
           {isAuthenticated && (
             <>
             {/* Moderator shield icon — moderators only */}
@@ -777,7 +785,7 @@ export default function AppShell() {
                         onSelect={(sib) => handleViewSlice(activeTab, sib, activeSlice.id)}
                       />
                     )}
-                    <div className="flex-1 min-w-0 overflow-x-auto md:overflow-visible">
+                    <div className="flex-1 md:flex-none min-w-0 overflow-x-auto md:overflow-visible">
                     <FeedTabs
                       mode={activeMode}
                       onChange={(mode) => {
@@ -786,21 +794,24 @@ export default function AppShell() {
                       }}
                     />
                     </div>
-                    {/* Hidden, not disabled, while view-only: RLS rejects an insert into a
-                        slice the member is not in (CLAUDE.md). Phones keep the FAB. */}
-                    {!activeIsViewOnly && (
-                      <div className="ml-auto hidden md:block">
-                        <PostButton onClick={() => panelRefs.current[activeTab]?.current?.compose()} />
-                      </div>
-                    )}
+                    {/* Search lives with the feed it filters (it only searches the posts
+                        loaded below), not in the global header. Its own row on phones;
+                        inline before Post from md, sticking with the bar as you scroll. */}
                     {activeSlice && (
                       <ActiveFeedSearch
                         slice={activeSlice}
                         fallbackName={TAB_LABELS[activeTab]}
                         value={searchQuery}
                         onChange={setSearchQuery}
-                        className="md:hidden w-full"
+                        className="w-full md:w-auto md:flex-1 md:max-w-xs md:ml-auto"
                       />
+                    )}
+                    {/* Hidden, not disabled, while view-only: RLS rejects an insert into a
+                        slice the member is not in (CLAUDE.md). Phones keep the FAB. */}
+                    {!activeIsViewOnly && (
+                      <div className="hidden md:block flex-shrink-0">
+                        <PostButton onClick={() => panelRefs.current[activeTab]?.current?.compose()} />
+                      </div>
                     )}
                   </div>
                 </div>
