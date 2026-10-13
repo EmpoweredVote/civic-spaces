@@ -100,7 +100,9 @@ interface ConnectToolDef extends ResourceLinkDef {
  * Civic Spaces' favicon is the Empowered Vote mark, and fc.empowered.vote/favicon-32.png
  * serves the SPA's HTML (a broken image). Drawn in the Inform tools' flat style —
  * solid shapes, EV yellow and coral accents — in the bluer range Chris asked for:
- * #1464A8 on light, #4FA3E3 on dark.
+ * #1464A8 on light, #4FA3E3 on dark. Civic Spaces is the exception since 2026-10-13:
+ * it matches the header mark (CivicSpacesMark) — teal pin (#00657C / #59B0C4 dark),
+ * EV yellow bubble, teal dots.
  *   Civic Spaces         a place pin holding a speech bubble: talk about where you live
  *   Focused Communities  three people under a "#" topic tag: a community per issue
  */
