@@ -3,6 +3,7 @@ import { useRoute, useLocation } from 'wouter'
 import { toast } from 'sonner'
 import type React from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { isSyntheticUserId } from '../lib/devMockData'
 import { useAllSlices } from '../hooks/useAllSlices'
 import { useEnsureSlices } from '../hooks/useEnsureSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
@@ -63,7 +64,8 @@ function ActiveHeroBanner({
   const displayName = useJurisdictionName(slice, fallbackName)
   const population = usePopulation(slice.sliceType, slice.geoid)
   const weather = useCurrentWeather(slice.sliceType, slice.geoid)
-  const { siblings, isLoading, isError } = useSiblingSlices(
+  const { userId } = useAuth()
+  const { siblings } = useSiblingSlices(
     slice.sliceType,
     slice.geoid,
     slice.id,
@@ -80,14 +82,11 @@ function ActiveHeroBanner({
   const photoUrl = slice.photoUrl ?? (hero === undefined ? undefined : (hero?.url ?? null))
   const credit = slice.photoUrl ? null : (hero?.credit ?? null)
 
-  // Counts come straight from slices.current_member_count (trigger-maintained). The
-  // location total is only shown once the siblings query has answered with more than
-  // one shard; with one, it would just repeat the slice count.
+  // Counts come straight from slices.current_member_count (trigger-maintained). Only
+  // the shard on screen: a jurisdiction-wide total read as an unexplained second count
+  // ("23 across United States of America") and was dropped from the banner.
   const viewing = siblings.find((s) => s.id === viewingSliceId)
   const memberCount = viewing?.memberCount ?? slice.memberCount
-  const locationMemberCount = !isLoading && !isError && siblings.length > 1
-    ? siblings.reduce((sum, s) => sum + s.memberCount, 0)
-    : undefined
 
   // useJurisdictionName hands back the tab label when it cannot resolve a real name.
   const resolvedName = displayName !== fallbackName ? displayName : null
@@ -99,8 +98,8 @@ function ActiveHeroBanner({
       sliceName={displayName}
       levelLabel={fallbackName}
       memberCount={memberCount}
-      locationMemberCount={locationMemberCount}
       population={population}
+      isSampleData={isSyntheticUserId(userId)}
       weather={weather}
       nextElection={nextElection}
       forecastUrl={forecastUrlFor(slice.sliceType, slice.geoid, resolvedName)}

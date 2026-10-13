@@ -15,6 +15,7 @@ import { HeroBanner } from '../components/HeroBanner'
 import { bannerFor } from '../lib/banners'
 import { forecastUrlFor } from '../lib/forecastLink'
 import type { NextElection } from '../hooks/useNextElection'
+import type { CurrentWeather } from '../hooks/useCurrentWeather'
 import type { SliceType } from '../types/database'
 
 // The real NC answer, captured 2026-09-24 (see MOCK_ELECTIONS). Harness-only.
@@ -28,12 +29,15 @@ type Case = {
   level: string
   election: NextElection | null | undefined
   viewOnly?: boolean
-  location?: number
+  /** Fixture counts, sized to stress the chips (3,000 must not clip or overlap). */
+  members?: number
+  population?: number
+  weather?: CurrentWeather
 }
 
 const CASES: Case[] = [
-  { label: 'City — Asheville (curated) · election + forecast + 3 slices', sliceType: 'city', geoid: '3702140', name: 'Asheville', level: 'City', election: NC_GENERAL, location: 3214 },
-  { label: 'City — Santa Monica (curated) · viewing a sibling slice', sliceType: 'city', geoid: '0670000', name: 'Santa Monica', level: 'City', election: undefined, viewOnly: true, location: 2214 },
+  { label: 'City — Asheville (curated) · 3,000 members, population, weather, election', sliceType: 'city', geoid: '3702140', name: 'Asheville', level: 'City', election: NC_GENERAL, members: 3000, population: 94589, weather: { tempF: 64, summary: 'Mostly Cloudy', forecastUrl: 'https://forecast.weather.gov/' } },
+  { label: 'City — Santa Monica (curated) · viewing a sibling slice', sliceType: 'city', geoid: '0670000', name: 'Santa Monica', level: 'City', election: undefined, viewOnly: true, members: 980 },
   { label: 'City — uncovered geoid · NO election on file', sliceType: 'city', geoid: '1836003', name: 'Indianapolis', level: 'City', election: null },
   { label: 'State — Indiana', sliceType: 'state', geoid: '18', name: 'Indiana', level: 'State', election: NC_GENERAL },
   { label: 'State — California (v2 crop)', sliceType: 'state', geoid: '06', name: 'California', level: 'State', election: undefined },
@@ -101,8 +105,10 @@ function Harness() {
               geoid={c.geoid}
               sliceName={c.name}
               levelLabel={c.level}
-              memberCount={c.viewOnly ? 980 : 1234}
-              locationMemberCount={c.location}
+              memberCount={c.members ?? 6}
+              population={c.population}
+              weather={c.weather}
+              isSampleData
               nextElection={c.election}
               forecastUrl={forecastUrlFor(c.sliceType, c.geoid, c.name)}
               photoUrl={banner ? banner.url : null}
