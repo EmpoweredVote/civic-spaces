@@ -252,6 +252,18 @@ of those four is not done.
   decoded. Crop depends solely on the box's aspect ratio, never its pixel size, so the
   harness's narrower column crops exactly like the real feed column. It does not cover
   `AppShell`'s photoUrl/credit precedence; that still needs the `cs_token` paste.
+- 🔴 **Playwright is a global install, not a dependency — `node_modules` is the wrong place
+  to look.** `shoot:banners` resolves it from `npm root -g`, so searching `node_modules` and
+  concluding this repo has no headless browser is wrong; it has one, with Chromium cached.
+  Import it the way that script does — `mod.chromium ?? mod.default?.chromium` — because the
+  global install's export shape differs between its CJS and ESM entry points.
+- **The harness is for more than screenshots, and the difference matters.** Driving the same
+  page with `document.elementFromPoint()` hit-tests the real box model, which is the only way
+  to catch a control that renders perfectly and cannot be clicked. PR #92 shipped a photo
+  credit whose licence link sat under the content layer's `md:pb-7` padding at `z-10`: a
+  `z-index` that was correct while the credit was plain text, invisible to every PNG and to
+  `tsc -b`, and broken only at `md` and up, so phones looked fine. Toggle the suspect class
+  off mid-run and re-test — a fix that is load-bearing will put the bug straight back.
 - The `ui-ux-pro-max` skill is installed in `.claude/skills/` — worth invoking while planning
   any layout change.
 
