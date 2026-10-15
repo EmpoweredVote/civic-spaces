@@ -359,7 +359,10 @@ export function HeroBanner({
             {nextElection && (
               <FactChip
                 icon="🗳️"
-                label="until the next election"
+                // The name is the visible value plus this, so the phrasing has to suit
+                // the value: countdownLabel gives "Today"/"Tomorrow" inside two days,
+                // which read as "Today until the next election" against the usual suffix.
+                label={electionDays <= 1 ? 'is the next election' : 'until the next election'}
                 details={
                   <>
                     <span className="block font-semibold text-white">{nextElection.name}</span>
@@ -376,7 +379,7 @@ export function HeroBanner({
             {nextElection === null && (
               <FactChip
                 icon="🗳️"
-                label="upcoming elections"
+                label="for upcoming elections"
                 details="No upcoming election is on file for this area."
               >
                 <span className="font-medium">None on file</span>
