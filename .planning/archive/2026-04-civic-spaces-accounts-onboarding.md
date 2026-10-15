@@ -1,3 +1,31 @@
+> # ⚠️ RETIRED — historical only, and wrong in ways that will cost you a day
+>
+> Written **2026-04-01**, before this app existed in its current form. It lived at the repo
+> root as `CIVIC-SPACES-ONBOARDING.md` until 2026-10-15 and is cited by
+> `.planning/phases/01-foundation/01-01-PLAN.md`, `01-03-PLAN.md`, `01-RESEARCH.md` and
+> `.planning/phases/11-sidebar-widgets/11-RESEARCH.md`, which is why it is archived rather
+> than deleted — those documents record what was actually read at the time.
+>
+> **Do not implement anything from it.** Current truth is `CLAUDE.md` at the repo root.
+> The specific contradictions, each of which is now a documented landmine:
+>
+> | This document says | What is actually true |
+> |---|---|
+> | Store the token as `localStorage['ev_token']` | **`cs_token` is this app's key.** `ev_token` is Compass's. Same JWT, different key — reading the wrong one silently finds nothing. |
+> | `payload.sub` is the accounts UUID | **Only for Supabase tokens.** Since the WorkOS AuthKit cutover (2026-08-28) a WorkOS `sub` is a `user_01…` id and the internal UUID travels in the **`external_id`** claim. Resolving `sub` first authenticates as the wrong person and reads zero rows — it surfaces as missing data, not as an auth error. |
+> | One issuer, one JWKS endpoint, ES256 | Two issuers are accepted. Both verifiers need the WorkOS issuer registered, and Supabase Third-Party Auth must trust it too. |
+> | Spaces are Neighborhood / Local / State / Federal / International, keyed partly on `school_district` | The taxonomy was cut to **City, County, State, Federal, Unified, Volunteer**. |
+> | Civic Spaces maps jurisdiction to spaces itself | Slice assignment is the **ev-accounts engine** (`POST /api/civic-spaces/assign`, ev-cto decision 0018). `services/slice-assignment` here is frozen. |
+> | "Civic Spaces **will have** its own schema… likely `civic_spaces.*`" | It does. Every Supabase call is `.schema('civic_spaces')`. |
+>
+> What it is still good for: the shape of the accounts relationship — identity is read, never
+> owned; no geocoding here; display names only; tier is child-record presence, not a status
+> flag. Those principles held. The mechanics did not.
+>
+> Superseded by `ONBOARDING.md` (for human contributors) and `CLAUDE.md` (for the integration).
+
+---
+
 # Civic Spaces — Empowered Accounts Integration Onboarding
 
 **Audience:** Claude instance working on the Civic Spaces project (Connect Pillar).
