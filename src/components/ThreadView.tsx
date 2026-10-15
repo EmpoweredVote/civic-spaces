@@ -85,17 +85,33 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
   // not rendered while loading).
   const stuckSentinelRef = useRef<HTMLDivElement>(null)
   const [isStuck, setIsStuck] = useState(false)
+
+  // 🔴 rootMargin takes px and % only — a rem value is a SyntaxError in the observer
+  // constructor, so the fallback and the guard below are both px. AppShell writes the
+  // variable in px; this only has to survive it being briefly unset.
+  const [stickyOffset, setStickyOffset] = useState('128px')
+  useEffect(() => {
+    const read = () => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--cs-sticky-offset').trim()
+      setStickyOffset(v.endsWith('px') ? v : '128px')
+    }
+    read()
+    // Both the header and the tab bar change height at md, so the threshold is re-read
+    // rather than captured once — a resize across the breakpoint left it stale.
+    window.addEventListener('resize', read)
+    return () => window.removeEventListener('resize', read)
+  }, [])
+
   useEffect(() => {
     const el = stuckSentinelRef.current
     if (!el) return
-    const offset = getComputedStyle(document.documentElement).getPropertyValue('--cs-sticky-offset').trim() || '8rem'
     const observer = new IntersectionObserver(
       ([entry]) => setIsStuck(!entry!.isIntersecting && entry!.boundingClientRect.top < window.innerHeight / 2),
-      { rootMargin: `-${offset} 0px 0px 0px` },
+      { rootMargin: `-${stickyOffset} 0px 0px 0px` },
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [isLoading])
+  }, [isLoading, stickyOffset])
 
   const canWrite = !!userId && profile?.tier !== 'inform' && !profile?.is_suspended
 
