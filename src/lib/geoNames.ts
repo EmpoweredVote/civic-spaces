@@ -34,6 +34,18 @@ export interface GeoName {
   pop?: number
 }
 
+/**
+ * Where `GeoName.pop` comes from, for the banner's source note. Must match the
+ * dataset `scripts/generate-geo-names.mjs` reads (2020/dec/pl, P1_001N). `url` is
+ * the Bureau's own page for this dataset (verified 2026-10-13) — not a per-place
+ * deep link, which data.census.gov does not let us verify.
+ */
+export const POPULATION_SOURCE = {
+  year: 2020,
+  name: '2020 Census Redistricting Data (P.L. 94-171)',
+  url: 'https://www.census.gov/programs-surveys/decennial-census/about/rdo/summary-files.html',
+} as const
+
 interface GeoShard {
   state: string
   names: Record<string, GeoName>

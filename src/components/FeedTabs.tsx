@@ -66,7 +66,7 @@ export function FeedTabs({ mode, onChange }: { mode: SortMode; onChange: (mode: 
   )
 }
 
-/** The feed search field, in the header on desktop and in the tab bar on phones. */
+/** The feed search field, in the sticky tab bar above the feed it filters. */
 export function FeedSearch({
   value,
   onChange,
@@ -89,6 +89,8 @@ export function FeedSearch({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        // A long place name can clip the placeholder in the inline (md) layout.
+        title={placeholder}
         aria-label="Search this feed"
         className={`h-8 w-full pl-8 pr-3 rounded-full ${SECONDARY} focus:bg-white dark:focus:bg-gray-900 text-xs font-medium placeholder:text-gray-500 dark:placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors`}
       />

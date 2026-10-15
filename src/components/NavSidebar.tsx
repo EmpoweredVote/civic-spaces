@@ -7,6 +7,16 @@ import civicSpacesLight from '../assets/tools/civic-spaces-symbol-light.svg'
 import civicSpacesDark from '../assets/tools/civic-spaces-symbol-dark.svg'
 import focusedCommunitiesLight from '../assets/tools/focused-communities-symbol-light.svg'
 import focusedCommunitiesDark from '../assets/tools/focused-communities-symbol-dark.svg'
+import essentialsIconLight from '../assets/tools/essentials-icon-light.svg'
+import essentialsIconDark from '../assets/tools/essentials-icon-dark.svg'
+import compassIconLight from '../assets/tools/compass-icon-light.svg'
+import compassIconDark from '../assets/tools/compass-icon-dark.svg'
+import readRankIconLight from '../assets/tools/readrank-icon-light.svg'
+import readRankIconDark from '../assets/tools/readrank-icon-dark.svg'
+import treasuryIconLight from '../assets/tools/treasury-tracker-icon-light.svg'
+import treasuryIconDark from '../assets/tools/treasury-tracker-icon-dark.svg'
+import triviaIconLight from '../assets/tools/ctc-icon-light.svg'
+import triviaIconDark from '../assets/tools/ctc-icon-dark.svg'
 
 interface NavSidebarProps {
   activeTab: TabKey
@@ -32,8 +42,11 @@ const GEO_TABS: { key: TabKey; label: string; icon: string }[] = [
 
 /**
  * Resources — links to the other live Empowered Vote products. Inform tools use
- * each product's own real favicon (fetched directly from its site); the Connect
- * tools use bundled symbols instead — see CONNECT_TOOLS for why.
+ * the symbol from each product's logo on empowered.vote (/icons/*-logo-lg-*.svg;
+ * Compass from /brand/compass/), cropped square with the wordmark dropped, in
+ * its own light and dark variant. Those beat the products' 32px favicons, which
+ * render faint at 20px — Compass's thin outline especially. The Connect tools
+ * use bundled symbols too — see CONNECT_TOOLS for why.
  *
  * Split into two groups by product family:
  *  - Inform Tools: help someone learn about candidates/issues/spending
@@ -55,36 +68,36 @@ const INFORM_TOOLS: ResourceLinkDef[] = [
     key: 'essentials',
     label: 'Essentials',
     href: 'https://essentials.empowered.vote/',
-    logoLight: 'https://essentials.empowered.vote/essentials-favicon-light-32.png',
-    logoDark: 'https://essentials.empowered.vote/essentials-favicon-dark-32.png',
+    logoLight: essentialsIconLight,
+    logoDark: essentialsIconDark,
   },
   {
     key: 'compass',
     label: 'Issue Alignment Compass',
     href: 'https://compass.empowered.vote/',
-    logoLight: 'https://compass.empowered.vote/compass-favicon-light-32.png',
-    logoDark: 'https://compass.empowered.vote/compass-favicon-dark-32.png',
+    logoLight: compassIconLight,
+    logoDark: compassIconDark,
   },
   {
     key: 'readrank',
     label: 'Read & Rank',
     href: 'https://readrank.empowered.vote/',
-    logoLight: 'https://readrank.empowered.vote/read-and-rank-favicon-light-32.png',
-    logoDark: 'https://readrank.empowered.vote/read-and-rank-favicon-dark-32.png',
+    logoLight: readRankIconLight,
+    logoDark: readRankIconDark,
   },
   {
     key: 'treasury',
     label: 'Treasury Tracker',
     href: 'https://treasurytracker.empowered.vote/',
-    logoLight: 'https://treasurytracker.empowered.vote/treasury-tracker-favicon-32.png',
-    logoDark: 'https://treasurytracker.empowered.vote/treasury-tracker-favicon-32.png',
+    logoLight: treasuryIconLight,
+    logoDark: treasuryIconDark,
   },
   {
     key: 'trivia',
     label: 'Civic Trivia Championship',
     href: 'https://ctc.empowered.vote/',
-    logoLight: 'https://ctc.empowered.vote/favicon-32.png',
-    logoDark: 'https://ctc.empowered.vote/favicon-dark-32.png',
+    logoLight: triviaIconLight,
+    logoDark: triviaIconDark,
   },
 ]
 
@@ -100,7 +113,9 @@ interface ConnectToolDef extends ResourceLinkDef {
  * Civic Spaces' favicon is the Empowered Vote mark, and fc.empowered.vote/favicon-32.png
  * serves the SPA's HTML (a broken image). Drawn in the Inform tools' flat style —
  * solid shapes, EV yellow and coral accents — in the bluer range Chris asked for:
- * #1464A8 on light, #4FA3E3 on dark.
+ * #1464A8 on light, #4FA3E3 on dark. Civic Spaces is the exception since 2026-10-13:
+ * it matches the header mark (CivicSpacesMark) — teal pin (#00657C / #59B0C4 dark),
+ * EV yellow bubble, teal dots.
  *   Civic Spaces         a place pin holding a speech bubble: talk about where you live
  *   Focused Communities  three people under a "#" topic tag: a community per issue
  */

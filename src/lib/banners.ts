@@ -33,6 +33,38 @@ export interface Banner {
   credit: string
 }
 
+/** A credit line split for display: who took it, under what licence, and that licence's deed. */
+export interface CreditParts {
+  author: string
+  license: string
+  /** The licence's official Creative Commons page, or null (plain "Public Domain" has none). */
+  licenseUrl: string | null
+}
+
+/**
+ * Splits a generated credit ("Author, Licence, via Wikimedia Commons") so the banner can
+ * show a short "Photo: Author · Licence" with the licence linked to its deed. Null for
+ * any other shape (the Wikipedia fallback's "Image via Wikipedia"), which the caller
+ * renders verbatim. Author and licence are kept whole — only the trailing source note
+ * is dropped, and the deed URL is derived from the licence text, never guessed per photo:
+ * Essentials publishes no per-file source URL to link instead.
+ */
+export function creditParts(credit: string): CreditParts | null {
+  const m = credit.match(/^(.+), ([^,]+), via Wikimedia Commons$/)
+  if (!m) return null
+  const [, author, license] = m as unknown as [string, string, string]
+  return { author, license, licenseUrl: licenseDeedUrl(license) }
+}
+
+function licenseDeedUrl(license: string): string | null {
+  // "CC0" and "CC0 / Public Domain" both name the CC0 dedication.
+  if (/^CC0\b/.test(license)) return 'https://creativecommons.org/publicdomain/zero/1.0/'
+  // "CC BY-SA 3.0/GFDL" is dual-licensed; the CC half has a deed.
+  const cc = license.match(/^CC (BY(?:-SA|-ND|-NC|-NC-SA|-NC-ND)?) (\d\.\d)\b/)
+  if (cc) return `https://creativecommons.org/licenses/${cc[1]!.toLowerCase()}/${cc[2]}/`
+  return null
+}
+
 /**
  * The shared-library banner for a slice, or null when the library does not cover it.
  *

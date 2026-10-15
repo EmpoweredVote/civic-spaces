@@ -3,6 +3,7 @@ import { useRoute, useLocation } from 'wouter'
 import { toast } from 'sonner'
 import type React from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { isSyntheticUserId } from '../lib/devMockData'
 import { useAllSlices } from '../hooks/useAllSlices'
 import { useEnsureSlices } from '../hooks/useEnsureSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
@@ -36,6 +37,7 @@ import NavSidebar from './NavSidebar'
 import { ThemeToggle } from './ThemeToggle'
 import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
+import { CivicSpacesMark } from './CivicSpacesMark'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
 
 /**
@@ -52,18 +54,22 @@ function ActiveHeroBanner({
   fallbackName,
   viewingSliceId,
   nextElection,
+  isSampleData,
 }: {
   slice: SliceInfo
   fallbackName: string
   /** The shard on screen — the member's own, or a sibling they are browsing read-only. */
   viewingSliceId: string
   nextElection: NextElection | null | undefined
+  /** Passed down, not read here: useAuth is not a context, so a second call would be a
+      second session poll that can redirect to login. AppShell already holds the id. */
+  isSampleData: boolean
 }) {
   const hero = useHeroBanner(slice)
   const displayName = useJurisdictionName(slice, fallbackName)
   const population = usePopulation(slice.sliceType, slice.geoid)
   const weather = useCurrentWeather(slice.sliceType, slice.geoid)
-  const { siblings, isLoading, isError } = useSiblingSlices(
+  const { siblings } = useSiblingSlices(
     slice.sliceType,
     slice.geoid,
     slice.id,
@@ -80,14 +86,11 @@ function ActiveHeroBanner({
   const photoUrl = slice.photoUrl ?? (hero === undefined ? undefined : (hero?.url ?? null))
   const credit = slice.photoUrl ? null : (hero?.credit ?? null)
 
-  // Counts come straight from slices.current_member_count (trigger-maintained). The
-  // location total is only shown once the siblings query has answered with more than
-  // one shard; with one, it would just repeat the slice count.
+  // Counts come straight from slices.current_member_count (trigger-maintained). Only
+  // the shard on screen: a jurisdiction-wide total read as an unexplained second count
+  // ("23 across United States of America") and was dropped from the banner.
   const viewing = siblings.find((s) => s.id === viewingSliceId)
   const memberCount = viewing?.memberCount ?? slice.memberCount
-  const locationMemberCount = !isLoading && !isError && siblings.length > 1
-    ? siblings.reduce((sum, s) => sum + s.memberCount, 0)
-    : undefined
 
   // useJurisdictionName hands back the tab label when it cannot resolve a real name.
   const resolvedName = displayName !== fallbackName ? displayName : null
@@ -99,8 +102,8 @@ function ActiveHeroBanner({
       sliceName={displayName}
       levelLabel={fallbackName}
       memberCount={memberCount}
-      locationMemberCount={locationMemberCount}
       population={population}
+      isSampleData={isSampleData}
       weather={weather}
       nextElection={nextElection}
       forecastUrl={forecastUrlFor(slice.sliceType, slice.geoid, resolvedName)}
@@ -362,6 +365,27 @@ export default function AppShell() {
     Object.fromEntries(ALL_TAB_KEYS.map((tab) => [tab, createRef<FeedPanelHandle>()]))
   )
 
+  // Header + stuck tab bar, as --cs-sticky-offset: where content that sticks inside the
+  // feed column (ThreadView's topic header) has to stop. The tab bar wraps to two rows
+  // below md, so this is measured rather than hardcoded. A callback ref, because the bar
+  // only mounts once the feed does.
+  const tabBarRef = useCallback((bar: HTMLDivElement | null) => {
+    const header = document.querySelector('header')
+    if (!bar || !header) return
+    const root = document.documentElement
+    const update = () => {
+      root.style.setProperty('--cs-sticky-offset', `${header.offsetHeight + bar.offsetHeight}px`)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(bar)
+    observer.observe(header)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--cs-sticky-offset')
+    }
+  }, [])
+
   /** Brings the tab bar up under the header if the page is scrolled past it; never scrolls down. */
   const scrollToContentTop = useCallback(() => {
     requestAnimationFrame(() => {
@@ -540,7 +564,11 @@ export default function AppShell() {
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header — sticky, with fixed heights (h-16 / md:h-20) that the tab bar's and
           rail's sticky offsets below are measured against. Change them together. */}
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-4 h-16 md:h-20 px-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      {/* Phones: one row, menu + brand left, controls right. md+: a three-column grid —
+          Empowered Vote left, Civic Spaces centred, controls right. The two outer tracks
+          are equal (1fr each), so the centre is the true centre of the bar, and grid
+          tracks cannot overlap, so the brand can never sit on top of a control. */}
+      <header className="sticky top-0 z-40 flex md:grid md:grid-cols-[1fr_auto_1fr] items-center justify-between gap-3 md:gap-6 h-16 md:h-20 px-4 md:px-8 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {/* Opens the nav rail as a drawer below lg, where it is not pinned. */}
           <button
@@ -561,26 +589,24 @@ export default function AppShell() {
               className="h-9 w-auto"
             />
           </a>
-          <div className="hidden sm:block w-px h-7 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
-          <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">
-            <span className="text-brand dark:text-brand-light">Civic</span>{' '}
-            <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
-          </h1>
+          {/* Divider only while the brand sits beside the EV logo (sm to md). */}
+          <div className="hidden sm:block md:hidden w-px h-7 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
         </div>
 
-        {/* Feed search, centred (md+). Phones get the same field in the tab bar. */}
-        {showFeed && activeSlice && (
-          <ActiveFeedSearch
-            slice={activeSlice}
-            fallbackName={TAB_LABELS[activeTab]}
-            value={searchQuery}
-            onChange={setSearchQuery}
-            className="hidden md:block flex-1 max-w-md"
-          />
-        )}
+        {/* This app's mark — the same pin/chat-bubble symbol the nav rail uses for it.
+            Below 430px the wordmark cannot fit beside the menu and every control (~424px
+            needed), so phones that narrow show the mark alone; the name stays in the
+            accessible text, and the logo is never truncated or drawn over the bell. */}
+        <h1 className="flex flex-1 md:flex-none items-center gap-2 min-w-0 md:justify-center text-lg md:text-xl font-extrabold tracking-tight whitespace-nowrap">
+          <CivicSpacesMark className="h-7 w-7 md:h-8 md:w-8 flex-shrink-0" />
+          <span className="sr-only min-[430px]:not-sr-only">
+            <span className="text-brand dark:text-brand-light">Civic</span>{' '}
+            <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
+          </span>
+        </h1>
 
         {/* Theme and account are always reachable; the social icons need a session. */}
-        <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
+        <div className="flex items-center justify-end gap-0.5 sm:gap-2 flex-shrink-0">
           {isAuthenticated && (
             <>
             {/* Moderator shield icon — moderators only */}
@@ -736,6 +762,7 @@ export default function AppShell() {
                       fallbackName={TAB_LABELS[activeTab]}
                       viewingSliceId={activeViewing?.id ?? activeSlice.id}
                       nextElection={nextElection}
+                      isSampleData={isSyntheticUserId(userId)}
                     />
                   </div>
                 )}
@@ -744,7 +771,7 @@ export default function AppShell() {
                 <div ref={contentTopRef} className="-mt-3 md:-mt-4" aria-hidden="true" />
 
                 {/* Tab bar — sticks under the header. Slice pill, feed views, Post. */}
-                <div className="sticky top-16 md:top-20 z-30 -my-1 py-2 bg-gray-50/95 dark:bg-gray-950/95 backdrop-blur-sm">
+                <div ref={tabBarRef} className="sticky top-16 md:top-20 z-30 -my-1 py-2 bg-gray-50/95 dark:bg-gray-950/95 backdrop-blur-sm">
                   {/* Phones: pill + swipeable tabs on one row, search below, so the stuck bar
                       stays two rows tall. Only the tabs scroll sideways — the pill stays
                       outside the scroller, which would otherwise clip its dropdown menu. */}
@@ -757,7 +784,7 @@ export default function AppShell() {
                         onSelect={(sib) => handleViewSlice(activeTab, sib, activeSlice.id)}
                       />
                     )}
-                    <div className="flex-1 min-w-0 overflow-x-auto md:overflow-visible">
+                    <div className="flex-1 md:flex-none min-w-0 overflow-x-auto md:overflow-visible">
                     <FeedTabs
                       mode={activeMode}
                       onChange={(mode) => {
@@ -766,21 +793,24 @@ export default function AppShell() {
                       }}
                     />
                     </div>
-                    {/* Hidden, not disabled, while view-only: RLS rejects an insert into a
-                        slice the member is not in (CLAUDE.md). Phones keep the FAB. */}
-                    {!activeIsViewOnly && (
-                      <div className="ml-auto hidden md:block">
-                        <PostButton onClick={() => panelRefs.current[activeTab]?.current?.compose()} />
-                      </div>
-                    )}
+                    {/* Search lives with the feed it filters (it only searches the posts
+                        loaded below), not in the global header. Its own row on phones;
+                        inline before Post from md, sticking with the bar as you scroll. */}
                     {activeSlice && (
                       <ActiveFeedSearch
                         slice={activeSlice}
                         fallbackName={TAB_LABELS[activeTab]}
                         value={searchQuery}
                         onChange={setSearchQuery}
-                        className="md:hidden w-full"
+                        className="w-full md:w-auto md:flex-1 md:max-w-xs md:ml-auto"
                       />
+                    )}
+                    {/* Hidden, not disabled, while view-only: RLS rejects an insert into a
+                        slice the member is not in (CLAUDE.md). Phones keep the FAB. */}
+                    {!activeIsViewOnly && (
+                      <div className="hidden md:block flex-shrink-0">
+                        <PostButton onClick={() => panelRefs.current[activeTab]?.current?.compose()} />
+                      </div>
                     )}
                   </div>
                 </div>

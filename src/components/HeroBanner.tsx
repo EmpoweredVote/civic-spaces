@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { SliceType } from '../types/database'
 import type { CurrentWeather } from '../hooks/useCurrentWeather'
 import { toCelsius } from '../hooks/useCurrentWeather'
@@ -6,6 +6,8 @@ import type { NextElection } from '../hooks/useNextElection'
 import { daysUntil } from '../hooks/useNextElection'
 import { SLICE_COPY } from '../lib/sliceCopy'
 import { geoidToDisplayName } from '../lib/geoidToWiki'
+import { POPULATION_SOURCE } from '../lib/geoNames'
+import { creditParts } from '../lib/banners'
 import { Emoji } from './Emoji'
 
 interface HeroBannerProps {
@@ -17,13 +19,13 @@ interface HeroBannerProps {
   levelLabel: string
   /** Members of the slice on screen — the member's own, or the sibling being browsed. */
   memberCount: number
-  /**
-   * Members across every slice of this jurisdiction, once the siblings are known and
-   * there is more than one. Omitted otherwise: with one slice it equals memberCount.
-   */
-  locationMemberCount?: number
-  /** 2020 Census total population of the area, when Census answered. */
+  /** Total population of the area from POPULATION_SOURCE, when Census answered. */
   population?: number
+  /**
+   * True when the member count and election come from local dev fixtures (?dev=1), so
+   * their details say so rather than passing sample numbers off as live figures.
+   */
+  isSampleData?: boolean
   /** undefined = unknown (loading or failed, render nothing); null = nothing upcoming on file. */
   nextElection: NextElection | null | undefined
   /** Plain weather.gov link, used only when live conditions are unavailable. */
@@ -44,7 +46,7 @@ interface HeroBannerProps {
 
 // Chips sit on an arbitrary photo, so they carry their own dark ground rather than
 // relying on the gradient: white on black/40 stays legible over a bright sky.
-const CHIP = 'inline-flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 px-3 py-1.5 text-xs font-medium text-white'
+const CHIP = 'inline-flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 px-3 py-1.5 text-xs font-medium text-white whitespace-nowrap'
 
 function ExternalIcon() {
   return (
@@ -100,9 +102,120 @@ function formatElectionDate(date: string): string {
 
 /** Plain count, no urgency: ev-cto CONSTRAINTS rules out pressure mechanics. */
 function countdownLabel(days: number): string {
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Tomorrow'
+  return `${days.toLocaleString()} days`
+}
+
+/** The same countdown as a phrase, for the election's details. */
+function electionWhen(days: number): string {
   if (days === 0) return 'today'
   if (days === 1) return 'tomorrow'
-  return `in ${days} days`
+  return `in ${days.toLocaleString()} days`
+}
+
+const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 })
+
+const SAMPLE_NOTE = 'Sample data for local preview, not a live figure.'
+
+/**
+ * A banner fact: icon + short value on the chip, the full explanation in a panel.
+ *
+ * The panel opens on mouse hover, on keyboard focus and on tap, and closes on Escape,
+ * on a tap elsewhere, or when focus leaves — so it never depends on hover alone. It is
+ * a disclosure (aria-expanded) rather than role="tooltip" because it can hold a link,
+ * and it stays mounted while hidden so aria-describedby still reads it.
+ */
+function FactChip({ icon, label, details, children }: {
+  icon: string
+  /** Screen-reader completion of the chip's short value, e.g. "members in this slice". */
+  label: string
+  details: ReactNode
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const [shift, setShift] = useState(0)
+  const wrapRef = useRef<HTMLSpanElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const pointer = useRef<{ type: string; wasOpen: boolean } | null>(null)
+  const panelId = useId()
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  // Keep the panel inside the viewport: a chip at the right edge of a phone would
+  // otherwise push a left-aligned panel off screen.
+  useLayoutEffect(() => {
+    if (!open) {
+      setShift(0)
+      return
+    }
+    const r = panelRef.current?.getBoundingClientRect()
+    if (!r) return
+    const vw = document.documentElement.clientWidth
+    let dx = 0
+    if (r.right > vw - 8) dx = vw - 8 - r.right
+    if (r.left + dx < 8) dx = 8 - r.left
+    setShift(dx)
+  }, [open])
+
+  return (
+    <span
+      ref={wrapRef}
+      className="relative inline-flex"
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') setOpen(true) }}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse') setOpen(false) }}
+      onBlur={(e) => { if (!wrapRef.current?.contains(e.relatedTarget as Node)) setOpen(false) }}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-describedby={panelId}
+        onPointerDown={(e) => { pointer.current = { type: e.pointerType, wasOpen: open } }}
+        onFocus={() => setOpen(true)}
+        onClick={() => {
+          // A tap toggles. A mouse click or Enter only ever opens: hover or focus has
+          // already opened it, so toggling there would close what the click asked for.
+          const p = pointer.current
+          pointer.current = null
+          setOpen(p && p.type !== 'mouse' ? !p.wasOpen : true)
+        }}
+        className={`${CHIP} cursor-default hover:bg-black/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition-colors`}
+      >
+        <Emoji symbol={icon} className="text-sm" />
+        {children}
+        <span className="sr-only"> {label}</span>
+      </button>
+      {/* pb-2 is a hover bridge: the gap between chip and panel is still inside the
+          wrapper, so moving the mouse up into the panel does not close it. Opens
+          upward, into the photo, so the sticky tab bar below never covers it. */}
+      <div
+        ref={panelRef}
+        id={panelId}
+        hidden={!open}
+        className="absolute bottom-full left-0 z-20 pb-2"
+        style={shift ? { transform: `translateX(${shift}px)` } : undefined}
+      >
+        <div className="w-max max-w-[16rem] rounded-lg bg-gray-900/95 px-3 py-2 text-xs leading-relaxed text-white/85 shadow-lg ring-1 ring-white/15 backdrop-blur-sm">
+          {details}
+        </div>
+      </div>
+    </span>
+  )
 }
 
 export function HeroBanner({
@@ -111,8 +224,8 @@ export function HeroBanner({
   sliceName,
   levelLabel,
   memberCount,
-  locationMemberCount,
   population,
+  isSampleData = false,
   nextElection,
   forecastUrl,
   weather,
@@ -133,12 +246,15 @@ export function HeroBanner({
     writeTempUnit(next)
   }
   const showCredit = !!resolvedPhoto && !!credit
+  const parts = credit ? creditParts(credit) : null
 
   // City and county name their state too — always known from the geoid, even when the
   // place name itself could not be resolved and the title falls back to "City".
   const stateName = sliceType === 'city' || sliceType === 'county'
     ? geoidToDisplayName('state', geoid.slice(0, 2))
     : null
+
+  const electionDays = nextElection ? daysUntil(nextElection.date) : 0
 
   return (
     <div
@@ -178,9 +294,14 @@ export function HeroBanner({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
       </div>
 
-      <div className={`relative z-10 flex flex-col gap-3 p-4 sm:p-5 ${showCredit ? 'pb-2 sm:pb-2 md:pb-7' : ''}`}>
+      {/* 🔴 pointer-events-none is load-bearing, with auto back on the content below.
+          md:pb-7 reserves the strip the credit is pinned into, and padding is part of
+          this box's hit area — so at md+ this layer (z-10) swallowed every click on the
+          credit (z-[5]) beneath it. Harmless while the credit was plain text; the licence
+          is a link now. Paint order is untouched, so the chip panels still sit above it. */}
+      <div className={`pointer-events-none relative z-10 flex flex-col gap-3 p-4 sm:p-5 ${showCredit ? 'pb-2 sm:pb-2 md:pb-7' : ''}`}>
         {/* Where you are, and which slice of it */}
-        <div className="min-w-0">
+        <div className="pointer-events-auto min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white [text-shadow:0_0_2px_rgb(0_0_0_/_0.9),0_1px_6px_rgb(0_0_0_/_0.8)]">
             {levelLabel}
             {/* No top scrim (the photo stays clear up there), so on a phone, where the
@@ -191,43 +312,78 @@ export function HeroBanner({
             {sliceName}
           </h2>
 
+          {/* One row of short facts: icon + value. The sentence behind each one is in its
+              details panel, so the row scans at a glance and still wraps cleanly. */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className={CHIP}>
-              <Emoji symbol="👥" className="text-sm" />
-              {memberCount.toLocaleString()}
-              <span className="sm:hidden">in slice</span>
-              <span className="hidden sm:inline">{memberCount === 1 ? 'member' : 'members'} in this slice</span>
-            </span>
-            {locationMemberCount !== undefined && (
-              <span className={CHIP}>
-                {locationMemberCount.toLocaleString()} across {sliceName}
-              </span>
-            )}
+            <FactChip
+              icon="👥"
+              label={memberCount === 1 ? 'member in this slice' : 'members in this slice'}
+              details={
+                <>
+                  <span className="font-semibold text-white">
+                    {memberCount.toLocaleString()} {memberCount === 1 ? 'member' : 'members'}
+                  </span>{' '}
+                  in this slice
+                  {isSampleData && <span className="mt-1 block text-white/70">{SAMPLE_NOTE}</span>}
+                </>
+              }
+            >
+              <span className="font-semibold tabular-nums">{memberCount.toLocaleString()}</span>
+            </FactChip>
             {population !== undefined && (
-              <span className={CHIP} title="Total population, 2020 U.S. Census">
-                <Emoji symbol="🏘️" className="text-sm" />
-                {population.toLocaleString()} residents
-                <span className="hidden sm:inline text-white/80">· 2020 Census</span>
-              </span>
+              <FactChip
+                icon="🏘️"
+                label={`residents, ${POPULATION_SOURCE.year} Census`}
+                details={
+                  <>
+                    <span className="block font-semibold text-white">{population.toLocaleString()} residents</span>
+                    <span className="block">Total population, {POPULATION_SOURCE.name}.</span>
+                    <a
+                      href={POPULATION_SOURCE.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-flex items-center gap-1 rounded font-medium text-white underline underline-offset-2 hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    >
+                      About this Census dataset
+                      <ExternalIcon />
+                      <span className="sr-only">(census.gov, opens in a new tab)</span>
+                    </a>
+                  </>
+                }
+              >
+                <span className="text-white/80">Pop.</span>
+                <span className="font-semibold tabular-nums">{compactNumber.format(population)}</span>
+              </FactChip>
             )}
-            {/* Civic facts — only what a real source answered — on the same row as
-                the counts, so the banner reads as one line of facts under the name. */}
+            {/* Civic facts — only what a real source answered. */}
             {nextElection && (
-              <span className={CHIP} title={nextElection.name}>
-                <Emoji symbol="🗳️" className="text-sm" />
-                <span>
-                  <span className="hidden sm:inline">Next election </span>
-                  <span className="sm:hidden">Election </span>
-                  {formatElectionDate(nextElection.date)}
-                  <span className="text-white/80"> · {countdownLabel(daysUntil(nextElection.date))}</span>
-                </span>
-              </span>
+              <FactChip
+                icon="🗳️"
+                // The name is the visible value plus this, so the phrasing has to suit
+                // the value: countdownLabel gives "Today"/"Tomorrow" inside two days,
+                // which read as "Today until the next election" against the usual suffix.
+                label={electionDays <= 1 ? 'is the next election' : 'until the next election'}
+                details={
+                  <>
+                    <span className="block font-semibold text-white">{nextElection.name}</span>
+                    <span className="block">
+                      {formatElectionDate(nextElection.date)} · {electionWhen(electionDays)}
+                    </span>
+                    {isSampleData && <span className="mt-1 block text-white/70">{SAMPLE_NOTE}</span>}
+                  </>
+                }
+              >
+                <span className="font-semibold tabular-nums">{countdownLabel(electionDays)}</span>
+              </FactChip>
             )}
             {nextElection === null && (
-              <span className={CHIP}>
-                <Emoji symbol="🗳️" className="text-sm" />
-                No upcoming election on file
-              </span>
+              <FactChip
+                icon="🗳️"
+                label="for upcoming elections"
+                details="No upcoming election is on file for this area."
+              >
+                <span className="font-medium">None on file</span>
+              </FactChip>
             )}
             {weather && (
               <span className={`${CHIP} pr-1`}>
@@ -286,13 +442,35 @@ export function HeroBanner({
           above the scrims and stays visible at every breakpoint. In flow on phones, where
           a credit that wraps to two lines would otherwise land on the chips; pinned
           bottom-right from md up, under the facts column. z-[5] keeps it beneath the
-          content layer (z-10), so no chip tooltip or overlay is ever painted over. */}
+          content layer (z-10), so no chip details panel is ever painted over. */}
+      {/* Short form, "Photo: Author · Licence": author and licence are the conditions,
+          so both stay visible; the licence links to its deed when it has one. Dimmer
+          than the facts, but the 11px size and shadow keep it readable on any photo. */}
       {showCredit && (
         <p
-          className="relative z-[5] px-4 pb-2 text-right text-[11px] leading-tight text-white/75 sm:px-5 md:absolute md:bottom-1.5 md:right-3 md:max-w-[70%] md:p-0"
+          className="relative z-[5] px-4 pb-2 text-right text-[11px] leading-tight text-white/70 sm:px-5 md:absolute md:bottom-1.5 md:right-3 md:max-w-[70%] md:p-0"
           style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
         >
-          {credit}
+          {parts ? (
+            <>
+              Photo: {parts.author} ·{' '}
+              {parts.licenseUrl ? (
+                <a
+                  href={parts.licenseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer license"
+                  className="rounded underline decoration-white/40 underline-offset-2 hover:text-white hover:decoration-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                >
+                  {parts.license}
+                  <span className="sr-only"> (licence, opens in a new tab)</span>
+                </a>
+              ) : (
+                parts.license
+              )}
+            </>
+          ) : (
+            credit
+          )}
         </p>
       )}
     </div>

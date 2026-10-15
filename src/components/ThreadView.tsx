@@ -9,7 +9,43 @@ import ReplyCard from './ReplyCard'
 import ReplyComposer from './ReplyComposer'
 import InformUpgradePrompt from './InformUpgradePrompt'
 import EmpoweredBadge from './EmpoweredBadge'
+import { splitHeadline } from '../lib/postHeadline'
 import type { ReplyWithAuthor } from '../types/database'
+
+/**
+ * The discussion's topic — the same headline the member clicked in the feed (a title, or
+ * the author's first sentence), kept in view while they read replies or write one.
+ * Sticks under AppShell's header and tab bar; --cs-sticky-offset is their combined height.
+ */
+function TopicHeader({ headline, onBack, stuck }: { headline: string | null; onBack: () => void; stuck: boolean }) {
+  return (
+    <div
+      className={`sticky top-[var(--cs-sticky-offset,8rem)] z-20 flex items-start gap-3 px-4 py-3 rounded-t-2xl border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 ${
+        stuck ? 'shadow-sm' : ''
+      }`}
+    >
+      <button
+        onClick={onBack}
+        aria-label="Back to feed"
+        className="mt-0.5 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <div className="min-w-0 flex-1">
+        <h1
+          className={`mt-0.5 text-lg md:text-xl font-bold leading-snug text-gray-900 dark:text-gray-50 [overflow-wrap:anywhere] ${
+            stuck ? 'line-clamp-2' : ''
+          }`}
+          title={stuck && headline ? headline : undefined}
+        >
+          {headline ?? 'Loading discussion…'}
+        </h1>
+      </div>
+    </div>
+  )
+}
 
 interface ThreadViewProps {
   postId: string
@@ -43,6 +79,39 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
     replyListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [scrollToLatest, isLoading, replies.length])
   const [informPromptOpen, setInformPromptOpen] = useState(false)
+
+  // True once the topic header has stuck under the app's bars — the sentinel just above
+  // it has scrolled past that offset. Re-observed when the post arrives (the sentinel is
+  // not rendered while loading).
+  const stuckSentinelRef = useRef<HTMLDivElement>(null)
+  const [isStuck, setIsStuck] = useState(false)
+
+  // 🔴 rootMargin takes px and % only — a rem value is a SyntaxError in the observer
+  // constructor, so the fallback and the guard below are both px. AppShell writes the
+  // variable in px; this only has to survive it being briefly unset.
+  const [stickyOffset, setStickyOffset] = useState('128px')
+  useEffect(() => {
+    const read = () => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--cs-sticky-offset').trim()
+      setStickyOffset(v.endsWith('px') ? v : '128px')
+    }
+    read()
+    // Both the header and the tab bar change height at md, so the threshold is re-read
+    // rather than captured once — a resize across the breakpoint left it stale.
+    window.addEventListener('resize', read)
+    return () => window.removeEventListener('resize', read)
+  }, [])
+
+  useEffect(() => {
+    const el = stuckSentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsStuck(!entry!.isIntersecting && entry!.boundingClientRect.top < window.innerHeight / 2),
+      { rootMargin: `-${stickyOffset} 0px 0px 0px` },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [isLoading, stickyOffset])
 
   const canWrite = !!userId && profile?.tier !== 'inform' && !profile?.is_suspended
 
@@ -101,87 +170,68 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
   if (isLoading) {
     return (
       <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
-          <button
-            onClick={onBack}
-            aria-label="Back to feed"
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Thread</h2>
-        </div>
-        <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
-          Loading thread...
+        <TopicHeader headline={null} onBack={onBack} stuck={false} />
+        <div className="flex-1 flex items-center justify-center py-10 text-sm text-gray-500 dark:text-gray-400">
+          Loading discussion…
         </div>
       </div>
     )
   }
 
-  return (
-    <div className="flex flex-col h-full overflow-y-auto">
-      {/* Header — back button merged with the post author's identity, like a post-detail page */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0 sticky top-0 z-10">
-        <button
-          onClick={onBack}
-          aria-label="Back to feed"
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+  // Only the headline: the topic header is a heading, and the post itself is rendered
+  // in full below. Taking splitHeadline's excerpt here was lossy — an untitled post
+  // whose first sentence has no break inside MAX_HEADLINE comes back as all headline
+  // and no excerpt, so the whole post lived in the <h1> and line-clamp-2 cut it to two
+  // lines the moment the header stuck. For an untitled post the opening sentence now
+  // appears twice, as a page title does above its own article.
+  const headline = post ? splitHeadline(post.title, post.body).headline : null
+  const bodyText = post?.body.trim() ?? ''
 
-        {post ? (
-          <button
-            type="button"
-            onClick={() => navigate('/profile/' + post.user_id)}
-            className="flex items-center gap-2.5 min-w-0 text-left"
-            aria-label={`View ${post.author.display_name}'s profile`}
-          >
-            {post.author.avatar_url ? (
-              <img
-                src={post.author.avatar_url}
-                alt={post.author.display_name}
-                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                  {post.author.display_name.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
-            <span className="flex items-baseline gap-1 min-w-0">
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{post.author.display_name}</span>
-              {post.author.tier === 'empowered' && <EmpoweredBadge />}
-              <span className="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0">
-                · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                {post.edit_history.length > 0 && ' · edited'}
-              </span>
-            </span>
-          </button>
-        ) : (
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Thread</h2>
-        )}
-      </div>
+  return (
+    <div className="flex flex-col h-full">
+      {/* Sentinel for the header below: once it scrolls under the app's sticky bars the
+          header is stuck, and a long title clamps so it cannot cover the replies. */}
+      <div ref={stuckSentinelRef} aria-hidden="true" />
+      <TopicHeader headline={headline} onBack={onBack} stuck={isStuck} />
 
       <div className="flex-1 px-4 pb-8">
-        {/* 1. The post */}
+        {/* 1. The post — author, then the rest of what they wrote */}
         {post && (
           <div className="py-4">
-            {/* Post title */}
-            {post.title && (
-              <p className="mt-3 text-base font-semibold text-gray-900 dark:text-gray-100">{post.title}</p>
+            <button
+              type="button"
+              onClick={() => navigate('/profile/' + post.user_id)}
+              className="flex items-center gap-2.5 min-w-0 max-w-full text-left rounded-full hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+              aria-label={`View ${post.author.display_name}'s profile`}
+            >
+              {post.author.avatar_url ? (
+                <img
+                  src={post.author.avatar_url}
+                  alt=""
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                />
+              ) : (
+                <span className="w-8 h-8 rounded-full bg-brand-muted dark:bg-brand/20 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand dark:text-brand-light" aria-hidden="true">
+                  {post.author.display_name.charAt(0).toUpperCase()}
+                </span>
+              )}
+              <span className="flex items-baseline gap-1 min-w-0">
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{post.author.display_name}</span>
+                {post.author.tier === 'empowered' && <EmpoweredBadge />}
+                <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                  · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                  {post.edit_history.length > 0 && ' · edited'}
+                </span>
+              </span>
+            </button>
+
+            {/* The post as written, in full — the topic above is a heading, not the
+                only copy of it. See the note on `headline`. */}
+            {bodyText && (
+              <p className="mt-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{bodyText}</p>
             )}
 
-            {/* Post body */}
-            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{post.body}</p>
-
-            {/* Action row: comment count + share */}
+        {/* Action row: comment count + share */}
             <div className="mt-3 flex items-center gap-2">
               <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
