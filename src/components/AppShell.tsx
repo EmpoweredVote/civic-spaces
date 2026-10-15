@@ -54,18 +54,21 @@ function ActiveHeroBanner({
   fallbackName,
   viewingSliceId,
   nextElection,
+  isSampleData,
 }: {
   slice: SliceInfo
   fallbackName: string
   /** The shard on screen — the member's own, or a sibling they are browsing read-only. */
   viewingSliceId: string
   nextElection: NextElection | null | undefined
+  /** Passed down, not read here: useAuth is not a context, so a second call would be a
+      second session poll that can redirect to login. AppShell already holds the id. */
+  isSampleData: boolean
 }) {
   const hero = useHeroBanner(slice)
   const displayName = useJurisdictionName(slice, fallbackName)
   const population = usePopulation(slice.sliceType, slice.geoid)
   const weather = useCurrentWeather(slice.sliceType, slice.geoid)
-  const { userId } = useAuth()
   const { siblings } = useSiblingSlices(
     slice.sliceType,
     slice.geoid,
@@ -100,7 +103,7 @@ function ActiveHeroBanner({
       levelLabel={fallbackName}
       memberCount={memberCount}
       population={population}
-      isSampleData={isSyntheticUserId(userId)}
+      isSampleData={isSampleData}
       weather={weather}
       nextElection={nextElection}
       forecastUrl={forecastUrlFor(slice.sliceType, slice.geoid, resolvedName)}
@@ -759,6 +762,7 @@ export default function AppShell() {
                       fallbackName={TAB_LABELS[activeTab]}
                       viewingSliceId={activeViewing?.id ?? activeSlice.id}
                       nextElection={nextElection}
+                      isSampleData={isSyntheticUserId(userId)}
                     />
                   </div>
                 )}
