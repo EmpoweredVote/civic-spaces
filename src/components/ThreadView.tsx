@@ -162,7 +162,14 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
     )
   }
 
-  const { headline, excerpt } = post ? splitHeadline(post.title, post.body) : { headline: null, excerpt: '' }
+  // Only the headline: the topic header is a heading, and the post itself is rendered
+  // in full below. Taking splitHeadline's excerpt here was lossy — an untitled post
+  // whose first sentence has no break inside MAX_HEADLINE comes back as all headline
+  // and no excerpt, so the whole post lived in the <h1> and line-clamp-2 cut it to two
+  // lines the moment the header stuck. For an untitled post the opening sentence now
+  // appears twice, as a page title does above its own article.
+  const headline = post ? splitHeadline(post.title, post.body).headline : null
+  const bodyText = post?.body.trim() ?? ''
 
   return (
     <div className="flex flex-col h-full">
@@ -202,9 +209,10 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
               </span>
             </button>
 
-            {/* The headline is the topic above; this is the rest of the post. */}
-            {excerpt && (
-              <p className="mt-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{excerpt}</p>
+            {/* The post as written, in full — the topic above is a heading, not the
+                only copy of it. See the note on `headline`. */}
+            {bodyText && (
+              <p className="mt-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{bodyText}</p>
             )}
 
         {/* Action row: comment count + share */}
