@@ -8,12 +8,28 @@ import { useCreatePost } from '../hooks/useCreatePost'
 import { useEditPost } from '../hooks/useEditPost'
 import type { PostWithAuthor } from '../types/database'
 
+/**
+ * A new post that starts from somewhere else — Explore's topic drafts. Only ever a
+ * prefill: the member still edits and presses Post themselves.
+ */
+export interface ComposeRequest {
+  title: string
+  body: string
+  /** Shown above the form, e.g. "Posting to Bloomington" — names where this will land. */
+  contextNote?: string
+  /** Called once the post is created, so the source can drop its draft. */
+  onPosted?: () => void
+  /** Called with every edit, so the source's draft keeps up with the composer. */
+  onDraftChange?: (values: { title: string; body: string }) => void
+}
+
 interface PostComposerProps {
   isOpen: boolean
   onClose: () => void
   sliceId: string
   userId: string
   editPost?: PostWithAuthor
+  request?: ComposeRequest | null
 }
 
 export default function PostComposer({
@@ -22,6 +38,7 @@ export default function PostComposer({
   sliceId,
   userId,
   editPost,
+  request,
 }: PostComposerProps) {
   const isEditMode = !!editPost
 
@@ -44,10 +61,18 @@ export default function PostComposer({
       if (isEditMode) {
         editForm.reset({ body: editPost?.body ?? '' })
       } else {
-        createForm.reset({ title: '', body: '' })
+        createForm.reset({ title: request?.title ?? '', body: request?.body ?? '' })
       }
     }
-  }, [isOpen, isEditMode, editPost?.body]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, isEditMode, editPost?.body, request]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mirror edits back to the draft they came from, so closing the sheet loses nothing.
+  const onDraftChange = request?.onDraftChange
+  useEffect(() => {
+    if (!isOpen || isEditMode || !onDraftChange) return
+    const sub = createForm.watch((values) => onDraftChange({ title: values.title ?? '', body: values.body ?? '' }))
+    return () => sub.unsubscribe()
+  }, [isOpen, isEditMode, onDraftChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const serverError = isEditMode
     ? editMutation.error?.message
@@ -56,6 +81,7 @@ export default function PostComposer({
   const handleCreateSubmit = async (data: CreatePostInput) => {
     try {
       await createMutation.mutateAsync(data)
+      request?.onPosted?.()
       createForm.reset()
       onClose()
     } catch {
@@ -103,6 +129,12 @@ export default function PostComposer({
                 </svg>
               </button>
             </div>
+
+            {!isEditMode && request?.contextNote && (
+              <p className="mb-3 rounded-md bg-brand-muted px-3 py-2 text-sm text-brand">
+                {request.contextNote}
+              </p>
+            )}
 
             {/* Server error banner */}
             {serverError && (

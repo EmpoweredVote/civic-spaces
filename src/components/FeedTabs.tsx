@@ -1,3 +1,4 @@
+import type React from 'react'
 import type { ReactNode } from 'react'
 import { Emoji } from './Emoji'
 
@@ -59,6 +60,70 @@ export function FeedTabs({ mode, onChange }: { mode: SortMode; onChange: (mode: 
           >
             <Emoji symbol={tab.emoji} className="text-[13px]" />
             {tab.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Which half of the centre column is showing. Explore is the default for a plain visit. */
+export type ForumView = 'explore' | 'conversations'
+
+const VIEWS: { key: ForumView; label: string; emoji: string }[] = [
+  { key: 'explore', label: 'Explore', emoji: '🧭' },
+  { key: 'conversations', label: 'Conversations', emoji: '💬' },
+]
+
+export const FORUM_VIEW_PANEL_ID: Record<ForumView, string> = {
+  explore: 'forum-view-explore',
+  conversations: 'forum-view-conversations',
+}
+
+/**
+ * Explore / Conversations — a real tablist (arrow keys move and select, per the ARIA
+ * tabs pattern). Slightly heavier than the New/Top pills under it: it switches what the
+ * column IS, they only re-order it.
+ */
+export function ForumViewTabs({ view, onChange }: { view: ForumView; onChange: (view: ForumView) => void }) {
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return
+    e.preventDefault()
+    const i = VIEWS.findIndex((v) => v.key === view)
+    const next =
+      e.key === 'Home' ? 0 : e.key === 'End' ? VIEWS.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : VIEWS.length - 1)) % VIEWS.length
+    onChange(VIEWS[next]!.key)
+    const buttons = e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+    buttons[next]?.focus()
+  }
+  return (
+    <div
+      role="tablist"
+      aria-label="Forum view"
+      onKeyDown={onKeyDown}
+      className="flex items-center gap-0.5 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 p-0.5"
+    >
+      {VIEWS.map((v) => {
+        const active = v.key === view
+        return (
+          <button
+            key={v.key}
+            type="button"
+            role="tab"
+            id={`${FORUM_VIEW_PANEL_ID[v.key]}-tab`}
+            aria-selected={active}
+            aria-controls={FORUM_VIEW_PANEL_ID[v.key]}
+            tabIndex={active ? 0 : -1}
+            onClick={() => onChange(v.key)}
+            className={[
+              'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:focus-visible:ring-brand-light/70',
+              active
+                ? 'bg-brand text-white dark:bg-brand-light dark:text-gray-950'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800',
+            ].join(' ')}
+          >
+            <Emoji symbol={v.emoji} className="text-[13px] max-sm:hidden" />
+            {v.label}
           </button>
         )
       })}
