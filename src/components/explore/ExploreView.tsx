@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef } from 'react'
 import { Emoji } from '../Emoji'
 import { WalkingScene } from './NeighborhoodScene'
 import { WhatsNewCard } from './WhatsNewCard'
-import { AdventureActivity, ImagineActivity, PostcardActivity } from './ExploreActivities'
+import { AdventureActivity, ImagineActivity } from './ExploreActivities'
 import {
   FEATURED_TOPIC,
   IMAGINE_OPTIONS,
@@ -263,15 +263,12 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
           onShareIdea={startConversation}
           isAuthenticated={isAuthenticated}
         />
-        <div className="grid gap-3 @2xl:grid-cols-2 items-start">
-          <AdventureActivity
-            choice={ui.adventure}
-            onChoose={(adventure) => setUi({ adventure })}
-            meeting={nextMeeting}
-            onExploreTopic={openTopic}
-          />
-          <PostcardActivity placeName={destination?.name ?? null} onExploreTopic={openTopic} />
-        </div>
+        <AdventureActivity
+          choice={ui.adventure}
+          onChoose={(adventure) => setUi({ adventure })}
+          meeting={nextMeeting}
+          onExploreTopic={openTopic}
+        />
       </section>
 
       <WhatsNewCard className={whatsNewInSidebar ? 'md:hidden' : ''} />

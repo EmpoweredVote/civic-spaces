@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { TabKey } from '../../types/database'
-import type { AdventureDuration, ImagineOption, PostcardQuality, TopicId } from './exploreContent'
+import type { AdventureDuration, ImagineOption, TopicId } from './exploreContent'
 
 /**
  * Explore's state lives in this browser's localStorage — the only persistence available
@@ -36,16 +36,10 @@ export interface ExploreUiState {
   adventure: AdventureDuration | null
 }
 
-export interface SavedPostcard {
-  words: PostcardQuality[]
-  savedAt: number
-}
-
 const DRAFTS_KEY = 'cs_explore_drafts'
 const UI_KEY = 'cs_explore_ui'
 /** "Post this after sign-in" — set only when a signed-out visitor asked to post. */
 const RESUME_KEY = 'cs_explore_resume'
-const POSTCARD_KEY = 'cs_neighborhood_postcard'
 /** Same-tab change notification; the native `storage` event only fires in other tabs. */
 const CHANGE_EVENT = 'cs-explore-storage'
 
@@ -96,15 +90,6 @@ export function readResume(): TopicId | null {
 
 export function writeResume(topicId: TopicId | null): void {
   write(RESUME_KEY, topicId)
-}
-
-export function readPostcard(): SavedPostcard | null {
-  return read<SavedPostcard>(POSTCARD_KEY)
-}
-
-/** false when storage is unavailable — the caller must not claim it saved. */
-export function writePostcard(postcard: SavedPostcard | null): boolean {
-  return write(POSTCARD_KEY, postcard)
 }
 
 /** All drafts, kept in sync with writes from anywhere in the page (AppShell clears one after posting). */

@@ -228,21 +228,6 @@ export const ADVENTURE_OPTIONS: {
   },
 ]
 
-// ── Three-word neighborhood postcard ──────────────────────────────────────────────────
-
-export type PostcardQuality = 'Welcoming' | 'Walkable' | 'Green' | 'Creative' | 'Calm' | 'Connected'
-
-export const POSTCARD_QUALITIES: { word: PostcardQuality; emoji: string; topic: TopicId }[] = [
-  { word: 'Welcoming', emoji: '👋', topic: 'public-spaces' },
-  { word: 'Walkable', emoji: '🚶', topic: 'safer-walking' },
-  { word: 'Green', emoji: '🌿', topic: 'trees-shade' },
-  { word: 'Creative', emoji: '🎨', topic: 'your-idea' },
-  { word: 'Calm', emoji: '🍃', topic: 'safer-crossings' },
-  { word: 'Connected', emoji: '🤝', topic: 'park-usefulness' },
-]
-
-export const POSTCARD_LIMIT = 3
-
 // ── What's new ────────────────────────────────────────────────────────────────────────
 
 /**

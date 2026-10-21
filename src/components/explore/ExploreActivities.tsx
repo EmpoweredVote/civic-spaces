@@ -1,17 +1,13 @@
-import { useId, useState } from 'react'
+import { useId } from 'react'
 import { Emoji } from '../Emoji'
 import { NeighborhoodScene } from './NeighborhoodScene'
 import {
   ADVENTURE_OPTIONS,
   IMAGINE_OPTIONS,
-  POSTCARD_LIMIT,
-  POSTCARD_QUALITIES,
   type AdventureDuration,
   type ImagineOption,
-  type PostcardQuality,
   type TopicId,
 } from './exploreContent'
-import { readPostcard, writePostcard } from './exploreStorage'
 import { ArrowIcon, CARD, ChoiceChip, FOCUS, PrimaryButton, SecondaryButton, StarterTag } from './exploreUi'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 
@@ -196,113 +192,6 @@ export function AdventureActivity({
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400">Pick a length of time for a small suggestion.</p>
         )}
-      </div>
-    </section>
-  )
-}
-
-// ── Three-word neighborhood postcard ──────────────────────────────────────────────────
-
-export function PostcardActivity({
-  placeName,
-  onExploreTopic,
-}: {
-  placeName: string | null
-  onExploreTopic: (topic: TopicId) => void
-}) {
-  const id = useId()
-  const [saved] = useState(readPostcard)
-  const [words, setWords] = useState<PostcardQuality[]>(saved?.words ?? [])
-  // What the save button last did — reset by any change, so "Saved" never outlives the words it describes.
-  const [status, setStatus] = useState<'saved' | 'failed' | null>(saved ? 'saved' : null)
-  const full = words.length >= POSTCARD_LIMIT
-
-  const toggle = (word: PostcardQuality) => {
-    setStatus(null)
-    setWords((prev) =>
-      prev.includes(word) ? prev.filter((w) => w !== word) : prev.length >= POSTCARD_LIMIT ? prev : [...prev, word],
-    )
-  }
-
-  const save = () => {
-    const ok = writePostcard({ words, savedAt: Date.now() })
-    setStatus(ok ? 'saved' : 'failed')
-  }
-
-  const firstTopic = POSTCARD_QUALITIES.find((q) => q.word === words[0])?.topic ?? null
-
-  return (
-    <section aria-labelledby={`${id}-h`} className={`${CARD} p-4 flex flex-col gap-3`}>
-      <div className="flex items-center gap-2">
-        <Emoji symbol="💌" className="text-lg" />
-        <p className="text-[11px] font-bold uppercase tracking-wider text-brand dark:text-brand-light">Three-word postcard</p>
-      </div>
-      <fieldset>
-        <legend id={`${id}-h`} className="text-base font-bold text-gray-900 dark:text-gray-100">
-          How should your neighborhood feel?
-        </legend>
-        <p id={`${id}-limit`} className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-2" aria-live="polite">
-          {full
-            ? `That's ${POSTCARD_LIMIT} — deselect a word to swap it.`
-            : `Choose up to ${POSTCARD_LIMIT} words · ${words.length} of ${POSTCARD_LIMIT} chosen`}
-        </p>
-        <div className="flex flex-wrap gap-1.5" aria-describedby={`${id}-limit`}>
-          {POSTCARD_QUALITIES.map((q) => {
-            const checked = words.includes(q.word)
-            return (
-              <ChoiceChip
-                key={q.word}
-                type="checkbox"
-                name={`${id}-word`}
-                checked={checked}
-                disabled={!checked && full}
-                onChange={() => toggle(q.word)}
-                emoji={q.emoji}
-              >
-                {q.word}
-              </ChoiceChip>
-            )
-          })}
-        </div>
-      </fieldset>
-
-      {/* The postcard — a stamp, a postmark, and the three words as they are chosen. */}
-      <div
-        className="relative rounded-xl border-2 border-dashed border-brand/30 dark:border-brand-light/30 bg-gradient-to-br from-brand-muted to-white dark:from-brand/15 dark:to-gray-900 p-3 pr-16 min-h-24"
-        aria-label={words.length ? `Postcard preview: ${words.join(', ')}` : 'Postcard preview, no words chosen yet'}
-        role="img"
-      >
-        <div className="absolute top-2.5 right-2.5 h-12 w-10 rounded-sm border-2 border-brand-coral/60 bg-white dark:bg-gray-900 flex items-center justify-center" aria-hidden="true">
-          <Emoji symbol="🏡" className="text-lg" />
-        </div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400" aria-hidden="true">
-          Greetings from {placeName ?? 'my neighborhood'}
-        </p>
-        <p className="mt-1.5 text-lg font-extrabold leading-snug text-gray-900 dark:text-gray-100" aria-hidden="true">
-          {words.length ? (
-            words.map((w, i) => (
-              <span key={w}>
-                {i > 0 && <span className="text-brand-coral-text dark:text-brand-coral"> · </span>}
-                {w}
-              </span>
-            ))
-          ) : (
-            <span className="font-medium text-sm text-gray-500 dark:text-gray-400">Your words will appear here.</span>
-          )}
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <SecondaryButton onClick={() => firstTopic && onExploreTopic(firstTopic)} disabled={!firstTopic}>
-          Find a related topic
-        </SecondaryButton>
-        <PrimaryButton onClick={save} disabled={words.length === 0}>
-          Save this thought
-        </PrimaryButton>
-        <p className="text-xs text-gray-600 dark:text-gray-400" role="status">
-          {status === 'saved' && '✓ Saved on this device.'}
-          {status === 'failed' && "Couldn't save — this browser is blocking storage."}
-        </p>
       </div>
     </section>
   )
