@@ -169,7 +169,10 @@ export function AdventureActivity({
   const realMeeting = option.key === 'evening' ? meeting : null
 
   return (
-    <section aria-labelledby={`${id}-h`} className={`${CARD} p-6 @xl:p-7 flex flex-col gap-5`}>
+    <section aria-labelledby={`${id}-h`} className={`${CARD} @container p-6 @xl:p-7`}>
+      {/* Picker left, suggestion right on a wide column; stacked when narrow. */}
+      <div className="grid gap-5 @xl:grid-cols-2 @xl:gap-6 @3xl:gap-8 @xl:items-center">
+      <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E3F4F1] dark:bg-brand/15 text-brand dark:text-brand-light" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
@@ -213,6 +216,7 @@ export function AdventureActivity({
           )
         })}
       </fieldset>
+      </div>
 
       {/* The suggestion — a pin on a dotted trail, then what to do and where it leads. */}
       <div aria-live="polite" className="flex gap-4 rounded-2xl bg-[#E8F6F3] dark:bg-brand/10 px-5 py-5">
@@ -249,6 +253,7 @@ export function AdventureActivity({
             </button>
           </div>
         </div>
+      </div>
       </div>
 
       <AdventureDetail
