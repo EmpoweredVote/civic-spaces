@@ -21,6 +21,30 @@ import {
 import { ArrowIcon, CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton, SectionHeading, StarterTag } from './exploreUi'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { TabKey } from '../../types/database'
+import { creditParts } from '../../lib/banners'
+
+/** A licensed place photo for the featured card. The credit is a licence condition — always shown. */
+export interface FeaturedPhoto {
+  url: string
+  alt: string
+  credit: string
+}
+
+function PhotoCredit({ credit }: { credit: string }) {
+  const parts = creditParts(credit)
+  return (
+    <p className="absolute bottom-0 inset-x-0 px-3 py-1.5 text-[10px] text-white/90 bg-gradient-to-t from-black/60 to-transparent truncate">
+      {parts ? (
+        <>
+          Photo: {parts.author} ·{' '}
+          {parts.licenseUrl ? (
+            <a href={parts.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline">{parts.license}</a>
+          ) : parts.license}
+        </>
+      ) : credit}
+    </p>
+  )
+}
 
 /**
  * Where a topic's conversation happens: the member's most local OWN community, never a
@@ -45,11 +69,13 @@ interface ExploreViewProps {
   onScrollTop?: () => void
   /** True when the right sidebar shows What's new (md+), so the column keeps it only below md. */
   whatsNewInSidebar?: boolean
+  /** The member's own place photo; null/undefined falls back to the drawn street. */
+  featuredPhoto?: FeaturedPhoto | null
 }
 
 const TEXT_FIELD = `w-full rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-brand dark:focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand/30`
 
-export function ExploreView({ destination, isAuthenticated, meetings, onStartConversation, onScrollTop, whatsNewInSidebar }: ExploreViewProps) {
+export function ExploreView({ destination, isAuthenticated, meetings, onStartConversation, onScrollTop, whatsNewInSidebar, featuredPhoto }: ExploreViewProps) {
   const drafts = useExploreDrafts()
   const [ui, setUi] = useExploreUiState()
 
@@ -146,35 +172,48 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
 
   return (
     <div className="@container flex flex-col gap-4">
-      {/* A. Introduction — sized for the column, not a second banner. */}
+      {/* A. Introduction */}
       <div className="px-1 pt-1">
-        <h2 className="text-lg @lg:text-xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
+          Welcome to your Civic Space
+        </p>
+        <h2 className="mt-1.5 text-[1.75rem] @lg:text-[2.5rem] font-medium leading-[1.1] tracking-tight text-gray-900 dark:text-gray-100">
           Discover what's happening in your community.
         </h2>
-        <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
           Explore local topics, find something to do, and share your perspective.
         </p>
       </div>
 
-      {/* B. Featured topic */}
+      {/* B. Featured topic — the member's own place photo (credited), else the drawn street. */}
       <article
         aria-labelledby="explore-featured-title"
-        className={`${CARD} overflow-hidden grid @lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] dark:bg-gradient-to-br dark:from-brand/15 dark:to-gray-900`}
+        className={`${CARD} overflow-hidden grid @lg:grid-cols-2`}
       >
-        <div className="aspect-[2/1] @lg:aspect-auto @lg:min-h-full">
-          <WalkingScene />
+        <div className="relative aspect-[16/10] @lg:aspect-auto @lg:min-h-[19rem] bg-brand-muted dark:bg-gray-800">
+          {featuredPhoto ? (
+            <img
+              src={featuredPhoto.url}
+              alt={featuredPhoto.alt}
+              className="absolute inset-0 h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="absolute inset-0"><WalkingScene /></div>
+          )}
+          <span className="absolute top-3 left-3 rounded-md border border-yellow-300 bg-yellow-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-gray-800 shadow-sm">
+            Sample topic
+          </span>
+          {featuredPhoto && <PhotoCredit credit={featuredPhoto.credit} />}
         </div>
-        <div className="p-4 @lg:p-5 flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <CategoryLabel>Featured · {featured.category}</CategoryLabel>
-            <StarterTag />
-          </div>
-          <h3 id="explore-featured-title" className="text-lg font-bold leading-snug text-gray-900 dark:text-gray-100">
+        <div className="p-5 @lg:p-8 flex flex-col justify-center gap-3">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">{featured.category}</p>
+          <h3 id="explore-featured-title" className="text-2xl @2xl:text-[2rem] font-medium leading-[1.15] tracking-tight text-gray-900 dark:text-gray-100">
             {featured.title}
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{featured.summary}</p>
-          <div className="mt-1">
-            <PrimaryButton onClick={() => openTopic(featured.id)}>
+          <p className="text-base leading-relaxed text-gray-600 dark:text-gray-400">{featured.summary}</p>
+          <div className="mt-2">
+            <PrimaryButton size="lg" onClick={() => openTopic(featured.id)}>
               Explore this topic <ArrowIcon />
             </PrimaryButton>
           </div>

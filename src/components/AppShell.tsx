@@ -263,10 +263,13 @@ function ActiveAboutWidget({
  */
 function ActiveExplore({
   homeSlice,
+  photoSlice,
   onStartConversation,
   onScrollTop,
 }: {
   homeSlice: SliceInfo
+  /** Whose banner photo the featured card borrows — never the one on screen above it. */
+  photoSlice: SliceInfo
   onStartConversation: (topicId: TopicId) => void
   onScrollTop: () => void
 }) {
@@ -274,6 +277,13 @@ function ActiveExplore({
   const name = useJurisdictionName(homeSlice, label)
   const city = homeSlice.sliceType === 'city' && name !== label ? name : null
   const { meetings } = useUpcomingMeetings(city, city ? stateAbbrevFromGeoid(homeSlice.geoid) : null)
+  // Same hook and shared-bucket credits as the hero banner. A photo without a credit has
+  // unknown provenance (a DB override, or nothing resolved), so it is not reused here.
+  const hero = useHeroBanner(photoSlice)
+  const photoName = useJurisdictionName(photoSlice, TAB_LABELS[photoSlice.sliceType])
+  const featuredPhoto = hero?.url && hero.credit && !photoSlice.photoUrl
+    ? { url: hero.url, credit: hero.credit, alt: `${photoName}` }
+    : null
   const destination = useMemo(
     () => ({ sliceId: homeSlice.id, tab: homeSlice.sliceType, name }),
     [homeSlice.id, homeSlice.sliceType, name],
@@ -286,6 +296,7 @@ function ActiveExplore({
       onStartConversation={onStartConversation}
       onScrollTop={onScrollTop}
       whatsNewInSidebar
+      featuredPhoto={featuredPhoto}
     />
   )
 }
@@ -954,6 +965,7 @@ export default function AppShell() {
                         {homeSlice ? (
                           <ActiveExplore
                             homeSlice={homeSlice}
+                            photoSlice={(activeTab === homeSlice.sliceType ? slices['county'] ?? slices['state'] : homeSlice) ?? homeSlice}
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
                           />

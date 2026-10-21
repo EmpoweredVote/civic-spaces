@@ -42,10 +42,9 @@ export interface ExploreTopic {
 export const TOPICS: Record<TopicId, ExploreTopic> = {
   'safer-walking': {
     id: 'safer-walking',
-    category: 'Streets & safety',
+    category: 'Neighborhood life',
     title: 'Where could walking around your neighborhood feel safer?',
-    summary:
-      'A missing stretch of sidewalk, a fast corner, a dark underpass — most people can name the spot on their own walk that makes them hurry.',
+    summary: 'Name the everyday crossings, sidewalks, and routes that deserve a closer look.',
     whyItMatters:
       'Neighbors walking the same streets every day notice details that a map does not show. Naming specific places turns a general worry into something people can talk through together.',
     question: 'Which spot on your regular walk feels least comfortable, and what would change that?',
