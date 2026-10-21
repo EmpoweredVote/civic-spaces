@@ -152,16 +152,16 @@ export const IMAGINE_OPTIONS: {
     emoji: '🌳',
     response: 'Shade makes a street somewhere you want to be, not just pass through.',
     followUp: 'Where would more shade make the biggest difference?',
-    sceneText: 'Trees now line the sidewalk, shading it.',
+    sceneText: 'Trees now line the sidewalk, casting shade.',
     topic: 'trees-shade',
   },
   {
     key: 'crossings',
     label: 'Safer crossings',
     emoji: '🚸',
-    response: 'A clearly marked crossing helps everyone, especially kids and older neighbors.',
-    followUp: 'Which crossing would you make safer first?',
-    sceneText: 'A striped crosswalk now crosses the street.',
+    response: 'A comfortable crossing can help neighbors feel connected.',
+    followUp: 'Which crossing would you improve first?',
+    sceneText: 'A bright crosswalk now connects both sides of the street.',
     topic: 'safer-crossings',
   },
   {
@@ -170,7 +170,7 @@ export const IMAGINE_OPTIONS: {
     emoji: '🪑',
     response: 'A place to sit is often all it takes for neighbors to stop and talk.',
     followUp: 'Where would a bench or gathering spot make people stay longer?',
-    sceneText: 'Benches and a shared gathering table now sit by the sidewalk.',
+    sceneText: 'Benches and a shared table now invite neighbors to stay.',
     topic: 'public-spaces',
   },
   {
@@ -188,7 +188,7 @@ export const IMAGINE_OPTIONS: {
     emoji: '💡',
     response: 'Good ideas do not always fit a list. Describe yours below.',
     followUp: 'What would you change?',
-    sceneText: 'The street is unchanged — describe your idea in the field below.',
+    sceneText: 'The block is unchanged — describe your idea alongside.',
     topic: 'your-idea',
   },
 ]

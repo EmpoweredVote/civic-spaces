@@ -28,11 +28,14 @@ export function PrimaryButton({
   disabled?: boolean
   type?: 'button' | 'submit'
   /** lg: the featured topic's call to action — bigger, with a pressed-key shadow. */
-  size?: 'md' | 'lg'
+  size?: 'md' | 'lg' | 'card'
 }) {
-  const sizing = size === 'lg'
-    ? 'rounded-xl px-5 py-3 text-base font-bold shadow-[0_4px_0_rgb(0_0_0_/_0.12)] dark:shadow-[0_4px_0_rgb(0_0_0_/_0.45)]'
-    : 'rounded-full px-4 py-2 text-sm font-semibold shadow-sm'
+  const sizing = {
+    lg: 'rounded-xl px-5 py-3 text-base font-bold shadow-[0_4px_0_rgb(0_0_0_/_0.12)] dark:shadow-[0_4px_0_rgb(0_0_0_/_0.45)]',
+    // Same pressed-key shadow, at the size of the outlined button beside it.
+    card: 'rounded-xl px-4 py-2.5 text-sm font-bold shadow-[0_3px_0_rgb(0_0_0_/_0.12)] dark:shadow-[0_3px_0_rgb(0_0_0_/_0.45)]',
+    md: 'rounded-full px-4 py-2 text-sm font-semibold shadow-sm',
+  }[size]
   return (
     <button
       type={type}

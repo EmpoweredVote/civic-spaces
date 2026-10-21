@@ -251,9 +251,7 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
 
       {/* Activities */}
       <section aria-label="Activities" className="flex flex-col gap-2">
-        <SectionHeading hint="Imaginative conversation starters — not official proposals or votes.">
-          Try a quick activity
-        </SectionHeading>
+        <SectionHeading>Try a quick activity</SectionHeading>
         <ImagineActivity
           choice={ui.imagine}
           onChoose={(imagine) => setUi({ imagine })}
