@@ -270,7 +270,6 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
           id="explore-small"
           eyebrow="Try something small"
           title="One more way to explore"
-          hint="No pressure, no score—just a new way into your neighborhood."
         />
         <AdventureActivity
           choice={ui.adventure}
@@ -285,15 +284,14 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
   )
 }
 
-/** Eyebrow + large light heading, the design's section opener; an optional note sits right. */
-function SectionHeader({ id, eyebrow, title, hint }: { id: string; eyebrow: string; title: string; hint?: string }) {
+/** Eyebrow + large light heading, the design's section opener. */
+function SectionHeader({ id, eyebrow, title }: { id: string; eyebrow: string; title: string }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-1">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">{eyebrow}</p>
         <h3 id={id} className="mt-1.5 text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">{title}</h3>
       </div>
-      {hint && <p className="max-w-xs text-sm text-gray-600 dark:text-gray-400 @xl:text-right">{hint}</p>}
     </div>
   )
 }

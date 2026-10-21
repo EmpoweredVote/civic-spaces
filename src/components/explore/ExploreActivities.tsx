@@ -38,7 +38,7 @@ export function ImagineActivity({
   return (
     <section aria-labelledby={`${id}-h`} className={`${CARD} @container/imagine overflow-hidden`}>
       {/* Header: what this is, and that it is not a proposal or a vote. */}
-      <div className="flex flex-col-reverse items-start gap-3 @lg:flex-row @lg:gap-4 px-5 py-4 @xl:px-6 border-b border-gray-200/70 dark:border-white/[0.06]">
+      <div className="flex items-start gap-4 px-5 py-4 @xl:px-6 border-b border-gray-200/70 dark:border-white/[0.06]">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">Imagine a better neighborhood</p>
           <h3 id={`${id}-h`} className="mt-1.5 text-xl @xl:text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
@@ -48,9 +48,6 @@ export function ImagineActivity({
             Try an idea and watch this block change. This is an imaginative conversation starter—not an official proposal, vote, or promise.
           </p>
         </div>
-        <span className="flex-shrink-0 max-w-[7.5rem] rounded-md border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-white/5 px-2.5 py-1 text-[11px] font-bold uppercase leading-tight tracking-wider text-gray-600 dark:text-gray-400">
-          Optional activity
-        </span>
       </div>
 
       <div className="grid @xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
