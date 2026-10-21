@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
-import { CONTROL_BASE, CONTROL_IDLE, SECONDARY } from '../FeedTabs'
-import { Emoji } from '../Emoji'
+import { SECONDARY } from '../FeedTabs'
 
 /**
  * Explore's building blocks. Everything reuses the forum's vocabulary — the feed card
@@ -69,57 +68,6 @@ export function SecondaryButton({
   )
 }
 
-/**
- * A selectable pill backed by a real radio or checkbox, so arrow keys, Space and screen
- * readers work without any custom key handling. The input is visually hidden; the label
- * shows the focus ring when the input has keyboard focus.
- */
-export function ChoiceChip({
-  type,
-  name,
-  checked,
-  disabled,
-  onChange,
-  emoji,
-  children,
-}: {
-  type: 'radio' | 'checkbox'
-  name: string
-  checked: boolean
-  disabled?: boolean
-  onChange: () => void
-  emoji?: string
-  children: ReactNode
-}) {
-  return (
-    <label
-      className={[
-        CONTROL_BASE,
-        'cursor-pointer select-none text-sm py-1.5',
-        checked ? `${SECONDARY} border-brand/50 dark:border-brand-light/50` : CONTROL_IDLE,
-        disabled ? 'opacity-50 cursor-not-allowed' : '',
-        'has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand/60 dark:has-[input:focus-visible]:ring-brand-light/70',
-      ].join(' ')}
-    >
-      <input
-        type={type}
-        name={name}
-        checked={checked}
-        disabled={disabled}
-        onChange={onChange}
-        className="sr-only"
-      />
-      {emoji && <Emoji symbol={emoji} className="text-[14px]" />}
-      {children}
-      {checked && (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-      )}
-    </label>
-  )
-}
-
 /** Small coral category label. Coral-text on white is 4.68:1; plain coral on gray-900 is 5.65:1. */
 export function CategoryLabel({ children }: { children: ReactNode }) {
   return (
@@ -138,15 +86,6 @@ export function StarterTag({ children = 'Conversation starter' }: { children?: R
       </svg>
       {children}
     </span>
-  )
-}
-
-export function SectionHeading({ children, hint }: { children: ReactNode; hint?: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
-      <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">{children}</h3>
-      {hint && <p className="text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
-    </div>
   )
 }
 

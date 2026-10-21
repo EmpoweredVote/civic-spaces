@@ -1,5 +1,4 @@
 import { useId } from 'react'
-import { Emoji } from '../Emoji'
 import { NeighborhoodScene } from './NeighborhoodScene'
 import {
   ADVENTURE_OPTIONS,
@@ -8,7 +7,7 @@ import {
   type ImagineOption,
   type TopicId,
 } from './exploreContent'
-import { ArrowIcon, CARD, ChoiceChip, FOCUS, PrimaryButton } from './exploreUi'
+import { ArrowIcon, CARD, FOCUS, PrimaryButton } from './exploreUi'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 
 
@@ -39,7 +38,7 @@ export function ImagineActivity({
   return (
     <section aria-labelledby={`${id}-h`} className={`${CARD} @container overflow-hidden`}>
       {/* Header: what this is, and that it is not a proposal or a vote. */}
-      <div className="flex items-start gap-4 px-5 py-5 @xl:px-7 border-b border-gray-200/70 dark:border-white/[0.06]">
+      <div className="flex flex-col-reverse items-start gap-3 @lg:flex-row @lg:gap-4 px-5 py-5 @xl:px-7 border-b border-gray-200/70 dark:border-white/[0.06]">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">Imagine a better neighborhood</p>
           <h3 id={`${id}-h`} className="mt-1.5 text-xl @xl:text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
@@ -163,54 +162,85 @@ export function AdventureActivity({
   onExploreTopic: (topic: TopicId) => void
 }) {
   const id = useId()
-  const option = ADVENTURE_OPTIONS.find((o) => o.key === choice) ?? null
-  const useMeeting = option?.key === 'evening' && meeting
+  // 15 minutes is pre-selected, so the card always shows a suggestion rather than an empty box.
+  const current = choice ?? '15m'
+  const option = ADVENTURE_OPTIONS.find((o) => o.key === current)!
+  const useMeeting = option.key === 'evening' && meeting
 
   return (
-    <section aria-labelledby={`${id}-h`} className={`${CARD} p-4 flex flex-col gap-3`}>
-      <div className="flex items-center gap-2">
-        <Emoji symbol="🧭" className="text-lg" />
-        <p className="text-[11px] font-bold uppercase tracking-wider text-brand dark:text-brand-light">Tiny local adventure</p>
-      </div>
-      <fieldset>
-        <legend id={`${id}-h`} className="text-base font-bold text-gray-900 dark:text-gray-100 mb-2">
-          How much room do you have today?
-        </legend>
-        <div className="flex flex-wrap gap-1.5">
-          {ADVENTURE_OPTIONS.map((o) => (
-            <ChoiceChip key={o.key} type="radio" name={`${id}-time`} checked={choice === o.key} onChange={() => onChoose(o.key)}>
-              {o.label}
-            </ChoiceChip>
-          ))}
+    <section aria-labelledby={`${id}-h`} className={`${CARD} @container p-6 @xl:p-7`}>
+      <div className="grid gap-6 @2xl:grid-cols-2 @2xl:gap-10">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-muted dark:bg-brand/15 text-brand dark:text-brand-light" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+              </svg>
+            </span>
+            <span className="rounded-md border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-white/5 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
+              Tiny local adventure
+            </span>
+          </div>
+          <div>
+            <h4 id={`${id}-h`} className="text-xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
+              How much room do you have today?
+            </h4>
+            <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
+              Choose a little pocket of time and we'll suggest a gentle way to look closer.
+            </p>
+          </div>
+          {/* Segmented control — real radios, so arrow keys move between the three. */}
+          <fieldset className="grid grid-cols-3 gap-1 rounded-xl bg-gray-100 dark:bg-white/[0.06] p-1">
+            <legend className="sr-only">How much time</legend>
+            {ADVENTURE_OPTIONS.map((o) => {
+              const checked = current === o.key
+              return (
+                <label
+                  key={o.key}
+                  className={[
+                    'cursor-pointer select-none rounded-lg px-2 py-2.5 text-center text-sm motion-safe:transition-colors',
+                    checked
+                      ? 'bg-white dark:bg-gray-900 font-bold text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100',
+                    'has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand/60 dark:has-[input:focus-visible]:ring-brand-light/70',
+                  ].join(' ')}
+                >
+                  <input type="radio" name={`${id}-time`} checked={checked} onChange={() => onChoose(o.key)} className="sr-only" />
+                  {o.label}
+                </label>
+              )
+            })}
+          </fieldset>
         </div>
-      </fieldset>
 
-      <div aria-live="polite">
-        {option ? (
-          <div className="rounded-xl bg-brand-muted dark:bg-brand/10 p-3 flex flex-col gap-2">
+        <div aria-live="polite" className="flex items-start gap-4 @2xl:self-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-coral-text dark:text-brand-coral" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 21s-7-6.2-7-11.5a7 7 0 1114 0C19 14.8 12 21 12 21z" />
+            <circle cx="12" cy="9.5" r="2.5" />
+          </svg>
+          <div className="min-w-0 flex flex-col gap-1.5">
             {useMeeting ? (
               <>
-                <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Sit in on a public meeting</p>
+                <p className="text-base font-semibold text-gray-900 dark:text-gray-100">Sit in on a public meeting</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">{meeting.title}</span>
-                  <br />
-                  {meetingWhen(meeting)}
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">{meeting.title}</span> · {meetingWhen(meeting)}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">From your city's published meeting schedule.</p>
               </>
             ) : (
               <>
-                <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{option.title}</p>
+                <p className="text-base font-semibold text-gray-900 dark:text-gray-100">{option.title}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{option.description}</p>
               </>
             )}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
               {useMeeting && meeting.url && (
                 <a
                   href={meeting.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`inline-flex items-center gap-1 rounded text-sm font-semibold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
+                  className={`inline-flex items-center gap-1 rounded text-sm font-bold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
                 >
                   View the agenda<span className="sr-only"> (opens in a new tab)</span>
                 </a>
@@ -218,15 +248,13 @@ export function AdventureActivity({
               <button
                 type="button"
                 onClick={() => onExploreTopic(option.topic)}
-                className={`inline-flex items-center gap-1 rounded text-sm font-semibold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
+                className={`inline-flex items-center gap-1.5 rounded text-sm font-bold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
               >
-                Explore the related topic <ArrowIcon />
+                {option.linkLabel} <ArrowIcon />
               </button>
             </div>
           </div>
-        ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Pick a length of time for a small suggestion.</p>
-        )}
+        </div>
       </div>
     </section>
   )

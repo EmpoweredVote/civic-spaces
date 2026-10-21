@@ -35,6 +35,8 @@ export interface ExploreTopic {
   question: string
   /** Pre-filled, editable post title. Must fit createPostSchema (≤200). */
   suggestedTitle: string
+  /** One line under the title on a question card. */
+  blurb?: string
   /** True when TopicDetail should list the member's real upcoming meeting agendas. */
   usesMeetingSources?: boolean
 }
@@ -52,8 +54,9 @@ export const TOPICS: Record<TopicId, ExploreTopic> = {
   },
   'park-usefulness': {
     id: 'park-usefulness',
-    category: 'Parks & public space',
+    category: 'Public spaces',
     title: 'What would make your neighborhood park more useful?',
+    blurb: 'Think shade, seating, play space, accessibility, or something we have not considered.',
     summary:
       'Parks serve toddlers, dog walkers, teenagers, older neighbors and people on a lunch break — rarely all equally well.',
     whyItMatters:
@@ -63,8 +66,9 @@ export const TOPICS: Record<TopicId, ExploreTopic> = {
   },
   'local-proposal': {
     id: 'local-proposal',
-    category: 'Local decisions',
+    category: 'Learn together',
     title: 'What would you like to understand about a local proposal?',
+    blurb: 'Name the part that feels unclear, and neighbors can help talk it through.',
     summary:
       'Agendas and proposals can be hard to read cold. Asking what one actually changes is often the most useful first question.',
     whyItMatters:
@@ -202,19 +206,22 @@ export const ADVENTURE_OPTIONS: {
   label: string
   title: string
   description: string
+  linkLabel: string
   topic: TopicId
 }[] = [
   {
     key: '15m',
     label: '15 minutes',
     title: 'Take a noticing walk',
-    description: 'Walk a block or two and notice one place that feels welcoming — and one detail you would improve.',
+    description: 'Step outside and notice one place that feels especially welcoming—or one small detail you would change.',
+    linkLabel: 'Open the walking topic',
     topic: 'safer-walking',
   },
   {
     key: '1h',
     label: 'About an hour',
     title: 'Explore a shared space',
+    linkLabel: 'Open the park topic',
     description: 'Spend some time in a local park or public space and watch how it serves different people.',
     topic: 'park-usefulness',
   },
@@ -223,6 +230,7 @@ export const ADVENTURE_OPTIONS: {
     label: 'An evening',
     // Used only when no real meeting is available — never an invented event.
     title: 'Read up on one local decision',
+    linkLabel: 'Open the local proposal topic',
     description: 'Pick one item your city is deciding and read about it, so you can ask a sharper question.',
     topic: 'local-proposal',
   },

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useId, useRef } from 'react'
-import { Emoji } from '../Emoji'
 import { WalkingScene } from './NeighborhoodScene'
 import { WhatsNewCard } from './WhatsNewCard'
 import { AdventureActivity, ImagineActivity } from './ExploreActivities'
@@ -18,7 +17,7 @@ import {
   writeResume,
   type ExploreDraft,
 } from './exploreStorage'
-import { ArrowIcon, CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton, SectionHeading, StarterTag } from './exploreUi'
+import { ArrowIcon, CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton, StarterTag } from './exploreUi'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { TabKey } from '../../types/database'
 import { creditParts } from '../../lib/banners'
@@ -171,9 +170,9 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
   const nextMeeting = meetings?.[0] ?? null
 
   return (
-    <div className="@container flex flex-col gap-4">
+    <div className="@container flex flex-col gap-6 @lg:gap-8 pb-2">
       {/* A. Introduction */}
-      <div className="px-1 pt-1">
+      <div className="px-1 pt-2">
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
           Welcome to your Civic Space
         </p>
@@ -220,10 +219,21 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
         </div>
       </article>
 
-      {/* C. Questions for your community */}
-      <section aria-label="Questions for your community" className="flex flex-col gap-2">
-        <SectionHeading>Questions for your community</SectionHeading>
-        <div className="grid gap-3 @lg:grid-cols-2">
+      {/* C. Imagine a better neighborhood — straight after the featured topic, as in the design. */}
+      <ImagineActivity
+        choice={ui.imagine}
+        onChoose={(imagine) => setUi({ imagine })}
+        ideaText={imagineTopic ? draftFor(imagineTopic).body : ''}
+        onIdeaChange={(body) => imagineTopic && saveDraft(imagineTopic, { body })}
+        onExploreTopic={openTopic}
+        onShareIdea={startConversation}
+        isAuthenticated={isAuthenticated}
+      />
+
+      {/* D. Questions for your community */}
+      <section aria-labelledby="explore-questions" className="flex flex-col gap-5 pt-2">
+        <SectionHeader id="explore-questions" eyebrow="Start somewhere specific" title="Questions for your community" />
+        <div className="grid gap-4 @xl:grid-cols-2">
           {QUESTION_TOPICS.map((topicId, i) => {
             const topic = TOPICS[topicId]
             return (
@@ -231,35 +241,36 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
                 key={topicId}
                 type="button"
                 onClick={() => openTopic(topicId)}
-                className={`${CARD} group text-left p-4 flex gap-3 items-start hover:border-brand/40 dark:hover:border-brand-light/30 motion-safe:transition-colors ${FOCUS}`}
+                className={`${CARD} group text-left p-5 @xl:p-6 flex gap-4 items-start hover:border-brand/40 dark:hover:border-brand-light/30 motion-safe:transition-colors ${FOCUS}`}
               >
-                <span className="flex-shrink-0 w-9 h-9 rounded-full bg-brand-muted dark:bg-brand/15 flex items-center justify-center">
-                  <Emoji symbol={i === 0 ? '🌳' : '📄'} className="text-lg" />
+                <span className="flex-shrink-0 w-10 h-10 rounded-lg bg-brand-muted dark:bg-brand/15 flex items-center justify-center text-brand dark:text-brand-light" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={i === 0
+                      ? 'M12 20s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.5-7 10-7 10z'
+                      : 'M4 5.5A1.5 1.5 0 015.5 4H11v16H5.5A1.5 1.5 0 014 18.5v-13zM13 4h5.5A1.5 1.5 0 0120 5.5v13a1.5 1.5 0 01-1.5 1.5H13V4z'} />
+                  </svg>
                 </span>
-                <span className="min-w-0 flex flex-col gap-1">
-                  <CategoryLabel>{topic.category}</CategoryLabel>
-                  <span className="text-sm font-bold leading-snug text-gray-900 dark:text-gray-100">{topic.title}</span>
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand dark:text-brand-light group-hover:underline">
-                    See the topic <ArrowIcon />
-                  </span>
+                <span className="min-w-0 flex-1 flex flex-col gap-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{topic.category} · Sample</span>
+                  <span className="text-base font-semibold leading-snug text-gray-900 dark:text-gray-100">{topic.title}</span>
+                  {topic.blurb && <span className="text-sm text-gray-600 dark:text-gray-400">{topic.blurb}</span>}
                 </span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="mt-1 h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400 motion-safe:transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6" />
+                </svg>
               </button>
             )
           })}
         </div>
       </section>
 
-      {/* Activities */}
-      <section aria-label="Activities" className="flex flex-col gap-2">
-        <SectionHeading>Try a quick activity</SectionHeading>
-        <ImagineActivity
-          choice={ui.imagine}
-          onChoose={(imagine) => setUi({ imagine })}
-          ideaText={imagineTopic ? draftFor(imagineTopic).body : ''}
-          onIdeaChange={(body) => imagineTopic && saveDraft(imagineTopic, { body })}
-          onExploreTopic={openTopic}
-          onShareIdea={startConversation}
-          isAuthenticated={isAuthenticated}
+      {/* E. Try something small */}
+      <section aria-labelledby="explore-small" className="flex flex-col gap-5 pt-2">
+        <SectionHeader
+          id="explore-small"
+          eyebrow="Try something small"
+          title="One more way to explore"
+          hint="No pressure, no score—just a new way into your neighborhood."
         />
         <AdventureActivity
           choice={ui.adventure}
@@ -270,6 +281,19 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
       </section>
 
       <WhatsNewCard className={whatsNewInSidebar ? 'md:hidden' : ''} />
+    </div>
+  )
+}
+
+/** Eyebrow + large light heading, the design's section opener; an optional note sits right. */
+function SectionHeader({ id, eyebrow, title, hint }: { id: string; eyebrow: string; title: string; hint?: string }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-1">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">{eyebrow}</p>
+        <h3 id={id} className="mt-1.5 text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">{title}</h3>
+      </div>
+      {hint && <p className="max-w-xs text-sm text-gray-600 dark:text-gray-400 @xl:text-right">{hint}</p>}
     </div>
   )
 }
