@@ -128,9 +128,6 @@ export function ImagineActivity({
                   {isAuthenticated ? 'Share an idea' : 'Sign in to share'}
                 </PrimaryButton>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Saved as a draft on this device · nothing is published until you press Post.
-              </p>
             </div>
           )}
         </div>
