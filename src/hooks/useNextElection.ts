@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
+import { EV_API_ORIGIN } from '../lib/evApi'
 import type { SliceInfo, SliceType } from '../types/database'
 import { isSyntheticUserId, MOCK_ELECTIONS } from '../lib/devMockData'
 
 /**
  * Essentials' public elections lookup, served by ev-accounts. No auth, and it takes a
  * Census geoid plus its TIGER feature class — no address, no coordinates, so nothing
- * here geocodes. Production allows civicspaces.empowered.vote; localhost gets no CORS
- * header, which is why the dev id answers from a fixture.
+ * here geocodes. In local dev it goes through the /api proxy, so the dev id sees real
+ * elections; the fixture is only the offline fallback.
  */
-const ELECTIONS_URL = 'https://api.empowered.vote/api/essentials/browse/elections-by-area'
+const ELECTIONS_URL = `${EV_API_ORIGIN}/api/essentials/browse/elections-by-area`
 
 /** TIGER MTFCC for each geoid-bearing slice type: incorporated place, county, state. */
 const MTFCC: Partial<Record<SliceType, string>> = {

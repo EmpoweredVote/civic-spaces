@@ -16,25 +16,34 @@ npm run dev      # http://localhost:5173
 npm run build    # tsc -b && vite build — the frontend's only real check
 ```
 
-Copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_ANON_KEY`. `VITE_SLICE_ASSIGNMENT_URL` is optional in dev; without it the
-fire-and-forget slice-assignment POST fails silently and you see the "no jurisdiction" state.
+**A fresh clone needs no `.env`.** With no `VITE_SUPABASE_URL`, `npm run dev` opens straight
+into local dev mode: a reserved `dev-guest` id, forum content (slices, posts, replies, friends)
+from the fixtures in `src/lib/devMockData.ts`, and **real public data** — officials, elections,
+meetings, compass topics — from the live ev-accounts API through the `/api` proxy in
+`vite.config.ts` (`src/lib/evApi.ts`). The dev id's "Representing this community" list is the
+real officials for the mock city (Asheville, NC), from the public by-area lookup.
+`VITE_API_PROXY_TARGET` points the proxy at a local ev-accounts.
 
-**To see a signed-in screen locally, visit `http://localhost:5173/?dev=1`.** That mints an
-unsigned, local-only token for a reserved `dev-guest` id, and the feed/thread/slice/reps/compass
-hooks answer that id with fixtures from `src/lib/devMockData.ts`. It is behind
-`import.meta.env.DEV` and is checked last, after the hash, localStorage and silent-SSO paths, so
-a real session always wins.
+Forum content is members-only by design (every `civic_spaces` grant is `TO authenticated`), so
+it stays synthetic locally. Extend `devMockData.ts`; never hardcode posts in components, and
+never copy real members' posts or profiles into fixtures.
+
+To work against the real backend instead, copy `.env.example` to `.env.local` and fill in
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; then `?dev=1` still opts into the dev id.
+`VITE_SLICE_ASSIGNMENT_URL` is optional; without it the fire-and-forget slice-assignment POST
+fails silently and you see the "no jurisdiction" state.
+
+The `?dev=1` token is unsigned and local-only. It is behind `import.meta.env.DEV` and is checked
+last, after the hash, localStorage and silent-SSO paths, so a real session always wins.
 
 🔴 **You still cannot log in by clicking Sign in.** `useAuth.ts` hardcodes the redirect to
 `https://civicspaces.empowered.vote`, so the accounts hub sends you to production, not back to
-localhost. `?dev=1` exists because of that. The other way in is still to log in on production,
+localhost. The other way in is still to log in on production,
 copy `cs_token` out of that tab's localStorage, and paste it into localhost's under the same key
 (or pass an `access_token` in the URL hash).
 
-**Several APIs send no CORS headers for localhost** — the Compass API and the representatives
-endpoint among them. That is why fixtures exist; without them those panels are permanently empty
-in dev, which looks like a bug and is not one.
+**Member-only APIs still 401 for the dev id** (your own representatives, your compass answers).
+Those panels fall back to fixtures for the dev id only; that is expected, not a bug.
 
 **The frontend has no test framework.** No test script, no test files. `npm run build` is the
 whole safety net there — run it before you claim anything works.
@@ -252,6 +261,18 @@ of those four is not done.
   decoded. Crop depends solely on the box's aspect ratio, never its pixel size, so the
   harness's narrower column crops exactly like the real feed column. It does not cover
   `AppShell`'s photoUrl/credit precedence; that still needs the `cs_token` paste.
+- 🔴 **Playwright is a global install, not a dependency — `node_modules` is the wrong place
+  to look.** `shoot:banners` resolves it from `npm root -g`, so searching `node_modules` and
+  concluding this repo has no headless browser is wrong; it has one, with Chromium cached.
+  Import it the way that script does — `mod.chromium ?? mod.default?.chromium` — because the
+  global install's export shape differs between its CJS and ESM entry points.
+- **The harness is for more than screenshots, and the difference matters.** Driving the same
+  page with `document.elementFromPoint()` hit-tests the real box model, which is the only way
+  to catch a control that renders perfectly and cannot be clicked. PR #92 shipped a photo
+  credit whose licence link sat under the content layer's `md:pb-7` padding at `z-10`: a
+  `z-index` that was correct while the credit was plain text, invisible to every PNG and to
+  `tsc -b`, and broken only at `md` and up, so phones looked fine. Toggle the suspect class
+  off mid-run and re-test — a fix that is load-bearing will put the bug straight back.
 - The `ui-ux-pro-max` skill is installed in `.claude/skills/` — worth invoking while planning
   any layout change.
 
@@ -270,3 +291,12 @@ This repo uses the GSD workflow in `.planning/` — `ROADMAP.md` at the top, the
 `phases/NN-name/` with `NN-RESEARCH.md`, `NN-MM-PLAN.md` and `NN-VERIFICATION.md`.
 `ROADMAP.md` lists which phases and milestones have shipped. Read the relevant phase's
 research doc before changing an area — it usually records why something is the way it is.
+
+## Real data for design work
+
+Volunteers and designers: build on live public data, never on invented data. Fetch through the
+hooks in `src/hooks/` (public API calls use `EV_API_ORIGIN` from `src/lib/evApi.ts`). If a request
+fails, say so and stop; do not swap in invented data. Data no API serves yet goes in one module under
+`src/mocks/` (or `devMockData.ts` for forum content) and is listed in the PR under "Data this needs
+from the API". Account and user data is off-limits. Use `@empoweredvote/ev-ui` components instead of
+copies. The `ev-designer` skill in EmpoweredVote/ev-ui has the index of public routes.

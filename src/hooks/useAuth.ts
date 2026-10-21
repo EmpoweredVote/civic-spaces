@@ -216,7 +216,13 @@ export function useAuth(): AuthState & { loginUrl: string } {
       // 4. Opt-in local dev session (?dev=1). Deliberately last: every real
       // check above wins, so this can never mask a genuine session. Stripped
       // from a production build by the import.meta.env.DEV guard.
-      if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('dev') === '1') {
+      // With no VITE_SUPABASE_URL there is no backend to sign in to, so a
+      // fresh clone opens straight into this mode instead of a login wall.
+      if (
+        import.meta.env.DEV &&
+        (new URLSearchParams(window.location.search).get('dev') === '1' ||
+          !import.meta.env.VITE_SUPABASE_URL)
+      ) {
         localStorage.setItem('cs_token', createDevFallbackToken())
         setAuthState({ userId: DEV_GUEST_ID, isAuthenticated: true, isLoading: false })
         return

@@ -85,17 +85,33 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
   // not rendered while loading).
   const stuckSentinelRef = useRef<HTMLDivElement>(null)
   const [isStuck, setIsStuck] = useState(false)
+
+  // 🔴 rootMargin takes px and % only — a rem value is a SyntaxError in the observer
+  // constructor, so the fallback and the guard below are both px. AppShell writes the
+  // variable in px; this only has to survive it being briefly unset.
+  const [stickyOffset, setStickyOffset] = useState('128px')
+  useEffect(() => {
+    const read = () => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--cs-sticky-offset').trim()
+      setStickyOffset(v.endsWith('px') ? v : '128px')
+    }
+    read()
+    // Both the header and the tab bar change height at md, so the threshold is re-read
+    // rather than captured once — a resize across the breakpoint left it stale.
+    window.addEventListener('resize', read)
+    return () => window.removeEventListener('resize', read)
+  }, [])
+
   useEffect(() => {
     const el = stuckSentinelRef.current
     if (!el) return
-    const offset = getComputedStyle(document.documentElement).getPropertyValue('--cs-sticky-offset').trim() || '8rem'
     const observer = new IntersectionObserver(
       ([entry]) => setIsStuck(!entry!.isIntersecting && entry!.boundingClientRect.top < window.innerHeight / 2),
-      { rootMargin: `-${offset} 0px 0px 0px` },
+      { rootMargin: `-${stickyOffset} 0px 0px 0px` },
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [isLoading])
+  }, [isLoading, stickyOffset])
 
   const canWrite = !!userId && profile?.tier !== 'inform' && !profile?.is_suspended
 
@@ -162,7 +178,14 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
     )
   }
 
-  const { headline, excerpt } = post ? splitHeadline(post.title, post.body) : { headline: null, excerpt: '' }
+  // Only the headline: the topic header is a heading, and the post itself is rendered
+  // in full below. Taking splitHeadline's excerpt here was lossy — an untitled post
+  // whose first sentence has no break inside MAX_HEADLINE comes back as all headline
+  // and no excerpt, so the whole post lived in the <h1> and line-clamp-2 cut it to two
+  // lines the moment the header stuck. For an untitled post the opening sentence now
+  // appears twice, as a page title does above its own article.
+  const headline = post ? splitHeadline(post.title, post.body).headline : null
+  const bodyText = post?.body.trim() ?? ''
 
   return (
     <div className="flex flex-col h-full">
@@ -202,9 +225,10 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
               </span>
             </button>
 
-            {/* The headline is the topic above; this is the rest of the post. */}
-            {excerpt && (
-              <p className="mt-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{excerpt}</p>
+            {/* The post as written, in full — the topic above is a heading, not the
+                only copy of it. See the note on `headline`. */}
+            {bodyText && (
+              <p className="mt-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{bodyText}</p>
             )}
 
         {/* Action row: comment count + share */}

@@ -294,9 +294,14 @@ export function HeroBanner({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
       </div>
 
-      <div className={`relative z-10 flex flex-col gap-3 p-4 sm:p-5 ${showCredit ? 'pb-2 sm:pb-2 md:pb-7' : ''}`}>
+      {/* 🔴 pointer-events-none is load-bearing, with auto back on the content below.
+          md:pb-7 reserves the strip the credit is pinned into, and padding is part of
+          this box's hit area — so at md+ this layer (z-10) swallowed every click on the
+          credit (z-[5]) beneath it. Harmless while the credit was plain text; the licence
+          is a link now. Paint order is untouched, so the chip panels still sit above it. */}
+      <div className={`pointer-events-none relative z-10 flex flex-col gap-3 p-4 sm:p-5 ${showCredit ? 'pb-2 sm:pb-2 md:pb-7' : ''}`}>
         {/* Where you are, and which slice of it */}
-        <div className="min-w-0">
+        <div className="pointer-events-auto min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white [text-shadow:0_0_2px_rgb(0_0_0_/_0.9),0_1px_6px_rgb(0_0_0_/_0.8)]">
             {levelLabel}
             {/* No top scrim (the photo stays clear up there), so on a phone, where the
@@ -354,7 +359,10 @@ export function HeroBanner({
             {nextElection && (
               <FactChip
                 icon="🗳️"
-                label="until the next election"
+                // The name is the visible value plus this, so the phrasing has to suit
+                // the value: countdownLabel gives "Today"/"Tomorrow" inside two days,
+                // which read as "Today until the next election" against the usual suffix.
+                label={electionDays <= 1 ? 'is the next election' : 'until the next election'}
                 details={
                   <>
                     <span className="block font-semibold text-white">{nextElection.name}</span>
@@ -371,7 +379,7 @@ export function HeroBanner({
             {nextElection === null && (
               <FactChip
                 icon="🗳️"
-                label="upcoming elections"
+                label="for upcoming elections"
                 details="No upcoming election is on file for this area."
               >
                 <span className="font-medium">None on file</span>
