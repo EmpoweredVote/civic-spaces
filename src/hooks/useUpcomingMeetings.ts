@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { EV_API_ORIGIN } from '../lib/evApi'
 
 /**
  * Scheduled public meetings for a city, from ev-accounts' public meetings API — the
@@ -7,10 +8,9 @@ import { useQuery } from '@tanstack/react-query'
  * limits the public list to published + scheduled, so drafts cannot appear here.
  *
  * Coverage is only where the pipeline runs (Bloomington, IN, as of 2026-09-24), so an
- * empty list is the common, honest answer. Production allows civicspaces.empowered.vote;
- * localhost gets no CORS header, so in dev this fails and the widget simply omits it.
+ * empty list is the common, honest answer. In local dev it goes through the /api proxy.
  */
-const MEETINGS_URL = 'https://api.empowered.vote/api/meetings'
+const MEETINGS_URL = `${EV_API_ORIGIN}/api/meetings`
 
 interface MeetingRecord {
   id: string
