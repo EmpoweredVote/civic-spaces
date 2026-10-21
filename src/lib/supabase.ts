@@ -9,7 +9,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-a
 
 if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
   console.warn(
-    'Supabase env vars are not set — running without a backend connection. Data requests will fail.',
+    'Supabase env vars are not set — running in local dev mode: forum content comes from ' +
+      'src/lib/devMockData.ts, public data (officials, elections, meetings) from the live API.',
   )
 }
 

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { EV_API_ORIGIN } from '../lib/evApi'
 import type {
   CompassAnswer,
   CompassSpokes,
@@ -7,7 +8,7 @@ import type {
 } from '../types/compass'
 import { isSyntheticUserId, MOCK_COMPASS_ANSWERS, MOCK_COMPASS_TOPICS } from '../lib/devMockData'
 
-const COMPASS_BASE = 'https://api.empowered.vote/api/compass'
+const COMPASS_BASE = `${EV_API_ORIGIN}/api/compass`
 
 /** Below this the chart says nothing useful, so the widget renders nothing. */
 export const MIN_SPOKES = 3
