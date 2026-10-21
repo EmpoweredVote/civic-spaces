@@ -210,6 +210,11 @@ export const ADVENTURE_OPTIONS: {
   title: string
   description: string
   linkLabel: string
+  /** Detail panel: how long, where, and how to try it. Generic on purpose — never a real event. */
+  durationChip: string
+  placeChip: string
+  about: string
+  steps: string[]
   topic: TopicId
 }[] = [
   {
@@ -220,6 +225,10 @@ export const ADVENTURE_OPTIONS: {
     title: 'Take a noticing walk',
     description: 'Step outside and notice one place that feels especially welcoming—or one small detail you would change.',
     linkLabel: 'Open the walking topic',
+    durationChip: 'About 15 minutes',
+    placeChip: 'Your own block',
+    about: 'A short, unhurried walk close to home, paying attention to how the street feels rather than getting anywhere.',
+    steps: ['Walk a block or two from your front door.', 'Notice one place that feels welcoming, and what makes it so.', 'Notice one small detail you would change.'],
     topic: 'safer-walking',
   },
   {
@@ -229,6 +238,10 @@ export const ADVENTURE_OPTIONS: {
     emoji: '🌳',
     title: 'Explore a shared space',
     linkLabel: 'Open the park topic',
+    durationChip: 'About an hour',
+    placeChip: 'A park or public space near you',
+    about: 'Time in one shared place, watching how it works for the different people who use it.',
+    steps: ['Pick a nearby park, plaza, or library.', 'Watch who is using it — and who is not.', 'Notice what is missing: shade, seating, play space, or easy access.'],
     description: 'Spend some time in a local park or public space and watch how it serves different people.',
     topic: 'park-usefulness',
   },
@@ -240,6 +253,10 @@ export const ADVENTURE_OPTIONS: {
     // Used only when no real meeting is available — never an invented event.
     title: 'Read up on one local decision',
     linkLabel: 'Open the local proposal topic',
+    durationChip: 'An evening',
+    placeChip: 'From home',
+    about: 'A quiet evening with one decision your city is working on, so the next conversation about it starts from what it actually says.',
+    steps: ['Find your city\x27s next public meeting agenda.', 'Pick one item and read its summary.', 'Write down one question you would want answered.'],
     description: 'Pick one item your city is deciding and read about it, so you can ask a sharper question.',
     topic: 'local-proposal',
   },

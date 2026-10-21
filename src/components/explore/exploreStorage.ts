@@ -40,6 +40,8 @@ const DRAFTS_KEY = 'cs_explore_drafts'
 const UI_KEY = 'cs_explore_ui'
 /** "Post this after sign-in" — set only when a signed-out visitor asked to post. */
 const RESUME_KEY = 'cs_explore_resume'
+/** Adventure suggestions a visitor saved — this device only, and the UI says so. */
+const SAVED_ADVENTURES_KEY = 'cs_saved_adventures'
 /** Same-tab change notification; the native `storage` event only fires in other tabs. */
 const CHANGE_EVENT = 'cs-explore-storage'
 
@@ -90,6 +92,15 @@ export function readResume(): TopicId | null {
 
 export function writeResume(topicId: TopicId | null): void {
   write(RESUME_KEY, topicId)
+}
+
+export function readSavedAdventures(): AdventureDuration[] {
+  return read<AdventureDuration[]>(SAVED_ADVENTURES_KEY) ?? []
+}
+
+/** false when storage is unavailable — the caller must not claim it saved. */
+export function writeSavedAdventures(list: AdventureDuration[]): boolean {
+  return write(SAVED_ADVENTURES_KEY, list)
 }
 
 /** All drafts, kept in sync with writes from anywhere in the page (AppShell clears one after posting). */

@@ -1,4 +1,5 @@
-import { useId } from 'react'
+import { useId, useRef, useState } from 'react'
+import type React from 'react'
 import { Emoji } from '../Emoji'
 import { NeighborhoodScene } from './NeighborhoodScene'
 import {
@@ -9,6 +10,7 @@ import {
   type TopicId,
 } from './exploreContent'
 import { ArrowIcon, CARD, FOCUS, PrimaryButton } from './exploreUi'
+import { readSavedAdventures, writeSavedAdventures } from './exploreStorage'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 
 
@@ -160,108 +162,294 @@ export function AdventureActivity({
   onExploreTopic: (topic: TopicId) => void
 }) {
   const id = useId()
+  const dialogRef = useRef<HTMLDialogElement>(null)
   // 15 minutes is pre-selected, so the card always shows a suggestion rather than an empty box.
   const current = choice ?? '15m'
   const option = ADVENTURE_OPTIONS.find((o) => o.key === current)!
-  const useMeeting = option.key === 'evening' && meeting
-
-  const title = useMeeting ? 'Sit in on a public meeting' : option.title
-  const emoji = useMeeting ? '🏛️' : option.emoji
+  const realMeeting = option.key === 'evening' ? meeting : null
 
   return (
-    <section aria-labelledby={`${id}-h`} className={`${CARD} @container overflow-hidden`}>
-      <div className="grid @2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        {/* Step 1 — the question and the time picker. */}
-        <div className="flex flex-col gap-5 p-6 @xl:p-7">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">Tiny local adventure</p>
-            <h3 id={`${id}-h`} className="mt-1.5 text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
-              How much room do you have today?
-            </h3>
-            <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
-              Pick the time you have, and we'll suggest one small thing to do in your neighborhood.
-            </p>
-          </div>
+    <section aria-labelledby={`${id}-h`} className={`${CARD} p-6 @xl:p-7 flex flex-col gap-5`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E3F4F1] dark:bg-brand/15 text-brand dark:text-brand-light" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+          </svg>
+        </span>
+        <span className="rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-white/5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
+          Tiny local adventure
+        </span>
+      </div>
 
-          <fieldset className="flex flex-col gap-2.5">
-            <legend className="mb-2.5 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              1 · Choose your time
-            </legend>
-            <div className="grid grid-cols-3 gap-2">
-              {ADVENTURE_OPTIONS.map((o) => {
-                const checked = current === o.key
-                return (
-                  <label
-                    key={o.key}
-                    className={[
-                      'flex cursor-pointer select-none flex-col items-center gap-1 rounded-xl border px-2 py-3 text-center motion-safe:transition-colors',
-                      checked
-                        ? 'border-brand/60 dark:border-brand-light/60 bg-brand-muted dark:bg-brand/15 ring-2 ring-brand/25 dark:ring-brand-light/25'
-                        : 'border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-gray-800/60',
-                      'has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand/60 dark:has-[input:focus-visible]:ring-brand-light/70',
-                    ].join(' ')}
-                  >
-                    <input type="radio" name={`${id}-time`} checked={checked} onChange={() => onChoose(o.key)} className="sr-only" />
-                    <Emoji symbol={o.emoji} className="text-xl" />
-                    <span className={`text-sm font-bold leading-tight ${checked ? 'text-brand dark:text-brand-light' : 'text-gray-900 dark:text-gray-100'}`}>
-                      {o.label}
-                    </span>
-                    <span className="text-xs leading-tight text-gray-500 dark:text-gray-400">{o.hint}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </fieldset>
+      <div>
+        <h3 id={`${id}-h`} className="text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
+          How much room do you have today?
+        </h3>
+        <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
+          Choose a little pocket of time and we'll suggest a gentle way to look closer.
+        </p>
+      </div>
+
+      {/* Segmented control — real radios, so arrow keys move between the three. */}
+      <fieldset className="grid grid-cols-3 gap-1 rounded-2xl bg-gray-100 dark:bg-white/[0.06] p-1.5">
+        <legend className="sr-only">How much time do you have</legend>
+        {ADVENTURE_OPTIONS.map((o) => {
+          const checked = current === o.key
+          return (
+            <label
+              key={o.key}
+              className={[
+                'cursor-pointer select-none rounded-xl px-2 py-3 text-center text-sm font-bold motion-safe:transition-colors',
+                checked
+                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100',
+                'has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand/60 dark:has-[input:focus-visible]:ring-brand-light/70',
+              ].join(' ')}
+            >
+              <input type="radio" name={`${id}-time`} checked={checked} onChange={() => onChoose(o.key)} className="sr-only" />
+              {o.label}
+            </label>
+          )
+        })}
+      </fieldset>
+
+      {/* The suggestion — a pin on a dotted trail, then what to do and where it leads. */}
+      <div aria-live="polite" className="flex gap-4 rounded-2xl bg-[#E8F6F3] dark:bg-brand/10 px-5 py-5">
+        <div className="flex w-9 flex-shrink-0 flex-col items-center" aria-hidden="true">
+          <span className="h-6 border-l-2 border-dashed border-brand/50 dark:border-brand-light/50" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-gray-900 shadow-sm text-brand-coral-text dark:text-brand-coral">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 21s-7-6.2-7-11.5a7 7 0 1114 0C19 14.8 12 21 12 21z" />
+              <circle cx="12" cy="9.5" r="2.5" />
+            </svg>
+          </span>
         </div>
-
-        {/* Step 2 — what that time buys you. Tinted, and named after the choice, so the
-            link between the picker and the suggestion is obvious. */}
-        <div
-          aria-live="polite"
-          className="flex flex-col justify-center gap-3 p-6 @xl:p-7 bg-[#EEF8F5] dark:bg-brand/[0.08] border-t @2xl:border-t-0 @2xl:border-l border-gray-200/70 dark:border-white/[0.06]"
-        >
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-            2 · Your suggestion for {option.label.toLowerCase()}
+        <div className="min-w-0 flex flex-col gap-1.5">
+          <p className="text-base font-bold text-gray-900 dark:text-gray-100">
+            {realMeeting ? 'Sit in on a public meeting' : option.title}
           </p>
-          <div className="flex items-start gap-4">
-            <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-white dark:bg-gray-900 shadow-sm" aria-hidden="true">
-              <Emoji symbol={emoji} className="text-2xl" />
-            </span>
-            <div className="min-w-0 flex flex-col gap-1">
-              <p className="text-lg font-semibold leading-snug text-gray-900 dark:text-gray-100">{title}</p>
-              {useMeeting ? (
-                <>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">{meeting.title}</span> · {meetingWhen(meeting)}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">From your city's published meeting schedule.</p>
-                </>
-              ) : (
-                <p className="text-sm text-gray-600 dark:text-gray-400">{option.description}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2.5 pt-1 @2xl:pl-16">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {realMeeting ? <><span className="font-semibold text-gray-900 dark:text-gray-100">{realMeeting.title}</span> · {meetingWhen(realMeeting)}</> : option.description}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <button
+              type="button"
+              onClick={() => dialogRef.current?.showModal()}
+              className={`inline-flex items-center gap-1.5 rounded text-sm font-bold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
+            >
+              See the details <ArrowIcon />
+            </button>
             <button
               type="button"
               onClick={() => onExploreTopic(option.topic)}
-              className={`inline-flex items-center gap-1.5 rounded-xl border border-gray-300 dark:border-white/15 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-bold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 motion-safe:transition-colors ${FOCUS}`}
+              className={`inline-flex items-center gap-1.5 rounded text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:underline ${FOCUS}`}
             >
-              {option.linkLabel} <ArrowIcon />
+              {option.linkLabel}
             </button>
-            {useMeeting && meeting.url && (
-              <a
-                href={meeting.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex items-center gap-1 rounded text-sm font-bold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
-              >
-                View the agenda<span className="sr-only"> (opens in a new tab)</span>
-              </a>
-            )}
           </div>
         </div>
       </div>
+
+      <AdventureDetail
+        dialogRef={dialogRef}
+        option={option}
+        meeting={realMeeting}
+        onExploreTopic={(topic) => {
+          dialogRef.current?.close()
+          onExploreTopic(topic)
+        }}
+      />
     </section>
+  )
+}
+
+// ── Adventure detail ──────────────────────────────────────────────────────────────────
+
+function Chip({ icon, children }: { icon: 'clock' | 'pin'; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-bold text-gray-900 dark:text-gray-100">
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] text-brand dark:text-brand-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {icon === 'clock'
+          ? <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>
+          : <><path d="M12 21s-7-6.2-7-11.5a7 7 0 1114 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></>}
+      </svg>
+      {children}
+    </span>
+  )
+}
+
+/**
+ * The detail page for one suggestion, as a modal over Explore. A suggestion is not an
+ * event: it has no date, organizer or address, so none is shown. Only a REAL scheduled
+ * meeting (from the meetings API) gets a date tile, a time and an agenda link.
+ */
+function AdventureDetail({
+  dialogRef,
+  option,
+  meeting,
+  onExploreTopic,
+}: {
+  dialogRef: React.RefObject<HTMLDialogElement | null>
+  option: (typeof ADVENTURE_OPTIONS)[number]
+  meeting: UpcomingMeeting | null
+  onExploreTopic: (topic: TopicId) => void
+}) {
+  const id = useId()
+  const [saved, setSaved] = useState<AdventureDuration[]>(readSavedAdventures)
+  const [saveFailed, setSaveFailed] = useState(false)
+  const isSaved = saved.includes(option.key)
+  const close = () => dialogRef.current?.close()
+
+  const toggleSave = () => {
+    const next = isSaved ? saved.filter((k) => k !== option.key) : [...saved, option.key]
+    if (writeSavedAdventures(next)) {
+      setSaved(next)
+      setSaveFailed(false)
+    } else {
+      setSaveFailed(true)
+    }
+  }
+
+  const zone = meeting?.timezone ?? undefined
+  const instant = meeting ? (meeting.startsAt ? new Date(meeting.startsAt) : new Date(`${meeting.date}T12:00:00`)) : null
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={`${id}-t`}
+      onClick={(e) => e.target === e.currentTarget && close()}
+      className="m-auto w-[min(56rem,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200/60 dark:border-white/[0.08] bg-gray-50 dark:bg-gray-950 p-0 shadow-2xl backdrop:bg-black/50"
+    >
+      {/* Header */}
+      <div className="relative flex items-start gap-5 bg-white dark:bg-gray-900 px-6 py-7 @container sm:px-10 sm:py-10 border-b border-gray-200/70 dark:border-white/[0.06]">
+        {instant ? (
+          <span className="flex h-20 w-20 flex-shrink-0 flex-col items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-gray-800">
+            <span className="text-xs font-bold uppercase text-brand-coral-text dark:text-brand-coral">
+              {instant.toLocaleDateString(undefined, { month: 'short', timeZone: zone })}
+            </span>
+            <span className="text-3xl font-bold leading-none text-gray-900 dark:text-gray-100">
+              {instant.toLocaleDateString(undefined, { day: 'numeric', timeZone: zone })}
+            </span>
+          </span>
+        ) : (
+          <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-gray-800" aria-hidden="true">
+            <Emoji symbol={option.emoji} className="text-4xl" />
+          </span>
+        )}
+        <div className="min-w-0 flex-1 pr-10">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
+            {meeting ? 'Public meeting · From your city\'s schedule' : 'Local activity · Suggestion'}
+          </p>
+          <h2 id={`${id}-t`} className="mt-2 text-3xl sm:text-[2.75rem] font-medium leading-[1.1] tracking-tight text-gray-900 dark:text-gray-100">
+            {meeting ? meeting.title : option.title}
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close"
+          className={`absolute right-5 top-5 flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${FOCUS}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-col gap-7 px-6 py-8 sm:px-10">
+        <div className="flex flex-wrap gap-3">
+          {meeting && instant ? (
+            <>
+              <Chip icon="clock">
+                {meeting.startsAt
+                  ? instant.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone: zone })
+                  : instant.toLocaleDateString(undefined, { weekday: 'long', timeZone: zone })}
+              </Chip>
+              <Chip icon="pin">{meeting.kind === 'council' ? 'City council' : 'Public meeting'}</Chip>
+            </>
+          ) : (
+            <>
+              <Chip icon="clock">{option.durationChip}</Chip>
+              <Chip icon="pin">{option.placeChip}</Chip>
+            </>
+          )}
+        </div>
+
+        <div>
+          <h3 className="text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
+            {meeting ? 'About this meeting' : 'About this activity'}
+          </h3>
+          <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
+            {meeting
+              ? 'A scheduled public meeting. Reading the agenda first makes it much easier to follow — and to know what to ask.'
+              : option.about}
+          </p>
+        </div>
+
+        {!meeting && (
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">How to try it</h3>
+            <ol className="mt-3 flex flex-col gap-2.5">
+              {option.steps.map((step, i) => (
+                <li key={step} className="flex items-start gap-3 text-base text-gray-700 dark:text-gray-300">
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand-muted dark:bg-brand/15 text-xs font-bold text-brand dark:text-brand-light">{i + 1}</span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        <div className="max-w-2xl rounded-2xl bg-[#E3F4F1] dark:bg-brand/10 px-5 py-4">
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{meeting ? 'Where this comes from' : 'A suggestion, not an event'}</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            {meeting
+              ? 'This meeting is from your city\'s published schedule. Times are shown in the meeting\'s own time zone; check the agenda for the location and any changes.'
+              : 'There is nothing to sign up for and no set time — go whenever suits you. Real public meetings appear here when your city publishes them.'}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={toggleSave}
+            aria-pressed={isSaved}
+            className={`inline-flex items-center gap-2 rounded-xl bg-brand-yellow px-5 py-3 text-base font-bold text-gray-900 ring-1 ring-gray-900/25 dark:ring-0 shadow-[0_4px_0_rgb(0_0_0_/_0.12)] hover:bg-brand-yellow-hover motion-safe:transition-colors ${FOCUS}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill={isSaved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 3h12v18l-6-4-6 4V3z" />
+            </svg>
+            {isSaved ? 'Saved on this device' : 'Save on this device'}
+          </button>
+          {meeting?.url && (
+            <a
+              href={meeting.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`inline-flex items-center gap-1.5 rounded-xl border border-gray-300 dark:border-white/15 bg-white dark:bg-gray-900 px-5 py-3 text-base font-bold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 ${FOCUS}`}
+            >
+              View the agenda<span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={close}
+            className={`inline-flex items-center rounded-xl border border-gray-300 dark:border-white/15 bg-white dark:bg-gray-900 px-5 py-3 text-base font-bold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 ${FOCUS}`}
+          >
+            Back to Explore
+          </button>
+          <button
+            type="button"
+            onClick={() => onExploreTopic(option.topic)}
+            className={`inline-flex items-center gap-1.5 rounded px-1 text-sm font-bold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
+          >
+            {option.linkLabel} <ArrowIcon />
+          </button>
+        </div>
+        {saveFailed && <p className="text-sm text-gray-600 dark:text-gray-400" role="status">Couldn't save — this browser is blocking storage.</p>}
+      </div>
+    </dialog>
   )
 }
