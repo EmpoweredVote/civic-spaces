@@ -73,11 +73,13 @@ interface ExploreViewProps {
   whatsNewInSidebar?: boolean
   /** The member's own place photo; null/undefined falls back to the drawn street. */
   featuredPhoto?: FeaturedPhoto | null
+  /** Lets an update's button switch the forum view; absent when signed out. */
+  onGoToView?: (view: 'explore' | 'conversations') => void
 }
 
 const TEXT_FIELD = `w-full rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-brand dark:focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand/30`
 
-export function ExploreView({ destination, isAuthenticated, meetings, elections, onStartConversation, onScrollTop, whatsNewInSidebar, featuredPhoto }: ExploreViewProps) {
+export function ExploreView({ destination, isAuthenticated, meetings, elections, onStartConversation, onScrollTop, whatsNewInSidebar, featuredPhoto, onGoToView }: ExploreViewProps) {
   const drafts = useExploreDrafts()
   const [ui, setUi] = useExploreUiState()
 
@@ -278,7 +280,7 @@ export function ExploreView({ destination, isAuthenticated, meetings, elections,
         />
       </div>
 
-      <WhatsNewCard className={whatsNewInSidebar ? 'md:hidden' : ''} />
+      <WhatsNewCard className={whatsNewInSidebar ? 'md:hidden' : ''} onGoTo={onGoToView} />
     </div>
   )
 }

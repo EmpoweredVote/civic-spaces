@@ -278,6 +278,9 @@ export interface ProductUpdate {
   whatChanged: string
   why: string
   forYou: string
+  whereToTry: string
+  /** The detail page's button: back to Explore, or over to Conversations. */
+  cta: { label: string; goTo: 'explore' | 'conversations' }
 }
 
 export const PRODUCT_UPDATES: ProductUpdate[] = [
@@ -285,10 +288,12 @@ export const PRODUCT_UPDATES: ProductUpdate[] = [
     id: 'explore',
     category: 'Civic Spaces improvement',
     title: 'A better way to discover your community',
-    summary: 'Explore gives every Civic Space topics and activities to start from — even before its first conversation.',
-    whatChanged: 'Civic Spaces now opens on Explore: topics and short activities sit beside the forum.',
-    why: 'Starting a post from a blank box is hard. A question to react to is easier.',
-    forYou: 'Browse ideas first, then join a conversation when one interests you — your draft waits for you.',
+    summary: 'Explore gives every Civic Space useful context—even before its first conversation.',
+    whatChanged: 'Civic Spaces now opens on Explore: topics, short activities and updates, with Conversations one tab away.',
+    why: 'A useful community should not depend on a busy feed. Starting from a question to react to is easier than a blank box.',
+    forYou: 'You can understand a topic before joining its discussion, and try something local without posting at all. Your draft waits for you.',
+    whereToTry: 'Close this update and choose any topic in Explore.',
+    cta: { label: 'Try Explore', goTo: 'explore' },
   },
   {
     id: 'share-links',
@@ -298,6 +303,8 @@ export const PRODUCT_UPDATES: ProductUpdate[] = [
     whatChanged: 'Every conversation has its own link, and it survives signing in.',
     why: 'Links used to drop you on the home feed.',
     forYou: 'Send a neighbor a link and it opens on that exact conversation.',
+    whereToTry: 'Open any post in Conversations and use Share to copy its link.',
+    cta: { label: 'Go to Conversations', goTo: 'conversations' },
   },
   {
     id: 'browse-shards',
@@ -307,5 +314,7 @@ export const PRODUCT_UPDATES: ProductUpdate[] = [
     whatChanged: 'You can read other communities in your own area, read-only.',
     why: 'Large places are split into several communities, and good conversations happen in each.',
     forYou: 'Read more of your area. Posting stays in your own community.',
+    whereToTry: 'In Conversations, use the community switcher at the start of the toolbar.',
+    cta: { label: 'Go to Conversations', goTo: 'conversations' },
   },
 ]

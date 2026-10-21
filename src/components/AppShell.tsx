@@ -268,6 +268,7 @@ function ActiveExplore({
   userId,
   onStartConversation,
   onScrollTop,
+  onGoToView,
 }: {
   homeSlice: SliceInfo
   /** Whose banner photo the featured card borrows — never the one on screen above it. */
@@ -276,6 +277,7 @@ function ActiveExplore({
   userId: string | null
   onStartConversation: (topicId: TopicId) => void
   onScrollTop: () => void
+  onGoToView: (view: ForumView) => void
 }) {
   const label = TAB_LABELS[homeSlice.sliceType]
   const name = useJurisdictionName(homeSlice, label)
@@ -304,6 +306,7 @@ function ActiveExplore({
       onScrollTop={onScrollTop}
       whatsNewInSidebar
       featuredPhoto={featuredPhoto}
+      onGoToView={onGoToView}
     />
   )
 }
@@ -977,6 +980,7 @@ export default function AppShell() {
                             photoSlice={(activeTab === homeSlice.sliceType ? slices['county'] ?? slices['state'] : homeSlice) ?? homeSlice}
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
+                            onGoToView={handleForumViewChange}
                           />
                         ) : (
                           <ExploreView
@@ -985,6 +989,7 @@ export default function AppShell() {
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
                             whatsNewInSidebar
+                            onGoToView={handleForumViewChange}
                           />
                         )}
                       </div>
@@ -1059,7 +1064,7 @@ export default function AppShell() {
                       about={activeSlice && (
                         <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={slices['county']} />
                       )}
-                      whatsNew={effectiveView === 'explore' && <WhatsNewCard />}
+                      whatsNew={effectiveView === 'explore' && <WhatsNewCard onGoTo={handleForumViewChange} />}
                     />
                   </div>
                 </div>
