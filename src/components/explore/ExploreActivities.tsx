@@ -150,6 +150,30 @@ function meetingWhen(m: UpcomingMeeting): string {
   return `${day} · ${time}`
 }
 
+type SuggestionKind = AdventureDuration | 'meeting' | 'election'
+
+/** Line icon on the suggestion's trail — it says what kind of outing this is at a glance. */
+const SUGGESTION_ICON: Record<SuggestionKind, string[]> = {
+  // A person walking
+  '15m': ['M13 4.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z', 'M9.5 21l2-6 2.5 2.5V21', 'M8 11.5l2.5-3.5 3 1.5 2 3', 'M11.5 15l-1-4.5'],
+  // A tree
+  '1h': ['M12 22v-6', 'M12 16c-4 0-6.5-2.3-6.5-5.2 0-2.2 1.5-3.6 3.2-4A3.9 3.9 0 0112 3a3.9 3.9 0 013.3 3.8c1.7.4 3.2 1.8 3.2 4C18.5 13.7 16 16 12 16z'],
+  // A crescent moon
+  evening: ['M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z'],
+  // A civic building with columns
+  meeting: ['M3 21h18', 'M12 3l8 5H4l8-5z', 'M4 10h16', 'M6 10v8M10 10v8M14 10v8M18 10v8', 'M4 18h16'],
+  // A ballot box
+  election: ['M4 12h16v8H4z', 'M8 12V5h8v7', 'M10.5 8.5l1.5 1.5 2.5-3', 'M8 16h8'],
+}
+
+function SuggestionIcon({ kind }: { kind: SuggestionKind }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {SUGGESTION_ICON[kind].map((d) => <path key={d} d={d} />)}
+    </svg>
+  )
+}
+
 /**
  * A REAL dated event for the "An evening" suggestion — from the meetings API or the
  * area's election calendar, never invented. One shape, so the card and the detail page
@@ -158,6 +182,7 @@ function meetingWhen(m: UpcomingMeeting): string {
 interface RealEvent {
   /** Small line above the card title, e.g. "Coming up · Nov 3". */
   soonLabel: string
+  icon: SuggestionKind
   cardTitle: string
   cardLine: string
   eyebrow: string
@@ -180,6 +205,7 @@ function fromMeeting(m: UpcomingMeeting): RealEvent {
   const short = instant.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: zone })
   return {
     soonLabel: `Coming up · ${short}`,
+    icon: 'meeting',
     cardTitle: 'Sit in on a public meeting',
     cardLine: `${m.title} · ${meetingWhen(m)}`,
     eyebrow: 'Public meeting · From your city\'s schedule',
@@ -207,6 +233,7 @@ function fromElection(e: UpcomingElection): RealEvent {
   const type = e.type ? `${e.type.charAt(0).toUpperCase()}${e.type.slice(1)} election` : 'Election'
   return {
     soonLabel: `Coming up · ${short}`,
+    icon: 'election',
     cardTitle: `Get ready for the ${e.name}`,
     cardLine: `${local.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · An evening with your ballot makes election day easier.`,
     eyebrow: 'Upcoming election · From your area\'s election calendar',
@@ -303,10 +330,7 @@ export function AdventureActivity({
         <div className="flex w-9 flex-shrink-0 flex-col items-center" aria-hidden="true">
           <span className="h-6 border-l-2 border-dashed border-brand/50 dark:border-brand-light/50" />
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-gray-900 shadow-sm text-brand-coral-text dark:text-brand-coral">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 21s-7-6.2-7-11.5a7 7 0 1114 0C19 14.8 12 21 12 21z" />
-              <circle cx="12" cy="9.5" r="2.5" />
-            </svg>
+            <SuggestionIcon kind={realEvent ? realEvent.icon : option.key} />
           </span>
         </div>
         <div className="min-w-0 flex flex-col gap-1.5">
