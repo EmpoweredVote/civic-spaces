@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { createContext, useContext, useState } from 'react'
 import type React from 'react'
 import type { SliceType, TabKey, SliceInfo } from '../types/database'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { Emoji } from './Emoji'
+import { PanelToggle } from './PanelToggle'
 import civicSpacesLight from '../assets/tools/civic-spaces-symbol-light.svg'
 import civicSpacesDark from '../assets/tools/civic-spaces-symbol-dark.svg'
 import focusedCommunitiesLight from '../assets/tools/focused-communities-symbol-light.svg'
@@ -30,6 +31,33 @@ interface NavSidebarProps {
   theme: 'light' | 'dark'
   /** 'pinned' = the always-on desktop rail; 'drawer' = rendered inside the mobile/tablet slide-over */
   variant?: 'pinned' | 'drawer'
+  /** Pinned rail only: icons without labels. */
+  collapsed?: boolean
+  onToggleCollapsed?: () => void
+}
+
+/**
+ * True inside the collapsed (icon-only) rail. A context rather than a prop, because
+ * every row type below needs it and none of their callers otherwise care.
+ */
+const RailCollapsedContext = createContext(false)
+
+/** Row layout shared by every rail item: a full row expanded, a centred icon collapsed. */
+function rowLayout(collapsed: boolean) {
+  return collapsed
+    ? 'flex items-center justify-center w-full h-10 rounded-xl text-sm font-medium transition-colors'
+    : 'flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left'
+}
+
+/** A section heading; collapsed, the section's top border is the only divider left. */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  const collapsed = useContext(RailCollapsedContext)
+  if (collapsed) return null
+  return (
+    <span className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      {children}
+    </span>
+  )
 }
 
 const GEO_TABS: { key: TabKey; label: string; icon: string }[] = [
@@ -251,13 +279,15 @@ function NavItem({
   /** Yellow highlight for the selected civic space, vs. the default brand highlight elsewhere */
   accent?: boolean
 }) {
+  const collapsed = useContext(RailCollapsedContext)
   return (
     <button
       type="button"
       onClick={onClick}
       aria-current={isActive ? 'true' : undefined}
+      title={collapsed ? label : undefined}
       className={[
-        'flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left',
+        rowLayout(collapsed),
         isActive
           ? accent
             ? 'bg-yellow-400 dark:bg-yellow-400 text-gray-900 dark:text-gray-900 font-semibold'
@@ -266,7 +296,7 @@ function NavItem({
       ].join(' ')}
     >
       {NAV_EMOJI[icon] ? <Emoji symbol={NAV_EMOJI[icon]} className="w-5 text-[17px]" /> : <NavIcon type={icon} />}
-      <span>{label}</span>
+      <span className={collapsed ? 'sr-only' : undefined}>{label}</span>
     </button>
   )
 }
@@ -320,12 +350,14 @@ function hideBrokenIcon(e: React.SyntheticEvent<HTMLImageElement>) {
 }
 
 function ResourceRow({ item, theme }: { item: ResourceLinkDef; theme: 'light' | 'dark' }) {
+  const collapsed = useContext(RailCollapsedContext)
   return (
     <a
       href={item.href}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+      title={collapsed ? item.label : undefined}
+      className={`${rowLayout(collapsed)} text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200`}
     >
       <img
         src={theme === 'dark' ? item.logoDark : item.logoLight}
@@ -335,7 +367,7 @@ function ResourceRow({ item, theme }: { item: ResourceLinkDef; theme: 'light' | 
         onError={hideBrokenIcon}
         className="h-5 w-5 flex-shrink-0 rounded"
       />
-      <span className="flex-1 truncate">{item.label}</span>
+      <span className={collapsed ? 'sr-only' : 'flex-1 truncate'}>{item.label}</span>
     </a>
   )
 }
@@ -347,6 +379,7 @@ function ResourceRow({ item, theme }: { item: ResourceLinkDef; theme: 'light' | 
  * would just reload the same app).
  */
 function ConnectToolRow({ item, theme }: { item: ConnectToolDef; theme: 'light' | 'dark' }) {
+  const collapsed = useContext(RailCollapsedContext)
   const inner = (
     <>
       <img
@@ -357,9 +390,9 @@ function ConnectToolRow({ item, theme }: { item: ConnectToolDef; theme: 'light' 
         onError={hideBrokenIcon}
         className="h-5 w-5 flex-shrink-0 rounded"
       />
-      <span className="flex-1 truncate">{item.label}</span>
+      <span className={collapsed ? 'sr-only' : 'flex-1 truncate'}>{item.label}</span>
       {item.isCurrent && (
-        <span className="flex-shrink-0 text-blue-600 dark:text-blue-300" title="You're here">
+        <span className={collapsed ? 'sr-only' : 'flex-shrink-0 text-blue-600 dark:text-blue-300'} title="You're here">
           <NavIcon type="check-circle" />
           <span className="sr-only">(current)</span>
         </span>
@@ -371,7 +404,8 @@ function ConnectToolRow({ item, theme }: { item: ConnectToolDef; theme: 'light' 
     return (
       <div
         aria-current="page"
-        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-blue-50 text-blue-700 dark:bg-blue-400/10 dark:text-blue-300 cursor-default"
+        title={collapsed ? `${item.label} (you're here)` : undefined}
+        className={`${rowLayout(collapsed)} font-semibold bg-blue-50 text-blue-700 dark:bg-blue-400/10 dark:text-blue-300 cursor-default`}
       >
         {inner}
       </div>
@@ -382,7 +416,8 @@ function ConnectToolRow({ item, theme }: { item: ConnectToolDef; theme: 'light' 
     <a
       href={item.href}
       {...(item.sameTab ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
-      className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+      title={collapsed ? item.label : undefined}
+      className={`${rowLayout(collapsed)} text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200`}
     >
       {inner}
     </a>
@@ -421,6 +456,16 @@ function ToolGroup({
   children: React.ReactNode
 }) {
   const classes = TOOL_GROUP_ACCENT[accent]
+  const collapsed = useContext(RailCollapsedContext)
+  // Collapsed, the chip does not fit and a group toggle would have nothing to label,
+  // so the tools always show, as icons under a divider in the group's accent colour.
+  if (collapsed) {
+    return (
+      <div role="group" aria-label={label} className={`flex flex-col gap-1.5 border-t-2 pt-4 ${classes.border}`}>
+        {children}
+      </div>
+    )
+  }
   return (
     <div className="flex flex-col gap-1.5 border-t border-gray-100 dark:border-gray-800 pt-5">
       <button
@@ -465,9 +510,7 @@ function NavSidebarContent({
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        <span className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          Your Civic Spaces
-        </span>
+        <SectionLabel>Your Civic Spaces</SectionLabel>
         {visibleGeoTabs.map((tab) => (
           <GeoNavItem
             key={tab.key}
@@ -480,9 +523,7 @@ function NavSidebarContent({
       </div>
 
       <div className="flex flex-col gap-1.5 border-t border-gray-100 dark:border-gray-800 pt-5">
-        <span className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          Community
-        </span>
+        <SectionLabel>Community</SectionLabel>
         {showVolunteerTab && (
           <NavItem
             icon="volunteer"
@@ -534,7 +575,7 @@ function NavSidebarContent({
  * a slide-over drawer opened from the mobile/tablet menu button (AppShell
  * owns the drawer chrome; this component supplies the content either way).
  */
-export default function NavSidebar({ variant = 'pinned', ...props }: NavSidebarProps) {
+export default function NavSidebar({ variant = 'pinned', collapsed = false, onToggleCollapsed, ...props }: NavSidebarProps) {
   if (variant === 'drawer') {
     return (
       <nav className="flex flex-col gap-6 p-4 overflow-y-auto contain-paint h-full scrollbar-thin" aria-label="Civic space navigation">
@@ -545,10 +586,21 @@ export default function NavSidebar({ variant = 'pinned', ...props }: NavSidebarP
 
   return (
     <nav
-      className="hidden lg:flex h-full flex-col gap-6 p-4 rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 shadow-sm overflow-y-auto contain-paint scrollbar-thin"
+      className={`hidden lg:flex h-full flex-col rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 shadow-sm overflow-y-auto overflow-x-hidden contain-paint scrollbar-thin ${
+        collapsed ? 'gap-4 p-2' : 'gap-6 p-4'
+      }`}
       aria-label="Civic space navigation"
     >
-      <NavSidebarContent {...props} />
+      {/* The toggle sits in the rail's top corner; the negative bottom margin keeps the
+          first section where it was before the toggle existed. */}
+      {onToggleCollapsed && (
+        <div className={collapsed ? 'flex justify-center' : 'flex justify-end -mt-2 -mr-2 -mb-6'}>
+          <PanelToggle side="left" collapsed={collapsed} onToggle={onToggleCollapsed} label="navigation" />
+        </div>
+      )}
+      <RailCollapsedContext.Provider value={collapsed}>
+        <NavSidebarContent {...props} />
+      </RailCollapsedContext.Provider>
     </nav>
   )
 }

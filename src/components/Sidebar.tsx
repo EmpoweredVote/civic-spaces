@@ -21,13 +21,14 @@ interface SidebarProps {
  */
 export function LocationCard({ label }: { label: string }) {
   return (
-    // One line at the sidebar's 320px: text-xs, no wrap, and a long place name ellipsises
-    // (full text on hover) rather than pushing "Change" onto a second line.
-    <div className="flex items-center gap-2 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 px-4 py-3 text-xs whitespace-nowrap">
+    // The sidebar's width follows the space available, so the sentence wraps rather than
+    // ellipsising the place name — the one part of it that matters. "Change" stays on
+    // the first line, pinned right.
+    <div className="flex items-start gap-2 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 px-4 py-3 text-xs leading-snug">
       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0 text-[#FF5740]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z" />
       </svg>
-      <p className="min-w-0 flex-1 truncate text-gray-600 dark:text-gray-400" title={`Showing content for ${label}`}>
+      <p className="min-w-0 flex-1 break-words text-gray-600 dark:text-gray-400">
         Showing content for <span className="font-semibold text-gray-900 dark:text-gray-100">{label}</span>
       </p>
       <a

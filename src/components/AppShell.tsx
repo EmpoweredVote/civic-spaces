@@ -38,6 +38,7 @@ import ModeratorQueue from './ModeratorQueue'
 import { Sidebar, LocationCard } from './Sidebar'
 import { SidebarMobile } from './SidebarMobile'
 import NavSidebar from './NavSidebar'
+import { PanelToggle, usePersistedCollapse } from './PanelToggle'
 import { ThemeToggle } from './ThemeToggle'
 import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
@@ -272,6 +273,7 @@ function ActiveExplore({
   onStartConversation,
   onScrollTop,
   onGoToView,
+  whatsNewInSidebar,
 }: {
   homeSlice: SliceInfo
   /** Whose banner photo the featured card borrows — never the one on screen above it. */
@@ -281,6 +283,8 @@ function ActiveExplore({
   onStartConversation: (topicId: TopicId) => void
   onScrollTop: () => void
   onGoToView: (view: ForumView) => void
+  /** False while the right sidebar is collapsed, so "What's new" shows inline instead. */
+  whatsNewInSidebar: boolean
 }) {
   const label = TAB_LABELS[homeSlice.sliceType]
   const name = useJurisdictionName(homeSlice, label)
@@ -307,7 +311,7 @@ function ActiveExplore({
       elections={elections}
       onStartConversation={onStartConversation}
       onScrollTop={onScrollTop}
-      whatsNewInSidebar
+      whatsNewInSidebar={whatsNewInSidebar}
       featuredPhoto={featuredPhoto}
       onGoToView={onGoToView}
     />
@@ -382,6 +386,11 @@ export default function AppShell() {
   const { data: isModerator } = useIsModerator(userId)
   const repsData = useRepresentatives(userId)
   const { theme, toggleTheme } = useTheme()
+
+  // Both side panels collapse, each remembered per browser: the nav rail to icons
+  // (lg up, where it is pinned), the right sidebar out of the grid (md up).
+  const [navCollapsed, toggleNavCollapsed] = usePersistedCollapse('cs_nav_collapsed')
+  const [sidebarCollapsed, toggleSidebarCollapsed] = usePersistedCollapse('cs_sidebar_collapsed')
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
@@ -461,11 +470,20 @@ export default function AppShell() {
 
   const showVolunteerTab = !!slices['volunteer']
 
-  // The right sidebar is hidden entirely on Volunteer, so the content grid has
-  // to collapse to a single column there — otherwise the 320px track survives
-  // as dead space to the right of the feed.
-  const contentGridCols =
-    activeTab === 'volunteer' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_380px]'
+  // The right sidebar is hidden entirely on Volunteer, and when the member collapses
+  // it, so the content grid drops to a single column then — otherwise its track
+  // survives as dead space to the right of the feed.
+  //
+  // Otherwise its width follows the space there is rather than the breakpoint: 26% of
+  // the content grid, held between 17rem (the narrowest the widgets read well at — the
+  // location line still fits on one row) and 20rem. That is the floor on tablets and
+  // small laptops and reaches the cap only around 1440px, so the feed gets the rest —
+  // and collapsing the nav rail widens both together. The percentage resolves against
+  // the grid container, not the viewport.
+  const showSidebar = activeTab !== 'volunteer' && !sidebarCollapsed
+  const contentGridCols = showSidebar
+    ? 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_clamp(17rem,26%,20rem)]'
+    : 'grid-cols-1'
 
   // Keep the active tab on a slice the member actually has.
   //
@@ -856,7 +874,9 @@ export default function AppShell() {
             </div>
 
             {/* Nav rail + content. The whole page scrolls; the rail is pinned from lg up. */}
-            <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-3 md:gap-4 p-3 md:p-4 items-start">
+            <div
+              className={`grid grid-cols-1 ${navCollapsed ? 'lg:grid-cols-[4rem_minmax(0,1fr)]' : 'lg:grid-cols-[240px_minmax(0,1fr)]'} gap-3 md:gap-4 p-3 md:p-4 items-start`}
+            >
               {/* Sticky under the header (5rem + the 1rem page padding), scrolling on its
                   own when it is taller than the window. */}
               <div className="hidden lg:block sticky top-24 h-[calc(100vh-7rem)]">
@@ -870,6 +890,8 @@ export default function AppShell() {
                   onTogglePanel={handleTogglePanel}
                   onOpenModQueue={() => setModQueueOpen(true)}
                   theme={theme}
+                  collapsed={navCollapsed}
+                  onToggleCollapsed={toggleNavCollapsed}
                 />
               </div>
 
@@ -947,6 +969,14 @@ export default function AppShell() {
                         )}
                       </>
                     )}
+                    {/* The right sidebar's toggle sits at the bar's far end, above the
+                        column it controls, and stays put whether the column is open or
+                        not. md up only: below that SidebarMobile collapses on its own. */}
+                    {activeTab !== 'volunteer' && (
+                      <div className="hidden md:block md:ml-auto flex-shrink-0">
+                        <PanelToggle side="right" collapsed={sidebarCollapsed} onToggle={toggleSidebarCollapsed} label="sidebar" />
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -985,6 +1015,7 @@ export default function AppShell() {
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
                             onGoToView={handleForumViewChange}
+                            whatsNewInSidebar={!sidebarCollapsed}
                           />
                         ) : (
                           <ExploreView
@@ -992,7 +1023,7 @@ export default function AppShell() {
                             isAuthenticated
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
-                            whatsNewInSidebar
+                            whatsNewInSidebar={!sidebarCollapsed}
                             onGoToView={handleForumViewChange}
                           />
                         )}
@@ -1052,10 +1083,11 @@ export default function AppShell() {
                     </div>
                   </div>
 
-                  {/* Sidebar column — hidden below md, and on Volunteer entirely. It scrolls
+                  {/* Sidebar column — hidden below md, on Volunteer, and while collapsed. It
+                      stays mounted when collapsed so its widgets keep their state. It scrolls
                       with the page. `relative` makes it the containing block for absolute
                       descendants, so nothing inside can resolve against the viewport. */}
-                  <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} relative min-w-0 flex-col`}>
+                  <div className={`${showSidebar ? 'hidden md:flex' : 'hidden'} relative min-w-0 flex-col`}>
                     <Sidebar
                       repsData={repsData}
                       activeTab={activeTab}
