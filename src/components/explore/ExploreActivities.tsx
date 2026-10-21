@@ -36,15 +36,15 @@ export function ImagineActivity({
   const caption = option ? option.sceneText : 'Choose an idea to imagine a small neighborhood change.'
 
   return (
-    <section aria-labelledby={`${id}-h`} className={`${CARD} @container overflow-hidden`}>
+    <section aria-labelledby={`${id}-h`} className={`${CARD} @container/imagine overflow-hidden`}>
       {/* Header: what this is, and that it is not a proposal or a vote. */}
-      <div className="flex flex-col-reverse items-start gap-3 @lg:flex-row @lg:gap-4 px-5 py-5 @xl:px-7 border-b border-gray-200/70 dark:border-white/[0.06]">
+      <div className="flex flex-col-reverse items-start gap-3 @lg:flex-row @lg:gap-4 px-5 py-4 @xl:px-6 border-b border-gray-200/70 dark:border-white/[0.06]">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">Imagine a better neighborhood</p>
           <h3 id={`${id}-h`} className="mt-1.5 text-xl @xl:text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
             What would make your neighborhood feel better?
           </h3>
-          <p className="mt-2 max-w-xl text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-1.5 max-w-2xl text-sm text-gray-600 dark:text-gray-400">
             Try an idea and watch this block change. This is an imaginative conversation starter—not an official proposal, vote, or promise.
           </p>
         </div>
@@ -53,26 +53,26 @@ export function ImagineActivity({
         </span>
       </div>
 
-      <div className="grid @xl:grid-cols-2">
+      <div className="grid @xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         {/* The block, with its change described in words underneath (the text equivalent). */}
-        <div className="flex flex-col justify-center gap-3 p-5 bg-[#EEF8F5] dark:bg-brand/[0.08] border-b @xl:border-b-0 @xl:border-r border-gray-200/70 dark:border-white/[0.06]">
+        <div className="flex flex-col justify-center gap-2.5 p-4 bg-[#EEF8F5] dark:bg-brand/[0.08] border-b @xl:border-b-0 @xl:border-r border-gray-200/70 dark:border-white/[0.06]">
           <div className="overflow-hidden rounded-xl">
             <NeighborhoodScene choice={choice} label={`Illustrated neighborhood block. ${caption}`} />
           </div>
           <p className="text-center text-sm text-gray-600 dark:text-gray-400" aria-live="polite">{caption}</p>
         </div>
 
-        <div className="p-5 flex flex-col gap-4">
+        <div className="@container p-4 @xl:p-5 flex flex-col gap-3">
           <fieldset>
             <legend className="sr-only">Choose an idea</legend>
-            <div className="flex flex-col gap-2">
+            <div className="grid gap-2 @xs:grid-cols-2 @xl/imagine:grid-cols-2">
               {IMAGINE_OPTIONS.map((o) => {
                 const checked = choice === o.key
                 return (
                   <label
                     key={o.key}
                     className={[
-                      'flex items-center gap-3 rounded-xl border px-3.5 py-3 cursor-pointer select-none motion-safe:transition-colors',
+                      'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer select-none motion-safe:transition-colors',
                       checked
                         ? 'border-brand/60 dark:border-brand-light/60 bg-brand-muted dark:bg-brand/15 ring-2 ring-brand/25 dark:ring-brand-light/25'
                         : 'border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-gray-800/60',
@@ -82,17 +82,17 @@ export function ImagineActivity({
                     <input type="radio" name={`${id}-imagine`} checked={checked} onChange={() => onChoose(o.key)} className="sr-only" />
                     <span
                       aria-hidden="true"
-                      className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 ${
+                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 ${
                         checked ? 'border-brand bg-brand dark:border-brand-light dark:bg-brand-light' : 'border-gray-300 dark:border-white/20'
                       }`}
                     >
                       {checked && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-white dark:text-gray-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white dark:text-gray-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}
                     </span>
-                    <span className={`text-sm font-semibold ${checked ? 'text-brand dark:text-brand-light' : 'text-gray-900 dark:text-gray-100'}`}>
+                    <span className={`text-sm font-semibold leading-tight ${checked ? 'text-brand dark:text-brand-light' : 'text-gray-900 dark:text-gray-100'}`}>
                       {o.label}
                     </span>
                   </label>
@@ -102,12 +102,12 @@ export function ImagineActivity({
           </fieldset>
 
           {option && (
-            <div className="flex flex-col gap-3 border-t border-gray-200/70 dark:border-white/[0.06] pt-4">
+            <div className="flex flex-col gap-2.5 border-t border-gray-200/70 dark:border-white/[0.06] pt-3">
               <p className="text-sm font-semibold text-brand dark:text-brand-light">{option.response}</p>
-              <label className="flex flex-col gap-2">
+              <label className="flex flex-col gap-1.5">
                 <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{option.followUp}</span>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={ideaText}
                   onChange={(e) => onIdeaChange(e.target.value)}
                   placeholder={option.key === 'other' ? 'Describe your idea…' : 'Add a place or a quick thought…'}
@@ -128,7 +128,7 @@ export function ImagineActivity({
                 </PrimaryButton>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Saved as a draft on this device. Sharing opens a post you can edit — nothing is published until you press Post.
+                Saved as a draft on this device · nothing is published until you press Post.
               </p>
             </div>
           )}
