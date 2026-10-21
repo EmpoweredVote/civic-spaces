@@ -325,10 +325,9 @@ export function AdventureActivity({
       </fieldset>
       </div>
 
-      {/* The suggestion — a pin on a dotted trail, then what to do and where it leads. */}
+      {/* The suggestion — its icon, then what to do and where it leads. */}
       <div aria-live="polite" className="flex gap-4 rounded-2xl bg-[#E8F6F3] dark:bg-brand/10 px-5 py-5">
         <div className="flex w-9 flex-shrink-0 flex-col items-center" aria-hidden="true">
-          <span className="h-6 border-l-2 border-dashed border-brand/50 dark:border-brand-light/50" />
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-gray-900 shadow-sm text-brand-coral-text dark:text-brand-coral">
             <SuggestionIcon kind={realEvent ? realEvent.icon : option.key} />
           </span>
