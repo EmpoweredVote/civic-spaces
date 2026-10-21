@@ -10,6 +10,8 @@ interface SidebarProps {
   location?: ReactNode
   events?: ReactNode
   about?: ReactNode
+  /** Explore's "What's new" card — passed only while the Explore view is showing. */
+  whatsNew?: ReactNode
 }
 
 /**
@@ -41,7 +43,7 @@ export function LocationCard({ label }: { label: string }) {
   )
 }
 
-export function Sidebar({ repsData, activeTab, location, events, about }: SidebarProps) {
+export function Sidebar({ repsData, activeTab, location, events, about, whatsNew }: SidebarProps) {
   if (activeTab === 'volunteer') return null
 
   const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
@@ -80,6 +82,7 @@ export function Sidebar({ repsData, activeTab, location, events, about }: Sideba
       )}
 
       {about}
+      {whatsNew}
     </div>
   )
 }

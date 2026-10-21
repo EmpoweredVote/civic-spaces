@@ -26,6 +26,7 @@ import LocationPrompt from './LocationPrompt'
 import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
 import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
 import { ExploreView } from './explore/ExploreView'
+import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume } from './explore/exploreStorage'
 import type { TopicId } from './explore/exploreContent'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
@@ -284,6 +285,7 @@ function ActiveExplore({
       meetings={meetings}
       onStartConversation={onStartConversation}
       onScrollTop={onScrollTop}
+      whatsNewInSidebar
     />
   )
 }
@@ -961,6 +963,7 @@ export default function AppShell() {
                             isAuthenticated
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
+                            whatsNewInSidebar
                           />
                         )}
                       </div>
@@ -1035,6 +1038,7 @@ export default function AppShell() {
                       about={activeSlice && (
                         <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={slices['county']} />
                       )}
+                      whatsNew={effectiveView === 'explore' && <WhatsNewCard />}
                     />
                   </div>
                 </div>

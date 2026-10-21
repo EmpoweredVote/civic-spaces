@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useId, useRef } from 'react'
 import { Emoji } from '../Emoji'
 import { WalkingScene } from './NeighborhoodScene'
+import { WhatsNewCard } from './WhatsNewCard'
 import { AdventureActivity, ImagineActivity, PostcardActivity } from './ExploreActivities'
 import {
   FEATURED_TOPIC,
   IMAGINE_OPTIONS,
-  PRODUCT_UPDATES,
   QUESTION_TOPICS,
   TOPICS,
   type TopicId,
@@ -43,11 +43,13 @@ interface ExploreViewProps {
   onStartConversation: (topicId: TopicId) => void
   /** Brings the column back to its top when the view inside it changes. */
   onScrollTop?: () => void
+  /** True when the right sidebar shows What's new (md+), so the column keeps it only below md. */
+  whatsNewInSidebar?: boolean
 }
 
 const TEXT_FIELD = `w-full rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-brand dark:focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand/30`
 
-export function ExploreView({ destination, isAuthenticated, meetings, onStartConversation, onScrollTop }: ExploreViewProps) {
+export function ExploreView({ destination, isAuthenticated, meetings, onStartConversation, onScrollTop, whatsNewInSidebar }: ExploreViewProps) {
   const drafts = useExploreDrafts()
   const [ui, setUi] = useExploreUiState()
 
@@ -233,7 +235,7 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
         </div>
       </section>
 
-      <WhatsNew />
+      <WhatsNewCard className={whatsNewInSidebar ? 'md:hidden' : ''} />
     </div>
   )
 }
@@ -396,48 +398,5 @@ function TopicDetail({
         </form>
       </div>
     </article>
-  )
-}
-
-// ── What's new ────────────────────────────────────────────────────────────────────────
-
-function WhatsNew() {
-  const [featured, ...rest] = PRODUCT_UPDATES
-  if (!featured) return null
-  return (
-    <section aria-labelledby="explore-whats-new" className={`${CARD} p-4 flex flex-col gap-3`}>
-      <div className="flex items-center gap-2">
-        <Emoji symbol="📣" className="text-base" />
-        <h3 id="explore-whats-new" className="text-sm font-bold text-gray-900 dark:text-gray-100">What's new in Civic Spaces</h3>
-      </div>
-      <div className="rounded-xl bg-brand-muted dark:bg-brand/10 p-3">
-        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{featured.title}</p>
-        <dl className="mt-1.5 grid gap-1.5 text-sm @lg:grid-cols-3">
-          <div><dt className="text-xs font-semibold text-brand dark:text-brand-light">What changed</dt><dd className="text-gray-700 dark:text-gray-300">{featured.whatChanged}</dd></div>
-          <div><dt className="text-xs font-semibold text-brand dark:text-brand-light">Why</dt><dd className="text-gray-700 dark:text-gray-300">{featured.why}</dd></div>
-          <div><dt className="text-xs font-semibold text-brand dark:text-brand-light">For you</dt><dd className="text-gray-700 dark:text-gray-300">{featured.forYou}</dd></div>
-        </dl>
-      </div>
-      <ul className="grid gap-2 @lg:grid-cols-2">
-        {rest.slice(0, 2).map((u) => (
-          <li key={u.id} className="rounded-xl border border-gray-200/60 dark:border-white/[0.06] p-3">
-            <details className="group">
-              <summary className={`cursor-pointer list-none rounded flex items-start justify-between gap-2 ${FOCUS}`}>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-gray-900 dark:text-gray-100">{u.title}</span>
-                  <span className="mt-0.5 block text-xs text-gray-600 dark:text-gray-400">{u.forYou}</span>
-                </span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400 motion-safe:transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-                </svg>
-                <span className="sr-only">Show details</span>
-              </summary>
-              <p className="mt-1.5 text-xs text-gray-600 dark:text-gray-400"><span className="font-semibold">What changed:</span> {u.whatChanged}</p>
-              <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400"><span className="font-semibold">Why:</span> {u.why}</p>
-            </details>
-          </li>
-        ))}
-      </ul>
-    </section>
   )
 }

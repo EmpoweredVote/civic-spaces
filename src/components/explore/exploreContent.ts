@@ -249,11 +249,14 @@ export const POSTCARD_LIMIT = 3
 /**
  * Civic Spaces has no published release-notes feed, so these describe changes that are
  * actually in this codebase — no dates, because none was ever published. When a real
- * updates source exists, read it here and add the "View all updates" action.
+ * updates source exists, read it here instead; WhatsNewCard's "View all updates" lists this array.
  */
 export interface ProductUpdate {
   id: string
+  category: string
   title: string
+  /** One line for the card; the three fields below are the full note. */
+  summary: string
   whatChanged: string
   why: string
   forYou: string
@@ -262,21 +265,27 @@ export interface ProductUpdate {
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
     id: 'explore',
-    title: 'Explore your community',
+    category: 'Civic Spaces improvement',
+    title: 'A better way to discover your community',
+    summary: 'Explore gives every Civic Space topics and activities to start from — even before its first conversation.',
     whatChanged: 'Civic Spaces now opens on Explore: topics and short activities sit beside the forum.',
     why: 'Starting a post from a blank box is hard. A question to react to is easier.',
     forYou: 'Browse ideas first, then join a conversation when one interests you — your draft waits for you.',
   },
   {
     id: 'share-links',
+    category: 'Conversations',
     title: 'Shareable conversation links',
+    summary: 'Send a neighbor a link and it opens on that exact conversation.',
     whatChanged: 'Every conversation has its own link, and it survives signing in.',
     why: 'Links used to drop you on the home feed.',
     forYou: 'Send a neighbor a link and it opens on that exact conversation.',
   },
   {
     id: 'browse-shards',
+    category: 'Communities',
     title: 'Browse other communities nearby',
+    summary: 'Read more of your area. Posting stays in your own community.',
     whatChanged: 'You can read other communities in your own area, read-only.',
     why: 'Large places are split into several communities, and good conversations happen in each.',
     forYou: 'Read more of your area. Posting stays in your own community.',
