@@ -204,6 +204,9 @@ export type AdventureDuration = '15m' | '1h' | 'evening'
 export const ADVENTURE_OPTIONS: {
   key: AdventureDuration
   label: string
+  /** Shown under the label in the time picker, so each choice says what it leads to. */
+  hint: string
+  emoji: string
   title: string
   description: string
   linkLabel: string
@@ -212,6 +215,8 @@ export const ADVENTURE_OPTIONS: {
   {
     key: '15m',
     label: '15 minutes',
+    hint: 'A quick walk',
+    emoji: '🚶',
     title: 'Take a noticing walk',
     description: 'Step outside and notice one place that feels especially welcoming—or one small detail you would change.',
     linkLabel: 'Open the walking topic',
@@ -220,6 +225,8 @@ export const ADVENTURE_OPTIONS: {
   {
     key: '1h',
     label: 'About an hour',
+    hint: 'A shared space',
+    emoji: '🌳',
     title: 'Explore a shared space',
     linkLabel: 'Open the park topic',
     description: 'Spend some time in a local park or public space and watch how it serves different people.',
@@ -228,6 +235,8 @@ export const ADVENTURE_OPTIONS: {
   {
     key: 'evening',
     label: 'An evening',
+    hint: 'A local decision',
+    emoji: '🌙',
     // Used only when no real meeting is available — never an invented event.
     title: 'Read up on one local decision',
     linkLabel: 'Open the local proposal topic',

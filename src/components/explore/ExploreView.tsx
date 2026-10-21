@@ -264,20 +264,15 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
         </div>
       </section>
 
-      {/* E. Try something small */}
-      <section aria-labelledby="explore-small" className="flex flex-col gap-5 pt-2">
-        <SectionHeader
-          id="explore-small"
-          eyebrow="Try something small"
-          title="One more way to explore"
-        />
+      {/* E. Tiny local adventure — the card carries its own heading. */}
+      <div className="pt-2">
         <AdventureActivity
           choice={ui.adventure}
           onChoose={(adventure) => setUi({ adventure })}
           meeting={nextMeeting}
           onExploreTopic={openTopic}
         />
-      </section>
+      </div>
 
       <WhatsNewCard className={whatsNewInSidebar ? 'md:hidden' : ''} />
     </div>
