@@ -280,20 +280,16 @@ export function AdventureActivity({
       {/* Picker left, suggestion right on a wide column; stacked when narrow. */}
       <div className="grid gap-5 @xl:grid-cols-2 @xl:gap-6 @3xl:gap-8 @xl:items-center">
       <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E3F4F1] dark:bg-brand/15 text-brand dark:text-brand-light" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-          </svg>
-        </span>
-        <span className="rounded-lg border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-white/5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
-          Tiny local adventure
-        </span>
-      </div>
-
       <div>
-        <h3 id={`${id}-h`} className="text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
+        {/* The same teal eyebrow as the Imagine card, with a compass for "go and look". */}
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M15.5 8.5l-2 5-5 2 2-5 5-2z" />
+          </svg>
+          Explore nearby
+        </p>
+        <h3 id={`${id}-h`} className="mt-1.5 text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
           How much room do you have today?
         </h3>
         <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
