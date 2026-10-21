@@ -264,12 +264,16 @@ function ActiveAboutWidget({
 function ActiveExplore({
   homeSlice,
   photoSlice,
+  stateSlice,
+  userId,
   onStartConversation,
   onScrollTop,
 }: {
   homeSlice: SliceInfo
   /** Whose banner photo the featured card borrows — never the one on screen above it. */
   photoSlice: SliceInfo
+  stateSlice: SliceInfo | undefined
+  userId: string | null
   onStartConversation: (topicId: TopicId) => void
   onScrollTop: () => void
 }) {
@@ -277,6 +281,8 @@ function ActiveExplore({
   const name = useJurisdictionName(homeSlice, label)
   const city = homeSlice.sliceType === 'city' && name !== label ? name : null
   const { meetings } = useUpcomingMeetings(city, city ? stateAbbrevFromGeoid(homeSlice.geoid) : null)
+  // Same query (and cache) the events widget uses — the area's real election calendar.
+  const { elections } = useUpcomingElections(electionAreaFor(homeSlice, stateSlice), userId)
   // Same hook and shared-bucket credits as the hero banner. A photo without a credit has
   // unknown provenance (a DB override, or nothing resolved), so it is not reused here.
   const hero = useHeroBanner(photoSlice)
@@ -293,6 +299,7 @@ function ActiveExplore({
       destination={destination}
       isAuthenticated
       meetings={meetings}
+      elections={elections}
       onStartConversation={onStartConversation}
       onScrollTop={onScrollTop}
       whatsNewInSidebar
@@ -965,6 +972,8 @@ export default function AppShell() {
                         {homeSlice ? (
                           <ActiveExplore
                             homeSlice={homeSlice}
+                            stateSlice={slices['state']}
+                            userId={userId}
                             photoSlice={(activeTab === homeSlice.sliceType ? slices['county'] ?? slices['state'] : homeSlice) ?? homeSlice}
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}

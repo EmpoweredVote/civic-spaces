@@ -12,6 +12,7 @@ import {
 import { ArrowIcon, CARD, FOCUS, PrimaryButton } from './exploreUi'
 import { readSavedAdventures, writeSavedAdventures } from './exploreStorage'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
+import type { UpcomingElection } from '../../hooks/useNextElection'
 
 
 // ── Imagine a better neighborhood ─────────────────────────────────────────────────────
@@ -149,16 +150,93 @@ function meetingWhen(m: UpcomingMeeting): string {
   return `${day} · ${time}`
 }
 
+/**
+ * A REAL dated event for the "An evening" suggestion — from the meetings API or the
+ * area's election calendar, never invented. One shape, so the card and the detail page
+ * render either the same way.
+ */
+interface RealEvent {
+  /** Small line above the card title, e.g. "Coming up · Nov 3". */
+  soonLabel: string
+  cardTitle: string
+  cardLine: string
+  eyebrow: string
+  title: string
+  month: string
+  day: string
+  timeChip: string
+  placeChip: string
+  aboutHeading: string
+  about: string
+  steps: string[]
+  source: string
+  url: string | null
+  urlLabel: string
+}
+
+function fromMeeting(m: UpcomingMeeting): RealEvent {
+  const zone = m.timezone ?? undefined
+  const instant = m.startsAt ? new Date(m.startsAt) : new Date(`${m.date}T12:00:00`)
+  const short = instant.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: zone })
+  return {
+    soonLabel: `Coming up · ${short}`,
+    cardTitle: 'Sit in on a public meeting',
+    cardLine: `${m.title} · ${meetingWhen(m)}`,
+    eyebrow: 'Public meeting · From your city\'s schedule',
+    title: m.title,
+    month: instant.toLocaleDateString(undefined, { month: 'short', timeZone: zone }),
+    day: instant.toLocaleDateString(undefined, { day: 'numeric', timeZone: zone }),
+    timeChip: m.startsAt
+      ? instant.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone: zone })
+      : instant.toLocaleDateString(undefined, { weekday: 'long', timeZone: zone }),
+    placeChip: m.kind === 'council' ? 'City council' : 'Public meeting',
+    aboutHeading: 'About this meeting',
+    about: 'A scheduled public meeting where your city works through real decisions. Reading the agenda first makes it much easier to follow — and to know what to ask.',
+    steps: ['Open the agenda and skim the item titles.', 'Pick one item that affects your street or neighborhood.', 'Attend or watch, and note one question to bring back.'],
+    source: 'This meeting is from your city\'s published schedule. Times are in the meeting\'s own time zone; check the agenda for the location and any changes.',
+    url: m.url,
+    urlLabel: 'View the agenda',
+  }
+}
+
+function fromElection(e: UpcomingElection): RealEvent {
+  const [y, mo, d] = e.date.split('-').map(Number)
+  // A calendar date: new Date('2026-11-03') would be UTC midnight, a day early in the US.
+  const local = new Date(y!, mo! - 1, d!, 12)
+  const short = local.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const type = e.type ? `${e.type.charAt(0).toUpperCase()}${e.type.slice(1)} election` : 'Election'
+  return {
+    soonLabel: `Coming up · ${short}`,
+    cardTitle: `Get ready for the ${e.name}`,
+    cardLine: `${local.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · An evening with your ballot makes election day easier.`,
+    eyebrow: 'Upcoming election · From your area\'s election calendar',
+    title: e.name,
+    month: local.toLocaleDateString(undefined, { month: 'short' }),
+    day: String(d),
+    timeChip: local.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }),
+    placeChip: type,
+    aboutHeading: 'About this election',
+    about: 'An upcoming election on your ballot. Spending one evening with what is on it makes the day itself calmer — and gives you better questions to ask neighbors.',
+    steps: ['Look up what will be on your ballot.', 'Pick the race or measure you know least about and read up on it.', 'Write down one question to talk through with neighbors.'],
+    source: 'This date comes from Empowered\'s election calendar for your area. Check your local election office for polling places, hours and deadlines.',
+    url: null,
+    urlLabel: '',
+  }
+}
+
 export function AdventureActivity({
   choice,
   onChoose,
   meeting,
+  election,
   onExploreTopic,
 }: {
   choice: AdventureDuration | null
   onChoose: (choice: AdventureDuration) => void
   /** The next real scheduled public meeting, if the meetings API returned one. Never invented. */
   meeting: UpcomingMeeting | null
+  /** The area's next real election, used for the evening when there is no meeting. */
+  election: UpcomingElection | null
   onExploreTopic: (topic: TopicId) => void
 }) {
   const id = useId()
@@ -166,7 +244,9 @@ export function AdventureActivity({
   // 15 minutes is pre-selected, so the card always shows a suggestion rather than an empty box.
   const current = choice ?? '15m'
   const option = ADVENTURE_OPTIONS.find((o) => o.key === current)!
-  const realMeeting = option.key === 'evening' ? meeting : null
+  // The evening prefers a real dated event: the city's next meeting, else the next election.
+  const realEvent =
+    option.key === 'evening' ? (meeting ? fromMeeting(meeting) : election ? fromElection(election) : null) : null
 
   return (
     <section aria-labelledby={`${id}-h`} className={`${CARD} @container p-6 @xl:p-7`}>
@@ -230,12 +310,14 @@ export function AdventureActivity({
           </span>
         </div>
         <div className="min-w-0 flex flex-col gap-1.5">
-          <p className="text-base font-bold text-gray-900 dark:text-gray-100">
-            {realMeeting ? 'Sit in on a public meeting' : option.title}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {realMeeting ? <><span className="font-semibold text-gray-900 dark:text-gray-100">{realMeeting.title}</span> · {meetingWhen(realMeeting)}</> : option.description}
-          </p>
+          {realEvent && (
+            <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white dark:bg-gray-900 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-coral-text dark:text-brand-coral">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-coral" aria-hidden="true" />
+              {realEvent.soonLabel}
+            </p>
+          )}
+          <p className="text-base font-bold text-gray-900 dark:text-gray-100">{realEvent ? realEvent.cardTitle : option.title}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{realEvent ? realEvent.cardLine : option.description}</p>
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
             <button
               type="button"
@@ -259,7 +341,7 @@ export function AdventureActivity({
       <AdventureDetail
         dialogRef={dialogRef}
         option={option}
-        meeting={realMeeting}
+        event={realEvent}
         onExploreTopic={(topic) => {
           dialogRef.current?.close()
           onExploreTopic(topic)
@@ -292,12 +374,13 @@ function Chip({ icon, children }: { icon: 'clock' | 'pin'; children: React.React
 function AdventureDetail({
   dialogRef,
   option,
-  meeting,
+  event,
   onExploreTopic,
 }: {
   dialogRef: React.RefObject<HTMLDialogElement | null>
   option: (typeof ADVENTURE_OPTIONS)[number]
-  meeting: UpcomingMeeting | null
+  /** A real dated event (meeting or election), or null for the plain suggestion. */
+  event: RealEvent | null
   onExploreTopic: (topic: TopicId) => void
 }) {
   const id = useId()
@@ -316,8 +399,7 @@ function AdventureDetail({
     }
   }
 
-  const zone = meeting?.timezone ?? undefined
-  const instant = meeting ? (meeting.startsAt ? new Date(meeting.startsAt) : new Date(`${meeting.date}T12:00:00`)) : null
+  const steps = event ? event.steps : option.steps
 
   return (
     <dialog
@@ -327,15 +409,11 @@ function AdventureDetail({
       className="m-auto w-[min(56rem,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200/60 dark:border-white/[0.08] bg-gray-50 dark:bg-gray-950 p-0 shadow-2xl backdrop:bg-black/50"
     >
       {/* Header */}
-      <div className="relative flex items-start gap-5 bg-white dark:bg-gray-900 px-6 py-7 @container sm:px-10 sm:py-10 border-b border-gray-200/70 dark:border-white/[0.06]">
-        {instant ? (
+      <div className="relative flex items-start gap-5 bg-white dark:bg-gray-900 px-6 py-7 sm:px-10 sm:py-10 border-b border-gray-200/70 dark:border-white/[0.06]">
+        {event ? (
           <span className="flex h-20 w-20 flex-shrink-0 flex-col items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-gray-800">
-            <span className="text-xs font-bold uppercase text-brand-coral-text dark:text-brand-coral">
-              {instant.toLocaleDateString(undefined, { month: 'short', timeZone: zone })}
-            </span>
-            <span className="text-3xl font-bold leading-none text-gray-900 dark:text-gray-100">
-              {instant.toLocaleDateString(undefined, { day: 'numeric', timeZone: zone })}
-            </span>
+            <span className="text-xs font-bold uppercase text-brand-coral-text dark:text-brand-coral">{event.month}</span>
+            <span className="text-3xl font-bold leading-none text-gray-900 dark:text-gray-100">{event.day}</span>
           </span>
         ) : (
           <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-gray-800" aria-hidden="true">
@@ -344,10 +422,10 @@ function AdventureDetail({
         )}
         <div className="min-w-0 flex-1 pr-10">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
-            {meeting ? 'Public meeting · From your city\'s schedule' : 'Local activity · Suggestion'}
+            {event ? event.eyebrow : 'Local activity · Suggestion'}
           </p>
           <h2 id={`${id}-t`} className="mt-2 text-3xl sm:text-[2.75rem] font-medium leading-[1.1] tracking-tight text-gray-900 dark:text-gray-100">
-            {meeting ? meeting.title : option.title}
+            {event ? event.title : option.title}
           </h2>
         </div>
         <button
@@ -365,54 +443,35 @@ function AdventureDetail({
       {/* Body */}
       <div className="flex flex-col gap-7 px-6 py-8 sm:px-10">
         <div className="flex flex-wrap gap-3">
-          {meeting && instant ? (
-            <>
-              <Chip icon="clock">
-                {meeting.startsAt
-                  ? instant.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone: zone })
-                  : instant.toLocaleDateString(undefined, { weekday: 'long', timeZone: zone })}
-              </Chip>
-              <Chip icon="pin">{meeting.kind === 'council' ? 'City council' : 'Public meeting'}</Chip>
-            </>
-          ) : (
-            <>
-              <Chip icon="clock">{option.durationChip}</Chip>
-              <Chip icon="pin">{option.placeChip}</Chip>
-            </>
-          )}
+          <Chip icon="clock">{event ? event.timeChip : option.durationChip}</Chip>
+          <Chip icon="pin">{event ? event.placeChip : option.placeChip}</Chip>
         </div>
 
         <div>
           <h3 className="text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
-            {meeting ? 'About this meeting' : 'About this activity'}
+            {event ? event.aboutHeading : 'About this activity'}
           </h3>
-          <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
-            {meeting
-              ? 'A scheduled public meeting. Reading the agenda first makes it much easier to follow — and to know what to ask.'
-              : option.about}
-          </p>
+          <p className="mt-2 text-base text-gray-600 dark:text-gray-400">{event ? event.about : option.about}</p>
         </div>
 
-        {!meeting && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">How to try it</h3>
-            <ol className="mt-3 flex flex-col gap-2.5">
-              {option.steps.map((step, i) => (
-                <li key={step} className="flex items-start gap-3 text-base text-gray-700 dark:text-gray-300">
-                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand-muted dark:bg-brand/15 text-xs font-bold text-brand dark:text-brand-light">{i + 1}</span>
-                  {step}
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{event ? 'Make an evening of it' : 'How to try it'}</h3>
+          <ol className="mt-3 flex flex-col gap-2.5">
+            {steps.map((step, i) => (
+              <li key={step} className="flex items-start gap-3 text-base text-gray-700 dark:text-gray-300">
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand-muted dark:bg-brand/15 text-xs font-bold text-brand dark:text-brand-light">{i + 1}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        </div>
 
         <div className="max-w-2xl rounded-2xl bg-[#E3F4F1] dark:bg-brand/10 px-5 py-4">
-          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{meeting ? 'Where this comes from' : 'A suggestion, not an event'}</p>
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{event ? 'Where this comes from' : 'A suggestion, not an event'}</p>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {meeting
-              ? 'This meeting is from your city\'s published schedule. Times are shown in the meeting\'s own time zone; check the agenda for the location and any changes.'
-              : 'There is nothing to sign up for and no set time — go whenever suits you. Real public meetings appear here when your city publishes them.'}
+            {event
+              ? event.source
+              : 'There is nothing to sign up for and no set time — go whenever suits you. Real public meetings and elections appear here when they are published for your area.'}
           </p>
         </div>
 
@@ -428,14 +487,14 @@ function AdventureDetail({
             </svg>
             {isSaved ? 'Saved on this device' : 'Save on this device'}
           </button>
-          {meeting?.url && (
+          {event?.url && (
             <a
-              href={meeting.url}
+              href={event.url}
               target="_blank"
               rel="noopener noreferrer"
               className={`inline-flex items-center gap-1.5 rounded-xl border border-gray-300 dark:border-white/15 bg-white dark:bg-gray-900 px-5 py-3 text-base font-bold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 ${FOCUS}`}
             >
-              View the agenda<span className="sr-only"> (opens in a new tab)</span>
+              {event.urlLabel}<span className="sr-only"> (opens in a new tab)</span>
             </a>
           )}
           <button

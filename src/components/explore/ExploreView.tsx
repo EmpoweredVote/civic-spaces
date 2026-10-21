@@ -19,6 +19,7 @@ import {
 } from './exploreStorage'
 import { ArrowIcon, CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton, StarterTag } from './exploreUi'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
+import type { UpcomingElection } from '../../hooks/useNextElection'
 import type { TabKey } from '../../types/database'
 import { creditParts } from '../../lib/banners'
 
@@ -62,6 +63,8 @@ interface ExploreViewProps {
   isAuthenticated: boolean
   /** Real scheduled meetings for the destination city; undefined when there is no source. */
   meetings?: UpcomingMeeting[]
+  /** Real upcoming elections for the member's area, soonest first. */
+  elections?: UpcomingElection[]
   /** Open the composer for this topic's draft (AppShell signs a visitor in first). */
   onStartConversation: (topicId: TopicId) => void
   /** Brings the column back to its top when the view inside it changes. */
@@ -74,7 +77,7 @@ interface ExploreViewProps {
 
 const TEXT_FIELD = `w-full rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-brand dark:focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand/30`
 
-export function ExploreView({ destination, isAuthenticated, meetings, onStartConversation, onScrollTop, whatsNewInSidebar, featuredPhoto }: ExploreViewProps) {
+export function ExploreView({ destination, isAuthenticated, meetings, elections, onStartConversation, onScrollTop, whatsNewInSidebar, featuredPhoto }: ExploreViewProps) {
   const drafts = useExploreDrafts()
   const [ui, setUi] = useExploreUiState()
 
@@ -270,6 +273,7 @@ export function ExploreView({ destination, isAuthenticated, meetings, onStartCon
           choice={ui.adventure}
           onChoose={(adventure) => setUi({ adventure })}
           meeting={nextMeeting}
+          election={elections?.[0] ?? null}
           onExploreTopic={openTopic}
         />
       </div>
