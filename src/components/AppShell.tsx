@@ -462,7 +462,7 @@ export default function AppShell() {
   // to collapse to a single column there — otherwise the 320px track survives
   // as dead space to the right of the feed.
   const contentGridCols =
-    activeTab === 'volunteer' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-[1fr_320px]'
+    activeTab === 'volunteer' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_380px]'
 
   // Keep the active tab on a slice the member actually has.
   //

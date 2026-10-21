@@ -90,7 +90,7 @@ npm project the root build does not reach. Run them only if you are forced to to
 | Profile page | `components/ProfilePage.tsx` + `Profile*.tsx` |
 
 Layout is a nav rail plus a nested content grid: `lg:grid-cols-[240px_1fr]` outside, and
-`md:grid-cols-[1fr_320px]` inside for feed and sidebar, with the hero banner spanning both on
+`md:grid-cols-[1fr_320px]` (340px from `lg`, 380px from `xl`) inside for feed and sidebar, with the hero banner spanning both on
 its own row. Each is a rounded card on a tinted page. The rail is pinned from `lg` up and
 becomes a slide-over drawer below it, where `SliceTabBar` carries navigation instead. The right
 sidebar is hidden below `md` (`SidebarMobile` takes over, above the feed) and hidden entirely on
