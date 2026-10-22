@@ -654,6 +654,13 @@ export default function AppShell() {
     if (tab !== activeTab) handleTabChange(tab)
     // Back to the member's own shard: a sibling is read-only, and the composer is hidden there.
     setViewingSlices((prev) => ({ ...prev, [tab]: null }))
+    // The open thread belongs to the shard being left. Leaving it open would render a
+    // sibling's post with isViewOnly cleared, offering a reply RLS can only reject.
+    if (activePostIds[tab]) {
+      setActivePostIds((prev) => ({ ...prev, [tab]: null }))
+      // The URL closes with it, so a reload does not reopen the thread either.
+      navigate('/')
+    }
     setForumView('conversations')
     scrollToContentTop()
     const place = draft.communityName && draft.communityName !== TAB_LABELS[tab] ? draft.communityName : null
@@ -667,7 +674,7 @@ export default function AppShell() {
         if (current) writeDraft(topicId, { ...current, ...values, updatedAt: Date.now() })
       },
     })
-  }, [isAuthenticated, loginUrl, slices, activeTab, handleTabChange, scrollToContentTop])
+  }, [isAuthenticated, loginUrl, slices, activeTab, activePostIds, handleTabChange, scrollToContentTop, navigate])
 
   // Restore scroll position after the new tab becomes visible
   useEffect(() => {
