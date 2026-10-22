@@ -124,11 +124,11 @@ export function UpcomingEventsWidget({
                 <span className="min-w-0 flex-1">
                   {/* Two lines before clamping: at the sidebar's narrow end one line cut most
                       election names off before the part that tells them apart. */}
-                  <span className="block line-clamp-2 break-words text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100" title={item.title}>
+                  <span className="line-clamp-2 break-words text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100" title={item.title}>
                     {item.isElection && <Emoji symbol="🗳️" className="mr-1 text-[13px]" />}
                     {item.title}
                   </span>
-                  <span className="block line-clamp-2 break-words text-xs text-gray-500 dark:text-gray-400">{item.detail}</span>
+                  <span className="line-clamp-2 break-words text-xs text-gray-500 dark:text-gray-400">{item.detail}</span>
                 </span>
               </>
             )
