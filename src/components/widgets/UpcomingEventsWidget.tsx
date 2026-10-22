@@ -122,11 +122,13 @@ export function UpcomingEventsWidget({
                   <span className="mt-0.5 text-[10px] font-medium leading-none text-yellow-800/80 dark:text-yellow-300/80">{item.month}</span>
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-gray-900 dark:text-gray-100" title={item.title}>
+                  {/* Two lines before clamping: at the sidebar's narrow end one line cut most
+                      election names off before the part that tells them apart. */}
+                  <span className="line-clamp-2 break-words text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100" title={item.title}>
                     {item.isElection && <Emoji symbol="🗳️" className="mr-1 text-[13px]" />}
                     {item.title}
                   </span>
-                  <span className="block truncate text-xs text-gray-500 dark:text-gray-400">{item.detail}</span>
+                  <span className="line-clamp-2 break-words text-xs text-gray-500 dark:text-gray-400">{item.detail}</span>
                 </span>
               </>
             )

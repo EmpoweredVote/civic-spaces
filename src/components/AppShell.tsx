@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, createRef } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, createRef } from 'react'
 import { useRoute, useLocation } from 'wouter'
 import { toast } from 'sonner'
 import type React from 'react'
@@ -24,7 +24,11 @@ import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
 import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
-import { FeedTabs, FeedSearch, PostButton, type SortMode } from './FeedTabs'
+import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
+import { ExploreView } from './explore/ExploreView'
+import { WhatsNewCard } from './explore/WhatsNewCard'
+import { readDrafts, writeDraft, writeResume } from './explore/exploreStorage'
+import type { TopicId } from './explore/exploreContent'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
@@ -34,6 +38,7 @@ import ModeratorQueue from './ModeratorQueue'
 import { Sidebar, LocationCard } from './Sidebar'
 import { SidebarMobile } from './SidebarMobile'
 import NavSidebar from './NavSidebar'
+import { PanelToggle, usePersistedCollapse } from './PanelToggle'
 import { ThemeToggle } from './ThemeToggle'
 import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
@@ -255,6 +260,64 @@ function ActiveAboutWidget({
   return <AboutWidget placeName={name} facts={facts} />
 }
 
+/**
+ * Explore, bound to the member's most local own community — where every topic's
+ * conversation is started, whichever level tab is showing. Rendered once (not per
+ * panel), so its name and meetings lookups run once and share the sidebar's cache.
+ */
+function ActiveExplore({
+  homeSlice,
+  photoSlice,
+  stateSlice,
+  userId,
+  onStartConversation,
+  onScrollTop,
+  onGoToView,
+  whatsNewInSidebar,
+}: {
+  homeSlice: SliceInfo
+  /** Whose banner photo the featured card borrows — never the one on screen above it. */
+  photoSlice: SliceInfo
+  stateSlice: SliceInfo | undefined
+  userId: string | null
+  onStartConversation: (topicId: TopicId) => void
+  onScrollTop: () => void
+  onGoToView: (view: ForumView) => void
+  /** False while the right sidebar is collapsed, so "What's new" shows inline instead. */
+  whatsNewInSidebar: boolean
+}) {
+  const label = TAB_LABELS[homeSlice.sliceType]
+  const name = useJurisdictionName(homeSlice, label)
+  const city = homeSlice.sliceType === 'city' && name !== label ? name : null
+  const { meetings } = useUpcomingMeetings(city, city ? stateAbbrevFromGeoid(homeSlice.geoid) : null)
+  // Same query (and cache) the events widget uses — the area's real election calendar.
+  const { elections } = useUpcomingElections(electionAreaFor(homeSlice, stateSlice), userId)
+  // Same hook and shared-bucket credits as the hero banner. A photo without a credit has
+  // unknown provenance (a DB override, or nothing resolved), so it is not reused here.
+  const hero = useHeroBanner(photoSlice)
+  const photoName = useJurisdictionName(photoSlice, TAB_LABELS[photoSlice.sliceType])
+  const featuredPhoto = hero?.url && hero.credit && !photoSlice.photoUrl
+    ? { url: hero.url, credit: hero.credit, alt: `${photoName}` }
+    : null
+  const destination = useMemo(
+    () => ({ sliceId: homeSlice.id, tab: homeSlice.sliceType, name }),
+    [homeSlice.id, homeSlice.sliceType, name],
+  )
+  return (
+    <ExploreView
+      destination={destination}
+      isAuthenticated
+      meetings={meetings}
+      elections={elections}
+      onStartConversation={onStartConversation}
+      onScrollTop={onScrollTop}
+      whatsNewInSidebar={whatsNewInSidebar}
+      featuredPhoto={featuredPhoto}
+      onGoToView={onGoToView}
+    />
+  )
+}
+
 type ActivePanel = 'friends' | 'directory' | null
 
 const FEED_TABS = ['city', 'county', 'state', 'federal', 'unified'] as const
@@ -324,6 +387,11 @@ export default function AppShell() {
   const repsData = useRepresentatives(userId)
   const { theme, toggleTheme } = useTheme()
 
+  // Both side panels collapse, each remembered per browser: the nav rail to icons
+  // (lg up, where it is pinned), the right sidebar out of the grid (md up).
+  const [navCollapsed, toggleNavCollapsed] = usePersistedCollapse('cs_nav_collapsed')
+  const [sidebarCollapsed, toggleSidebarCollapsed] = usePersistedCollapse('cs_sidebar_collapsed')
+
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     const saved = localStorage.getItem('cs_active_tab')
@@ -336,6 +404,9 @@ export default function AppShell() {
   // too: one sort per tab, one search box for whichever tab is showing.
   const [feedModes, setFeedModes] = useState<Record<TabKey, SortMode>>(INITIAL_FEED_MODES)
   const [searchQuery, setSearchQuery] = useState('')
+  // Explore is the default for a plain visit — deliberately not persisted. A /post link,
+  // a notification, or a draft being posted switches to Conversations.
+  const [forumView, setForumView] = useState<ForumView>('explore')
   // Hoisted like repsData, and for the active tab only: the banner is the one consumer.
   const nextElection = useNextElection(electionAreaFor(slices[activeTab], slices['state']), userId)
   const [modQueueOpen, setModQueueOpen] = useState(false)
@@ -399,11 +470,20 @@ export default function AppShell() {
 
   const showVolunteerTab = !!slices['volunteer']
 
-  // The right sidebar is hidden entirely on Volunteer, so the content grid has
-  // to collapse to a single column there — otherwise the 320px track survives
-  // as dead space to the right of the feed.
-  const contentGridCols =
-    activeTab === 'volunteer' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-[1fr_320px]'
+  // The right sidebar is hidden entirely on Volunteer, and when the member collapses
+  // it, so the content grid drops to a single column then — otherwise its track
+  // survives as dead space to the right of the feed.
+  //
+  // Otherwise its width follows the space there is rather than the breakpoint: 26% of
+  // the content grid, held between 17rem (the narrowest the widgets read well at — the
+  // location line still fits on one row) and 20rem. That is the floor on tablets and
+  // small laptops and reaches the cap only around 1440px, so the feed gets the rest —
+  // and collapsing the nav rail widens both together. The percentage resolves against
+  // the grid container, not the viewport.
+  const showSidebar = activeTab !== 'volunteer' && !sidebarCollapsed
+  const contentGridCols = showSidebar
+    ? 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_clamp(17rem,26%,20rem)]'
+    : 'grid-cols-1'
 
   // Keep the active tab on a slice the member actually has.
   //
@@ -460,6 +540,7 @@ export default function AppShell() {
     }
 
     handleTabChange(found.tab)
+    setForumView('conversations')
     // A sibling shard is readable but not writable, so open the tab pointed at
     // that shard — the feed and thread both go view-only off this.
     setViewingSlices((prev) => ({
@@ -545,6 +626,56 @@ export default function AppShell() {
     }
   }, [isAuthenticated, isLoading, hasAnySlices, routePostId, openPost, navigate])
 
+  const handleForumViewChange = useCallback((view: ForumView) => {
+    setForumView(view)
+    scrollToContentTop()
+  }, [scrollToContentTop])
+
+  /**
+   * Explore → Conversations with a topic's draft in the composer.
+   *
+   * The draft names the slice it belongs to, and that — not the tab on screen — decides
+   * where it posts: a draft started for Bloomington must not land in whichever community
+   * happens to be showing, or in a new one after the member moves. A signed-out visitor
+   * is sent through the real sign-in; ExploreView replays this after they return.
+   */
+  const handleStartConversation = useCallback((topicId: TopicId) => {
+    if (!isAuthenticated) {
+      writeResume(topicId)
+      window.location.assign(loginUrl)
+      return
+    }
+    const draft = readDrafts()[topicId]
+    const tab = draft?.sliceId ? ALL_TAB_KEYS.find((t) => slices[t]?.id === draft.sliceId) : undefined
+    if (!draft || !tab) {
+      toast.error("That draft belongs to a community you're not in now. It's still saved in Explore.")
+      return
+    }
+    if (tab !== activeTab) handleTabChange(tab)
+    // Back to the member's own shard: a sibling is read-only, and the composer is hidden there.
+    setViewingSlices((prev) => ({ ...prev, [tab]: null }))
+    // The open thread belongs to the shard being left. Leaving it open would render a
+    // sibling's post with isViewOnly cleared, offering a reply RLS can only reject.
+    if (activePostIds[tab]) {
+      setActivePostIds((prev) => ({ ...prev, [tab]: null }))
+      // The URL closes with it, so a reload does not reopen the thread either.
+      navigate('/')
+    }
+    setForumView('conversations')
+    scrollToContentTop()
+    const place = draft.communityName && draft.communityName !== TAB_LABELS[tab] ? draft.communityName : null
+    panelRefs.current[tab]?.current?.compose({
+      title: draft.title,
+      body: draft.body,
+      contextNote: `Posting to ${place ? `${place}, your` : 'your'} ${TAB_LABELS[tab]} community. Edit anything before you post.`,
+      onPosted: () => writeDraft(topicId, null),
+      onDraftChange: (values) => {
+        const current = readDrafts()[topicId]
+        if (current) writeDraft(topicId, { ...current, ...values, updatedAt: Date.now() })
+      },
+    })
+  }, [isAuthenticated, loginUrl, slices, activeTab, activePostIds, handleTabChange, scrollToContentTop, navigate])
+
   // Restore scroll position after the new tab becomes visible
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -559,6 +690,9 @@ export default function AppShell() {
   const showFeed = isAuthenticated && !isLoading && !isAssigning && (hasJurisdiction || !!slices['unified'])
   // "Showing content for …" names the member's most local space.
   const homeSlice = slices['city'] ?? slices['county'] ?? slices['state']
+  // Volunteer is its own space, not a place — it keeps the forum alone, no Explore.
+  const hasExplore = activeTab !== 'volunteer'
+  const effectiveView: ForumView = hasExplore ? forumView : 'conversations'
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -696,14 +830,25 @@ export default function AppShell() {
         )}
 
         {!authLoading && !isAuthenticated && (
-          <div className="flex flex-col flex-1 items-center justify-center gap-4">
-            <p className="text-gray-600 text-sm">Log in to view your civic community.</p>
-            <a
-              href={loginUrl}
-              className="px-5 py-2 bg-brand-btn text-white text-sm font-medium rounded-full hover:bg-brand-hover transition-colors"
-            >
-              Log in with Empowered Vote
-            </a>
+          <div className="flex flex-col flex-1 items-center gap-6 px-3 py-8 md:py-12">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-gray-600 dark:text-gray-400 text-sm">Log in to view your civic community.</p>
+              <a
+                href={loginUrl}
+                className="px-5 py-2 bg-brand-btn text-white text-sm font-medium rounded-full hover:bg-brand-hover transition-colors"
+              >
+                Log in with Empowered Vote
+              </a>
+            </div>
+            {/* Explore works signed out: browsing and drafting need no account. Posting
+                goes through the real sign-in above, and the draft survives the trip. */}
+            <div className="w-full max-w-3xl">
+              <ExploreView
+                destination={null}
+                isAuthenticated={false}
+                onStartConversation={handleStartConversation}
+              />
+            </div>
           </div>
         )}
 
@@ -736,7 +881,9 @@ export default function AppShell() {
             </div>
 
             {/* Nav rail + content. The whole page scrolls; the rail is pinned from lg up. */}
-            <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-3 md:gap-4 p-3 md:p-4 items-start">
+            <div
+              className={`grid grid-cols-1 ${navCollapsed ? 'lg:grid-cols-[4rem_minmax(0,1fr)]' : 'lg:grid-cols-[240px_minmax(0,1fr)]'} gap-3 md:gap-4 p-3 md:p-4 items-start`}
+            >
               {/* Sticky under the header (5rem + the 1rem page padding), scrolling on its
                   own when it is taller than the window. */}
               <div className="hidden lg:block sticky top-24 h-[calc(100vh-7rem)]">
@@ -750,6 +897,8 @@ export default function AppShell() {
                   onTogglePanel={handleTogglePanel}
                   onOpenModQueue={() => setModQueueOpen(true)}
                   theme={theme}
+                  collapsed={navCollapsed}
+                  onToggleCollapsed={toggleNavCollapsed}
                 />
               </div>
 
@@ -770,46 +919,69 @@ export default function AppShell() {
                 {/* The negative margin cancels the column gap: the marker is only a position. */}
                 <div ref={contentTopRef} className="-mt-3 md:-mt-4" aria-hidden="true" />
 
-                {/* Tab bar — sticks under the header. Slice pill, feed views, Post. */}
+                {/* Tab bar — sticks under the header. Explore / Conversations first; the
+                    forum's own controls (slice pill, sort, search, Post) only in Conversations. */}
                 <div ref={tabBarRef} className="sticky top-16 md:top-20 z-30 -my-1 py-2 bg-gray-50/95 dark:bg-gray-950/95 backdrop-blur-sm">
-                  {/* Phones: pill + swipeable tabs on one row, search below, so the stuck bar
-                      stays two rows tall. Only the tabs scroll sideways — the pill stays
-                      outside the scroller, which would otherwise clip its dropdown menu. */}
+                  {/* Phones: view switch + sort on one row, pill + search below, so the stuck
+                      bar stays two rows tall. Only the sort tabs scroll sideways — the pill
+                      stays outside the scroller, which would otherwise clip its dropdown menu. */}
                   <div className="flex flex-wrap md:flex-nowrap items-center gap-2">
-                    {activeSlice && FEED_TABS.includes(activeTab as (typeof FEED_TABS)[number]) && (
-                      <ActiveSliceSelector
-                        slice={activeSlice}
-                        fallbackName={TAB_LABELS[activeTab]}
-                        viewingSliceId={activeViewing?.id ?? activeSlice.id}
-                        onSelect={(sib) => handleViewSlice(activeTab, sib, activeSlice.id)}
-                      />
+                    {hasExplore && (
+                      <div className="order-1 md:order-none flex-shrink-0">
+                        <ForumViewTabs view={forumView} onChange={handleForumViewChange} />
+                      </div>
                     )}
-                    <div className="flex-1 md:flex-none min-w-0 overflow-x-auto md:overflow-visible">
-                    <FeedTabs
-                      mode={activeMode}
-                      onChange={(mode) => {
-                        setFeedModes((prev) => ({ ...prev, [activeTab]: mode }))
-                        scrollToContentTop()
-                      }}
-                    />
-                    </div>
-                    {/* Search lives with the feed it filters (it only searches the posts
-                        loaded below), not in the global header. Its own row on phones;
-                        inline before Post from md, sticking with the bar as you scroll. */}
-                    {activeSlice && (
-                      <ActiveFeedSearch
-                        slice={activeSlice}
-                        fallbackName={TAB_LABELS[activeTab]}
-                        value={searchQuery}
-                        onChange={setSearchQuery}
-                        className="w-full md:w-auto md:flex-1 md:max-w-xs md:ml-auto"
-                      />
+                    {effectiveView === 'conversations' && (
+                      <>
+                        {hasExplore && (
+                          <div className="hidden md:block w-px h-5 bg-gray-200 dark:bg-white/10 flex-shrink-0" aria-hidden="true" />
+                        )}
+                        {activeSlice && FEED_TABS.includes(activeTab as (typeof FEED_TABS)[number]) && (
+                          <div className="order-3 md:order-none min-w-0">
+                            <ActiveSliceSelector
+                              slice={activeSlice}
+                              fallbackName={TAB_LABELS[activeTab]}
+                              viewingSliceId={activeViewing?.id ?? activeSlice.id}
+                              onSelect={(sib) => handleViewSlice(activeTab, sib, activeSlice.id)}
+                            />
+                          </div>
+                        )}
+                        <div className="order-2 md:order-none flex-1 md:flex-none min-w-0 overflow-x-auto md:overflow-visible">
+                        <FeedTabs
+                          mode={activeMode}
+                          onChange={(mode) => {
+                            setFeedModes((prev) => ({ ...prev, [activeTab]: mode }))
+                            scrollToContentTop()
+                          }}
+                        />
+                        </div>
+                        {/* Search lives with the feed it filters (it only searches the posts
+                            loaded below), not in the global header. Beside the pill on phones;
+                            inline before Post from md, sticking with the bar as you scroll. */}
+                        {activeSlice && (
+                          <ActiveFeedSearch
+                            slice={activeSlice}
+                            fallbackName={TAB_LABELS[activeTab]}
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            className="order-4 md:order-none flex-1 min-w-[9rem] md:min-w-0 md:max-w-xs md:ml-auto"
+                          />
+                        )}
+                        {/* Hidden, not disabled, while view-only: RLS rejects an insert into a
+                            slice the member is not in (CLAUDE.md). Phones keep the FAB. */}
+                        {!activeIsViewOnly && (
+                          <div className="hidden md:block flex-shrink-0">
+                            <PostButton onClick={() => panelRefs.current[activeTab]?.current?.compose()} />
+                          </div>
+                        )}
+                      </>
                     )}
-                    {/* Hidden, not disabled, while view-only: RLS rejects an insert into a
-                        slice the member is not in (CLAUDE.md). Phones keep the FAB. */}
-                    {!activeIsViewOnly && (
-                      <div className="hidden md:block flex-shrink-0">
-                        <PostButton onClick={() => panelRefs.current[activeTab]?.current?.compose()} />
+                    {/* The right sidebar's toggle sits at the bar's far end, above the
+                        column it controls, and stays put whether the column is open or
+                        not. md up only: below that SidebarMobile collapses on its own. */}
+                    {activeTab !== 'volunteer' && (
+                      <div className="hidden md:block md:ml-auto flex-shrink-0">
+                        <PanelToggle side="right" collapsed={sidebarCollapsed} onToggle={toggleSidebarCollapsed} label="sidebar" />
                       </div>
                     )}
                   </div>
@@ -832,8 +1004,47 @@ export default function AppShell() {
                       )}
                     />
 
+                    {/* Explore — mounted always and CSS-hidden like the feeds, so its open
+                        topic and selections survive a trip to Conversations and back. */}
+                    {hasExplore && (
+                      <div
+                        id={FORUM_VIEW_PANEL_ID.explore}
+                        role="tabpanel"
+                        aria-labelledby={`${FORUM_VIEW_PANEL_ID.explore}-tab`}
+                        className={effectiveView === 'explore' ? 'flex flex-col' : 'hidden'}
+                      >
+                        {homeSlice ? (
+                          <ActiveExplore
+                            homeSlice={homeSlice}
+                            stateSlice={slices['state']}
+                            userId={userId}
+                            photoSlice={(activeTab === homeSlice.sliceType ? slices['county'] ?? slices['state'] : homeSlice) ?? homeSlice}
+                            onStartConversation={handleStartConversation}
+                            onScrollTop={scrollToContentTop}
+                            onGoToView={handleForumViewChange}
+                            whatsNewInSidebar={!sidebarCollapsed}
+                          />
+                        ) : (
+                          <ExploreView
+                            destination={null}
+                            isAuthenticated
+                            onStartConversation={handleStartConversation}
+                            onScrollTop={scrollToContentTop}
+                            whatsNewInSidebar={!sidebarCollapsed}
+                            onGoToView={handleForumViewChange}
+                          />
+                        )}
+                      </div>
+                    )}
+
                     {/* All FEED_TABS feeds mounted simultaneously — CSS hidden preserves the
                         React Query cache; AppShell restores each tab's scroll position. */}
+                    <div
+                      id={FORUM_VIEW_PANEL_ID.conversations}
+                      role={hasExplore ? 'tabpanel' : undefined}
+                      aria-labelledby={hasExplore ? `${FORUM_VIEW_PANEL_ID.conversations}-tab` : undefined}
+                      className={effectiveView === 'conversations' ? 'flex flex-col gap-3' : 'hidden'}
+                    >
                     {FEED_TABS.map((tabKey) => {
                       const slice = slices[tabKey]
                       if (!slice) return null
@@ -876,12 +1087,14 @@ export default function AppShell() {
                         />
                       </div>
                     )}
+                    </div>
                   </div>
 
-                  {/* Sidebar column — hidden below md, and on Volunteer entirely. It scrolls
+                  {/* Sidebar column — hidden below md, on Volunteer, and while collapsed. It
+                      stays mounted when collapsed so its widgets keep their state. It scrolls
                       with the page. `relative` makes it the containing block for absolute
                       descendants, so nothing inside can resolve against the viewport. */}
-                  <div className={`${activeTab === 'volunteer' ? 'hidden' : 'hidden md:flex'} relative min-w-0 flex-col`}>
+                  <div className={`${showSidebar ? 'hidden md:flex' : 'hidden'} relative min-w-0 flex-col`}>
                     <Sidebar
                       repsData={repsData}
                       activeTab={activeTab}
@@ -894,6 +1107,7 @@ export default function AppShell() {
                       about={activeSlice && (
                         <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={slices['county']} />
                       )}
+                      whatsNew={effectiveView === 'explore' && <WhatsNewCard onGoTo={handleForumViewChange} />}
                     />
                   </div>
                 </div>

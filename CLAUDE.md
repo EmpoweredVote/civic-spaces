@@ -98,13 +98,18 @@ npm project the root build does not reach. Run them only if you are forced to to
 | The sidebar widgets | `components/widgets/` |
 | Profile page | `components/ProfilePage.tsx` + `Profile*.tsx` |
 
-Layout is a nav rail plus a nested content grid: `lg:grid-cols-[240px_1fr]` outside, and
-`md:grid-cols-[1fr_320px]` inside for feed and sidebar, with the hero banner spanning both on
-its own row. Each is a rounded card on a tinted page. The rail is pinned from `lg` up and
-becomes a slide-over drawer below it, where `SliceTabBar` carries navigation instead. The right
-sidebar is hidden below `md` (`SidebarMobile` takes over, above the feed) and hidden entirely on
-the Volunteer tab — where the content grid also collapses to one column, or the 320px track
-would survive as dead space.
+Layout is a nav rail plus a nested content grid: `lg:grid-cols-[240px_minmax(0,1fr)]` outside,
+and `md:grid-cols-[minmax(0,1fr)_clamp(17rem,26%,20rem)]` inside for feed and sidebar, with the
+hero banner spanning both on its own row. The sidebar track follows the space available rather
+than the breakpoint — 272px on tablets and laptops, 320px only from ~1440px. Each is a rounded
+card on a tinted page. The rail is pinned from `lg` up and becomes a slide-over drawer below
+it, where `SliceTabBar` carries navigation instead. The right sidebar is hidden below `md`
+(`SidebarMobile` takes over, above the feed) and hidden entirely on the Volunteer tab — where
+the content grid also collapses to one column, or the sidebar track would survive as dead
+space. Both side panels also collapse by choice, remembered in `localStorage` under
+`cs_nav_collapsed` and `cs_sidebar_collapsed`: the rail to a 4rem icon-only track
+(`lg:grid-cols-[4rem_minmax(0,1fr)]`, labels kept as `sr-only`), and the sidebar out of the
+grid entirely from `md`, toggled from the end of the Explore / Conversations bar.
 
 Routing is **wouter**, with two routes: `/profile/:userId` and `/post/:postId`. Everything else
 is tab state inside `AppShell`, persisted to `localStorage` under `cs_active_tab`.

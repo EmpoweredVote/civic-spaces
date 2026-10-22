@@ -9,7 +9,7 @@ import { useDeletePost } from '../hooks/useDeletePost'
 import PostCard from './PostCard'
 import FeedSkeleton from './FeedSkeleton'
 import FAB from './FAB'
-import PostComposer from './PostComposer'
+import PostComposer, { type ComposeRequest } from './PostComposer'
 import ThreadView from './ThreadView'
 import InformUpgradePrompt from './InformUpgradePrompt'
 import type { SortMode } from './FeedTabs'
@@ -38,7 +38,8 @@ function filterPosts(posts: PostWithAuthor[], query: string): PostWithAuthor[] {
 
 /** What AppShell's tab bar can ask of a panel: its Post button opens this composer. */
 export interface FeedPanelHandle {
-  compose: () => void
+  /** Opens a new post; a request prefills it (Explore drafts) but never submits it. */
+  compose: (request?: ComposeRequest) => void
 }
 
 interface SliceFeedPanelProps {
@@ -90,6 +91,7 @@ export default function SliceFeedPanel({
   const [composerOpen, setComposerOpen] = useState(false)
   const [editingPost, setEditingPost] = useState<PostWithAuthor | null>(null)
   const [informPromptOpen, setInformPromptOpen] = useState(false)
+  const [composeRequest, setComposeRequest] = useState<ComposeRequest | null>(null)
 
   const sentinelRef = useRef<HTMLDivElement>(null)
   const isSearching = searchQuery.trim() !== ''
@@ -109,22 +111,27 @@ export default function SliceFeedPanel({
     return () => observer.disconnect()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, isSearching, isLoading])
 
-  const handleFABClick = () => {
+  const handleCompose = (request?: ComposeRequest) => {
     if (profile?.is_suspended) return
     if (profile?.tier === 'inform') {
       setInformPromptOpen(true)
       return
     }
+    setEditingPost(null)
+    setComposeRequest(request ?? null)
     setComposerOpen(true)
   }
+
+  const handleFABClick = () => handleCompose()
 
   const handleCloseComposer = () => {
     setComposerOpen(false)
     setEditingPost(null)
+    setComposeRequest(null)
   }
 
   // Registered before the early returns below, so it exists while the feed loads.
-  useImperativeHandle(panelRef, () => ({ compose: handleFABClick }))
+  useImperativeHandle(panelRef, () => ({ compose: handleCompose }))
 
   if (isLoading) {
     return <FeedSkeleton />
@@ -263,6 +270,7 @@ export default function SliceFeedPanel({
             sliceId={sliceId}
             userId={userId}
             editPost={editingPost ?? undefined}
+            request={composeRequest}
           />
         )}
 
