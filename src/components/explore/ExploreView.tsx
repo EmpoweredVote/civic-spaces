@@ -10,6 +10,7 @@ import {
   type TopicId,
 } from './exploreContent'
 import {
+  readDrafts,
   readResume,
   useExploreDrafts,
   useExploreUiState,
@@ -22,6 +23,9 @@ import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { UpcomingElection } from '../../hooks/useNextElection'
 import type { TabKey } from '../../types/database'
 import { creditParts } from '../../lib/banners'
+
+/** How long a "post this after sign-in" marker stays good for. The round trip is minutes. */
+const RESUME_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
 /** A licensed place photo for the featured card. The credit is a licence condition — always shown. */
 export interface FeaturedPhoto {
@@ -66,7 +70,7 @@ interface ExploreViewProps {
   /** Real upcoming elections for the member's area, soonest first. */
   elections?: UpcomingElection[]
   /** Open the composer for this topic's draft (AppShell signs a visitor in first). */
-  onStartConversation: (topicId: TopicId) => void
+  onStartConversation: (topicId: TopicId, draft: ExploreDraft) => void
   /** Brings the column back to its top when the view inside it changes. */
   onScrollTop?: () => void
   /** True when the right sidebar shows What's new (md+), so the column keeps it only below md. */
@@ -97,25 +101,28 @@ export function ExploreView({ destination, isAuthenticated, meetings, elections,
   )
 
   /** Saves a draft, binding it to the destination the first time it is saved signed in. */
+  /** Returns what it wrote, so a caller never has to read storage back to find out. */
   const saveDraft = useCallback(
-    (topicId: TopicId, patch: Partial<Pick<ExploreDraft, 'title' | 'body'>>) => {
+    (topicId: TopicId, patch: Partial<Pick<ExploreDraft, 'title' | 'body'>>): ExploreDraft => {
       const current = draftFor(topicId)
       const bind = !current.sliceId && destination
-      writeDraft(topicId, {
+      const next: ExploreDraft = {
         ...current,
         ...patch,
         ...(bind ? { sliceId: destination.sliceId, tab: destination.tab, communityName: destination.name } : {}),
         updatedAt: Date.now(),
-      })
+      }
+      writeDraft(topicId, next)
+      return next
     },
     [draftFor, destination],
   )
 
   const startConversation = useCallback(
     (topicId: TopicId) => {
-      // Persist first: the draft is what the composer opens with, and what survives sign-in.
-      saveDraft(topicId, {})
-      onStartConversation(topicId)
+      // Persist first: the draft is what survives sign-in. Hand the same object over
+      // rather than making AppShell read it back — storage may have refused the write.
+      onStartConversation(topicId, saveDraft(topicId, {}))
     },
     [saveDraft, onStartConversation],
   )
@@ -136,9 +143,20 @@ export function ExploreView({ destination, isAuthenticated, meetings, elections,
    */
   const resumedRef = useRef(false)
   useEffect(() => {
-    if (resumedRef.current || !isAuthenticated || !destination) return
+    if (resumedRef.current || !isAuthenticated) return
     const topicId = readResume()
     if (!topicId || !TOPICS[topicId]) return
+    // Age it out. Signing in takes a minute; a marker older than that was left behind by
+    // someone who signed in without an address, so ExploreView never mounted to consume
+    // it. Without this the composer opens unprompted weeks later with a stale draft.
+    const draft = readDrafts()[topicId]
+    if (!draft || Date.now() - draft.updatedAt > RESUME_MAX_AGE_MS) {
+      resumedRef.current = true
+      writeResume(null)
+      return
+    }
+    // Clearing a stale marker does not need a destination; resuming does.
+    if (!destination) return
     resumedRef.current = true
     writeResume(null)
     startConversation(topicId)

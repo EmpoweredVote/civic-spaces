@@ -27,7 +27,7 @@ import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
 import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
 import { ExploreView } from './explore/ExploreView'
 import { WhatsNewCard } from './explore/WhatsNewCard'
-import { readDrafts, writeDraft, writeResume } from './explore/exploreStorage'
+import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
 import type { TopicId } from './explore/exploreContent'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
@@ -265,6 +265,35 @@ function ActiveAboutWidget({
  * conversation is started, whichever level tab is showing. Rendered once (not per
  * panel), so its name and meetings lookups run once and share the sidebar's cache.
  */
+/**
+ * Preference order for the photo the featured card borrows. Place slices only — Unified
+ * is not a place and has no banner of its own.
+ */
+const PHOTO_SLICE_ORDER: SliceType[] = ['city', 'county', 'state', 'federal']
+
+/**
+ * The featured card borrows a credited place photo, but never the one `HeroBanner` is
+ * already showing directly above it — that is always `slices[activeTab]`.
+ *
+ * Returns null when the member has no other place slice to borrow from, and the card
+ * falls back to the drawn street. The previous expression assumed the
+ * `activeTab === homeSlice.sliceType` branch always yielded something different; for a
+ * member whose most local space IS their county, `slices['county']` is `homeSlice`, so
+ * the County tab showed the same photo twice.
+ */
+function photoSliceFor(
+  slices: Partial<Record<SliceType, SliceInfo>>,
+  homeSlice: SliceInfo,
+  activeTab: TabKey,
+): SliceInfo | null {
+  if (homeSlice.sliceType !== activeTab) return homeSlice
+  for (const key of PHOTO_SLICE_ORDER) {
+    const candidate = slices[key]
+    if (candidate && candidate.sliceType !== activeTab) return candidate
+  }
+  return null
+}
+
 function ActiveExplore({
   homeSlice,
   photoSlice,
@@ -276,11 +305,11 @@ function ActiveExplore({
   whatsNewInSidebar,
 }: {
   homeSlice: SliceInfo
-  /** Whose banner photo the featured card borrows — never the one on screen above it. */
-  photoSlice: SliceInfo
+  /** Whose banner photo the featured card borrows, or null to use the illustration instead. */
+  photoSlice: SliceInfo | null
   stateSlice: SliceInfo | undefined
   userId: string | null
-  onStartConversation: (topicId: TopicId) => void
+  onStartConversation: (topicId: TopicId, draft: ExploreDraft) => void
   onScrollTop: () => void
   onGoToView: (view: ForumView) => void
   /** False while the right sidebar is collapsed, so "What's new" shows inline instead. */
@@ -294,9 +323,12 @@ function ActiveExplore({
   const { elections } = useUpcomingElections(electionAreaFor(homeSlice, stateSlice), userId)
   // Same hook and shared-bucket credits as the hero banner. A photo without a credit has
   // unknown provenance (a DB override, or nothing resolved), so it is not reused here.
-  const hero = useHeroBanner(photoSlice)
-  const photoName = useJurisdictionName(photoSlice, TAB_LABELS[photoSlice.sliceType])
-  const featuredPhoto = hero?.url && hero.credit && !photoSlice.photoUrl
+  // Hooks cannot be conditional, so they always run against a real slice; the result is
+  // only used when photoSlice says there is a photo worth borrowing.
+  const photoSource = photoSlice ?? homeSlice
+  const hero = useHeroBanner(photoSource)
+  const photoName = useJurisdictionName(photoSource, TAB_LABELS[photoSource.sliceType])
+  const featuredPhoto = photoSlice && hero?.url && hero.credit && !photoSlice.photoUrl
     ? { url: hero.url, credit: hero.credit, alt: `${photoName}` }
     : null
   const destination = useMemo(
@@ -639,16 +671,18 @@ export default function AppShell() {
    * happens to be showing, or in a new one after the member moves. A signed-out visitor
    * is sent through the real sign-in; ExploreView replays this after they return.
    */
-  const handleStartConversation = useCallback((topicId: TopicId) => {
+  const handleStartConversation = useCallback((topicId: TopicId, draft: ExploreDraft) => {
     if (!isAuthenticated) {
       writeResume(topicId)
       window.location.assign(loginUrl)
       return
     }
-    const draft = readDrafts()[topicId]
-    const tab = draft?.sliceId ? ALL_TAB_KEYS.find((t) => slices[t]?.id === draft.sliceId) : undefined
-    if (!draft || !tab) {
-      toast.error("That draft belongs to a community you're not in now. It's still saved in Explore.")
+    // Explore hands the draft over directly rather than us reading it back: in a private
+    // window the write is refused silently, and reading back undefined used to surface as
+    // "you're not in that community", which is wrong on both counts and loses the text.
+    const tab = draft.sliceId ? ALL_TAB_KEYS.find((t) => slices[t]?.id === draft.sliceId) : undefined
+    if (!tab) {
+      toast.error("That draft belongs to a community you're not in now.")
       return
     }
     if (tab !== activeTab) handleTabChange(tab)
@@ -1004,8 +1038,10 @@ export default function AppShell() {
                       )}
                     />
 
-                    {/* Explore — mounted always and CSS-hidden like the feeds, so its open
-                        topic and selections survive a trip to Conversations and back. */}
+                    {/* Explore — CSS-hidden rather than unmounted while Conversations is
+                        showing, so its open topic and selections survive the round trip.
+                        The Volunteer tab does unmount it (hasExplore): that space has no
+                        Explore at all, and exploreStorage restores the selections on return. */}
                     {hasExplore && (
                       <div
                         id={FORUM_VIEW_PANEL_ID.explore}
@@ -1018,7 +1054,7 @@ export default function AppShell() {
                             homeSlice={homeSlice}
                             stateSlice={slices['state']}
                             userId={userId}
-                            photoSlice={(activeTab === homeSlice.sliceType ? slices['county'] ?? slices['state'] : homeSlice) ?? homeSlice}
+                            photoSlice={photoSliceFor(slices, homeSlice, activeTab)}
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
                             onGoToView={handleForumViewChange}
