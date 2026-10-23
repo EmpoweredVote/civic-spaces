@@ -9,6 +9,7 @@ import { useDeletePost } from '../hooks/useDeletePost'
 import PostCard from './PostCard'
 import FeedSkeleton from './FeedSkeleton'
 import FAB from './FAB'
+import { toast } from 'sonner'
 import PostComposer, { type ComposeRequest } from './PostComposer'
 import ThreadView from './ThreadView'
 import InformUpgradePrompt from './InformUpgradePrompt'
@@ -112,7 +113,13 @@ export default function SliceFeedPanel({
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, isSearching, isLoading])
 
   const handleCompose = (request?: ComposeRequest) => {
-    if (profile?.is_suspended) return
+    if (profile?.is_suspended) {
+      // The FAB renders disabled, but Explore's "Join the conversation" reaches here after
+      // already switching tab and view — silence would strand them with no composer and
+      // no reason why.
+      toast.error('Your account is suspended, so you cannot post right now.')
+      return
+    }
     if (profile?.tier === 'inform') {
       setInformPromptOpen(true)
       return
