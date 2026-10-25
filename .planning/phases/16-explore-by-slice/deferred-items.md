@@ -74,3 +74,41 @@ Not fixed, because the redundancy is worth more than the sensitivity on a gate t
 already shipped half of once. For 16-10: either collapse to one guard so the check is sensitive
 to its loss, or add a source-level assertion that both guards are still present — the browser
 check can only ever see rendered output, so it can never distinguish one guard from two.
+
+---
+
+## 4. The debates join costs a 234 KB download for a 45-row answer
+
+**Found during:** 16-07 Task 6, counting requests on the Federal tab.
+
+`useRaceMedia` fetches the whole published `/api/meetings` list — **234 KB, 171 rows** —
+and keeps the 45 `debate`/`forum` rows that carry `raceIds`. That is the plan's own
+choice and it is the right one of the two available: the alternative, `GET
+/api/meetings?raceId=<uuid>`, is one request per race and a member has 10–20 races.
+
+There is no third option **in the API today**. `/api/meetings` takes `city`, `state`,
+`status` and `raceId`; it has no `eventKind` filter and no multi-race form. So the fix is
+an ev-accounts ask, not a frontend change:
+
+- `GET /api/meetings?eventKind=debate,forum` (45 rows, ~8 KB), or
+- `GET /api/meetings?raceIds=<uuid>,<uuid>,…`
+
+**Who should own it:** 16-09, which writes the handoff document. It belongs beside Asks
+1–4 as a small, concrete, and cheap request — and it is the only one of them that is a
+performance ask rather than a missing-data ask.
+
+---
+
+## 5. Research's "LA matches ~8 rows" is ~3 against the area we actually query
+
+**Found during:** 16-07 Task 3, checking the join.
+
+`16-RESEARCH.md` Finding 2 reports that LA city races matched **8** meeting rows. Joined
+against the response `racesAreaFor` actually produces for an LA member — the **city**
+area, 47 races across two elections — it is **3**: the two Bass/Raman mayoral debates and
+the CNN California Governor debate. The research's larger number came from a wider race
+set (the state area's 493 races), which is the set this phase deliberately never asks for.
+
+Nothing is wrong and nothing needs fixing: all three named rows are present, and the
+difference is an artefact of which area was asked. Logged so that a later reader comparing
+the two documents does not go looking for five missing recordings.
