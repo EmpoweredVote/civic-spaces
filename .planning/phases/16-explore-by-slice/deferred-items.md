@@ -145,3 +145,94 @@ confined to Explore.
 **Who should own it:** not 16-09 or 16-10, which are Explore-scoped. This wants its own
 small change with a four-way look at the feed, the composer and the nav rail, since it
 touches every control in the app.
+
+---
+
+## 7. The agenda section says the same date nine times, and the same 31 words eight times
+
+**Found during:** 16-09 Task 4, acting on the note 16-06 left for the four-way pass.
+
+Measured on `?dev=1&place=bloomington`, City, dark and light desktop. Bloomington's
+agenda section renders a header lead plus eight cards, and every card carries a two-line
+`SourceNote` footer:
+
+| Where | Text |
+|---|---|
+| section lead (×1) | *"From the Common Council's agenda of October 14, 2026. **Read the agenda**"* |
+| every card (×8) | *"From the October 14, 2026 agenda. **View the agenda item**"* |
+| every card (×8) | *"The title and the reference above are the source's own. The summary was written automatically from that record, not by the source."* |
+
+So **"October 14, 2026 agenda" appears nine times** in one section, and a 31-word
+disclaimer appears **eight times verbatim**. In the rendered page the footer block under
+each card is about as tall as the summary it qualifies, and it is the most repeated text
+on the page by a wide margin.
+
+**The judgement, since 16-06 asked for one.** Two halves, and they do not go the same way:
+
+1. 🔴 **The date sentence on the card is pure duplication and should go.** The section
+   lead establishes the agenda and its date one screen above, and each card already
+   carries an `Ordinance 2026-29` chip. The card needs the **link** — "View the agenda
+   item" is per-item and genuinely useful — and not the sentence restating the header.
+2. **The generated-summary disclaimer must stay on the card.** That was 16-06's
+   deliberate call and it is right: a reader who only ever sees the card must be able to
+   tell the pipeline's words from the council's, and moving it behind a click would
+   recreate exactly the failure it exists to prevent. But at 31 words × 8 it is
+   qualifying text shouting louder than the content. It wants to be *shorter on the card*
+   — "Summary written automatically from the record, not by the source." — or a small
+   labelled tag rather than a paragraph, with the full sentence kept on the topic page.
+
+**Whose it is: 16-10's, not 16-09's.** The text lives in `AgendaModule.tsx` (the lead) and
+`provenance.tsx` (`SourceNote`), and 16-09's File Structure is `registry.tsx`,
+`check-explore-rooms.mjs` and `EXPLORE-HANDOFF.md`. 16-06 deferred it to the four-way
+pass, which is 16-10. It also reaches further than the agenda: `SourceNote` renders under
+every provenance and on the topic page, so shortening it is a cross-module call and wants
+a four-way look of its own.
+
+---
+
+## 8. The PR split for Phase 16 — written down, not executed
+
+**Found during:** 16-09 Task 4, which asks for two PRs. Chris's instruction for this
+session was explicit: do not create, switch or rename branches, do not push, do not open
+a PR. So this is the recommendation and nothing more. Everything named below is already
+committed on `feat/explore-composition-resolver`.
+
+**Why split at all.** `.github/workflows/docs-auto-approve.yml` auto-approves a PR whose
+files are **all** `.planning/**` or `*.md`. `EXPLORE-HANDOFF.md` qualifies on its own;
+bundled with `registry.tsx` it does not, and a document whose only requirement is that
+somebody reads it would then sit behind a code review. `build` is required either way and
+passes on both, since one of them contains no code.
+
+### PR A — docs only, auto-approves
+
+One file: `.planning/phases/16-explore-by-slice/EXPLORE-HANDOFF.md` (commit `250a3c0`).
+Title: `docs(explore): ev-accounts handoff for Phase 16`.
+
+Body should say that it asks ev-accounts for one Explore route, five gaps and a bug; that
+**nothing in Phase 16 is blocked on it**, which is the point of the frontend-only
+decision; and that Ask 6 is a live elections bug Treasury Tracker is also exposed to, so
+it is worth forwarding even if the rest waits.
+
+🔴 Note it carries `.planning/**` only — one `src/` file and the auto-approval is gone.
+
+### PR B — the rooms, a normal review
+
+`src/components/explore/registry.tsx`, `src/components/explore/ExploreView.tsx`,
+`scripts/check-explore-rooms.mjs` (commits `20a1e1e`, `58cc36c`) — alongside whatever
+else `feat/explore-composition-resolver` carries from 16-01…16-08.
+
+🔴 **The body must state the governing rule in one line, or the reviewer reads the empty
+cards as unfinished work rather than as the deliverable:** *a module with no real source
+ships as a reserved empty room, never as invented civic record.* It should link
+`EXPLORE-HANDOFF.md` for where each room's ask went, and say that the thirteen rooms
+render as one to three cards per level rather than three to nine, because the aggregate
+was a wall of promises even when every sentence was right.
+
+Under **"Data this needs from the API"** — the repo's convention for volunteer-visible
+PRs — list: the per-`(sliceType, geoid)` composition; topic provenance; a flag for a
+machine-written summary; ballot measures; a plain-language bill summary (or at minimum a
+bill title on the federal vote row); upcoming debates; and an `eventKind` filter on
+`/api/meetings`.
+
+**Ordering.** PR A can go at any time and depends on nothing. PR B is the branch as it
+stands; if it ships first, PR A rebases cleanly because they share no files.
