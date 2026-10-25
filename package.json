@@ -13,6 +13,7 @@
     "check:explore-gate": "node scripts/check-explore-gate.mjs",
     "check:explore-rooms": "node scripts/check-explore-rooms.mjs",
     "shoot:banners": "node scripts/shoot-banners.mjs",
+    "shoot:explore": "node scripts/shoot-explore.mjs",
     "shoot:app": "node scripts/shoot-app.mjs",
     "gen:banners": "node scripts/generate-banners.mjs",
     "geo:generate": "node --env-file-if-exists=.env.local scripts/generate-geo-names.mjs",

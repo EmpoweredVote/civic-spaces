@@ -41,3 +41,6 @@ app-shots/
 
 # Brainstorming visual companion (superpowers)
 .superpowers/
+
+# local four-way Explore check output (scripts/shoot-explore.mjs)
+explore-shots*/
