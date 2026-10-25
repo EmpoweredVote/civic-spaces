@@ -87,10 +87,14 @@ export function ExploreView({ destination, isAuthenticated, meetings, elections,
   const drafts = useExploreDrafts()
   const [ui, setUi] = useExploreUiState()
 
+  // TOPICS is keyed by the widened TopicId (string) since 16-01, so every lookup here is
+  // partial under noUncheckedIndexedAccess. All four ids come from the same response that
+  // built TOPICS, so the assertions are sound; 16-03 replaces this file with the resolved
+  // composition and they go with it.
   const draftFor = useCallback(
     (topicId: TopicId): ExploreDraft =>
       drafts[topicId] ?? {
-        title: TOPICS[topicId].suggestedTitle,
+        title: TOPICS[topicId]!.suggestedTitle,
         body: '',
         sliceId: null,
         tab: null,
@@ -189,7 +193,7 @@ export function ExploreView({ destination, isAuthenticated, meetings, elections,
   }
 
   const imagineTopic = IMAGINE_OPTIONS.find((o) => o.key === ui.imagine)?.topic ?? null
-  const featured = TOPICS[FEATURED_TOPIC]
+  const featured = TOPICS[FEATURED_TOPIC]!
   const nextMeeting = meetings?.[0] ?? null
 
   return (
@@ -258,7 +262,7 @@ export function ExploreView({ destination, isAuthenticated, meetings, elections,
         <SectionHeader id="explore-questions" eyebrow="Start somewhere specific" title="Questions for your community" />
         <div className="grid gap-4 @xl:grid-cols-2">
           {QUESTION_TOPICS.map((topicId, i) => {
-            const topic = TOPICS[topicId]
+            const topic = TOPICS[topicId]!
             return (
               <button
                 key={topicId}
@@ -341,7 +345,7 @@ function TopicDetail({
   onJoin: () => void
 }) {
   const id = useId()
-  const topic = TOPICS[topicId]
+  const topic = TOPICS[topicId]!
   const headingRef = useRef<HTMLHeadingElement>(null)
   // Move focus to the new view's heading, as opening a thread changes the whole column.
   useEffect(() => headingRef.current?.focus({ preventScroll: true }), [topicId])

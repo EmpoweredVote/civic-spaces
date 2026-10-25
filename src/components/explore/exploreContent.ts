@@ -17,40 +17,39 @@
  * text was not actually drawn from.
  */
 
-import { getAdventureSuggestions, getExploreTopics, getProductUpdates } from '../../lib/exploreData'
+import {
+  getAdventureSuggestions,
+  getAdventureTopics,
+  getExploreTopics,
+  getImagineTopics,
+  getProductUpdates,
+} from '../../lib/exploreData'
+import type { ExploreTopic, TopicId } from '../../types/explore'
 
-export type TopicId =
-  | 'safer-walking'
-  | 'park-usefulness'
-  | 'local-proposal'
-  | 'trees-shade'
-  | 'safer-crossings'
-  | 'public-spaces'
-  | 'clean-streets'
-  | 'your-idea'
-
-export interface ExploreTopic {
-  id: TopicId
-  category: string
-  title: string
-  summary: string
-  whyItMatters: string
-  /** The focused question the conversation opens with. */
-  question: string
-  /** Pre-filled, editable post title. Must fit createPostSchema (≤200). */
-  suggestedTitle: string
-  /** One line under the title on a question card. */
-  blurb?: string
-  /** True when TopicDetail should list the member's real upcoming meeting agendas. */
-  usesMeetingSources?: boolean
-}
+/**
+ * The record shapes now live in src/types/explore.ts, a module that imports nothing from
+ * components/ or lib/. That is what breaks the mocks -> exploreContent -> exploreData ->
+ * mocks cycle, which survived only because the mock's import was type-only. Re-exported
+ * here so the eight files already importing these names keep compiling unchanged;
+ * `export type` is required because isolatedModules is on.
+ */
+export type { ExploreLevel, ExploreTopic, ModuleId, TopicId, TopicProvenance } from '../../types/explore'
 
 const topicsData = getExploreTopics()
 
-export const TOPICS = Object.fromEntries(topicsData.topics.map((t) => [t.id, t])) as Record<TopicId, ExploreTopic>
+export const TOPICS = Object.fromEntries(topicsData.topics.map((t) => [t.id, t])) as Record<string, ExploreTopic>
 
-export const FEATURED_TOPIC: TopicId = topicsData.featuredTopicId
-export const QUESTION_TOPICS: TopicId[] = topicsData.questionTopicIds
+export const FEATURED_TOPIC: string = topicsData.featuredTopicId
+export const QUESTION_TOPICS: string[] = topicsData.questionTopicIds
+
+/**
+ * The topics the Imagine and Nearby modules OWN, read beside the option lists that name
+ * them so the two cannot drift. A module that owns its content must not break when a
+ * composition omits an id it happens to reference, so these are deliberately NOT in
+ * GENERIC_TOPICS — scripts/check-composition.mjs asserts the three id sets are disjoint.
+ */
+export const IMAGINE_TOPICS: ExploreTopic[] = getImagineTopics()
+export const ADVENTURE_TOPICS: ExploreTopic[] = getAdventureTopics()
 
 // ── Imagine a better neighborhood ─────────────────────────────────────────────────────
 
