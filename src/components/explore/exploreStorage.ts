@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { TabKey } from '../../types/database'
 import type { AdventureDuration, ImagineOption, TopicId } from './exploreContent'
 
 /**
@@ -92,12 +91,21 @@ const SAVED_ADVENTURES_KEY = 'cs_saved_adventures'
 const CHANGE_EVENT = 'cs-explore-storage'
 
 /**
- * The pre-re-key names. Still read and written by the legacy shims below for one
- * commit, while ExploreView and AppShell move over; the next commit deletes both
- * the shims and the data.
+ * The pre-re-key names, deleted once on first load and never read again.
+ *
+ * In-flight drafts are dropped rather than migrated: Explore shipped 2026-10-22,
+ * the drafts are local to one browser, and a migration for a two-day-old key
+ * costs more than it saves. Leaving the values in place would be worse than
+ * either — `cs_explore_resume` holds a BARE STRING, and a future reader that
+ * reached for it would get a silently mis-typed value rather than a throw.
  */
-const LEGACY_DRAFTS_KEY = 'cs_explore_drafts'
-const LEGACY_RESUME_KEY = 'cs_explore_resume'
+const LEGACY_KEYS = ['cs_explore_drafts', 'cs_explore_resume']
+
+try {
+  for (const key of LEGACY_KEYS) localStorage.removeItem(key)
+} catch {
+  // Private window or blocked site data: there is nothing stored to clean up.
+}
 
 function read<T>(key: string): T | null {
   try {
@@ -173,71 +181,6 @@ export function useExploreDrafts(): DraftMap {
     const sync = (e: Event) => {
       const key = e instanceof StorageEvent ? e.key : (e as CustomEvent<string>).detail
       if (key === DRAFTS_KEY || key === null) setDrafts(readDrafts())
-    }
-    window.addEventListener(CHANGE_EVENT, sync)
-    window.addEventListener('storage', sync)
-    return () => {
-      window.removeEventListener(CHANGE_EVENT, sync)
-      window.removeEventListener('storage', sync)
-    }
-  }, [])
-  return drafts
-}
-
-// ── The legacy draft API — a strangler, deleted in the next commit ──────────
-
-/**
- * 🔴 Everything in this block is dead on arrival and exists only so this commit
- * leaves `tsc -b` green. ExploreView and AppShell still speak the bare-topic-id
- * shape; the next commit moves them to the keyed API above and deletes both these
- * functions and the two localStorage keys they read.
- *
- * Do not add a caller. Do not generalise it. It is scaffolding.
- */
-
-/** @deprecated The pre-re-key shape: one draft per topic, bound to one community. */
-export interface LegacyExploreDraft {
-  title: string
-  body: string
-  sliceId: string | null
-  tab: TabKey | null
-  communityName: string | null
-  updatedAt: number
-}
-
-/** @deprecated */
-export type LegacyDraftMap = Partial<Record<TopicId, LegacyExploreDraft>>
-
-/** @deprecated */
-export function readLegacyDrafts(): LegacyDraftMap {
-  return read<LegacyDraftMap>(LEGACY_DRAFTS_KEY) ?? {}
-}
-
-/** @deprecated */
-export function writeLegacyDraft(topicId: TopicId, draft: LegacyExploreDraft | null): void {
-  const drafts = readLegacyDrafts()
-  if (draft) drafts[topicId] = draft
-  else delete drafts[topicId]
-  write(LEGACY_DRAFTS_KEY, drafts)
-}
-
-/** @deprecated */
-export function readLegacyResume(): TopicId | null {
-  return read<TopicId>(LEGACY_RESUME_KEY)
-}
-
-/** @deprecated */
-export function writeLegacyResume(topicId: TopicId | null): void {
-  write(LEGACY_RESUME_KEY, topicId)
-}
-
-/** @deprecated */
-export function useLegacyExploreDrafts(): LegacyDraftMap {
-  const [drafts, setDrafts] = useState<LegacyDraftMap>(readLegacyDrafts)
-  useEffect(() => {
-    const sync = (e: Event) => {
-      const key = e instanceof StorageEvent ? e.key : (e as CustomEvent<string>).detail
-      if (key === LEGACY_DRAFTS_KEY || key === null) setDrafts(readLegacyDrafts())
     }
     window.addEventListener(CHANGE_EVENT, sync)
     window.addEventListener('storage', sync)

@@ -16,7 +16,7 @@ import type { UpcomingElection } from '../../hooks/useNextElection'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { ExploreComposition, ExploreTopic, TopicId } from '../../types/explore'
 import type { ExploreDestination, FeaturedPhoto } from './ExploreView'
-import type { LegacyExploreDraft, ExploreUiState } from './exploreStorage'
+import type { ExploreDraft, ExploreUiState } from './exploreStorage'
 
 export interface ExploreCtx {
   composition: ExploreComposition
@@ -46,15 +46,19 @@ export interface ExploreCtx {
   // UI state and actions.
   ui: ExploreUiState
   setUi: (patch: Partial<ExploreUiState>) => void
-  draftFor: (topicId: TopicId) => LegacyExploreDraft
-  saveDraft: (topicId: TopicId, patch: Partial<Pick<LegacyExploreDraft, 'title' | 'body'>>) => LegacyExploreDraft
-  discardDraft: (topicId: TopicId) => void
   /**
-   * Moves a draft bound to a community the member has left onto the current
-   * destination. Research Finding 3 names rebind as part of the draft API; the
-   * topic page is its only caller today, and 16-04 re-keys all four together.
+   * A module names a TOPIC; ExploreView turns that into a draft key from the
+   * composition it is rendering. No module ever sees a key, so no module can
+   * build one for the wrong jurisdiction.
+   *
+   * `rebindDraft` is gone with the moved-from banner it served: a draft whose
+   * key names a place the member has left is simply never surfaced, so there is
+   * nothing to re-point and no control that could re-point it (write affordance
+   * #8 of research Finding 5, retired rather than gated).
    */
-  rebindDraft: (topicId: TopicId) => void
+  draftFor: (topicId: TopicId) => ExploreDraft
+  saveDraft: (topicId: TopicId, patch: Partial<Pick<ExploreDraft, 'title' | 'body'>>) => ExploreDraft
+  discardDraft: (topicId: TopicId) => void
   openTopic: (topicId: TopicId | null) => void
   startConversation: (topicId: TopicId) => void
   onGoToView?: (view: 'explore' | 'conversations') => void

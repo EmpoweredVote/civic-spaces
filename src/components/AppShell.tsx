@@ -27,8 +27,8 @@ import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
 import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
 import { ExploreView } from './explore/ExploreView'
 import { WhatsNewCard } from './explore/WhatsNewCard'
-import { readLegacyDrafts, writeLegacyDraft, writeLegacyResume, type LegacyExploreDraft } from './explore/exploreStorage'
-import type { TopicId } from './explore/exploreContent'
+import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
+import { canPostDraft, parseDraftKey } from '../lib/exploreComposition'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
@@ -296,6 +296,7 @@ function photoSliceFor(
 
 function ActiveExplore({
   homeSlice,
+  slices,
   photoSlice,
   stateSlice,
   userId,
@@ -305,11 +306,13 @@ function ActiveExplore({
   whatsNewInSidebar,
 }: {
   homeSlice: SliceInfo
+  /** Every slice the member holds — canPostDraft checks a stored draft key against it. */
+  slices: Partial<Record<SliceType, SliceInfo>>
   /** Whose banner photo the featured card borrows, or null to use the illustration instead. */
   photoSlice: SliceInfo | null
   stateSlice: SliceInfo | undefined
   userId: string | null
-  onStartConversation: (topicId: TopicId, draft: LegacyExploreDraft) => void
+  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null) => void
   onScrollTop: () => void
   onGoToView: (view: ForumView) => void
   /** False while the right sidebar is collapsed, so "What's new" shows inline instead. */
@@ -341,6 +344,7 @@ function ActiveExplore({
       geoid={homeSlice.geoid}
       destination={destination}
       isAuthenticated
+      slices={slices}
       meetings={meetings}
       elections={elections}
       onStartConversation={onStartConversation}
@@ -668,25 +672,34 @@ export default function AppShell() {
   /**
    * Explore → Conversations with a topic's draft in the composer.
    *
-   * The draft names the slice it belongs to, and that — not the tab on screen — decides
+   * 🔴 The draft KEY names the jurisdiction, and that — not the tab on screen — decides
    * where it posts: a draft started for Bloomington must not land in whichever community
-   * happens to be showing, or in a new one after the member moves. A signed-out visitor
-   * is sent through the real sign-in; ExploreView replays this after they return.
+   * happens to be showing, or in a new one after the member moves. The check is
+   * `canPostDraft`, the pure guard, and not a comparison written out again here: a copy
+   * inside this callback could not be reached by scripts/check-composition.mjs, and
+   * "a post must not land in the wrong jurisdiction" is the phase's loudest anti-goal.
+   *
+   * A signed-out visitor is sent through the real sign-in; ExploreView replays this
+   * after they return, from a resume marker carrying the whole key.
    */
-  const handleStartConversation = useCallback((topicId: TopicId, draft: LegacyExploreDraft) => {
+  const handleStartConversation = useCallback((key: string, draft: ExploreDraft, destinationName: string | null) => {
     if (!isAuthenticated) {
-      writeLegacyResume(topicId)
+      const parsed = parseDraftKey(key)
+      if (parsed) writeResume({ ...parsed, at: Date.now() })
       window.location.assign(loginUrl)
       return
     }
     // Explore hands the draft over directly rather than us reading it back: in a private
     // window the write is refused silently, and reading back undefined used to surface as
     // "you're not in that community", which is wrong on both counts and loses the text.
-    const tab = draft.sliceId ? ALL_TAB_KEYS.find((t) => slices[t]?.id === draft.sliceId) : undefined
-    if (!tab) {
-      toast.error("That draft belongs to a community you're not in now.")
+    const verdict = canPostDraft(key, slices)
+    if (!verdict.ok) {
+      toast.error(verdict.reason === 'moved'
+        ? 'That draft was written for a different place.'
+        : "That draft belongs to a community you're not in now.")
       return
     }
+    const tab = verdict.sliceType as TabKey
     if (tab !== activeTab) handleTabChange(tab)
     // Back to the member's own shard: a sibling is read-only, and the composer is hidden there.
     setViewingSlices((prev) => ({ ...prev, [tab]: null }))
@@ -699,15 +712,17 @@ export default function AppShell() {
     }
     setForumView('conversations')
     scrollToContentTop()
-    const place = draft.communityName && draft.communityName !== TAB_LABELS[tab] ? draft.communityName : null
+    // The name Explore already resolved for this key's slice, so the note says
+    // "Bloomington, your City community" rather than just "your City community".
+    const place = destinationName && destinationName !== TAB_LABELS[tab] ? destinationName : null
     panelRefs.current[tab]?.current?.compose({
       title: draft.title,
       body: draft.body,
       contextNote: `Posting to ${place ? `${place}, your` : 'your'} ${TAB_LABELS[tab]} community. Edit anything before you post.`,
-      onPosted: () => writeLegacyDraft(topicId, null),
+      onPosted: () => writeDraft(key, null),
       onDraftChange: (values) => {
-        const current = readLegacyDrafts()[topicId]
-        if (current) writeLegacyDraft(topicId, { ...current, ...values, updatedAt: Date.now() })
+        const current = readDrafts()[key]
+        if (current) writeDraft(key, { ...current, ...values, updatedAt: Date.now() })
       },
     })
   }, [isAuthenticated, loginUrl, slices, activeTab, activePostIds, handleTabChange, scrollToContentTop, navigate])
@@ -1061,6 +1076,7 @@ export default function AppShell() {
                         {homeSlice ? (
                           <ActiveExplore
                             homeSlice={homeSlice}
+                            slices={slices}
                             stateSlice={slices['state']}
                             userId={userId}
                             photoSlice={photoSliceFor(slices, homeSlice, activeTab)}
@@ -1075,6 +1091,7 @@ export default function AppShell() {
                             geoid={null}
                             destination={null}
                             isAuthenticated
+                            slices={slices}
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
                             whatsNewInSidebar={!sidebarCollapsed}

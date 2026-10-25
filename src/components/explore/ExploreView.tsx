@@ -2,13 +2,13 @@ import { useCallback, useEffect, useId, useMemo, useRef } from 'react'
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 import {
-  readLegacyDrafts,
-  readLegacyResume,
-  useLegacyExploreDrafts,
+  readDrafts,
+  readResume,
+  useExploreDrafts,
   useExploreUiState,
-  writeLegacyDraft,
-  writeLegacyResume,
-  type LegacyExploreDraft,
+  writeDraft,
+  writeResume,
+  type ExploreDraft,
 } from './exploreStorage'
 import { CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton } from './exploreUi'
 import { ProvenanceTag, SourceNote } from './provenance'
@@ -18,7 +18,7 @@ import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { UpcomingElection } from '../../hooks/useNextElection'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useExploreComposition } from '../../lib/exploreData'
-import { isHttpUrl } from '../../lib/exploreComposition'
+import { canPostDraft, draftKey, isHttpUrl, type DraftTargetSlice } from '../../lib/exploreComposition'
 import type { ExploreTopic, TopicId } from '../../types/explore'
 import type { TabKey } from '../../types/database'
 
@@ -51,12 +51,27 @@ interface ExploreViewProps {
   /** null when signed out, or when the member has no local community. */
   destination: ExploreDestination | null
   isAuthenticated: boolean
+  /**
+   * Every slice the member holds, by type — at most one per type. Not for
+   * rendering: it is what canPostDraft() checks a stored draft key against, so a
+   * resume marker for a place they have left is dropped rather than posted.
+   * Absent while signed out, where there is nothing to check against.
+   */
+  slices?: Partial<Record<string, DraftTargetSlice | undefined>>
   /** Real scheduled meetings for the destination city; undefined when there is no source. */
   meetings?: UpcomingMeeting[]
   /** Real upcoming elections for the member's area, soonest first. */
   elections?: UpcomingElection[]
-  /** Open the composer for this topic's draft (AppShell signs a visitor in first). */
-  onStartConversation: (topicId: TopicId, draft: LegacyExploreDraft) => void
+  /**
+   * Open the composer for this draft (AppShell signs a visitor in first).
+   *
+   * The first argument is the DRAFT KEY, not a topic id: where a draft posts is
+   * decided by `(sliceType, geoid, topicId)`, and AppShell re-checks it against
+   * the member's slices before anything reaches the composer. `destinationName`
+   * is the resolved place name for that key's slice — ExploreView only ever
+   * builds a key from the composition it is rendering, so the two always agree.
+   */
+  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null) => void
   /** Brings the column back to its top when the view inside it changes. */
   onScrollTop?: () => void
   /** True when the right sidebar shows What's new (md+), so the column keeps it only below md. */
@@ -80,6 +95,7 @@ export function ExploreView({
   geoid,
   destination,
   isAuthenticated,
+  slices,
   meetings,
   elections,
   onStartConversation,
@@ -88,7 +104,7 @@ export function ExploreView({
   featuredPhoto,
   onGoToView,
 }: ExploreViewProps) {
-  const drafts = useLegacyExploreDrafts()
+  const drafts = useExploreDrafts()
   const [ui, setUi] = useExploreUiState()
   const { composition, isLoading } = useExploreComposition({ sliceType, geoid })
 
@@ -115,61 +131,51 @@ export function ExploreView({
     return map
   }, [composition])
 
+  /**
+   * 🔴 The one place a draft key is built. Modules keep calling
+   * `ctx.draftFor(topicId)`; the jurisdiction comes from the composition being
+   * rendered, so no module ever sees a key and no module can build a wrong one.
+   */
+  const keyFor = useCallback(
+    (topicId: TopicId) => draftKey(sliceType, geoid, topicId),
+    [sliceType, geoid],
+  )
+
   const draftFor = useCallback(
-    (topicId: TopicId): LegacyExploreDraft =>
-      drafts[topicId] ?? {
+    (topicId: TopicId): ExploreDraft =>
+      drafts[keyFor(topicId)] ?? {
         title: topicsById.get(topicId)?.suggestedTitle ?? '',
         body: '',
-        sliceId: null,
-        tab: null,
-        communityName: null,
         updatedAt: 0,
       },
-    [drafts, topicsById],
+    [drafts, keyFor, topicsById],
   )
 
-  /** Saves a draft, binding it to the destination the first time it is saved signed in. */
-  /** Returns what it wrote, so a caller never has to read storage back to find out. */
+  /**
+   * Saves a draft. There is no binding step any more: a draft is title, body and
+   * when it was touched, and WHERE it posts is its key — checked at post time by
+   * canPostDraft() against the slices the member holds then.
+   *
+   * Returns what it wrote, so a caller never has to read storage back to find out.
+   */
   const saveDraft = useCallback(
-    (topicId: TopicId, patch: Partial<Pick<LegacyExploreDraft, 'title' | 'body'>>): LegacyExploreDraft => {
-      const current = draftFor(topicId)
-      const bind = !current.sliceId && destination
-      const next: LegacyExploreDraft = {
-        ...current,
-        ...patch,
-        ...(bind ? { sliceId: destination.sliceId, tab: destination.tab, communityName: destination.name } : {}),
-        updatedAt: Date.now(),
-      }
-      writeLegacyDraft(topicId, next)
+    (topicId: TopicId, patch: Partial<Pick<ExploreDraft, 'title' | 'body'>>): ExploreDraft => {
+      const next: ExploreDraft = { ...draftFor(topicId), ...patch, updatedAt: Date.now() }
+      writeDraft(keyFor(topicId), next)
       return next
     },
-    [draftFor, destination],
+    [draftFor, keyFor],
   )
 
-  const discardDraft = useCallback((topicId: TopicId) => writeLegacyDraft(topicId, null), [])
-
-  /** Moves a draft started for a community the member has left onto their current one. */
-  const rebindDraft = useCallback(
-    (topicId: TopicId) => {
-      if (!destination) return
-      writeLegacyDraft(topicId, {
-        ...draftFor(topicId),
-        sliceId: destination.sliceId,
-        tab: destination.tab,
-        communityName: destination.name,
-        updatedAt: Date.now(),
-      })
-    },
-    [draftFor, destination],
-  )
+  const discardDraft = useCallback((topicId: TopicId) => writeDraft(keyFor(topicId), null), [keyFor])
 
   const startConversation = useCallback(
     (topicId: TopicId) => {
       // Persist first: the draft is what survives sign-in. Hand the same object over
       // rather than making AppShell read it back — storage may have refused the write.
-      onStartConversation(topicId, saveDraft(topicId, {}))
+      onStartConversation(keyFor(topicId), saveDraft(topicId, {}), destination?.name ?? null)
     },
-    [saveDraft, onStartConversation],
+    [saveDraft, keyFor, destination, onStartConversation],
   )
 
   // An open topic is stored with the composition it was opened in, so switching tab
@@ -185,30 +191,45 @@ export function ExploreView({
 
   /**
    * The other half of a signed-out "Join": the visitor went to sign in, came back to a
-   * fresh page, and the resume marker says which draft they meant to post. Bind it to
-   * this member's community (the composer names it before anything posts), then hand it
-   * to AppShell exactly as if they had pressed the button now.
+   * fresh page, and the resume marker says which draft they meant to post. Rebuild its
+   * key, prove the member may still post there, and hand it to AppShell exactly as if
+   * they had pressed the button now.
+   *
+   * 🔴 This reaches the composer with NO button press, and it fires once per mount
+   * (resumedRef). Both facts matter to 16-05's gate; neither is acted on here.
    */
   const resumedRef = useRef(false)
   useEffect(() => {
     if (resumedRef.current || !isAuthenticated) return
-    const topicId = readLegacyResume()
-    if (!topicId || !topicsById.has(topicId)) return
+    const marker = readResume()
+    if (!marker) return
+    const drop = () => {
+      resumedRef.current = true
+      writeResume(null)
+    }
     // Age it out. Signing in takes a minute; a marker older than that was left behind by
     // someone who signed in without an address, so ExploreView never mounted to consume
     // it. Without this the composer opens unprompted weeks later with a stale draft.
-    const draft = readLegacyDrafts()[topicId]
-    if (!draft || Date.now() - draft.updatedAt > RESUME_MAX_AGE_MS) {
-      resumedRef.current = true
-      writeLegacyResume(null)
-      return
-    }
+    if (Date.now() - marker.at > RESUME_MAX_AGE_MS) return drop()
+    // A marker written signed out carries no geoid; the member now has one. Resolve it
+    // against the slice they hold for that type, which is where the draft now lives.
+    const boundGeoid = marker.geoid ?? slices?.[marker.sliceType]?.geoid ?? null
+    const key = draftKey(marker.sliceType, boundGeoid, marker.topicId)
+    // They may have moved, or lost that slice, while they were away. Losing a draft
+    // written for a place they have left is better than posting it somewhere they did
+    // not mean — and it happens silently, because they pressed nothing.
+    if (!canPostDraft(key, slices ?? {}).ok) return drop()
+    // Only the composition that OWNS this key may resume it: startConversation builds
+    // its key from the composition being rendered, so resuming from another tab would
+    // post into the wrong jurisdiction. Leave the marker instead — switching to that
+    // tab changes topicsById, which re-runs this effect.
+    if (key !== keyFor(marker.topicId) || !topicsById.has(marker.topicId)) return
+    if (!readDrafts()[key]) return drop()
     // Clearing a stale marker does not need a destination; resuming does.
     if (!destination) return
-    resumedRef.current = true
-    writeLegacyResume(null)
-    startConversation(topicId)
-  }, [isAuthenticated, destination, startConversation, topicsById])
+    drop()
+    startConversation(marker.topicId)
+  }, [isAuthenticated, destination, slices, keyFor, startConversation, topicsById])
 
   if (isLoading) return <ExploreSkeleton />
   // Volunteer has no Explore and never has — levelFor() returns null and so does this.
@@ -229,7 +250,6 @@ export function ExploreView({
     draftFor,
     saveDraft,
     discardDraft,
-    rebindDraft,
     openTopic,
     startConversation,
     onGoToView,
@@ -319,9 +339,10 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
   // Move focus to the new view's heading, as opening a thread changes the whole column.
   useEffect(() => headingRef.current?.focus({ preventScroll: true }), [topic.id])
 
-  // A draft bound to a community the member is no longer in must not post to the new one silently.
-  const movedFrom =
-    isAuthenticated && destination && draft.sliceId && draft.sliceId !== destination.sliceId ? draft.communityName : null
+  // There is no moved-from banner any more, and nothing to rescue. A draft whose key
+  // names a place the member has left is never surfaced: draftFor() only ever builds a
+  // key from the composition being rendered, so it resolves to an empty draft and the
+  // stored one sits where it is. Nothing to explain, because nothing is offered.
   // 🔴 isHttpUrl: these agenda links are first-party but SCRAPED, and React renders a
   // `javascript:` href without complaint. A meeting whose URL fails is not a source.
   const sources = topic.usesMeetingSources ? (meetings ?? []).filter((m) => isHttpUrl(m.url)).slice(0, 3) : []
@@ -420,31 +441,20 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
             />
           </label>
 
-          {movedFrom ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200" role="status">
-              This draft was started for {movedFrom}, which isn't one of your communities now. It won't be posted anywhere until you move it.{' '}
-              {destination && (
-                <button type="button" onClick={() => ctx.rebindDraft(topic.id)} className={`rounded font-semibold underline hover:no-underline ${FOCUS}`}>
-                  Post it in {destination.name} instead
-                </button>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {isAuthenticated && destination
-                ? <>Saved on this device. Joining opens a new post in <span className="font-semibold text-gray-700 dark:text-gray-300">{draft.communityName ?? destination.name}</span> — nothing is published until you press Post.</>
-                : isAuthenticated
-                  ? 'Saved on this device. You need a local community to post — set your address in your Empowered account.'
-                  : 'Saved on this device and kept through sign-in. Nothing is published until you press Post.'}
-            </p>
-          )}
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {isAuthenticated && destination
+              ? <>Saved on this device. Joining opens a new post in <span className="font-semibold text-gray-700 dark:text-gray-300">{destination.name}</span> — nothing is published until you press Post.</>
+              : isAuthenticated
+                ? 'Saved on this device. You need a local community to post — set your address in your Empowered account.'
+                : 'Saved on this device and kept through sign-in. Nothing is published until you press Post.'}
+          </p>
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
             No conversation is linked to this topic yet, so joining starts one with your draft.
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
-            <PrimaryButton type="submit" disabled={!!movedFrom || (isAuthenticated && !destination)}>
+            <PrimaryButton type="submit" disabled={isAuthenticated && !destination}>
               {isAuthenticated ? 'Join the conversation' : 'Sign in to join the conversation'}
             </PrimaryButton>
             {hasDraft && (
