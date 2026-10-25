@@ -16,7 +16,7 @@ import type { UpcomingElection } from '../../hooks/useNextElection'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { ExploreComposition, ExploreTopic, TopicId } from '../../types/explore'
 import type { ExploreDestination, FeaturedPhoto } from './ExploreView'
-import type { ExploreDraft, ExploreUiState } from './exploreStorage'
+import type { LegacyExploreDraft, ExploreUiState } from './exploreStorage'
 
 export interface ExploreCtx {
   composition: ExploreComposition
@@ -46,8 +46,8 @@ export interface ExploreCtx {
   // UI state and actions.
   ui: ExploreUiState
   setUi: (patch: Partial<ExploreUiState>) => void
-  draftFor: (topicId: TopicId) => ExploreDraft
-  saveDraft: (topicId: TopicId, patch: Partial<Pick<ExploreDraft, 'title' | 'body'>>) => ExploreDraft
+  draftFor: (topicId: TopicId) => LegacyExploreDraft
+  saveDraft: (topicId: TopicId, patch: Partial<Pick<LegacyExploreDraft, 'title' | 'body'>>) => LegacyExploreDraft
   discardDraft: (topicId: TopicId) => void
   /**
    * Moves a draft bound to a community the member has left onto the current

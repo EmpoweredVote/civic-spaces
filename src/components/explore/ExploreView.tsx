@@ -2,13 +2,13 @@ import { useCallback, useEffect, useId, useMemo, useRef } from 'react'
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 import {
-  readDrafts,
-  readResume,
-  useExploreDrafts,
+  readLegacyDrafts,
+  readLegacyResume,
+  useLegacyExploreDrafts,
   useExploreUiState,
-  writeDraft,
-  writeResume,
-  type ExploreDraft,
+  writeLegacyDraft,
+  writeLegacyResume,
+  type LegacyExploreDraft,
 } from './exploreStorage'
 import { CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton } from './exploreUi'
 import { ProvenanceTag, SourceNote } from './provenance'
@@ -56,7 +56,7 @@ interface ExploreViewProps {
   /** Real upcoming elections for the member's area, soonest first. */
   elections?: UpcomingElection[]
   /** Open the composer for this topic's draft (AppShell signs a visitor in first). */
-  onStartConversation: (topicId: TopicId, draft: ExploreDraft) => void
+  onStartConversation: (topicId: TopicId, draft: LegacyExploreDraft) => void
   /** Brings the column back to its top when the view inside it changes. */
   onScrollTop?: () => void
   /** True when the right sidebar shows What's new (md+), so the column keeps it only below md. */
@@ -88,7 +88,7 @@ export function ExploreView({
   featuredPhoto,
   onGoToView,
 }: ExploreViewProps) {
-  const drafts = useExploreDrafts()
+  const drafts = useLegacyExploreDrafts()
   const [ui, setUi] = useExploreUiState()
   const { composition, isLoading } = useExploreComposition({ sliceType, geoid })
 
@@ -116,7 +116,7 @@ export function ExploreView({
   }, [composition])
 
   const draftFor = useCallback(
-    (topicId: TopicId): ExploreDraft =>
+    (topicId: TopicId): LegacyExploreDraft =>
       drafts[topicId] ?? {
         title: topicsById.get(topicId)?.suggestedTitle ?? '',
         body: '',
@@ -131,28 +131,28 @@ export function ExploreView({
   /** Saves a draft, binding it to the destination the first time it is saved signed in. */
   /** Returns what it wrote, so a caller never has to read storage back to find out. */
   const saveDraft = useCallback(
-    (topicId: TopicId, patch: Partial<Pick<ExploreDraft, 'title' | 'body'>>): ExploreDraft => {
+    (topicId: TopicId, patch: Partial<Pick<LegacyExploreDraft, 'title' | 'body'>>): LegacyExploreDraft => {
       const current = draftFor(topicId)
       const bind = !current.sliceId && destination
-      const next: ExploreDraft = {
+      const next: LegacyExploreDraft = {
         ...current,
         ...patch,
         ...(bind ? { sliceId: destination.sliceId, tab: destination.tab, communityName: destination.name } : {}),
         updatedAt: Date.now(),
       }
-      writeDraft(topicId, next)
+      writeLegacyDraft(topicId, next)
       return next
     },
     [draftFor, destination],
   )
 
-  const discardDraft = useCallback((topicId: TopicId) => writeDraft(topicId, null), [])
+  const discardDraft = useCallback((topicId: TopicId) => writeLegacyDraft(topicId, null), [])
 
   /** Moves a draft started for a community the member has left onto their current one. */
   const rebindDraft = useCallback(
     (topicId: TopicId) => {
       if (!destination) return
-      writeDraft(topicId, {
+      writeLegacyDraft(topicId, {
         ...draftFor(topicId),
         sliceId: destination.sliceId,
         tab: destination.tab,
@@ -192,21 +192,21 @@ export function ExploreView({
   const resumedRef = useRef(false)
   useEffect(() => {
     if (resumedRef.current || !isAuthenticated) return
-    const topicId = readResume()
+    const topicId = readLegacyResume()
     if (!topicId || !topicsById.has(topicId)) return
     // Age it out. Signing in takes a minute; a marker older than that was left behind by
     // someone who signed in without an address, so ExploreView never mounted to consume
     // it. Without this the composer opens unprompted weeks later with a stale draft.
-    const draft = readDrafts()[topicId]
+    const draft = readLegacyDrafts()[topicId]
     if (!draft || Date.now() - draft.updatedAt > RESUME_MAX_AGE_MS) {
       resumedRef.current = true
-      writeResume(null)
+      writeLegacyResume(null)
       return
     }
     // Clearing a stale marker does not need a destination; resuming does.
     if (!destination) return
     resumedRef.current = true
-    writeResume(null)
+    writeLegacyResume(null)
     startConversation(topicId)
   }, [isAuthenticated, destination, startConversation, topicsById])
 

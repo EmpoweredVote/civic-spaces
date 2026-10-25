@@ -27,7 +27,7 @@ import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
 import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
 import { ExploreView } from './explore/ExploreView'
 import { WhatsNewCard } from './explore/WhatsNewCard'
-import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
+import { readLegacyDrafts, writeLegacyDraft, writeLegacyResume, type LegacyExploreDraft } from './explore/exploreStorage'
 import type { TopicId } from './explore/exploreContent'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
@@ -309,7 +309,7 @@ function ActiveExplore({
   photoSlice: SliceInfo | null
   stateSlice: SliceInfo | undefined
   userId: string | null
-  onStartConversation: (topicId: TopicId, draft: ExploreDraft) => void
+  onStartConversation: (topicId: TopicId, draft: LegacyExploreDraft) => void
   onScrollTop: () => void
   onGoToView: (view: ForumView) => void
   /** False while the right sidebar is collapsed, so "What's new" shows inline instead. */
@@ -673,9 +673,9 @@ export default function AppShell() {
    * happens to be showing, or in a new one after the member moves. A signed-out visitor
    * is sent through the real sign-in; ExploreView replays this after they return.
    */
-  const handleStartConversation = useCallback((topicId: TopicId, draft: ExploreDraft) => {
+  const handleStartConversation = useCallback((topicId: TopicId, draft: LegacyExploreDraft) => {
     if (!isAuthenticated) {
-      writeResume(topicId)
+      writeLegacyResume(topicId)
       window.location.assign(loginUrl)
       return
     }
@@ -704,10 +704,10 @@ export default function AppShell() {
       title: draft.title,
       body: draft.body,
       contextNote: `Posting to ${place ? `${place}, your` : 'your'} ${TAB_LABELS[tab]} community. Edit anything before you post.`,
-      onPosted: () => writeDraft(topicId, null),
+      onPosted: () => writeLegacyDraft(topicId, null),
       onDraftChange: (values) => {
-        const current = readDrafts()[topicId]
-        if (current) writeDraft(topicId, { ...current, ...values, updatedAt: Date.now() })
+        const current = readLegacyDrafts()[topicId]
+        if (current) writeLegacyDraft(topicId, { ...current, ...values, updatedAt: Date.now() })
       },
     })
   }, [isAuthenticated, loginUrl, slices, activeTab, activePostIds, handleTabChange, scrollToContentTop, navigate])
