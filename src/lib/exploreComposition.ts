@@ -576,8 +576,31 @@ export function resolveComposition(input: ResolveCompositionInput): ExploreCompo
   )
 
   const topics = bespoke.length > 0 ? [...bespoke, ...ranked] : ranked
+  const isUnseeded = !!geoid && bespoke.length === 0
   // Copy: DEFAULT_MODULES is a module-level constant shared by every resolution.
+  // 🔴 splice() below mutates — it MUST act on this copy. A reorder applied to the
+  // frozen table would leak into every other slice's composition for the life of
+  // the page, and check 62 is what notices.
   const modules = [...DEFAULT_MODULES[level]]
+
+  /**
+   * 🔴 For a place with nothing in it, the invitation is the FIRST thing after
+   * the intro — because it is the thing that explains everything below it.
+   * DEFAULT_MODULES lists it late, among the reserved rooms, which is right for
+   * every other case and wrong for this one.
+   *
+   * Guarded on `> 1`: federal and unified do not carry the module at all
+   * (indexOf → -1, and neither can be unseeded anyway), and a composition that
+   * already had it at 1 must not be re-spliced into a no-op that looks like a
+   * move.
+   */
+  if (isUnseeded) {
+    const at = modules.indexOf('seed-invitation')
+    if (at > 1) {
+      modules.splice(at, 1)
+      modules.splice(1, 0, 'seed-invitation')
+    }
+  }
 
   return {
     key: compositionKey(input.sliceType, input.geoid),
@@ -585,7 +608,7 @@ export function resolveComposition(input: ResolveCompositionInput): ExploreCompo
     geoid,
     modules,
     topics,
-    isUnseeded: !!geoid && bespoke.length === 0,
+    isUnseeded,
     ...selectForModules(topics, modules),
   }
 }

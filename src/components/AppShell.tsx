@@ -425,6 +425,12 @@ function ActiveExplore({
          — and attach by the geoid beside it, which resolveComposition rechecks. */
       city={city}
       stateAbbrev={cityState}
+      /* 🔴 The SAME resolved name again, and null — never the tab label — while
+         it is still resolving. `useJurisdictionName` answers the fallback
+         ("City", "County") until its offline table lands, and a module that
+         wrote "Welcome to City" would be worse than one that waited a frame.
+         Same `name !== TAB_LABELS[tab]` idiom handleStartConversation uses. */
+      placeName={name !== label ? name : null}
       destination={destination}
       isAuthenticated
       isViewOnly={isViewOnly}

@@ -77,6 +77,18 @@ function check(n, label, ok, detail) {
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const ids = (list) => list.map((t) => t.id)
 
+/**
+ * 🔴 Snapshotted HERE, at module load, before a single resolveComposition call.
+ *
+ * Checks 34 and 62 both assert the frozen table is unmutated, and both are
+ * worthless if their baseline is taken after the mutation. 16-08 proved that:
+ * pointing resolveComposition's `modules` at DEFAULT_MODULES[level] instead of a
+ * copy mutated the table during check 58, so a baseline taken at check 62 was
+ * already the mutated value and 62 passed a build that was leaking the reorder
+ * into every slice on the page. One load-time baseline, shared, is the fix.
+ */
+const MODULES_AT_LOAD = JSON.stringify(DEFAULT_MODULES)
+
 function topic(id, level, extra = {}) {
   return {
     id,
@@ -510,7 +522,8 @@ check(
 
 // ── 31–39  Resolution and areas ──────────────────────────────────────────────
 
-const MODULES_BEFORE = JSON.stringify(DEFAULT_MODULES)
+// Kept as a name for readability; the baseline is the LOAD-TIME one. See MODULES_AT_LOAD.
+const MODULES_BEFORE = MODULES_AT_LOAD
 
 {
   const bespoke = [topic('b1', 'city', { provenance: 'derived-from-agenda', geoid: '1805860' })]
@@ -640,6 +653,94 @@ check(
     'the SAME topic stamped with this composition’s geoid is kept, leads topics, and the place is seeded',
     c !== null && c.isUnseeded === false && c.topics[0]?.id === 'agenda-x',
     c === null ? 'null' : `isUnseeded ${c.isUnseeded} / ${ids(c.topics).slice(0, 3).join(', ')}`,
+  )
+}
+
+// ── 58–62  The seed invitation's position, and who is unseeded ───────────────
+//
+// 🔴 The module is the FIRST thing after the intro on a place with nothing in
+// it, because it is the thing that explains everything below it —
+// DEFAULT_MODULES lists it late, among the reserved rooms. `isUnseeded` is the
+// one flag that decides, so these five pin down exactly who it is true for:
+// a real place with no bespoke layer, and nobody else. A placeless level has
+// one nation-wide key and nothing to seed; a viewer with no geoid cannot seed
+// a place the app cannot name.
+
+{
+  const c = resolveComposition({
+    sliceType: 'city',
+    geoid: '3702140', // Asheville — real place, no agenda coverage, nothing bespoke.
+    generic: GENERIC_TOPICS.city,
+  })
+  check(
+    58,
+    "an UNSEEDED real place leads with its invitation — modules[1] === 'seed-invitation'",
+    c !== null && c.isUnseeded === true && c.modules[1] === 'seed-invitation',
+    c === null ? 'null' : `isUnseeded ${c.isUnseeded} / modules ${c.modules.slice(0, 4).join(', ')}`,
+  )
+}
+{
+  const c = resolveComposition({
+    sliceType: 'city',
+    geoid: '1805860',
+    generic: GENERIC_TOPICS.city,
+    bespoke: [topic('agenda-1', 'city', { provenance: 'derived-from-agenda', geoid: '1805860' })],
+  })
+  // The POSITION is deliberately not asserted: with isUnseeded false the module's
+  // available() is false and emptyState is 'hide', so it does not render at all
+  // and where it sits in the list is not an observable property.
+  check(
+    59,
+    'a SEEDED place is not unseeded — the invitation will not render, wherever it sits',
+    c !== null && c.isUnseeded === false,
+    c === null ? 'null' : `isUnseeded ${c.isUnseeded} / modules ${c.modules.slice(0, 4).join(', ')}`,
+  )
+}
+{
+  const c = resolveComposition({ sliceType: 'city', geoid: null, generic: GENERIC_TOPICS.city })
+  check(
+    60,
+    'geoid null is NOT unseeded — nobody can seed a place the app cannot name',
+    c !== null && c.isUnseeded === false && c.modules[1] !== 'seed-invitation',
+    c === null ? 'null' : `isUnseeded ${c.isUnseeded} / modules ${c.modules.slice(0, 4).join(', ')}`,
+  )
+}
+{
+  // 🔴 A REAL geoid is passed, and the placeless rule must still win: federal
+  // normalises to one nation-wide key, so there is no place to seed. Passing
+  // null here would prove nothing that check 60 does not already prove.
+  const c = resolveComposition({ sliceType: 'federal', geoid: 'US', generic: GENERIC_TOPICS.city })
+  check(
+    61,
+    "sliceType 'federal' is NOT unseeded even with a geoid — one nation-wide key, nothing to seed",
+    c !== null && c.isUnseeded === false && !c.modules.includes('seed-invitation'),
+    c === null ? 'null' : `isUnseeded ${c.isUnseeded} / modules ${c.modules.slice(0, 4).join(', ')}`,
+  )
+}
+{
+  // 🔴 The reorder above SPLICES. If it ever splices the frozen table instead of
+  // the copy, every later resolution on the page inherits the move — including
+  // seeded places and other levels. Snapshot, resolve several times through the
+  // branch that reorders, compare.
+  resolveComposition({ sliceType: 'city', geoid: '3702140', generic: GENERIC_TOPICS.city })
+  resolveComposition({ sliceType: 'county', geoid: '37021', generic: GENERIC_TOPICS.county ?? [] })
+  resolveComposition({ sliceType: 'state', geoid: '37', generic: GENERIC_TOPICS.state ?? [] })
+  resolveComposition({ sliceType: 'federal', geoid: 'US', generic: GENERIC_TOPICS.federal ?? [] })
+  resolveComposition({
+    sliceType: 'city',
+    geoid: '1805860',
+    generic: GENERIC_TOPICS.city,
+    bespoke: [topic('agenda-1', 'city', { provenance: 'derived-from-agenda', geoid: '1805860' })],
+  })
+  const after = JSON.stringify(DEFAULT_MODULES)
+  check(
+    62,
+    'DEFAULT_MODULES is UNMUTATED after five resolutions, including the ones that reorder',
+    // 🔴 Against the LOAD-TIME baseline, not one taken here: check 58 above
+    // already resolved an unseeded city, so a snapshot taken at the top of this
+    // block would contain the leak and compare it to itself.
+    after === MODULES_AT_LOAD,
+    `at load: ${MODULES_AT_LOAD}\n          now:     ${after}`,
   )
 }
 

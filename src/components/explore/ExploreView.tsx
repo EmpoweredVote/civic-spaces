@@ -71,6 +71,14 @@ interface ExploreViewProps {
    */
   city?: string | null
   stateAbbrev?: string | null
+  /**
+   * The resolved place name for this tab, for the modules that name the place.
+   *
+   * 🔴 Absent, or null, until it resolves — never the tab label. AppShell holds
+   * the one lookup and passes `null` while `useJurisdictionName` is still
+   * answering with its fallback. See ExploreCtx.placeName.
+   */
+  placeName?: string | null
   /** null when signed out, or when the member has no local community. */
   destination: ExploreDestination | null
   isAuthenticated: boolean
@@ -160,6 +168,7 @@ export function ExploreView({
   geoid,
   city,
   stateAbbrev,
+  placeName,
   destination,
   isAuthenticated,
   isViewOnly,
@@ -388,6 +397,7 @@ export function ExploreView({
   const ctx: ExploreCtx = {
     composition,
     topicsById,
+    placeName: placeName ?? null,
     destination,
     isAuthenticated,
     isViewOnly,

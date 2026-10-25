@@ -31,6 +31,21 @@ export interface ExploreCtx {
    */
   topicsById: ReadonlyMap<TopicId, ExploreTopic>
 
+  /**
+   * The resolved name of the place this tab is — "Bloomington", "Monroe
+   * County", "Indiana" — or null.
+   *
+   * 🔴 null means "not resolved, or no place", and a module that names the place
+   * must render NOTHING rather than a sentence with a hole in it. In particular
+   * it must never fall back to the tab label: `useJurisdictionName` answers the
+   * label ("City") while its offline table loads, and "Welcome to City" is worse
+   * than waiting a frame. AppShell passes null for exactly that case.
+   *
+   * No new lookup: this is the same string `ActiveExplore` already resolves for
+   * the meetings query.
+   */
+  placeName: string | null
+
   /** Where a post lands. null when signed out or with no slice for this tab. */
   destination: ExploreDestination | null
   isAuthenticated: boolean
