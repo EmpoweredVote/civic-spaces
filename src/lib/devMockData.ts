@@ -33,11 +33,105 @@ export function isSyntheticUserId(id: string | null | undefined): boolean {
   return !!id && SYNTHETIC_USER_IDS.has(id)
 }
 
+/**
+ * Dev-only: which real place the fixture slices point at.
+ *
+ * Asheville is the default and the historical fixture city. Bloomington, IN is
+ * the only city with real council-agenda coverage (Asheville has zero meetings),
+ * so it is the proof city for Phase 16 — and it has to be reachable without a
+ * production token, because localhost has no login.
+ *
+ * A fixed table of two, not a free geoid parameter: this patches identity-shaped
+ * state, and a named choice is both safer and honest about being a fixture.
+ * Verified against public/geo/18.json and public/geo/37.json — all six geoids
+ * resolve to real names offline, so useJurisdictionName needs no network.
+ */
+const DEV_PLACES = {
+  asheville:   { city: '3702140', county: '37021', state: '37' },
+  bloomington: { city: '1805860', county: '18105', state: '18' },
+} as const
+
+export type DevPlaceKey = keyof typeof DEV_PLACES
+
+const DEV_PLACE_STORAGE_KEY = 'cs_dev_place'
+
+/**
+ * True only under `npm run dev`.
+ *
+ * Wrapped in try/catch rather than read directly because this module is also
+ * loaded by `node --experimental-strip-types` (scripts/check-composition.mjs),
+ * where `import.meta.env` is undefined and a bare `.DEV` would throw at import
+ * time. Vite still replaces the expression with a literal in a production
+ * build, so the branch below — and DEV_PLACES with it — is dropped from the
+ * bundle.
+ */
+function devBuild(): boolean {
+  try {
+    return import.meta.env.DEV === true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Which dev place is in use, resolved once at module load.
+ *
+ * `?dev=1&place=bloomington` selects it and remembers it in sessionStorage: the
+ * query string is lost the moment wouter navigates to /post/:postId or
+ * /profile/:userId, and losing the proof city mid-walk is exactly the kind of
+ * thing that gets diagnosed as a data bug. Session scope, not local — it should
+ * not outlive the window. An unknown name falls back silently to the default.
+ *
+ * Every `window` / `sessionStorage` access is guarded: this module is imported
+ * by code paths that run before the DOM is interesting, and a private window
+ * throws on sessionStorage.
+ */
+function resolveDevPlace(): DevPlaceKey {
+  if (!devBuild()) return 'asheville'
+  let requested: string | null = null
+  try {
+    requested = new URLSearchParams(window.location.search).get('place')
+  } catch {
+    requested = null
+  }
+  if (requested && requested in DEV_PLACES) {
+    try {
+      window.sessionStorage.setItem(DEV_PLACE_STORAGE_KEY, requested)
+    } catch {
+      /* private window — the choice just does not survive navigation */
+    }
+    return requested as DevPlaceKey
+  }
+  try {
+    const stored = window.sessionStorage.getItem(DEV_PLACE_STORAGE_KEY)
+    if (stored && stored in DEV_PLACES) return stored as DevPlaceKey
+  } catch {
+    /* private window */
+  }
+  return 'asheville'
+}
+
+/** Exported so a dev-only affordance can say which fixture place is on screen. */
+export const DEV_PLACE: DevPlaceKey = resolveDevPlace()
+
+/**
+ * 🔴 Only the three place geoids come from the table. Every `id`, `memberCount`,
+ * `siblingIndex` and `photoUrl` stays exactly as it was: the post, reply and
+ * sibling fixtures key on those ids, including the City sibling the Explore
+ * view-only gate check relies on.
+ *
+ * 🔴 federal.geoid ('3711') and unified.geoid ('') are deliberately left wrong
+ * relative to production ('US' / 'UNIFIED'). compositionKey() normalises
+ * placeless types to the slice type alone precisely so that this does not
+ * matter; correcting them here would hide the normalisation rather than test it.
+ */
+const DEV_PLACE_GEOIDS = DEV_PLACES[DEV_PLACE]
+
 export const MOCK_SLICES: Record<SliceType, SliceInfo> = {
   city: {
     id: `${MOCK_ID_PREFIX}city`,
     sliceType: 'city',
-    geoid: '3702140',
+    geoid: DEV_PLACE_GEOIDS.city,
     memberCount: 42,
     siblingIndex: 1,
     photoUrl: null,
@@ -45,7 +139,7 @@ export const MOCK_SLICES: Record<SliceType, SliceInfo> = {
   county: {
     id: `${MOCK_ID_PREFIX}county`,
     sliceType: 'county',
-    geoid: '37021',
+    geoid: DEV_PLACE_GEOIDS.county,
     memberCount: 128,
     siblingIndex: 1,
     photoUrl: null,
@@ -53,7 +147,7 @@ export const MOCK_SLICES: Record<SliceType, SliceInfo> = {
   state: {
     id: `${MOCK_ID_PREFIX}state`,
     sliceType: 'state',
-    geoid: '37',
+    geoid: DEV_PLACE_GEOIDS.state,
     memberCount: 890,
     siblingIndex: 1,
     photoUrl: null,

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import './index.css'
 import App from './App'
+import { DevPlaceBadge } from './components/DevPlaceBadge'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +25,8 @@ createRoot(rootElement).render(
     <QueryClientProvider client={queryClient}>
       <App />
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />}
+      {/* Dev-only, and silent unless ?dev=1&place= has repointed the fixture slices. */}
+      {import.meta.env.DEV && <DevPlaceBadge />}
     </QueryClientProvider>
   </StrictMode>,
 )
