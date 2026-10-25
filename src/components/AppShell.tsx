@@ -271,6 +271,27 @@ function ActiveAboutWidget({
 const PHOTO_SLICE_ORDER: SliceType[] = ['city', 'county', 'state', 'federal']
 
 /**
+ * 🔴 Tabs that are not a place, and therefore have nothing to borrow a place photo FOR.
+ *
+ * Federal and Unified are keyed on the slice type alone and have no geoid of their own
+ * (`PLACELESS` in exploreComposition.ts). Before this set existed, `photoSliceFor` walked
+ * PHOTO_SLICE_ORDER on those tabs too and handed the featured card the member's CITY
+ * photograph — so "Where should the United States be involved abroad?" and "What is
+ * happening where you live that the rest of the world is missing?" were illustrated with
+ * an Asheville skyline, under a hero banner of the Capitol and of the Earth from orbit.
+ *
+ * 🔴 It is invisible on `?dev=1&place=bloomington`, which is why it survived 16-04 and
+ * nearly survived this plan: Bloomington's shared-library banner carries no credit, and
+ * `featuredPhoto` below requires `hero.credit`, so the borrow silently produced null
+ * there. Asheville's banner IS credited, so the bug only shows on the default fixture.
+ *
+ * State is deliberately NOT in this set. A state IS a place, and borrowing a city
+ * photograph from inside that state for a statewide question is a design call rather
+ * than a mismatch — 16-04 said so and nothing here contradicts it.
+ */
+const PLACELESS_TABS = new Set<TabKey>(['federal', 'unified', 'volunteer'])
+
+/**
  * The featured card borrows a credited place photo, but never the one `HeroBanner` is
  * already showing directly above it — that is always `slices[activeTab]`.
  *
@@ -285,6 +306,7 @@ function photoSliceFor(
   currentSlice: SliceInfo,
   activeTab: TabKey,
 ): SliceInfo | null {
+  if (PLACELESS_TABS.has(activeTab)) return null
   if (currentSlice.sliceType !== activeTab) return currentSlice
   for (const key of PHOTO_SLICE_ORDER) {
     const candidate = slices[key]

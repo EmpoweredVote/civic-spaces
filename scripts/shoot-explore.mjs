@@ -113,7 +113,22 @@ const GROUP_A = [
     key: 'asheville',
     label: 'Asheville, NC — unseeded, where the seed invitation leads',
     url: '/?dev=1',
-    tabs: ['city'],
+    /**
+     * 🔴 All five tabs, not just City — the plan asked for City alone and that
+     * was a blind spot.
+     *
+     * The featured card borrows a credited place photo from another of the
+     * member's slices, and `featuredPhoto` requires `hero.credit`. Bloomington's
+     * shared-library banner carries NO credit, so on `&place=bloomington` the
+     * borrow silently resolves to null on every tab and the card falls back to
+     * its illustration. Asheville's banner IS credited. So Asheville is the only
+     * fixture on which the borrowed-photo path renders at all, and shooting only
+     * its City tab left the one place that path is visible uncovered — which is
+     * how `deferred-items.md` item 2 (an Asheville skyline beside "Where should
+     * the United States be involved abroad?") survived 16-04 and very nearly
+     * survived this plan.
+     */
+    tabs: ['city', 'county', 'state', 'federal', 'unified'],
     viewOnly: false,
   },
   {
