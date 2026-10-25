@@ -113,6 +113,46 @@ coverage catalog first — specified for that repo in
 `phases/15-tool-deep-links/TT-HANDOFF.md`. Also outstanding: the in-situ visual check,
 which needs a signed-in session.
 
+### Phase 16: Explore by Slice
+**Goal**: Each slice's Explore is bespoke to that jurisdiction — and a member is never
+offered a write they cannot make
+**Plans**: 10 plans, executed **strictly in order** — they share five files, so despite
+`parallelization: true` in config this phase is serial. See the plan-set table in `16-01`.
+
+Plans:
+- [ ] `16-01-PLAN.md` — Scoped topic records, the pure resolver, the async seam
+- [ ] `16-02-PLAN.md` — The registry contract and the content modules
+- [ ] `16-03-PLAN.md` — `ExploreView` renders a composition
+- [ ] `16-04-PLAN.md` — Explore follows the active tab; drafts re-key to `(sliceType, geoid, topicId)`
+- [ ] `16-05-PLAN.md` — The sibling-shard read-only gate, with its own browser check
+- [ ] `16-06-PLAN.md` — Bloomington end to end: agenda-derived topics + the dev fixture override
+- [ ] `16-07-PLAN.md` — Races, debates and Compass ranking, from the member's most local area
+- [ ] `16-08-PLAN.md` — The invitation to seed an unseeded place, shown without the vote
+- [ ] `16-09-PLAN.md` — The reserved rooms, and the ev-accounts handoff
+- [ ] `16-10-PLAN.md` — The four-way visual pass and the phase gate
+
+Shared context: `16-SHARED.md` — the execution order, the coverage matrix and the
+constraints every plan inherits. Read it before `16-01`.
+
+Validation: `16-VALIDATION.md` — how every claim in the phase is checked, which commands
+run it, and the gaps it knowingly leaves.
+
+Explore shipped in #109 bound to `homeSlice`, so every tab showed the same content and the
+State tab asked members about their city's sidewalks. The fix is not re-pointing the data:
+the content key is `(slice_type, geoid)` — bespoke per *jurisdiction*, identical across
+sibling shards — and each slice composes its own set of modules rather than filling a shared
+frame.
+
+A place's topics come from what that place's government is working on: the council's agenda
+and the city's ballot measures, the legislature and the state ballot and the Governor. That
+makes bespoke content possible without anyone knowing the place, which is the anti-goal the
+design is built around.
+
+Explore follows the active tab and is read-only on a sibling shard — the third half of the
+gate-the-feed / gate-the-thread landmine.
+
+Design agreed and merged in #114: `phases/16-explore-by-slice/16-DESIGN.md`.
+
 ---
 
 ## Progress
@@ -134,3 +174,4 @@ which needs a signed-in session.
 | 13. v3.0 Tech Debt Sprint | v3.0 | 1/1 | Complete | 2026-04-10 |
 | 14. Slice Taxonomy | — | 1/1 | Complete | 2026-09-02 |
 | 15. Tool Deep Links | — | 1/1 | Complete | 2026-09-08 |
+| 16. Explore by Slice | — | 0/10 | Planned, not started | — |
