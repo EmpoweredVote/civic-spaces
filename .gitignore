@@ -38,3 +38,6 @@ banner-shots*/
 
 # signed-in visual check output
 app-shots/
+
+# Brainstorming visual companion (superpowers)
+.superpowers/
