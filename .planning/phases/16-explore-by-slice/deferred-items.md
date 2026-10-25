@@ -236,3 +236,72 @@ bill title on the federal vote row); upcoming debates; and an `eventKind` filter
 
 **Ordering.** PR A can go at any time and depends on nothing. PR B is the branch as it
 stands; if it ships first, PR A rebases cleanly because they share no files.
+
+---
+
+## 9. With `localStorage` blocked, the app never boots — so Explore's own guards cannot be reached
+
+**Found during:** 16-10 Task 4 Step 3, the "nobody's happy path" walk. That table has a
+row reading *"`localStorage` blocked (private window) → Explore still works and forgets on
+reload; nothing claims it saved."* **That row is not reachable as written.**
+
+With `window.localStorage` replaced by an object whose `setItem` throws a `SecurityError`
+— the Safari-private-mode shape — the app stops at "Civic Spaces Loading…" and Explore
+never mounts at all. Zero `[data-explore-module]`, uncaught page errors, nothing to judge.
+Traced to one unguarded call:
+
+```
+STORAGE-TRACE setItem cs_token ::
+    at storeToken (src/hooks/useAuth.ts:100)
+    at resolveAuth (src/hooks/useAuth.ts:120)
+```
+
+Supabase's own client survives it — `supportsLocalStorage` probes with a throwaway key
+inside a try/catch, which is exactly the right shape. Ours does not.
+
+It is **app-wide and pre-existing**, and the unguarded calls are spread across six files
+this phase never opens: `useAuth.ts`, `supabase.ts`, `useEnsureSlices.ts`,
+`useRepresentatives.ts`, `useHeroBanner.ts`, `HeroBanner.tsx`, `colorScheme.ts` and
+`AppShell.tsx` (`cs_active_tab`, `cs_pending_post`). `PanelToggle.tsx` is the one that
+already does it properly, and its comment says why.
+
+🔴 **Phase 16's own storage layer is clean, and that is worth stating because it is the
+half the row was really asking about.** `src/components/explore/exploreStorage.ts` wraps
+all three paths — the legacy-key cleanup, `read()` and `write()` — in try/catch, and
+`write()` returns a boolean so a caller can tell. Verified by reading all three. So the
+moment the shell stops throwing, this row will pass for free; nothing in Explore needs to
+change for it.
+
+**Who should own it:** not 16-10, which is Explore-scoped and whose own files are already
+correct. This wants its own small change: a `safeStorage` wrapper in `src/lib/`, every
+call site moved onto it, and a four-way look at the shell in a storage-blocked context.
+The highest-value single line is `storeToken` — the app at least *renders* once auth
+stops throwing.
+
+---
+
+## Addendum to item 6 (every button computes `cursor: default`) — 16-10's judgement
+
+**Measured again in 16-10 Task 3**, across ten presentations (Bloomington City, Federal,
+Asheville City, Asheville State and Unified; light and dark; 1440px and 390px):
+**196 of 416 probed controls are `<button>` elements computing `cursor: default`.** Item 6
+is reproduced exactly and at scale.
+
+**16-10 is NOT fixing it, deliberately.** Three reasons, and the first is the real one:
+
+1. **It is not an Explore defect.** Tailwind v4's Preflight sets `button { cursor: default }`
+   app-wide and this repo has no config file and no override. The feed, the composer, the
+   nav rail and the top bar are all equally affected. Fixing it only inside Explore — a
+   `cursor-pointer` on `PrimaryButton` and `SecondaryButton` — would make Explore's controls
+   behave differently from the rest of the app, which is worse than consistent-and-wrong.
+2. **The right fix has a blast radius this phase cannot see.** One line in the global
+   stylesheet, `@layer base { button:not(:disabled) { cursor: pointer } }`, changes every
+   control in the product. 16-10 shot 48 presentations and every one of them is Explore;
+   none covers the feed, the composer or the nav rail, so this phase cannot honour the
+   four-way standard for the change it would be making.
+3. 16-10's own **Out of Scope** says a finding needing a new pattern is a new plan, and
+   item 6 already names 16-10 as the wrong owner.
+
+**Recommendation, unchanged from item 6:** its own small PR — the one global line, plus a
+four-way look at the feed, the composer and the nav rail. It is a genuine
+"looks right, feels broken" defect and it is cheap; it is just not this phase's.
