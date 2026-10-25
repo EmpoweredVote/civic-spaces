@@ -10,7 +10,7 @@
  * shipped code is wrong. If you are tempted to copy a function in here, don't — make the
  * function importable instead.
  *
- * What it covers (47 assertions, extended to 55 by 16-05, 57 by 16-06 and 62 by 16-08;
+ * What it covers (55 assertions, extended to 57 by 16-06 and 62 by 16-08;
  * 16-10 re-runs it as a phase gate):
  *
  *   1–8    composition keys and the five module lists
@@ -18,6 +18,10 @@
  *          jurisdiction" anti-goal, as a function rather than a UI behaviour
  *   42–47  the sign-in re-key (migrateSignedOutDrafts). Numbered after the fact but run
  *          here, with the rest of the draft-key work they belong to
+ *   48–55  shouldResume — the resume decision, including the view-only branch. 🔴 This is
+ *          the ONLY place that branch is reachable: viewingSlices is not persisted, so a
+ *          page load always starts with view-only false and no browser check can set up
+ *          the state. scripts/check-explore-gate.mjs covers the invariant instead.
  *   22–30  selection against the module list, Compass ranking, the level filter
  *   31–39  resolution, races areas, href validation
  *   40–41  the same functions over THIS APP'S REAL DATA — the generic pool, the module-owned
@@ -43,6 +47,7 @@ import {
   rankByCompass,
   resolveComposition,
   selectForModules,
+  shouldResume,
   topicsClaimedByModules,
   topicsForLevel,
 } from '../src/lib/exploreComposition.ts'
@@ -315,6 +320,86 @@ check(
     'no drafts: changed is false, so the caller never writes',
     r.changed === false && Object.keys(r.next).length === 0,
     JSON.stringify(r),
+  )
+}
+
+// ── 48–55  The resume decision ───────────────────────────────────────────────
+//
+// 🔴 The view-only branch (52, 55) is unreachable from a browser: viewingSlices is
+// plain useState and is not persisted, so a page load always starts with view-only
+// false, and the resume effect fires once per mount before any async deep-link
+// resolution can set it. That is exactly why the decision is a pure function. If
+// these go red, so has the last gate standing between a replayed resume marker and
+// an insert RLS will reject.
+
+const DAY = 24 * 60 * 60 * 1000
+const NOW = 1_800_000_000_000
+
+/** Everything valid: a fresh marker, a draft, a destination, postable, own shard. */
+const resumeInput = (over = {}) => ({
+  marker: { sliceType: 'city', geoid: '1805860', topicId: 'safer-walking', at: NOW - 60_000 },
+  draft: { updatedAt: NOW - 60_000 },
+  now: NOW,
+  maxAgeMs: DAY,
+  isViewOnly: false,
+  hasDestination: true,
+  postVerdict: { ok: true },
+  ...over,
+})
+
+check(48, "no marker yields 'none'", shouldResume(resumeInput({ marker: null })) === 'none', shouldResume(resumeInput({ marker: null })))
+check(
+  49,
+  "a fresh marker with a draft, postable, not view-only, with a destination yields 'resume'",
+  shouldResume(resumeInput()) === 'resume',
+  shouldResume(resumeInput()),
+)
+{
+  const got = shouldResume(resumeInput({ marker: { sliceType: 'city', geoid: '1805860', topicId: 'safer-walking', at: NOW - DAY - 1 } }))
+  check(50, "a marker older than maxAgeMs yields 'drop-stale'", got === 'drop-stale', got)
+}
+{
+  const got = shouldResume(resumeInput({ draft: undefined }))
+  check(51, "a marker with NO draft yields 'drop-stale' — it points at nothing", got === 'drop-stale', got)
+}
+{
+  const got = shouldResume(resumeInput({ isViewOnly: true }))
+  check(
+    52,
+    "🔴 view-only with everything else valid yields 'defer' — the marker is KEPT, not dropped",
+    got === 'defer',
+    `${got}\n          Dropping it would throw away the member's stated intent to post. They are` +
+      `\n          merely reading someone else's shard; the marker fires when they switch back.`,
+  )
+}
+{
+  const got = shouldResume(resumeInput({ hasDestination: false }))
+  check(53, "no destination yet yields 'defer' — later, not never", got === 'defer', got)
+}
+{
+  const got = shouldResume(resumeInput({ postVerdict: { ok: false } }))
+  check(
+    54,
+    "canPostDraft refusing yields 'drop-unpostable' — the marker goes, the draft stays",
+    got === 'drop-unpostable',
+    got,
+  )
+}
+{
+  const got = shouldResume(
+    resumeInput({
+      isViewOnly: true,
+      marker: { sliceType: 'city', geoid: '1805860', topicId: 'safer-walking', at: NOW - DAY - 1 },
+    }),
+  )
+  check(
+    55,
+    "🔴 view-only AND stale yields 'drop-stale' — staleness is tested FIRST",
+    got === 'drop-stale',
+    `${got}\n          If this says 'defer' the branches are in the wrong order. A marker older than` +
+      `\n          24 h was abandoned, and a deferred marker is only re-evaluated on switch-back or` +
+      `\n          a remount — so keeping it alive would park stale state indefinitely, outliving` +
+      `\n          the draft it points at.`,
   )
 }
 

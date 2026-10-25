@@ -698,6 +698,19 @@ export default function AppShell() {
   }, [scrollToContentTop])
 
   /**
+   * The shard on screen for the active tab, and whether it is a SIBLING of the
+   * member's own — readable by RLS, every write path closed by it.
+   *
+   * 🔴 Declared here, above handleStartConversation, rather than beside the other
+   * derived render values below: that callback needs it in its dependency array,
+   * and a block-scoped const cannot be named before it is declared. The feed reads
+   * this same value (see the FEED_TABS map), so the two cannot disagree.
+   */
+  const activeSlice = slices[activeTab]
+  const activeViewing = viewingSlices[activeTab]
+  const activeIsViewOnly = !!activeSlice && !!activeViewing && activeViewing.id !== activeSlice.id
+
+  /**
    * Explore → Conversations with a topic's draft in the composer.
    *
    * 🔴 The draft KEY names the jurisdiction, and that — not the tab on screen — decides
@@ -711,6 +724,19 @@ export default function AppShell() {
    * after they return, from a resume marker carrying the whole key.
    */
   const handleStartConversation = useCallback((key: string, draft: ExploreDraft, destinationName: string | null) => {
+    /**
+     * 🔴 Defence in depth, at the far end of all three composer paths. Explore must
+     * not OFFER this while view-only (16-CONTEXT locked decision 4) and RLS would
+     * reject the insert anyway; a stale closure, or a future reordering of the route
+     * and resume effects, must not be the one path that gets through.
+     *
+     * The reset below (setViewingSlices → null) stays as the backstop behind this,
+     * and it is what makes the deep-link race harmless today: even if a resume fired
+     * while view-only, the composer would open on the member's OWN shard. This
+     * refusal is what stops it being asked to in the first place. Never delete one
+     * and keep the other — assertion 10 of check:explore-gate watches the pair.
+     */
+    if (activeIsViewOnly) return
     if (!isAuthenticated) {
       const parsed = parseDraftKey(key)
       if (parsed) writeResume({ ...parsed, at: Date.now() })
@@ -753,7 +779,7 @@ export default function AppShell() {
         if (current) writeDraft(key, { ...current, ...values, updatedAt: Date.now() })
       },
     })
-  }, [isAuthenticated, loginUrl, slices, activeTab, activePostIds, handleTabChange, scrollToContentTop, navigate])
+  }, [isAuthenticated, loginUrl, slices, activeTab, activePostIds, handleTabChange, scrollToContentTop, navigate, activeIsViewOnly])
 
   // Restore scroll position after the new tab becomes visible
   useEffect(() => {
@@ -762,9 +788,6 @@ export default function AppShell() {
     })
   }, [activeTab])
 
-  const activeSlice = slices[activeTab]
-  const activeViewing = viewingSlices[activeTab]
-  const activeIsViewOnly = !!activeSlice && !!activeViewing && activeViewing.id !== activeSlice.id
   const activeMode = feedModes[activeTab]
   const showFeed = isAuthenticated && !isLoading && !isAssigning && (hasJurisdiction || !!slices['unified'])
   // "Showing content for …" names the member's most local space.

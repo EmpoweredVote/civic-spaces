@@ -181,6 +181,88 @@ export function migrateSignedOutDrafts<T extends { updatedAt: number }>(
   return { next, changed }
 }
 
+// ── The resume decision ─────────────────────────────────────────────────────
+
+/** What a resume marker looks like to this decision. Mirrors ExploreResume. */
+export interface ResumeMarker {
+  sliceType: string
+  geoid: string | null
+  topicId: string
+  at: number
+}
+
+export interface ShouldResumeInput {
+  /** The stored "post this after sign-in" marker, or null when there is none. */
+  marker: ResumeMarker | null
+  /** The draft the marker's key resolves to. Undefined when storage has none. */
+  draft: { updatedAt: number } | undefined
+  now: number
+  maxAgeMs: number
+  /** True on a sibling shard: readable, every write path closed by RLS. */
+  isViewOnly: boolean
+  /** False while this view has no place to post to yet. */
+  hasDestination: boolean
+  /** canPostDraft() over the marker's rebuilt key. */
+  postVerdict: { ok: boolean }
+}
+
+export type ResumeAction = 'resume' | 'drop-stale' | 'drop-unpostable' | 'defer' | 'none'
+
+/**
+ * What to do with a "post this after sign-in" marker.
+ *
+ * 🔴 Pure, so it can be checked without a browser. A browser cannot reliably
+ * reach the view-only case at all: `viewingSlices` is plain `useState` and is not
+ * persisted, so a page load always starts with view-only false, and the resume
+ * effect fires once per mount as soon as `isAuthenticated` and `destination`
+ * resolve. The only path that sets view-only on a fresh load is a
+ * `/post/<siblingPostId>` deep link, and `openPost` sets it only after
+ * `await locatePost(...)` — a later commit than the first render. So this gate is
+ * defence in depth against a future reordering, not a currently-reachable bug,
+ * and `scripts/check-composition.mjs` 48–55 is the only thing that can see it.
+ *
+ * The outcomes:
+ *
+ * - `'resume'`          call startConversation, clear the marker
+ * - `'drop-stale'`      older than maxAgeMs, or no draft: clear the marker, do nothing
+ * - `'drop-unpostable'` canPostDraft refused: clear the marker, KEEP the draft
+ * - `'defer'`           view-only, or no destination yet: leave the marker alone
+ * - `'none'`            no marker
+ *
+ * 🔴 Two orderings in here are load-bearing, and both are the difference between
+ * a right answer and a plausible one:
+ *
+ * 1. **Staleness is tested BEFORE view-only.** A marker older than the max age was
+ *    abandoned, and keeping it alive because the member happens to be reading a
+ *    sibling would park stale state indefinitely — a deferred marker is only
+ *    re-evaluated on switch-back or a remount, so it could easily outlive the
+ *    draft it points at. Staleness wins.
+ * 2. **View-only yields `'defer'`, never `'drop-stale'`.** The member asked to post
+ *    this and is merely reading someone else's shard. Dropping their marker would
+ *    throw away that intent; deferring fires it when they switch back, which is a
+ *    real path a real member takes.
+ */
+export function shouldResume(input: ShouldResumeInput): ResumeAction {
+  const { marker, draft, now, maxAgeMs, isViewOnly, hasDestination, postVerdict } = input
+  if (!marker) return 'none'
+  // 🔴 Before view-only. See note 1 above.
+  if (now - marker.at > maxAgeMs) return 'drop-stale'
+  // Nothing to post: the draft was discarded, or storage was refused. Same
+  // disposition as stale — the marker points at nothing and is dead weight.
+  if (!draft) return 'drop-stale'
+  // 🔴 Leave it. See note 2 above.
+  if (isViewOnly) return 'defer'
+  // No place to post to yet. Also "later", not "never": a destination arrives
+  // with the member's slices, and dropping the marker in that window would lose
+  // a draft for a member who holds the slice perfectly well.
+  if (!hasDestination) return 'defer'
+  // They moved, or lost that slice, while they were away. Losing the MARKER is
+  // better than posting somewhere they did not mean — and it happens silently,
+  // because they pressed nothing. The draft itself stays where it is.
+  if (!postVerdict.ok) return 'drop-unpostable'
+  return 'resume'
+}
+
 // ── Levels, and what each is made of ────────────────────────────────────────
 
 const LEVEL_BY_SLICE_TYPE: Readonly<Record<string, ExploreLevel>> = {
