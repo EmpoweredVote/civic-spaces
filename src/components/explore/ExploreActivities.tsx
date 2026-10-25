@@ -173,9 +173,9 @@ function SuggestionIcon({ kind }: { kind: SuggestionKind }) {
 }
 
 /**
- * A REAL dated event for the "An evening" suggestion — from the meetings API or the
- * area's election calendar, never invented. One shape, so the card and the detail page
- * render either the same way.
+ * A REAL dated thing on this place's public calendar — from the meetings API or the
+ * area's election calendar, never invented. One shape, so ComingUpCard and its detail
+ * page render either the same way.
  */
 interface RealEvent {
   /** Small line above the card title, e.g. "Coming up · Nov 3". */
@@ -243,13 +243,10 @@ function fromMeeting(m: UpcomingMeeting, level: ExploreLevel): RealEvent {
  * 2026-10-24: no field on any response, no table in ev-accounts, zero
  * measure-like names among 548 distinct race names. It invents nothing today,
  * being copy rather than data, but it promises something the product cannot
- * deliver, so the new ComingUpCard drops it.
- *
- * `keepFrozenWording` exists only so the frozen AdventureActivity keeps the
- * exact words it ships today and this plan moves no pixels. DELETE IT WITH
- * AdventureActivity IN 16-03.
+ * deliver, so ComingUpCard drops it. The `keepFrozenWording` flag that kept the
+ * old wording alive for AdventureActivity went with that card in 16-03.
  */
-function fromElection(e: UpcomingElection, keepFrozenWording = false): RealEvent {
+function fromElection(e: UpcomingElection): RealEvent {
   const [y, mo, d] = e.date.split('-').map(Number)
   // A calendar date: new Date('2026-11-03') would be UTC midnight, a day early in the US.
   const local = new Date(y!, mo! - 1, d!, 12)
@@ -270,148 +267,13 @@ function fromElection(e: UpcomingElection, keepFrozenWording = false): RealEvent
     about: 'An upcoming election on your ballot. Spending one evening with what is on it makes the day itself calmer — and gives you better questions to ask neighbors.',
     steps: [
       'Look up what will be on your ballot.',
-      keepFrozenWording
-        ? 'Pick the race or measure you know least about and read up on it.'
-        : 'Pick the race you know least about and read up on it.',
+      'Pick the race you know least about and read up on it.',
       'Write down one question to talk through with neighbors.',
     ],
     source: 'This date comes from Empowered\'s election calendar for your area. Check your local election office for polling places, hours and deadlines.',
     url: null,
     urlLabel: '',
   }
-}
-
-/**
- * 🔴 FROZEN, and superseded. This card fuses two unrelated things — place-scale
- * suggestions and a real dated event — and is split below into NearbyActivity
- * (City/County) and ComingUpCard (every level with a calendar). It survives only
- * because ExploreView still imports it; 16-03 rewrites that file and deletes
- * this function, AdventureDetail's `event` branch and fromElection's
- * keepFrozenWording with it. Do not add to it.
- */
-export function AdventureActivity({
-  choice,
-  onChoose,
-  meeting,
-  election,
-  onExploreTopic,
-}: {
-  choice: AdventureDuration | null
-  onChoose: (choice: AdventureDuration) => void
-  /** The next real scheduled public meeting, if the meetings API returned one. Never invented. */
-  meeting: UpcomingMeeting | null
-  /** The area's next real election, used for the evening when there is no meeting. */
-  election: UpcomingElection | null
-  onExploreTopic: (topic: TopicId) => void
-}) {
-  const id = useId()
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  // 15 minutes is pre-selected, so the card always shows a suggestion rather than an empty box.
-  const current = choice ?? '15m'
-  const option = ADVENTURE_OPTIONS.find((o) => o.key === current)!
-  // The evening prefers a real dated event: the city's next meeting, else the next election.
-  const realEvent =
-    option.key === 'evening'
-      ? meeting
-        ? fromMeeting(meeting, 'city')
-        : election
-          ? fromElection(election, true)
-          : null
-      : null
-
-  return (
-    <section aria-labelledby={`${id}-h`} className={`${CARD} @container p-6 @xl:p-7`}>
-      {/* Picker left, suggestion right on a wide column; stacked when narrow. */}
-      <div className="grid gap-5 @xl:grid-cols-2 @xl:gap-6 @3xl:gap-8 @xl:items-center">
-      <div className="flex flex-col gap-5">
-      <div>
-        {/* The same teal eyebrow as the Imagine card, with a compass for "go and look". */}
-        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M15.5 8.5l-2 5-5 2 2-5 5-2z" />
-          </svg>
-          Explore nearby
-        </p>
-        <h3 id={`${id}-h`} className="mt-1.5 text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
-          How much room do you have today?
-        </h3>
-        <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
-          Choose a little pocket of time and we'll suggest a gentle way to look closer.
-        </p>
-      </div>
-
-      {/* Segmented control — real radios, so arrow keys move between the three. */}
-      <fieldset className="grid grid-cols-3 gap-1 rounded-2xl bg-gray-100 dark:bg-white/[0.06] p-1.5">
-        <legend className="sr-only">How much time do you have</legend>
-        {ADVENTURE_OPTIONS.map((o) => {
-          const checked = current === o.key
-          return (
-            <label
-              key={o.key}
-              className={[
-                'cursor-pointer select-none rounded-xl px-2 py-3 text-center text-sm font-bold motion-safe:transition-colors',
-                checked
-                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100',
-                'has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand/60 dark:has-[input:focus-visible]:ring-brand-light/70',
-              ].join(' ')}
-            >
-              <input type="radio" name={`${id}-time`} checked={checked} onChange={() => onChoose(o.key)} className="sr-only" />
-              {o.label}
-            </label>
-          )
-        })}
-      </fieldset>
-      </div>
-
-      {/* The suggestion — its icon, then what to do and where it leads. */}
-      <div aria-live="polite" className="flex gap-4 rounded-2xl bg-[#E8F6F3] dark:bg-brand/10 px-5 py-5">
-        <div className="flex w-9 flex-shrink-0 flex-col items-center" aria-hidden="true">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-gray-900 shadow-sm text-brand-coral-text dark:text-brand-coral">
-            <SuggestionIcon kind={realEvent ? realEvent.icon : option.key} />
-          </span>
-        </div>
-        <div className="min-w-0 flex flex-col gap-1.5">
-          {realEvent && (
-            <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white dark:bg-gray-900 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-coral-text dark:text-brand-coral">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand-coral" aria-hidden="true" />
-              {realEvent.soonLabel}
-            </p>
-          )}
-          <p className="text-base font-bold text-gray-900 dark:text-gray-100">{realEvent ? realEvent.cardTitle : option.title}</p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{realEvent ? realEvent.cardLine : option.description}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
-            <button
-              type="button"
-              onClick={() => dialogRef.current?.showModal()}
-              className={`inline-flex items-center gap-1.5 rounded text-sm font-bold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
-            >
-              See the details <ArrowIcon />
-            </button>
-            <button
-              type="button"
-              onClick={() => onExploreTopic(option.topic)}
-              className={`inline-flex items-center gap-1.5 rounded text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:underline ${FOCUS}`}
-            >
-              {option.linkLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-      </div>
-
-      <AdventureDetail
-        dialogRef={dialogRef}
-        option={option}
-        event={realEvent}
-        onExploreTopic={(topic) => {
-          dialogRef.current?.close()
-          onExploreTopic(topic)
-        }}
-      />
-    </section>
-  )
 }
 
 // ── Adventure detail ──────────────────────────────────────────────────────────────────
@@ -431,19 +293,18 @@ function Chip({ icon, children }: { icon: 'clock' | 'pin'; children: React.React
 
 /**
  * The detail page for one suggestion, as a modal over Explore. A suggestion is not an
- * event: it has no date, organizer or address, so none is shown. Only a REAL scheduled
- * meeting (from the meetings API) gets a date tile, a time and an agenda link.
+ * event: it has no date, organizer or address, so none is shown — and since 16-03 it
+ * never can be. The `event` branch this component used to carry served only
+ * AdventureActivity; real dated things are ComingUpCard's, and ComingUpDetail renders
+ * them. Keeping a dead branch here is how the two drift back together.
  */
 function AdventureDetail({
   dialogRef,
   option,
-  event,
   onExploreTopic,
 }: {
   dialogRef: React.RefObject<HTMLDialogElement | null>
   option: (typeof ADVENTURE_OPTIONS)[number]
-  /** A real dated event (meeting or election), or null for the plain suggestion. */
-  event: RealEvent | null
   onExploreTopic: (topic: TopicId) => void
 }) {
   const id = useId()
@@ -462,8 +323,6 @@ function AdventureDetail({
     }
   }
 
-  const steps = event ? event.steps : option.steps
-
   return (
     <dialog
       ref={dialogRef}
@@ -473,22 +332,15 @@ function AdventureDetail({
     >
       {/* Header */}
       <div className="relative flex items-start gap-5 bg-white dark:bg-gray-900 px-6 py-7 sm:px-10 sm:py-10 border-b border-gray-200/70 dark:border-white/[0.06]">
-        {event ? (
-          <span className="flex h-20 w-20 flex-shrink-0 flex-col items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-gray-800">
-            <span className="text-xs font-bold uppercase text-brand-coral-text dark:text-brand-coral">{event.month}</span>
-            <span className="text-3xl font-bold leading-none text-gray-900 dark:text-gray-100">{event.day}</span>
-          </span>
-        ) : (
-          <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-gray-800" aria-hidden="true">
-            <Emoji symbol={option.emoji} className="text-4xl" />
-          </span>
-        )}
+        <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-gray-800" aria-hidden="true">
+          <Emoji symbol={option.emoji} className="text-4xl" />
+        </span>
         <div className="min-w-0 flex-1 pr-10">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
-            {event ? event.eyebrow : 'Local activity · Suggestion'}
+            Local activity · Suggestion
           </p>
           <h2 id={`${id}-t`} className="mt-2 text-3xl sm:text-[2.75rem] font-medium leading-[1.1] tracking-tight text-gray-900 dark:text-gray-100">
-            {event ? event.title : option.title}
+            {option.title}
           </h2>
         </div>
         <button
@@ -506,21 +358,19 @@ function AdventureDetail({
       {/* Body */}
       <div className="flex flex-col gap-7 px-6 py-8 sm:px-10">
         <div className="flex flex-wrap gap-3">
-          <Chip icon="clock">{event ? event.timeChip : option.durationChip}</Chip>
-          <Chip icon="pin">{event ? event.placeChip : option.placeChip}</Chip>
+          <Chip icon="clock">{option.durationChip}</Chip>
+          <Chip icon="pin">{option.placeChip}</Chip>
         </div>
 
         <div>
-          <h3 className="text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
-            {event ? event.aboutHeading : 'About this activity'}
-          </h3>
-          <p className="mt-2 text-base text-gray-600 dark:text-gray-400">{event ? event.about : option.about}</p>
+          <h3 className="text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">About this activity</h3>
+          <p className="mt-2 text-base text-gray-600 dark:text-gray-400">{option.about}</p>
         </div>
 
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{event ? 'Make an evening of it' : 'How to try it'}</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">How to try it</h3>
           <ol className="mt-3 flex flex-col gap-2.5">
-            {steps.map((step, i) => (
+            {option.steps.map((step, i) => (
               <li key={step} className="flex items-start gap-3 text-base text-gray-700 dark:text-gray-300">
                 <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand-muted dark:bg-brand/15 text-xs font-bold text-brand dark:text-brand-light">{i + 1}</span>
                 {step}
@@ -530,11 +380,10 @@ function AdventureDetail({
         </div>
 
         <div className="max-w-2xl rounded-2xl bg-[#E3F4F1] dark:bg-brand/10 px-5 py-4">
-          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{event ? 'Where this comes from' : 'A suggestion, not an event'}</p>
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">A suggestion, not an event</p>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {event
-              ? event.source
-              : 'There is nothing to sign up for and no set time — go whenever suits you. Real public meetings and elections appear here when they are published for your area.'}
+            There is nothing to sign up for and no set time — go whenever suits you. Real public
+            meetings and elections appear here when they are published for your area.
           </p>
         </div>
 
@@ -550,16 +399,6 @@ function AdventureDetail({
             </svg>
             {isSaved ? 'Saved on this device' : 'Save on this device'}
           </button>
-          {event?.url && (
-            <a
-              href={event.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex items-center gap-1.5 rounded-xl border border-gray-300 dark:border-white/15 bg-white dark:bg-gray-900 px-5 py-3 text-base font-bold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 ${FOCUS}`}
-            >
-              {event.urlLabel}<span className="sr-only"> (opens in a new tab)</span>
-            </a>
-          )}
           <button
             type="button"
             onClick={close}
@@ -584,15 +423,13 @@ function AdventureDetail({
 // ── Explore nearby (the place half of the old Adventure card) ─────────────────────────
 
 /**
- * The same card as AdventureActivity, with the real-event slot removed: a time
- * picker and a gentle suggestion, which is City/County by construction.
+ * A time picker and a gentle suggestion, which is City/County by construction.
+ * It is what was left of the old Adventure card once the real-event slot moved to
+ * ComingUpCard; that card, and AdventureDetail's `event` branch with it, went in 16-03.
  *
  * `readSavedAdventures` / `writeSavedAdventures` stay exactly as they were — a
  * bookmark on this device is not a write to anything, so it survives the
  * view-only gate in 16-05.
- *
- * It reuses AdventureDetail with no event, which is precisely the plain
- * suggestion detail that component already renders.
  */
 export function NearbyActivity({
   choice,
@@ -689,7 +526,6 @@ export function NearbyActivity({
       <AdventureDetail
         dialogRef={dialogRef}
         option={option}
-        event={null}
         onExploreTopic={(topic) => {
           dialogRef.current?.close()
           onExploreTopic(topic)
