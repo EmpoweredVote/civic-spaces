@@ -14,6 +14,7 @@ import {
 import { CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton } from './exploreUi'
 import { ProvenanceTag, SourceNote } from './provenance'
 import { MODULE_REGISTRY, ReservedRoom } from './registry'
+import { ViewOnlyNotice } from './ViewOnlyNotice'
 import type { ExploreCtx } from './ExploreContext'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { UpcomingElection } from '../../hooks/useNextElection'
@@ -325,11 +326,43 @@ export function ExploreView({
   const open = ui.openTopic
   if (open && open.key === composition.key) {
     const topic = topicsById.get(open.topicId)
-    if (topic) return <TopicDetail topic={topic} ctx={ctx} />
+    if (topic) {
+      const detail = <TopicDetail topic={topic} ctx={ctx} />
+      // 🔴 The topic page gets the notice too. It is the page the draft form lived
+      // on, so it is the one a member is most likely to be looking at when they
+      // wonder why there is nothing to write in — and the Switch-back control has
+      // to be reachable from here, not only from the list.
+      //
+      // The wrapper exists only while view-only: without it the topic page is the
+      // whole view, exactly as it was.
+      return ctx.isViewOnly ? (
+        <div className="flex flex-col gap-4">
+          <ViewOnlyNotice
+            viewingSliceIndex={viewingSliceIndex}
+            ownSliceIndex={ownSliceIndex}
+            onReturnToOwnSlice={onReturnToOwnSlice}
+          />
+          {detail}
+        </div>
+      ) : (
+        detail
+      )
+    }
   }
 
   return (
     <div className="@container flex flex-col gap-6 @lg:gap-8 pb-2">
+      {/* Above the module list AND above TopicDetail (below): the flag can be true
+          while the member is deep in a topic page, and that page is where the draft
+          form used to be. Rendering it in only one of the two is how half a gate
+          ships — see the feed-but-not-the-thread note in CLAUDE.md. */}
+      {ctx.isViewOnly && (
+        <ViewOnlyNotice
+          viewingSliceIndex={viewingSliceIndex}
+          ownSliceIndex={ownSliceIndex}
+          onReturnToOwnSlice={onReturnToOwnSlice}
+        />
+      )}
       {composition.modules.map((id) => {
         const mod = MODULE_REGISTRY[id]
         if (mod.available(ctx)) {
