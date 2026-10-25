@@ -248,14 +248,68 @@ const MOCK_FEDERAL_SIBLING_POSTS: PostWithAuthor[] = [
 ]
 
 /**
+ * A second CITY shard, for the same reason MOCK_FEDERAL_SIBLING_ID exists: real
+ * siblings only appear once a jurisdiction passes its member cap, which no local
+ * fixture would otherwise reach.
+ *
+ * 🔴 City specifically, and it is not redundant with the Federal one. The City
+ * composition is the only one carrying the Imagine card, "Share an idea", the
+ * Nearby dialog and "Save on this device" — four of the ten write affordances
+ * research Finding 5 lists, and four that DEFAULT_MODULES.federal does not
+ * render at all. A view-only check driven on Federal alone would report "no
+ * textarea found" about a tab that never had one, which is a true statement
+ * about nothing. scripts/check-explore-gate.mjs runs on both because of this.
+ *
+ * 🔴 The id must stay prefixed by MOCK_SLICES.city.id. useNotificationRouting
+ * resolves a fixture sibling with `mockPost.slice_id.startsWith(info.id)`, so
+ * the prefix is what makes /post/<id> resolve to { kind: 'sibling', tab: 'city' }
+ * instead of `unavailable`.
+ */
+export const MOCK_CITY_SIBLING_ID = `${MOCK_ID_PREFIX}city-2`
+
+const MOCK_CITY_SIBLING_POSTS: PostWithAuthor[] = [
+  {
+    id: 'mock-city-2-post-1',
+    slice_id: MOCK_CITY_SIBLING_ID,
+    user_id: 'mock-user-sibling2',
+    title: null,
+    body: "This is City Slice 2. Same city, a different shard of it — you can read everything here and write nothing, which is what the database allows and what the page should offer.",
+    reply_count: 0,
+    edit_history: [],
+    created_at: '2026-04-14T10:30:00.000Z',
+    updated_at: '2026-04-14T10:30:00.000Z',
+    is_deleted: false,
+    author: author('SecondCityShardMember'),
+  },
+  {
+    id: 'mock-city-2-post-2',
+    slice_id: MOCK_CITY_SIBLING_ID,
+    user_id: 'mock-user-sibling3',
+    title: null,
+    body: "Open Explore while you are on this shard: the notice at the top should say where posting lives, and there should be no form, no textarea and no Join button anywhere on the page.",
+    reply_count: 0,
+    edit_history: [],
+    created_at: '2026-04-14T11:15:00.000Z',
+    updated_at: '2026-04-14T11:15:00.000Z',
+    is_deleted: false,
+    author: author('SecondCityShardMember'),
+  },
+]
+
+/**
  * Sibling shards per mock slice, shaped like useSiblingSlices' return rows.
- * Only Federal is sharded — one example is enough to drive the selector, and
- * every other tab exercises the single-slice (non-interactive) state.
+ * Federal and City are sharded; every other tab still exercises the single-slice
+ * (non-interactive) state. City is here so the view-only gate can be checked
+ * where four of the ten write affordances actually render.
  */
 const MOCK_SIBLINGS: Partial<Record<string, Array<{ id: string; siblingIndex: number; memberCount: number }>>> = {
   [MOCK_SLICES.federal.id]: [
     { id: MOCK_SLICES.federal.id, siblingIndex: 1, memberCount: MOCK_SLICES.federal.memberCount },
     { id: MOCK_FEDERAL_SIBLING_ID, siblingIndex: 2, memberCount: 17 },
+  ],
+  [MOCK_SLICES.city.id]: [
+    { id: MOCK_SLICES.city.id, siblingIndex: 1, memberCount: MOCK_SLICES.city.memberCount },
+    { id: MOCK_CITY_SIBLING_ID, siblingIndex: 2, memberCount: 29 },
   ],
 }
 
@@ -270,6 +324,7 @@ export function getMockSiblings(
 
 const MOCK_FEEDS: Partial<Record<string, PostWithAuthor[]>> = {
   [MOCK_FEDERAL_SIBLING_ID]: MOCK_FEDERAL_SIBLING_POSTS,
+  [MOCK_CITY_SIBLING_ID]: MOCK_CITY_SIBLING_POSTS,
   [MOCK_SLICES.federal.id]: MOCK_FEDERAL_POSTS,
   [MOCK_SLICES.state.id]: MOCK_STATE_POSTS,
   [MOCK_SLICES.county.id]: MOCK_COUNTY_POSTS,
@@ -280,9 +335,25 @@ export function getMockFeedPage(sliceId: string): PostWithAuthor[] {
   return MOCK_FEEDS[sliceId] ?? []
 }
 
-/** Looks up a single fixture post by id — used when opening a mock post's thread. */
+/**
+ * Looks up a single fixture post by id — used when opening a mock post's thread.
+ *
+ * 🔴 THIS LIST IS HAND-MAINTAINED, and leaving a new array out of it is silent.
+ * A post registered only in MOCK_FEEDS renders in its feed but is invisible here,
+ * so locatePost returns `unavailable`, /post/<id> toasts "That conversation isn't
+ * in one of your civic spaces" and navigates to `/` — and any check that then
+ * asserts about the page is asserting about the home feed. Register a new array
+ * in all THREE places: MOCK_SIBLINGS, MOCK_FEEDS and here.
+ */
 export function getMockPostById(postId: string): PostWithAuthor | null {
-  const all = [...MOCK_FEDERAL_POSTS, ...MOCK_FEDERAL_SIBLING_POSTS, ...MOCK_STATE_POSTS, ...MOCK_COUNTY_POSTS, ...MOCK_CITY_POSTS]
+  const all = [
+    ...MOCK_FEDERAL_POSTS,
+    ...MOCK_FEDERAL_SIBLING_POSTS,
+    ...MOCK_STATE_POSTS,
+    ...MOCK_COUNTY_POSTS,
+    ...MOCK_CITY_POSTS,
+    ...MOCK_CITY_SIBLING_POSTS,
+  ]
   return all.find((p) => p.id === postId) ?? null
 }
 
