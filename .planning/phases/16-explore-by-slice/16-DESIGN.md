@@ -175,9 +175,15 @@ From the codebase, not negotiable without a separate decision:
 - **There is no topics table in `civic_spaces` and posts carry no topic id.** "Join the
   conversation" opens the create-post composer with an editable draft; it never resolves to an
   existing post.
-- **`CompassTopic` carries no level or jurisdiction field** (`src/types/compass.ts`). Tagging
-  Compass topics by level of government is a Compass-side change in another repo. This design
-  must not block on it.
+- **`CompassTopic`'s TS type declares no level field** (`src/types/compass.ts`) — but the live
+  API does send `applies_federal`, `applies_state`, `applies_local` and more. Corrected after
+  research. They can exclude a topic from a level but cannot pick out "what federal leaders
+  attend to", since most topics are flagged for every level, so the level tag still rides on the
+  Explore topic record. No Compass-side change is blocking.
+- **`useCompassData` and `useToolCoverage` are defined and never called** on `origin/main`;
+  `CLAUDE.md` says all three sidebar hooks are hoisted in `AppShell`, and only
+  `useRepresentatives` actually is. Compass ranking therefore has no running consumer to extend
+  — the hook has to be hoisted deliberately, and it 401s for the dev id.
 - Every Supabase call is `.schema('civic_spaces')`.
 - This app never geocodes and never stores a location.
 - `npm run build` (`tsc -b && vite build`) is the frontend's only automated check.
@@ -241,22 +247,32 @@ Checked against the code, because the gap between what decision 10 asks for and 
 serves is the single biggest risk to this phase. The anti-goal stands: a module with no real
 source ships as a reserved empty room, never as invented civic record.
 
+**Revised 2026-10-24 after Phase 16 research** (`16-RESEARCH.md`), which called the live public
+APIs rather than reading our type definitions. Three rows moved. The original guesses are kept
+struck through where they were wrong, because the direction of the error matters.
+
 | What decision 10 wants | Source today | State |
 |---|---|---|
-| City council agendas | `useUpcomingMeetings` → `api.empowered.vote/api/meetings`, public, no auth | **Real, and already wired** — the `local-proposal` topic lists real agendas via `usesMeetingSources`. But coverage is only where the on-the-record pipeline runs: **Bloomington, IN, as of 2026-09-24.** Not Los Angeles. |
-| Races and candidates on the ballot | `useNextElection` → the elections API | **Served and discarded.** `ElectionRecord` notes "Races and candidates are ignored here" — this app reads only the election's name and date. The races are already in the response. |
-| Ballot measures (city or state) | — | Unconfirmed. The elections API may or may not carry measures; worth asking ev-accounts before designing around them. |
-| State legislature's focus | — | No source. |
-| Federal roll calls, bill summaries, debate schedules | — | No source. Named first in decision 8 and served by nothing. |
+| City council **agenda items** | `GET /api/meetings/:id/agenda-items` — public, no auth, **a route this app does not call today** | **Better than assumed.** Bloomington's latest agenda carries 8 ordinance/resolution items with verbatim titles, legislation references, stage, **plain-language summaries** and source links. Decision 10 is fully reachable there. The meetings *list* has no items; `useUpcomingMeetings` returns zero rows right now because the newest scheduled meeting is 2026-10-14 and the hook keeps only upcoming ones — so derive from the **most recent** agenda, not the next one. |
+| Races and candidates | `useNextElection` → the elections API | **Served and discarded**, but *not* free in the way first claimed. A **state**-area query returns every congressional district and **omits statewide races** — California's state area has no Governor, North Carolina's has no US Senate race. Federal geoid `US` returns **HTTP 500**. Races must be queried by the member's **most local** area, never `('US','G4000')`. |
+| Candidate debates and forums | `/api/meetings?raceId=…` | **A source the design said did not exist.** 26 `debate` and 19 `forum` recordings, joined to races by `raceIds`, verified against both Bloomington and LA. **Recordings only — no upcoming debate is published**, so "watch the debate for your race" is reachable and "here is the debate schedule" is not. One of them is an **LWV candidate forum**, which is decision 7's partner model already present in the data. |
+| Ballot measures (city or state) | — | **Answered: not served.** No field on any live response, no table anywhere in ev-accounts, and zero measure-like names among 548 distinct race names. A reserved empty room, and a handoff ask. |
+| State legislators' votes and bills | `/api/essentials/politicians/:id/{votes,bills}` | **Partly reachable.** Roll-call tallies exist for some legislators — 5 of 12 probed had votes. Nothing is slice-scoped, so this needs assembling per politician. |
+| Federal roll calls with a plain-language summary | — | **Half unreachable.** Tallies exist; **no bill summary exists anywhere** in the stack (empty on all ~350 bill rows sampled), and federal votes arrive with no bill title. Decision 8's "summary of the bill, then the tally" **cannot ship as specified** — the summary half has no source and must not be invented. |
 
-Two consequences worth stating plainly:
+Consequences worth stating plainly:
 
 - **The one city with real agenda coverage is Bloomington, not LA.** The example Chris used for
   "bespoke" is the one that cannot be bespoke yet, and the example he used for "generic" is the
-  one that can. That inverts the natural demo and it should be built and shown with Bloomington.
-- **The races are free.** Surfacing the candidates already present in the elections response is
-  the cheapest real content in this table, and it serves the "debates for your Senate and US
-  House races" half of decision 8 without any new route.
+  one that can. The demo is built and shown with Bloomington. Asheville — the dev fixture city —
+  has **zero** meetings, which is why it is not the proof city.
+- **The federal module Chris named first is the one with the weakest source.** The tally is
+  there; the plain-language summary that makes it worth reading is not, anywhere. Ships as a
+  reserved room with the handoff asking for bill summaries.
+- **Compass topics do carry level flags after all** — `applies_federal`, `applies_state`,
+  `applies_local` are sent live, the TS type simply does not declare them. They are too coarse
+  to *select* with (45 of 60 topics are flagged all three, "Ukraine Support" among them) but
+  precise enough to *exclude* with: the 6 local-only topics must never appear on Federal.
 
 ## Settled in review
 
@@ -275,9 +291,12 @@ something Chris chose — reverse any of them freely.
   not depend on it.
 - **The pass bar is structural.** "Each slice feels like itself" is verified as: Federal,
   State, City/County and Unified resolve to visibly different compositions, *and* at least one
-  real jurisdiction carries hand-authored bespoke topics as proof the bespoke layer works
-  end to end. Asheville, NC is the natural choice — it is already the dev fixture city. Seeding
-  LA, Bloomington and the rest is content work, which the non-goals defer.
+  real jurisdiction carries bespoke topics as proof the bespoke layer works end to end.
+  **Corrected after research: Bloomington, IN, not Asheville.** Asheville is the dev fixture
+  city, which made it the convenient choice, but it has zero meetings and two races; Bloomington
+  has four scheduled agendas, twenty races, a candidate forum and eight agenda items with
+  plain-language summaries. It needs a dev-only fixture override to be visible on localhost, and
+  that override is part of the work. Seeding LA and the rest is content work the non-goals defer.
 - **Explore drafts are re-keyed to `(sliceType, geoid, topicId)`.** Today `cs_explore_drafts`
   and `cs_explore_resume` key on `TopicId` alone, and a draft binds to one slice on first save.
   Once a generic topic can appear on two tabs, one key with one binding is the path by which a
@@ -296,9 +315,8 @@ something Chris chose — reverse any of them freely.
 
 Carried deliberately rather than guessed:
 
-- **Whether the elections API carries ballot measures**, as opposed to only races and
-  candidates. Decision 10 asks for measures at both city and state level. Ask ev-accounts
-  before designing a module around them.
+- ~~Whether the elections API carries ballot measures~~ — **answered by research: it does not,
+  anywhere in ev-accounts.** Measures are a reserved empty room and a handoff ask.
 - Compass aggregation is **no longer load-bearing** after decision 10, which is a relief: the
   design no longer needs a slice-wide view of members' political answers, and the privacy
   question that came with it does not have to be opened. Compass ranks and frames topics the
