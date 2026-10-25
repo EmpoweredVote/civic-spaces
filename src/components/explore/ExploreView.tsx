@@ -13,7 +13,7 @@ import {
 } from './exploreStorage'
 import { CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton } from './exploreUi'
 import { ProvenanceTag, SourceNote } from './provenance'
-import { MODULE_REGISTRY, ReservedRoom } from './registry'
+import { MODULE_REGISTRY, ReservedRoom, ReservedRoomGroup, reservedRoomsIn } from './registry'
 import { ViewOnlyNotice } from './ViewOnlyNotice'
 import type { ExploreCtx } from './ExploreContext'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
@@ -472,6 +472,13 @@ export function ExploreView({
     }
   }
 
+  // Every reserved room this composition names, in its order, and the id the one
+  // grouped card is drawn at. Cheap — a walk of a dozen string ids — and outside
+  // the map so the list is built once rather than per module.
+  // (Indexed rather than `.at(-1)` — tsconfig's lib target predates it.)
+  const reservedRooms = reservedRoomsIn(composition.modules)
+  const lastReservedId = reservedRooms.length ? reservedRooms[reservedRooms.length - 1]?.id ?? null : null
+
   return (
     <div className="@container flex flex-col gap-6 @lg:gap-8 pb-2">
       {/* Above the module list AND above TopicDetail (below): the flag can be true
@@ -498,6 +505,20 @@ export function ExploreView({
           )
         }
         if (mod.emptyState === 'hide') return null
+        // 🔴 A reserved room renders inside ONE grouped card, drawn where the LAST
+        // of them sits — which in every composition is immediately before
+        // 'whats-new', so the page keeps a real module as its final word.
+        //
+        // Not where the FIRST sits: Federal lists 'federal-votes' third, and a
+        // nine-line "what this becomes" card above the races and the questions is
+        // the wall moved rather than removed.
+        //
+        // See ReservedRoomGroup for the measurement that put it here. Every room
+        // still renders and still carries data-explore-room; only the card count
+        // changes, and that is a rendering decision — DEFAULT_MODULES is untouched.
+        if (mod.reserved) {
+          return id === lastReservedId ? <ReservedRoomGroup key={id} rooms={reservedRooms} /> : null
+        }
         return <ReservedRoom key={id} id={id} {...mod.emptyState} />
       })}
     </div>

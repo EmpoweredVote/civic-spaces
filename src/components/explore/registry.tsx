@@ -52,6 +52,20 @@ export interface ExploreModule {
    * composition is free not to contain them.
    */
   topics?: (composition: ExploreComposition) => ExploreTopic[]
+  /**
+   * 🔴 True only for a module that can NEVER render — no source anywhere, or a
+   * Connect feature nobody has built. Set by `reserved()` and nowhere else.
+   *
+   * It is not a synonym for "has an emptyState". `agenda`, `coming-up`, `races`
+   * and `debates` all have one, and all four are real modules whose room is a
+   * statement about THIS place THIS week: the agenda is not published here yet,
+   * nothing is on the ballot right now. Those stay where the module sits.
+   *
+   * A reserved room says nothing about the place at all, so nine of them in a
+   * column say the same nothing nine times. `ReservedRoomGroup` collapses them
+   * into one card — see the measurement in its own comment.
+   */
+  reserved?: true
 }
 
 /**
@@ -67,6 +81,7 @@ export function ReservedRoom({ id, title, body }: { id: ModuleId; title: string;
   return (
     <section
       data-explore-room={id}
+      data-explore-room-card="standalone"
       aria-labelledby={headingId}
       className="rounded-2xl border border-dashed border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-gray-900/50 px-5 py-4"
     >
@@ -78,13 +93,105 @@ export function ReservedRoom({ id, title, body }: { id: ModuleId; title: string;
   )
 }
 
+/** One reserved room's copy, lifted out of the registry for the group below. */
+export interface ReservedRoomCopy {
+  id: ModuleId
+  title: string
+  body: string
+}
+
+/**
+ * Every reserved room a composition names, in the composition's own order.
+ *
+ * Deliberately a function of the module list rather than of the registry, so
+ * the order on screen is the order the design chose: the rooms with a civic
+ * record behind them first, the coming Connect features after.
+ */
+export function reservedRoomsIn(modules: readonly ModuleId[]): ReservedRoomCopy[] {
+  const out: ReservedRoomCopy[] = []
+  for (const id of modules) {
+    const mod = MODULE_REGISTRY[id]
+    if (!mod.reserved || mod.emptyState === 'hide') continue
+    out.push({ id, title: mod.emptyState.title, body: mod.emptyState.body })
+  }
+  return out
+}
+
+/**
+ * 🔴 All of a page's reserved rooms, as ONE card.
+ *
+ * Measured on this branch before it existed, dark desktop at 1440×1100:
+ *
+ *   State    9 rooms, 758px — 33% of the Explore panel
+ *   City     7 rooms, 614px — 20%
+ *   Federal  7 rooms, 594px — 27%
+ *
+ * Read one at a time each sentence was fine. Read together they were six or
+ * seven identical dashed cards closing the page, four of them ending in the
+ * same three words, and the last thing a member saw was a column of promises —
+ * the "welcome, not a dead end" goal failing in aggregate while every part of
+ * it passed. Better sentences could not have fixed that; there were simply too
+ * many cards, so this cuts the cards instead.
+ *
+ * Nothing is dropped and nothing is hidden: every reserved `ModuleId` still has
+ * its registry entry, still renders, still carries `data-explore-room` for the
+ * checks and the harness. It is one card with several lines instead of several
+ * cards with one line, which is a rendering decision — the registry and the
+ * composition are untouched by it.
+ *
+ * 🔴 The four rooms that are NOT in here are the point of `reserved`. `agenda`,
+ * `coming-up`, `races` and `debates` are real modules reporting on this place
+ * this week, and each belongs where its module sits, in the body of the page.
+ */
+export function ReservedRoomGroup({ rooms }: { rooms: readonly ReservedRoomCopy[] }) {
+  const headingId = useId()
+  if (rooms.length === 0) return null
+  return (
+    <section
+      data-explore-room-card="group"
+      aria-labelledby={headingId}
+      className="rounded-2xl border border-dashed border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-gray-900/50 px-5 py-5"
+    >
+      <h3 id={headingId} className="text-base font-semibold text-gray-700 dark:text-gray-300">
+        What this space becomes
+      </h3>
+      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+        Each of these has a place here and nothing in it yet — held open on purpose, rather than
+        filled with something that only looks like content.
+      </p>
+      <ul className="mt-4 divide-y divide-gray-200 dark:divide-white/[0.06]">
+        {rooms.map((room) => (
+          <li key={room.id} data-explore-room={room.id} className="py-3 first:pt-0 last:pb-0">
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{room.title}</h4>
+            <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">{room.body}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 /**
  * A reserved room's registry entry: never available, and it says what the space
- * becomes. 16-09 reviews every line of this copy; it is deliberately a promise
- * about the space and never a fact about a place.
+ * becomes. Rendered inside `ReservedRoomGroup`, one line each.
+ *
+ * 🔴 The copy rules, which every body below obeys:
+ *
+ * - **Never a fact about a place.** These rooms exist precisely because no
+ *   source serves them; a sample measure or a plausible bill number here would
+ *   be invented civic record in its purest form.
+ * - **Never "for your area" or "in your community"** when the gap is universal.
+ *   Ballot measures, bill summaries and debate schedules are missing for
+ *   everyone, and telling a member their place is the poorly-served one is both
+ *   untrue and dispiriting. (`agenda` is the one room allowed to be per-place,
+ *   because agenda coverage genuinely is. It is not a `reserved()` room.)
+ * - **What a member would get, not what we would build.** "What a yes and a no
+ *   would each do" is a benefit; "measure ingestion" is a ticket.
+ * - **No date, no "soon", no roadmap, no apology, no control.** Saying what
+ *   arrives and then stopping is the whole technique.
  */
 function reserved(title: string, body: string): ExploreModule {
-  return { available: () => false, Component: () => null, emptyState: { title, body } }
+  return { available: () => false, Component: () => null, emptyState: { title, body }, reserved: true }
 }
 
 export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
@@ -133,7 +240,7 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     // hide. Absent from the Unified composition entirely: it is not a place.
     emptyState: {
       title: 'Coming up',
-      body: 'Nothing is scheduled for your area right now. Public meetings and elections appear here as soon as they are published.',
+      body: 'Nothing is on the public calendar for your area right now. Meetings and election dates appear here as they are published.',
     },
   },
 
@@ -149,7 +256,10 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     // states nothing about this place that is not true of it.
     emptyState: {
       title: 'What your local government is working on',
-      body: 'When your city publishes its council agendas here, the items it is working on will appear in this space — in the words of the agenda itself.',
+      // 🔴 Not "your city" — this module is City AND County, and Buncombe County
+      // has no city. The body names the governing body generically and lets the
+      // AgendaModule name the real one from the record when there is one.
+      body: 'Published agendas open here as the items themselves — the governing body’s own wording, each with a link to the document it came from. Empowered Vote does not carry agendas for this place yet.',
     },
   },
 
@@ -168,7 +278,7 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
      */
     emptyState: {
       title: 'The races on your ballot',
-      body: 'Nothing is on your ballot right now. Races appear here as your area’s elections are scheduled.',
+      body: 'Nothing is on your ballot right now. The races for your own area, and who is running in each of them, open here once an election is scheduled.',
     },
   },
   debates: {
@@ -179,7 +289,7 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     // reserved room for one, and these two rooms must not blur into each other.
     emptyState: {
       title: 'Candidate debates and forums',
-      body: 'Recorded debates and candidate forums appear here when they are published for your races.',
+      body: 'When a debate or a candidate forum is recorded for one of your races, it opens here to watch. None of yours has one published yet.',
     },
   },
   /**
@@ -211,45 +321,80 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     emptyState: 'hide',
   },
 
-  // ── Reserved: a real source exists, out of this phase's scope ─────────────
+  /**
+   * ── Reserved: a real source exists, out of this phase's scope ─────────────
+   *
+   * Research Finding 6: of 12 members probed, 5 had roll-call votes. Federal
+   * rows are stale to 2026-03-02 while the CA Assembly is current to
+   * 2026-09-01, and none of it is slice-scoped — so coverage is not predictable
+   * from `(slice_type, geoid)`. Open Question 5's default is reserve, do not
+   * build, and the sentence says why in the member's terms rather than ours.
+   */
   'legislator-votes': reserved(
     'How your legislators voted',
-    'Roll call records for the people who represent you are published for some offices. This space is where they will be shown.',
+    'Roll-call records exist for some of the people who represent you and not for others, and a page that answers for half of them answers for nobody — so this space waits until the record is even.',
   ),
 
-  // ── Reserved: no source anywhere in the stack (16-09 and the handoff) ─────
+  /**
+   * ── Reserved: no source anywhere in the stack (handoff Asks 2, 3 and 4) ───
+   *
+   * 🔴 Each of these three gaps is UNIVERSAL, not local. No member anywhere
+   * sees a ballot measure, a bill summary or a debate schedule, so none of
+   * these sentences may imply that this member's place is the unlucky one.
+   * They name the missing thing in the world, not a shortfall in the reader's
+   * city. The evidence for each is in `EXPLORE-HANDOFF.md`.
+   */
   'ballot-measures': reserved(
     'Measures on your ballot',
-    'Nothing in Empowered Vote publishes ballot measures yet, so none are shown. This space is held for them rather than filled with guesses.',
+    'No ballot measures are published anywhere in Empowered Vote yet; when they are, each one opens here with what a yes and a no would actually do.',
   ),
   'federal-votes': reserved(
     'A recent vote, explained',
-    'A federal vote is only worth reading with a plain-language summary of the bill beside it, and no such summary exists in our data yet. This space waits for one.',
+    'A tally is only worth reading beside a plain-language account of the bill it settled, and no such account exists in our data yet — so the number waits here for one.',
   ),
+  // 🔴 Not 'Upcoming debates' beside a `debates` room called 'Candidate debates
+  // and forums'. The two must not blur: one is recordings, which exist; this is
+  // notice in advance, which does not.
   'debate-schedule': reserved(
-    'Upcoming debates',
-    'Debate recordings are published after the fact; no schedule of upcoming debates is. This space is held for one.',
+    'Debates still to come',
+    'Debates reach Empowered Vote only after they air; when one is announced ahead of time, this is where you would hear about it in time to watch.',
   ),
 
-  // ── Reserved: the coming Connect features. Slots only, nothing is built. ──
+  /**
+   * ── Reserved: the coming Connect features. Slots only, nothing is built. ──
+   *
+   * A DESIGN non-goal five times over: *"This design reserves their slots and
+   * stops."* The slot IS the deliverable, so each line describes what a member
+   * would get and then stops — no date, no roadmap, nothing to press.
+   *
+   * Read these five consecutively and out loud, because that is how they are
+   * met: five variations of one sentence is its own kind of noise, so the shape
+   * changes line to line while the voice does not.
+   */
   symposiums: reserved(
     'Symposiums',
-    'A longer, structured conversation on one question, with people who disagree. Coming to this space.',
+    'One question, taken slowly, with everyone who disagrees about it still in the room.',
   ),
+  // 🔴 "the people here", never "your neighbors": this room is reserved on
+  // Unified too, where the people here are on the other side of the world.
   'civic-listening': reserved(
     'Civic Listening',
-    'A way to hear what neighbors actually think before replying to it. Coming to this space.',
+    'A turn spent hearing what the people here think, before anyone answers them.',
   ),
   'common-grounds': reserved(
     'Common Grounds',
-    'What this community already agrees on, found from what its members have said. Coming to this space.',
+    'The things already agreed on here, found in what members have said rather than asked in a poll.',
   ),
   'focused-communities': reserved(
     'Focused Communities',
-    'Smaller groups inside this space for people working on one thing together. Coming to this space.',
+    'Smaller rooms inside this one, for the handful who are working on the same thing.',
   ),
+  // 🔴 The extra line is the point of this entry. It is the SAME voting
+  // primitive as the seed vote at the other end of a topic's life — chosen
+  // before a topic arrives, used again after — and saying so sets the right
+  // expectation now and keeps whoever builds it from building it twice.
   'slice-action-votes': reserved(
     'What should we do about it?',
-    'A vote on what this community wants to do about the topics it has been discussing. Coming to this space.',
+    'Once a topic here has been talked through, a vote on what this community actually does about it. It is the same vote that chooses which topics arrive in the first place, at the other end of a topic’s life, so it lands in both places at once.',
   ),
 }
