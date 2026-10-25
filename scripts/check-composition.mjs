@@ -10,12 +10,14 @@
  * shipped code is wrong. If you are tempted to copy a function in here, don't — make the
  * function importable instead.
  *
- * What it covers (41 assertions, extended to 47 by 16-04, 55 by 16-05, 57 by 16-06 and
- * 62 by 16-08; 16-10 re-runs it as a phase gate):
+ * What it covers (47 assertions, extended to 55 by 16-05, 57 by 16-06 and 62 by 16-08;
+ * 16-10 re-runs it as a phase gate):
  *
  *   1–8    composition keys and the five module lists
  *   9–21   draft keys, parsing, and canPostDraft — the "a post must not land in the wrong
  *          jurisdiction" anti-goal, as a function rather than a UI behaviour
+ *   42–47  the sign-in re-key (migrateSignedOutDrafts). Numbered after the fact but run
+ *          here, with the rest of the draft-key work they belong to
  *   22–30  selection against the module list, Compass ranking, the level filter
  *   31–39  resolution, races areas, href validation
  *   40–41  the same functions over THIS APP'S REAL DATA — the generic pool, the module-owned
@@ -35,6 +37,7 @@ import {
   isHttpUrl,
   levelFilterReason,
   levelFor,
+  migrateSignedOutDrafts,
   parseDraftKey,
   racesAreaFor,
   rankByCompass,
@@ -236,6 +239,83 @@ check(
 {
   const r = canPostDraft('nonsense', { city: { id: 's1', geoid: '1805860' } })
   check(21, "canPostDraft refuses an unparseable key with reason 'unparseable'", r.ok === false && r.reason === 'unparseable', JSON.stringify(r))
+}
+
+// ── 42–47  The sign-in re-key ────────────────────────────────────────────────
+//
+// Numbered out of order on purpose: these belong with 9–21 by subject, and after
+// them by history. A draft typed signed out has no geoid; on sign-in it must move
+// onto the slice the member actually holds, or it is invisible forever to every
+// reader built on the new key.
+
+{
+  const r = migrateSignedOutDrafts({ 'city||t': { updatedAt: 5 } }, { city: { geoid: '1805860' } })
+  check(
+    42,
+    "migrateSignedOutDrafts binds 'city||t' to the member's city slice",
+    r.changed === true && !!r.next['city|1805860|t'] && r.next['city||t'] === undefined,
+    JSON.stringify(r),
+  )
+}
+{
+  const same = migrateSignedOutDrafts({ 'city|1805860|t': { updatedAt: 5 } }, { city: { geoid: '1805860' } })
+  // 🔴 The half that matters: a draft bound to a city the member has LEFT must not be
+  // re-pointed at the one they hold now. That is the phase's loudest anti-goal arriving
+  // as a storage write rather than as a button, and the "already bound" guard is the
+  // only thing standing in front of it — a version that re-keys every null-geoid key
+  // passes the equal-geoid case above and fails this one.
+  const moved = migrateSignedOutDrafts({ 'city|0644000|t': { updatedAt: 5 } }, { city: { geoid: '1805860' } })
+  check(
+    43,
+    'a key that already carries a geoid is left alone — including one for a city the member has LEFT',
+    same.changed === false &&
+      !!same.next['city|1805860|t'] &&
+      Object.keys(same.next).length === 1 &&
+      moved.changed === false &&
+      !!moved.next['city|0644000|t'] &&
+      moved.next['city|1805860|t'] === undefined,
+    JSON.stringify({ same, moved }),
+  )
+}
+{
+  const r = migrateSignedOutDrafts({ 'federal|t': { updatedAt: 5 } }, { federal: { geoid: 'US' } })
+  check(
+    44,
+    "a placeless key ('federal|t') is left alone — its null geoid means no place, not unbound",
+    r.changed === false && !!r.next['federal|t'] && Object.keys(r.next).length === 1,
+    JSON.stringify(r),
+  )
+}
+{
+  const r = migrateSignedOutDrafts({ 'county||t': { updatedAt: 5 } }, { city: { geoid: '1805860' } })
+  check(
+    45,
+    'a null-geoid key whose type the member has no slice for is left alone, NOT deleted',
+    r.changed === false && !!r.next['county||t'] && Object.keys(r.next).length === 1,
+    JSON.stringify(r),
+  )
+}
+{
+  const r = migrateSignedOutDrafts(
+    { 'city||t': { updatedAt: 200 }, 'city|1805860|t': { updatedAt: 100 } },
+    { city: { geoid: '1805860' } },
+  )
+  const keys = Object.keys(r.next)
+  check(
+    46,
+    'a collision keeps the NEWER draft at the bound key, and leaves one entry rather than two',
+    r.changed === true && keys.length === 1 && keys[0] === 'city|1805860|t' && r.next['city|1805860|t'].updatedAt === 200,
+    JSON.stringify(r),
+  )
+}
+{
+  const r = migrateSignedOutDrafts({}, { city: { geoid: '1805860' } })
+  check(
+    47,
+    'no drafts: changed is false, so the caller never writes',
+    r.changed === false && Object.keys(r.next).length === 0,
+    JSON.stringify(r),
+  )
 }
 
 // ── 22–30  Selection, ranking, the level filter ──────────────────────────────

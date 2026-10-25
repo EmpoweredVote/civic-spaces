@@ -131,6 +131,56 @@ export function canPostDraft(
   return { ok: true, sliceType: parsed.sliceType, sliceId: slice.id }
 }
 
+/**
+ * Re-keys drafts written while signed out onto the slices the member actually
+ * holds, once, after sign-in.
+ *
+ * 🔴 The gap this closes: a visitor types a draft signed out, so it is stored at
+ * `city||<topicId>`. They then sign in FROM THE HEADER rather than by pressing
+ * Join, so no resume marker exists. Every reader from then on looks for
+ * `city|<geoid>|<topicId>` — a different key — and the draft they typed is
+ * invisible forever. The resume path only covers the member who pressed Join.
+ * 16-CONTEXT "Settled after research" item 3 is explicit that a signed-out draft
+ * binds to the member's own slice ON SIGN-IN, not only on resume.
+ *
+ * Rules:
+ *  - A key with a non-null geoid is left alone. It is already bound.
+ *  - A placeless key (`federal|topic`) is left alone. It has no geoid segment,
+ *    so its null geoid means "no place", not "not bound yet".
+ *  - A null-geoid key whose type the member has NO slice for is left alone,
+ *    not deleted: they may be assigned that slice later, and a draft is cheap.
+ *  - If the destination key already exists, the NEWER updatedAt wins, and the
+ *    other is dropped. Two drafts for one topic in one place is not a state the
+ *    UI can show.
+ *  - An unparseable key is left alone, for the same reason parseDraftKey returns
+ *    null rather than throwing: corrupt localStorage must not cost a render.
+ *
+ * `changed` is returned so the caller can skip the write when there is nothing
+ * to do — this runs on every authenticated mount and must be free in the common
+ * case.
+ */
+export function migrateSignedOutDrafts<T extends { updatedAt: number }>(
+  drafts: Readonly<Record<string, T>>,
+  slices: Partial<Record<string, GeoidBearingSlice | undefined>>,
+): { next: Record<string, T>; changed: boolean } {
+  const next: Record<string, T> = { ...drafts }
+  let changed = false
+  for (const [key, draft] of Object.entries(drafts)) {
+    const parsed = parseDraftKey(key)
+    if (!parsed || parsed.geoid !== null) continue
+    if (PLACELESS.has(parsed.sliceType)) continue
+    const geoid = slices[parsed.sliceType]?.geoid
+    if (!geoid) continue
+    const bound = draftKey(parsed.sliceType, geoid, parsed.topicId)
+    if (bound === key) continue
+    const existing = next[bound]
+    if (!existing || draft.updatedAt > existing.updatedAt) next[bound] = draft
+    delete next[key]
+    changed = true
+  }
+  return { next, changed }
+}
+
 // ── Levels, and what each is made of ────────────────────────────────────────
 
 const LEVEL_BY_SLICE_TYPE: Readonly<Record<string, ExploreLevel>> = {

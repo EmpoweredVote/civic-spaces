@@ -7,6 +7,7 @@ import {
   useExploreDrafts,
   useExploreUiState,
   writeDraft,
+  writeDrafts,
   writeResume,
   type ExploreDraft,
 } from './exploreStorage'
@@ -18,7 +19,13 @@ import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { UpcomingElection } from '../../hooks/useNextElection'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useExploreComposition } from '../../lib/exploreData'
-import { canPostDraft, draftKey, isHttpUrl, type DraftTargetSlice } from '../../lib/exploreComposition'
+import {
+  canPostDraft,
+  draftKey,
+  isHttpUrl,
+  migrateSignedOutDrafts,
+  type DraftTargetSlice,
+} from '../../lib/exploreComposition'
 import type { ExploreTopic, TopicId } from '../../types/explore'
 import type { TabKey } from '../../types/database'
 
@@ -188,6 +195,28 @@ export function ExploreView({
     },
     [setUi, onScrollTop, compositionKey],
   )
+
+  /**
+   * A draft typed signed out is stored with no geoid (`city||<topicId>`). On sign-in the
+   * member has a real city slice, so it moves to `city|<geoid>|<topicId>` — which is what
+   * every reader looks for from then on. Without this, signing in FROM THE HEADER rather
+   * than by pressing Join loses the draft silently: the resume effect below only covers
+   * the member who pressed the button.
+   *
+   * 🔴 Declared BEFORE the resume effect, and effects run in declaration order: the
+   * marker's key has to be looked up after the draft has moved, or resume reads the old
+   * key and finds nothing. The resume effect reads storage directly, so it sees this
+   * write in the same pass.
+   */
+  const migratedRef = useRef(false)
+  useEffect(() => {
+    // An empty map is "still loading" as much as it is "holds nothing", and this runs
+    // once — migrating against it would do nothing and then never run again.
+    if (migratedRef.current || !isAuthenticated || !slices || Object.keys(slices).length === 0) return
+    migratedRef.current = true
+    const { next, changed } = migrateSignedOutDrafts(readDrafts(), slices)
+    if (changed) writeDrafts(next)
+  }, [isAuthenticated, slices])
 
   /**
    * The other half of a signed-out "Join": the visitor went to sign in, came back to a
