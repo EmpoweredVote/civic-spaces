@@ -337,6 +337,8 @@ function ActiveExplore({
   )
   return (
     <ExploreView
+      sliceType={homeSlice.sliceType}
+      geoid={homeSlice.geoid}
       destination={destination}
       isAuthenticated
       meetings={meetings}
@@ -877,7 +879,14 @@ export default function AppShell() {
             {/* Explore works signed out: browsing and drafting need no account. Posting
                 goes through the real sign-in above, and the draft survives the trip. */}
             <div className="w-full max-w-3xl">
+              {/* A stranger gets the place-scale generic composition, not the stored
+                  cs_active_tab: there is no tab UI on this screen, and the city page is
+                  the most legible thing to someone who has not signed in (16-CONTEXT,
+                  "Settled after research" item 3). geoid null means no bespoke layer and
+                  no seed invitation — nobody can seed a place the app cannot name. */}
               <ExploreView
+                sliceType="city"
+                geoid={null}
                 destination={null}
                 isAuthenticated={false}
                 onStartConversation={handleStartConversation}
@@ -1062,6 +1071,8 @@ export default function AppShell() {
                           />
                         ) : (
                           <ExploreView
+                            sliceType={activeTab}
+                            geoid={null}
                             destination={null}
                             isAuthenticated
                             onStartConversation={handleStartConversation}

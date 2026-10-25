@@ -49,6 +49,12 @@ export interface ExploreCtx {
   draftFor: (topicId: TopicId) => ExploreDraft
   saveDraft: (topicId: TopicId, patch: Partial<Pick<ExploreDraft, 'title' | 'body'>>) => ExploreDraft
   discardDraft: (topicId: TopicId) => void
+  /**
+   * Moves a draft bound to a community the member has left onto the current
+   * destination. Research Finding 3 names rebind as part of the draft API; the
+   * topic page is its only caller today, and 16-04 re-keys all four together.
+   */
+  rebindDraft: (topicId: TopicId) => void
   openTopic: (topicId: TopicId | null) => void
   startConversation: (topicId: TopicId) => void
   onGoToView?: (view: 'explore' | 'conversations') => void

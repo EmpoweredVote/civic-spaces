@@ -30,8 +30,22 @@ export interface ExploreDraft {
   updatedAt: number
 }
 
+/**
+ * Which topic is open, and WHICH COMPOSITION it was opened in.
+ *
+ * 🔴 The key half is the whole point (research Pitfall 1). `cs_explore_ui` is one
+ * global record, so a bare topic id renders on whatever tab is showing next —
+ * a city topic on the State tab, with a Join button pointing at another
+ * jurisdiction. The key is compositionKey(sliceType, geoid); ExploreView drops
+ * the open topic when it does not match the composition it is rendering.
+ */
+export interface OpenTopicRef {
+  key: string
+  topicId: TopicId
+}
+
 export interface ExploreUiState {
-  openTopic: TopicId | null
+  openTopic: OpenTopicRef | null
   imagine: ImagineOption | null
   adventure: AdventureDuration | null
 }
@@ -78,8 +92,36 @@ export function writeDraft(topicId: TopicId, draft: ExploreDraft | null): void {
   write(DRAFTS_KEY, drafts)
 }
 
+/**
+ * 🔴 `read()` is an unchecked `JSON.parse(...) as T`, so a value written before
+ * openTopic was scoped holds the BARE STRING 'safer-walking'. That does not
+ * throw — it is silently mis-typed and then read as an object, and
+ * `openTopic.key` on a string is undefined rather than an error. Coerce
+ * anything that is not `{key: string, topicId: string}` to null.
+ *
+ * The `cs_explore_ui` key name is deliberately unchanged: `imagine` and
+ * `adventure` are still valid and worth keeping across the change. (Drafts and
+ * the resume marker do get new names — that is 16-04, where the shape change is
+ * larger and a stale read is worse.)
+ */
+function asOpenTopic(value: unknown): OpenTopicRef | null {
+  if (typeof value !== 'object' || value === null) return null
+  const { key, topicId } = value as { key?: unknown; topicId?: unknown }
+  if (typeof key !== 'string' || typeof topicId !== 'string' || !topicId) return null
+  return { key, topicId }
+}
+
 export function readUiState(): ExploreUiState {
-  return read<ExploreUiState>(UI_KEY) ?? { openTopic: null, imagine: null, adventure: null }
+  const raw = read<{
+    openTopic?: unknown
+    imagine?: ImagineOption | null
+    adventure?: AdventureDuration | null
+  }>(UI_KEY)
+  return {
+    openTopic: asOpenTopic(raw?.openTopic),
+    imagine: raw?.imagine ?? null,
+    adventure: raw?.adventure ?? null,
+  }
 }
 
 export function writeUiState(state: ExploreUiState): void {
