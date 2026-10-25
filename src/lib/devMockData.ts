@@ -459,10 +459,21 @@ export const MOCK_REPRESENTATIVES: PoliticianFlatRecord[] = [
 ]
 
 /**
- * A real slice of the live Compass topic set (ids, titles and stances copied
- * from api.empowered.vote) plus fixture answers, so the compass widget renders
- * at ?dev=1. The Compass API sends no CORS headers for localhost, so without
- * this the widget would be permanently empty in local dev.
+ * A real slice of the live Compass topic set (ids, titles, stances and the
+ * applies_* / is_live flags copied verbatim from api.empowered.vote, read
+ * 2026-10-24) plus fixture answers, so the compass widget renders at ?dev=1.
+ * The Compass API sends no CORS headers for localhost, so without this the
+ * widget would be permanently empty in local dev.
+ *
+ * 🔴 Copied, never invented. An id that resolves to nothing in the live catalog
+ * makes rankByCompass and topicsForLevel silent no-ops, and nothing fails to
+ * tell you. scripts/check-composition.mjs re-checks every id here.
+ *
+ * The last two — City Sanitation and Cleanliness, Residential Zoning — are
+ * LOCAL-ONLY (applies_local alone). They are here because the other eight are
+ * each flagged for all three levels, so without them exclusion could never be
+ * observed on the dev id and every later observation of the Federal tab would
+ * be vacuous.
  */
 export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
   {
@@ -495,7 +506,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Ban abortion in all cases, with no exceptions."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "683c8084-2281-4920-a07c-18439b2dd413",
@@ -527,7 +542,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Impose high tariffs on all imports to bring manufacturing back to America."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "c5ab4eab-702f-49b8-9277-8ea53f3835c6",
@@ -559,7 +578,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Make same-sex marriage illegal and define marriage as only between one man and one woman."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "6b9ba6d9-1001-43f5-b073-4d37130696fd",
@@ -591,7 +614,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Strongly protect religious freedom and allow religious organizations complete autonomy in their operations and hiring practices."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "d1618b9c-0b9e-45af-b986-bb33d270b8e4",
@@ -623,7 +650,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Completely ban all transgender athletes from competing in any organized sports competitions."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "24e9212c-b011-422a-865c-093e35050901",
@@ -655,7 +686,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "End all aid to Ukraine immediately and stay completely out of the conflict."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "cab61e8a-64fe-4bbd-bc08-fe9914d0091b",
@@ -687,7 +722,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Phase out both programs and use private insurance only"
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "a22215c3-6693-4bc2-b248-01aebba14570",
@@ -719,7 +758,83 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Maximize production and open more public land and waters to drilling."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
+  },
+  {
+    "id": "7687de4f-4d0b-462a-b803-bdfb23b16b42",
+    "short_title": "City Sanitation and Cleanliness",
+    "title": "City Sanitation and Cleanliness",
+    "stances": [
+      {
+        "id": "e515d3b8-9539-4fee-a244-c6b026f33ac6",
+        "value": 1,
+        "text": "Significantly expand public sanitation services, treating cleanliness as the city's responsibility"
+      },
+      {
+        "id": "9bcd2cc1-5da4-4f7b-9b8c-35def440baae",
+        "value": 2,
+        "text": "Concentrate sanitation resources on the most neglected, worst-served neighborhoods to close long-standing service gaps"
+      },
+      {
+        "id": "eadf8213-34db-4a54-ba9b-2b834e53d5fd",
+        "value": 3,
+        "text": "Maintain current public sanitation services and target enforcement at the businesses and large property owners who create the most waste"
+      },
+      {
+        "id": "57a27c31-84d1-4683-a0cf-5aa71a01d7cb",
+        "value": 4,
+        "text": "Rely primarily on enforcement of anti-littering and property maintenance laws; hold residents and businesses responsible"
+      },
+      {
+        "id": "de09c42f-1a74-48fd-b9c8-a858e2a64e43",
+        "value": 5,
+        "text": "Privatize sanitation services and require residents and businesses to contract for cleanup directly"
+      }
+    ],
+    "applies_federal": false,
+    "applies_state": false,
+    "applies_local": true,
+    "is_live": true
+  },
+  {
+    "id": "d4f18138-a2e0-4110-b925-7387d9d0d16d",
+    "short_title": "Residential Zoning",
+    "title": "Residential Zoning",
+    "stances": [
+      {
+        "id": "fd50f9bf-5cce-42ed-9b31-0cd58dca6566",
+        "value": 1,
+        "text": "Protect existing single-family neighborhoods; oppose density increases."
+      },
+      {
+        "id": "ed4d65db-1d19-485e-a4a5-ca8f7d06eb80",
+        "value": 2,
+        "text": "Allow modest density increases, like duplexes and accessory units, in single-family neighborhoods"
+      },
+      {
+        "id": "b93c6cc6-aea3-42a2-b9f3-1360e77be77f",
+        "value": 3,
+        "text": "Allow multifamily and mixed-use near commercial corridors while protecting most residential zones"
+      },
+      {
+        "id": "00c13fd0-96dd-4579-b1f5-3e0c0b1158ee",
+        "value": 4,
+        "text": "Upzone broadly to allow multifamily housing by right in most neighborhoods"
+      },
+      {
+        "id": "dea15caf-d0e4-4561-a949-04d68048e8d6",
+        "value": 5,
+        "text": "Eliminate single-family-only zoning; allow any housing type on any lot communitywide"
+      }
+    ],
+    "applies_federal": false,
+    "applies_state": false,
+    "applies_local": true,
+    "is_live": true
   }
 ]
 
@@ -755,6 +870,14 @@ export const MOCK_COMPASS_ANSWERS: CompassAnswer[] = [
   {
     "topic_id": "a22215c3-6693-4bc2-b248-01aebba14570",
     "value": 5
+  },
+  {
+    "topic_id": "7687de4f-4d0b-462a-b803-bdfb23b16b42",
+    "value": 2
+  },
+  {
+    "topic_id": "d4f18138-a2e0-4110-b925-7387d9d0d16d",
+    "value": 4
   }
 ]
 
