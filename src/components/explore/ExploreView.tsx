@@ -18,6 +18,8 @@ import { ViewOnlyNotice } from './ViewOnlyNotice'
 import type { ExploreCtx } from './ExploreContext'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { UpcomingElection } from '../../hooks/useNextElection'
+import type { RaceRecording } from '../../lib/raceMedia'
+import type { MemberRace } from '../../lib/races'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useExploreComposition } from '../../lib/exploreData'
 import {
@@ -28,7 +30,7 @@ import {
   shouldResume,
   type DraftTargetSlice,
 } from '../../lib/exploreComposition'
-import type { ExploreTopic, TopicId } from '../../types/explore'
+import type { ExploreLevel, ExploreTopic, TopicId } from '../../types/explore'
 import type { TabKey } from '../../types/database'
 
 /** How long a "post this after sign-in" marker stays good for. The round trip is minutes. */
@@ -99,6 +101,16 @@ interface ExploreViewProps {
   /** Real upcoming elections for the member's area, soonest first. */
   elections?: UpcomingElection[]
   /**
+   * The member's OWN races, by the level that renders them.
+   *
+   * 🔴 Resolved in AppShell from `racesAreaFor(slices)` — the member's most
+   * LOCAL area — never from the state fallback `electionAreaFor` uses for the
+   * election calendar. The two differ by that fallback and must never be merged.
+   */
+  races?: Partial<Record<ExploreLevel, MemberRace[]>>
+  /** Recorded debates and forums by race id. Recordings only; nothing upcoming exists. */
+  raceMedia?: ReadonlyMap<string, RaceRecording[]>
+  /**
    * Open the composer for this draft (AppShell signs a visitor in first).
    *
    * The first argument is the DRAFT KEY, not a topic id: where a draft posts is
@@ -140,6 +152,8 @@ export function ExploreView({
   slices,
   meetings,
   elections,
+  races,
+  raceMedia,
   onStartConversation,
   onScrollTop,
   whatsNewInSidebar,
@@ -362,6 +376,8 @@ export function ExploreView({
     featuredPhoto: featuredPhoto ?? null,
     meetings,
     elections,
+    races,
+    raceMedia,
     agenda,
     ui,
     setUi,

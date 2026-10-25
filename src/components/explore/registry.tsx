@@ -19,11 +19,13 @@ import type { ExploreComposition, ExploreTopic, ModuleId } from '../../types/exp
 import type { ExploreCtx } from './ExploreContext'
 import { AgendaModule } from './modules/AgendaModule'
 import { ComingUpModule } from './modules/ComingUpModule'
+import { DebatesModule, racesWithMedia } from './modules/DebatesModule'
 import { FeaturedModule } from './modules/FeaturedModule'
 import { ImagineModule, imagineModuleTopics } from './modules/ImagineModule'
 import { IntroModule } from './modules/IntroModule'
 import { NearbyModule, nearbyModuleTopics } from './modules/NearbyModule'
 import { QuestionsModule } from './modules/QuestionsModule'
+import { RacesModule } from './modules/RacesModule'
 import { WhatsNewModule } from './modules/WhatsNewModule'
 
 export interface ExploreModule {
@@ -150,15 +152,35 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     },
   },
 
-  // ── Built later in this phase ─────────────────────────────────────────────
-  races: reserved(
-    'The races on your ballot',
-    'The contests you can actually vote in, for the area you live in, will be listed here.',
-  ),
-  debates: reserved(
-    'Candidate debates and forums',
-    'Recorded debates and candidate forums for your races will appear here when they are published.',
-  ),
+  races: {
+    available: (ctx) => (ctx.races?.[ctx.composition.level]?.length ?? 0) > 0,
+    Component: RacesModule,
+    /**
+     * 🔴 NOT 'hide'. This room is the state most members are in for most of the
+     * year: no 2027 races exist yet, and a general drops off the list on 1
+     * January. It is also the state of every member with no city or county
+     * slice, because `racesAreaFor` refuses to fall back to their state.
+     *
+     * So the sentence is neither an apology nor a promise of a date — it says
+     * what the space is for and why it is empty right now, and it asserts
+     * nothing about this place that is not true of it.
+     */
+    emptyState: {
+      title: 'The races on your ballot',
+      body: 'Nothing is on your ballot right now. Races appear here as your area’s elections are scheduled.',
+    },
+  },
+  debates: {
+    available: (ctx) => racesWithMedia(ctx).length > 0,
+    Component: DebatesModule,
+    // 🔴 "Recorded ... when they are published" — never a schedule. No upcoming
+    // debate exists anywhere in the stack; `debate-schedule` below is the
+    // reserved room for one, and these two rooms must not blur into each other.
+    emptyState: {
+      title: 'Candidate debates and forums',
+      body: 'Recorded debates and candidate forums appear here when they are published for your races.',
+    },
+  },
   /**
    * 🔴 The conditional half of the invitation, and nothing more.
    *

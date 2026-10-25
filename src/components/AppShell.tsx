@@ -12,7 +12,10 @@ import { useHeroBanner } from '../hooks/useHeroBanner'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
-import { useNextElection, useUpcomingElections, electionAreaFor, type NextElection } from '../hooks/useNextElection'
+import { useNextElection, useUpcomingElections, useRacesForArea, electionAreaFor, type NextElection } from '../hooks/useNextElection'
+import { useRaceMedia } from '../hooks/useRaceMedia'
+import { joinMediaToRaces } from '../lib/raceMedia'
+import { racesForLevel } from '../lib/races'
 import { useUpcomingMeetings } from '../hooks/useUpcomingMeetings'
 import { UpcomingEventsWidget } from './widgets/UpcomingEventsWidget'
 import { forecastUrlFor } from '../lib/forecastLink'
@@ -28,7 +31,7 @@ import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, t
 import { ExploreView } from './explore/ExploreView'
 import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
-import { canPostDraft, parseDraftKey } from '../lib/exploreComposition'
+import { canPostDraft, parseDraftKey, racesAreaFor } from '../lib/exploreComposition'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
@@ -347,6 +350,41 @@ function ActiveExplore({
   // 🔴 electionAreaFor, which DOES fall back to the state, and is right for "when is the
   // next election". "Which races are mine" is racesAreaFor and lands in 16-07. Never merge.
   const { elections } = useUpcomingElections(electionAreaFor(activeSlice, stateSlice), userId)
+  /**
+   * 🔴 racesAreaFor, NOT electionAreaFor — the member's most LOCAL area.
+   *
+   * The line above is right for "when is the next election" and wrong for
+   * "which races are mine": a state-area query returns all nine of Indiana's US
+   * House districts where the member has one, AND omits the statewide races
+   * (North Carolina's state area has no US Senate race, California's has no
+   * Governor). Federal geoid 'US' returns HTTP 500. racesAreaFor answers null
+   * for a member with neither a city nor a county slice, and the reserved room
+   * shows — which is the honest answer, because nine races a member cannot
+   * choose between is worse than none.
+   *
+   * On City this is the same (geoid, mtfcc) the banner already asked about, so
+   * React Query serves it from cache. On Federal and State it is ONE extra
+   * request per member, deliberately, and it is the whole correctness fix.
+   */
+  const { elections: raceElections } = useRacesForArea(racesAreaFor(slices), userId)
+  const races = useMemo(
+    () => ({
+      federal: racesForLevel(raceElections, 'federal'),
+      state: racesForLevel(raceElections, 'state'),
+    }),
+    [raceElections],
+  )
+  /**
+   * One /api/meetings fetch for the whole published list, joined locally. The
+   * per-race route would be one request per race. Not requested at all until
+   * there is a race to join against.
+   */
+  const hasRaces = races.federal.length > 0 || races.state.length > 0
+  const { media } = useRaceMedia(hasRaces)
+  const raceMedia = useMemo(
+    () => joinMediaToRaces(media, [...races.federal, ...races.state]),
+    [media, races],
+  )
   // Same hook and shared-bucket credits as the hero banner. A photo without a credit has
   // unknown provenance (a DB override, or nothing resolved), so it is not reused here.
   // Hooks cannot be conditional, so they always run against a real slice; the result is
@@ -382,6 +420,8 @@ function ActiveExplore({
       slices={slices}
       meetings={meetings}
       elections={elections}
+      races={races}
+      raceMedia={raceMedia}
       onStartConversation={onStartConversation}
       onScrollTop={onScrollTop}
       whatsNewInSidebar={whatsNewInSidebar}

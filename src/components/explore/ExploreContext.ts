@@ -15,7 +15,9 @@
 import type { AgendaSource } from '../../hooks/useAgendaItems'
 import type { UpcomingElection } from '../../hooks/useNextElection'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
-import type { ExploreComposition, ExploreTopic, TopicId } from '../../types/explore'
+import type { RaceRecording } from '../../lib/raceMedia'
+import type { MemberRace } from '../../lib/races'
+import type { ExploreComposition, ExploreLevel, ExploreTopic, TopicId } from '../../types/explore'
 import type { ExploreDestination, FeaturedPhoto } from './ExploreView'
 import type { ExploreDraft, ExploreUiState } from './exploreStorage'
 
@@ -70,6 +72,27 @@ export interface ExploreCtx {
    * place but one. That is not a failure state and must not read as one.
    */
   agenda?: { meeting: AgendaSource; topics: ExploreTopic[] }
+  /**
+   * The member's OWN races, by the level that renders them — Federal and State
+   * only, which is where 16-DESIGN decision 8 puts them.
+   *
+   * 🔴 Resolved from `racesAreaFor(slices)`, the member's most LOCAL area, never
+   * from `electionAreaFor`'s state fallback. A state-area query returns every
+   * congressional district and omits the statewide races; nine House races a
+   * member cannot choose between is worse than none. A member with neither a
+   * city nor a county slice has no entry here at all, and the reserved room
+   * shows instead.
+   *
+   * Undefined while loading and on failure alike — to a member those are one
+   * state, and both are the reserved room.
+   */
+  races?: Partial<Record<ExploreLevel, MemberRace[]>>
+  /**
+   * Recorded debates and candidate forums, by `race_id`. A race with none has no
+   * entry. 🔴 Recordings only: no upcoming debate is published anywhere, so
+   * nothing here may be worded as a schedule.
+   */
+  raceMedia?: ReadonlyMap<string, RaceRecording[]>
 
   // UI state and actions.
   ui: ExploreUiState
