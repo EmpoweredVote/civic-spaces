@@ -129,8 +129,11 @@ That is deliberate: it preserves scroll position and the React Query cache acros
 The consequence is that any hook you add inside `SliceFeedPanel` runs six times on load.
 
 **So sidebar and shell data hooks are hoisted to `AppShell` and passed down as props.**
-`useRepresentatives`, `useToolCoverage` and `useCompassData` are each called once there, and
-`Sidebar` / `SidebarMobile` receive the results. Follow that pattern; do not call a shared hook
+`useRepresentatives` and `useCompassData` are each called once there, and `Sidebar` /
+`SidebarMobile` / Explore receive the results. `useToolCoverage` is **defined and still has no
+caller** — the rule is right, that hook simply has no consumer yet, so hoist it when you give it
+one rather than calling it from a panel. (`useCompassData` was in the same state until Phase
+16-07 made Explore its first consumer.) Follow that pattern; do not call a shared hook
 inside a panel. Where a hook genuinely needs per-slice data, render its component only for the
 active tab (`SliceSelector` does this) or wrap it so the hook still runs unconditionally
 (`ActiveHeroBanner`, `SliceNewsWidget`).

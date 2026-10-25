@@ -12,6 +12,7 @@ import { useHeroBanner } from '../hooks/useHeroBanner'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
+import { useCompassData } from '../hooks/useCompassData'
 import { useNextElection, useUpcomingElections, useRacesForArea, electionAreaFor, type NextElection } from '../hooks/useNextElection'
 import { useRaceMedia } from '../hooks/useRaceMedia'
 import { joinMediaToRaces } from '../lib/raceMedia'
@@ -31,7 +32,7 @@ import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, t
 import { ExploreView } from './explore/ExploreView'
 import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
-import { canPostDraft, parseDraftKey, racesAreaFor } from '../lib/exploreComposition'
+import { canPostDraft, parseDraftKey, racesAreaFor, type CompassLevelFlags } from '../lib/exploreComposition'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
@@ -308,6 +309,8 @@ function ActiveExplore({
   photoSlice,
   stateSlice,
   userId,
+  answeredCompassTopicIds,
+  compassLevelFlags,
   isViewOnly,
   viewingSliceIndex,
   onReturnToOwnSlice,
@@ -324,6 +327,17 @@ function ActiveExplore({
   photoSlice: SliceInfo | null
   stateSlice: SliceInfo | undefined
   userId: string | null
+  /**
+   * The VIEWING MEMBER's own answered Compass topics, and the catalog's level
+   * flags. Both are resolved once in AppShell (useCompassData is hoisted there
+   * for the same six-panels reason as useRepresentatives) and passed down.
+   *
+   * 🔴 Nothing aggregates. Locked decision 7: Compass ranks this member's
+   * Explore topics against this member's own answers. No slice-wide view of
+   * members' political answers is computed, stored or requested anywhere.
+   */
+  answeredCompassTopicIds: ReadonlySet<string>
+  compassLevelFlags: ReadonlyMap<string, CompassLevelFlags>
   /**
    * 🔴 `activeIsViewOnly`, computed once in AppShell and handed to the feed too.
    * Not recomputed here: the feed and Explore disagreeing about the same shard is
@@ -422,6 +436,8 @@ function ActiveExplore({
       elections={elections}
       races={races}
       raceMedia={raceMedia}
+      answeredCompassTopicIds={answeredCompassTopicIds}
+      compassLevelFlags={compassLevelFlags}
       onStartConversation={onStartConversation}
       onScrollTop={onScrollTop}
       whatsNewInSidebar={whatsNewInSidebar}
@@ -498,6 +514,44 @@ export default function AppShell() {
   const isAssigning = assignmentStatus === 'assigning'
   const { data: isModerator } = useIsModerator(userId)
   const repsData = useRepresentatives(userId)
+  /**
+   * Hoisted for the same reason as repsData: all five feed panels plus
+   * Volunteer mount at once, so a hook inside one of them fires 6×.
+   *
+   * 🔴 Explore is its FIRST consumer. The hook shipped complete and uncalled —
+   * its own header already said where it belongs — so "Compass ranks topics"
+   * had no running consumer at all until this call. It 401s for the dev id,
+   * which is handled inside the hook: a synthetic id short-circuits to the
+   * fixtures rather than making either request.
+   */
+  const compass = useCompassData(userId)
+  /**
+   * 🔴 Exclusion only, never selection. 45 of the 60 live Compass topics are
+   * flagged for all three levels ("Ukraine Support" among them), so these flags
+   * cannot pick out "what federal leaders attend to"; what they CAN do is keep
+   * a local-only topic off Federal, which is the job levelFilterReason gives
+   * them. A topic whose flags are absent is left in the map's hands as a miss,
+   * and a miss passes the filter — refusing to show a topic because a side
+   * lookup failed is worse than showing it.
+   */
+  const compassLevelFlags = useMemo(() => {
+    const flags = new Map<string, CompassLevelFlags>()
+    for (const topic of compass.topics) {
+      if (
+        typeof topic.applies_federal !== 'boolean' &&
+        typeof topic.applies_state !== 'boolean' &&
+        typeof topic.applies_local !== 'boolean'
+      ) {
+        continue
+      }
+      flags.set(topic.id, {
+        federal: !!topic.applies_federal,
+        state: !!topic.applies_state,
+        local: !!topic.applies_local,
+      })
+    }
+    return flags
+  }, [compass.topics])
   const { theme, toggleTheme } = useTheme()
 
   // Both side panels collapse, each remembered per browser: the nav rail to icons
@@ -1005,6 +1059,10 @@ export default function AppShell() {
                 /* A stranger is on nobody's sibling shard — there is no membership to
                    be a sibling OF. Stated rather than defaulted: see the prop's doc. */
                 isViewOnly={false}
+                /* A stranger has answered nothing, so rankByCompass keeps source
+                   order; the level flags still exclude, which needs no account. */
+                answeredCompassTopicIds={compass.answeredTopicIds}
+                compassLevelFlags={compassLevelFlags}
                 onStartConversation={handleStartConversation}
               />
             </div>
@@ -1181,6 +1239,8 @@ export default function AppShell() {
                             stateSlice={slices['state']}
                             userId={userId}
                             photoSlice={photoSliceFor(slices, activeSlice, activeTab)}
+                            answeredCompassTopicIds={compass.answeredTopicIds}
+                            compassLevelFlags={compassLevelFlags}
                             isViewOnly={activeIsViewOnly}
                             viewingSliceIndex={activeViewing?.siblingIndex}
                             onReturnToOwnSlice={() =>
@@ -1203,6 +1263,8 @@ export default function AppShell() {
                                later refactor cannot make it true without noticing. */
                             isViewOnly={false}
                             slices={slices}
+                            answeredCompassTopicIds={compass.answeredTopicIds}
+                            compassLevelFlags={compassLevelFlags}
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
                             whatsNewInSidebar={!sidebarCollapsed}

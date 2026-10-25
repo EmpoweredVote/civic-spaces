@@ -28,6 +28,7 @@ import {
   isHttpUrl,
   migrateSignedOutDrafts,
   shouldResume,
+  type CompassLevelFlags,
   type DraftTargetSlice,
 } from '../../lib/exploreComposition'
 import type { ExploreLevel, ExploreTopic, TopicId } from '../../types/explore'
@@ -111,6 +112,22 @@ interface ExploreViewProps {
   /** Recorded debates and forums by race id. Recordings only; nothing upcoming exists. */
   raceMedia?: ReadonlyMap<string, RaceRecording[]>
   /**
+   * The VIEWING MEMBER's own answered Compass topics, which ORDER the generic
+   * topics, and the catalog's level flags, which EXCLUDE a local-only topic from
+   * Federal.
+   *
+   * 🔴 Nothing aggregates — locked decision 7. These are one member's own
+   * answers, used to order one member's own page. No slice-wide view of
+   * members' political answers is computed, stored or requested anywhere; no
+   * endpoint serves one, and the design is explicit that none should be
+   * designed.
+   *
+   * 🔴 Ranking REORDERS; it never adds or removes. If a topic disappears when
+   * Compass loads, the level filter has leaked into the ranking path.
+   */
+  answeredCompassTopicIds?: ReadonlySet<string>
+  compassLevelFlags?: ReadonlyMap<string, CompassLevelFlags>
+  /**
    * Open the composer for this draft (AppShell signs a visitor in first).
    *
    * The first argument is the DRAFT KEY, not a topic id: where a draft posts is
@@ -154,6 +171,8 @@ export function ExploreView({
   elections,
   races,
   raceMedia,
+  answeredCompassTopicIds,
+  compassLevelFlags,
   onStartConversation,
   onScrollTop,
   whatsNewInSidebar,
@@ -167,6 +186,8 @@ export function ExploreView({
     geoid,
     city,
     stateAbbrev,
+    answeredCompassTopicIds,
+    compassLevelFlags,
   })
 
   /**
