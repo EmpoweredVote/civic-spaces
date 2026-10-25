@@ -23,13 +23,70 @@ export interface ElectionArea {
   mtfcc: string
 }
 
-/** The response fields this app reads. Races and candidates are ignored here. */
+/**
+ * One candidate on a race.
+ *
+ * `primary_party` and `result` are on the wire and deliberately absent here:
+ * both are null on every row today (a general election, pre-vote), and a field
+ * nothing may render is a field someone will render. Add them when they carry
+ * something.
+ */
+export interface CandidateRecord {
+  candidate_id: string
+  full_name: string
+  photo_url: string | null
+  is_incumbent: boolean
+  /**
+   * 🔴 'active' | 'withdrawn'. The LIST route does not filter; we must.
+   * Verified live 2026-10-24: 1486 active, 4 withdrawn across the corpus.
+   * `getCandidateById` filters server-side, which is why this is easy to miss.
+   */
+  candidate_status: string
+  is_write_in: boolean
+  politician_id: string | null
+}
+
+export interface RaceRecord {
+  race_id: string
+  position_name: string
+  seats: number
+  /**
+   * 🔴 Unreliable for statewide offices — see src/lib/races.ts. Never classify
+   * on it alone: `Comptroller (Auditor of State)` and `Treasurer of State`
+   * arrive as LOCAL while `Secretary of State` arrives as STATE_EXEC.
+   */
+  district_type: string | null
+  candidates: CandidateRecord[]
+}
+
+/**
+ * The response fields this app reads. A SUBSET of the response, not a contract —
+ * which is why widening it is additive and disturbs neither `pickNextElection`
+ * nor the hero banner.
+ */
 export interface ElectionRecord {
   election_id: string
   election_name: string
   /** 'YYYY-MM-DD', a calendar date with no time zone. */
   election_date: string
   election_type: string
+  /**
+   * 🔴 OPTIONAL, both of them, and deliberately so.
+   *
+   * MOCK_ELECTIONS (devMockData.ts) is the offline fallback for the dev id and
+   * carries neither — it was written when this type was four fields. A required
+   * `races` would make the fixture a type error, and the only ways to fix that
+   * are to delete the fallback or to write candidate names into it. The second
+   * is inventing civic record: a fixture full of plausible candidates for real
+   * offices is exactly what the anti-goal forbids, and it would be the first
+   * thing anyone reaches for to get a green build.
+   *
+   * Optional also matches the wire: a future route that omits races must
+   * degrade to an empty module, not a crash. Every consumer therefore reads
+   * `e.races ?? []`.
+   */
+  jurisdiction_level?: string
+  races?: RaceRecord[]
 }
 
 export interface NextElection {
@@ -39,9 +96,24 @@ export interface NextElection {
 }
 
 /**
- * Which area to ask about for a tab. City, county and state ask about themselves.
- * Federal, Unified and Volunteer have no area of their own (federal's geoid is 'US'),
- * so they ask about the member's state — the ballot where their federal races appear.
+ * Which area to ask about for a tab's ELECTION CALENDAR — when the next election
+ * is. City, county and state ask about themselves. Federal, Unified and
+ * Volunteer have no area of their own (federal's geoid is 'US'), so they fall
+ * back to the member's state, which is right for a date: every area asked on
+ * 2026-10-24 answered 2026-11-03.
+ *
+ * 🔴 NOT the area to ask for RACES. That is `racesAreaFor` in
+ * src/lib/exploreComposition.ts, and the difference is this one's state
+ * fallback:
+ *   - a state area returns EVERY congressional district (Indiana: all 9) where
+ *     the member has one (Bloomington's city area: District 9 alone), and
+ *   - a state area OMITS statewide races (North Carolina's has no US Senate
+ *     race; California's has no Governor) — wrong in both directions at once.
+ *
+ * The two functions differ by exactly that fallback, so they look mergeable and
+ * are not. Merging them silently reintroduces the nine-House-races bug.
+ * `racesAreaFor` returns null rather than falling back; a member with neither a
+ * city nor a county slice gets no races module, which is the honest answer.
  */
 export function electionAreaFor(slice: SliceInfo | undefined, stateSlice: SliceInfo | undefined): ElectionArea | null {
   if (slice) {
@@ -98,8 +170,15 @@ async function fetchElections(area: ElectionArea, userId: string | null): Promis
   }
 }
 
-/** The raw election list for an area. One query, shared by the banner and the events widget. */
-function useElectionsQuery(area: ElectionArea | null, userId: string | null) {
+/**
+ * The raw election list for an area. One query, shared by the banner, the events
+ * widget and the races modules — keyed by `(geoid, mtfcc, userId)`, so two
+ * callers asking about the same area cost one request.
+ *
+ * Exported for `useRacesForArea` below, which asks about a DIFFERENT area on the
+ * Federal and State tabs and is a cache hit on City.
+ */
+export function useElectionsQuery(area: ElectionArea | null, userId: string | null) {
   return useQuery({
     queryKey: ['next-election', area?.geoid, area?.mtfcc, userId],
     queryFn: () => fetchElections(area!, userId),
@@ -142,4 +221,35 @@ export function useUpcomingElections(
     .sort((a, b) => a.election_date.localeCompare(b.election_date))
     .map((e) => ({ name: e.election_name, date: e.election_date, type: e.election_type }))
   return { elections, isLoading: false }
+}
+
+/**
+ * Every election the member's MOST LOCAL area returns, with its races attached.
+ *
+ * 🔴 The area comes from `racesAreaFor` (src/lib/exploreComposition.ts), never
+ * from `electionAreaFor`. See the note on that function: a state-area query
+ * returns nine House races the member cannot choose between AND omits the
+ * statewide ones. Federal geoid 'US' returns HTTP 500 and 'UNIFIED' is not a
+ * place; `racesAreaFor` answers null rather than inventing a fallback.
+ *
+ * 🔴 It returns ELECTIONS, not races, because an area can return more than one
+ * and each race has to keep its election's name and date. Los Angeles' city area
+ * returns two — an LA County General carrying the Mayor and a CA Statewide
+ * General carrying the Governor — so a single-election assumption silently loses
+ * the Governor. `racesForLevel` (src/lib/races.ts) does the flatten.
+ *
+ * On the City tab this is the same `(geoid, mtfcc)` the banner already asked
+ * about, so it costs nothing. On Federal and State it is one extra request per
+ * member, deliberately, and it is the whole correctness fix.
+ *
+ * `elections` stays undefined while loading AND on failure; `isLoading` (false
+ * once settled either way) tells the two apart.
+ */
+export function useRacesForArea(
+  area: ElectionArea | null,
+  userId: string | null,
+): { elections: ElectionRecord[] | undefined; isLoading: boolean } {
+  const { data, isSuccess, isLoading } = useElectionsQuery(area, userId)
+  if (!area || !isSuccess) return { elections: undefined, isLoading: !!area && isLoading }
+  return { elections: data, isLoading: false }
 }
