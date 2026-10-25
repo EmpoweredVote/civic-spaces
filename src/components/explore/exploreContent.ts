@@ -20,7 +20,6 @@
 import {
   getAdventureSuggestions,
   getAdventureTopics,
-  getExploreTopics,
   getImagineTopics,
   getProductUpdates,
 } from '../../lib/exploreData'
@@ -35,12 +34,14 @@ import type { ExploreTopic, TopicId } from '../../types/explore'
  */
 export type { ExploreLevel, ExploreTopic, ModuleId, TopicId, TopicProvenance } from '../../types/explore'
 
-const topicsData = getExploreTopics()
-
-export const TOPICS = Object.fromEntries(topicsData.topics.map((t) => [t.id, t])) as Record<string, ExploreTopic>
-
-export const FEATURED_TOPIC: string = topicsData.featuredTopicId
-export const QUESTION_TOPICS: string[] = topicsData.questionTopicIds
+/*
+ * TOPICS, FEATURED_TOPIC and QUESTION_TOPICS were here, built from one
+ * getExploreTopics() call at module load. That is exactly what a per-slice, async
+ * source cannot be: one import-time table cannot hold City's topics and Federal's at
+ * once, and nothing evaluated at import can wait for a fetch. ExploreView resolves a
+ * composition instead (useExploreComposition), and reads topics through ctx.topicsById.
+ * Retired in 16-03; do not reintroduce a module-level topic table.
+ */
 
 /**
  * The topics the Imagine and Nearby modules OWN, read beside the option lists that name

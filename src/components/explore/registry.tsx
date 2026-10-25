@@ -146,6 +146,12 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     'Candidate debates and forums',
     'Recorded debates and candidate forums for your races will appear here when they are published.',
   ),
+  // 🔴 16-06 and 16-08, read this. A reserved room's copy is STATIC, so this one
+  // says "nobody has set this place up yet" on every city, county and state —
+  // including one that HAS bespoke topics (composition.isUnseeded === false). That
+  // is true for every place today and becomes false the moment Bloomington's
+  // agenda lands. Whichever plan gets there first owns making the invitation
+  // conditional: available() is the only per-composition hook the contract has.
   'seed-invitation': reserved(
     'Help shape this space',
     'Nobody has set this place up yet. An invitation to say which issues matter here is coming to this spot.',

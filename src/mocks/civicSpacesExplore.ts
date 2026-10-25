@@ -514,8 +514,10 @@ export const GENERIC_TOPICS: Record<ExploreLevel, ExploreTopic[]> = {
 
 // ── The pre-Phase-16 single composition ───────────────────────────────────────────────
 //
-// What ExploreView renders today, on every tab. Retired by 16-03, which switches the
-// renderer over to a resolved composition. Kept byte-for-byte so this plan moves no pixels.
+// What ExploreView rendered on every tab before 16-03 switched it over to a resolved
+// per-slice composition. NOTHING RENDERS THIS ANY MORE — getExploreTopics() is gone.
+// It stays as the shape GET /api/civic-spaces/explore is expected to return (see the
+// handoff ask in 16-09), beside the live GENERIC_TOPICS it was replaced by.
 
 export interface ExploreTopicsResponse {
   featuredTopicId: TopicId

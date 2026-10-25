@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import {
   adventureSuggestionsResponse,
   ADVENTURE_TOPICS,
-  exploreTopicsResponse,
   GENERIC_TOPICS,
   IMAGINE_TOPICS,
   productUpdatesResponse,
@@ -20,11 +19,12 @@ import type { ExploreComposition, ExploreTopic } from '../types/explore'
  * Explore's editorial content. No API serves it yet, so each getter returns the response-
  * shaped sample from src/mocks/civicSpacesExplore.ts. When a route exists, fetch it here
  * (through EV_API_ORIGIN in src/lib/evApi.ts) and nothing else has to change.
+ *
+ * `getExploreTopics()` is gone with 16-03: it returned ONE topic table for every slice,
+ * synchronously, at import. Topics now arrive per composition through
+ * useExploreComposition below. The remaining getters are genuinely slice-independent —
+ * a fifteen-minute walk and a release note do not vary by jurisdiction.
  */
-export function getExploreTopics() {
-  return exploreTopicsResponse
-}
-
 export function getAdventureSuggestions() {
   return adventureSuggestionsResponse
 }
