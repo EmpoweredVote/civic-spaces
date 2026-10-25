@@ -28,12 +28,24 @@ export function ImagineModule({ ctx }: { ctx: ExploreCtx }) {
       choice={ctx.ui.imagine}
       onChoose={(imagine) => ctx.setUi({ imagine })}
       ideaText={imagineTopic ? ctx.draftFor(imagineTopic).body : ''}
-      onIdeaChange={(body) => {
-        if (imagineTopic) ctx.saveDraft(imagineTopic, { body })
-      }}
+      /**
+       * 🔴 No handler at all while view-only, rather than a handler the card is
+       * trusted not to call. The textarea (#6) and "Share an idea" (#2) are the two
+       * write affordances DEFAULT_MODULES.federal does not carry, so they are
+       * reachable only on City and County — which is why the dev fixture now shards
+       * City and scripts/check-explore-gate.mjs runs on both.
+       */
+      onIdeaChange={
+        ctx.isViewOnly
+          ? undefined
+          : (body) => {
+              if (imagineTopic) ctx.saveDraft(imagineTopic, { body })
+            }
+      }
       onExploreTopic={ctx.openTopic}
-      onShareIdea={ctx.startConversation}
+      onShareIdea={ctx.isViewOnly ? undefined : ctx.startConversation}
       isAuthenticated={ctx.isAuthenticated}
+      isViewOnly={ctx.isViewOnly}
     />
   )
 }

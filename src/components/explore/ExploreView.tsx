@@ -525,7 +525,33 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
           <p className="mt-0.5 text-base font-bold text-gray-900 dark:text-gray-100">{topic.question}</p>
         </div>
 
-        {/* The draft — saved on every keystroke, on this device, and bound to one community. */}
+        {/*
+          🔴 While view-only there is NO form here. Not a disabled one: no <form>, no
+          <input>, no <textarea>, no submit, no Discard — affordances #1, #4, #5 and #7
+          of research Finding 5. Hidden rather than disabled, matching the feed and the
+          thread, because a disabled control still advertises something the database
+          will refuse.
+
+          Everything above stays. Reading another shard's Explore is the point of the
+          sibling-read policy; over-gating this page into a dead end would fail goal 6
+          from the other direction. What replaces the form is a signpost: where this
+          topic's conversation CAN be started, named — and ViewOnlyNotice's switch-back
+          control is directly above it.
+        */}
+        {ctx.isViewOnly ? (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {destination ? (
+              <>
+                Conversations about this topic start in{' '}
+                <span className="font-semibold text-gray-700 dark:text-gray-300">{destination.name}</span>, your own
+                community. Switch back above to begin one.
+              </>
+            ) : (
+              'Conversations about this topic start in your own community. Switch back above to begin one.'
+            )}
+          </p>
+        ) : (
+        /* The draft — saved on every keystroke, on this device, and bound to one community. */
         <form
           className="flex flex-col gap-2.5"
           onSubmit={(e) => {
@@ -576,6 +602,7 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
             )}
           </div>
         </form>
+        )}
       </div>
     </article>
   )

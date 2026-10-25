@@ -26,15 +26,29 @@ export function ImagineActivity({
   onExploreTopic,
   onShareIdea,
   isAuthenticated,
+  isViewOnly,
 }: {
   choice: ImagineOption | null
   onChoose: (choice: ImagineOption) => void
   /** Bound to the chosen topic's draft body, so it is the same text the topic page shows. */
   ideaText: string
-  onIdeaChange: (text: string) => void
+  /**
+   * Absent while view-only — the module does not hand over a handler it will never
+   * call, and the textarea that would call it is not rendered.
+   */
+  onIdeaChange?: (text: string) => void
   onExploreTopic: (topic: TopicId) => void
-  onShareIdea: (topic: TopicId) => void
+  /** Absent while view-only, for the same reason as onIdeaChange. */
+  onShareIdea?: (topic: TopicId) => void
   isAuthenticated: boolean
+  /**
+   * 🔴 On a sibling shard of the member's own jurisdiction. The radios, the
+   * illustration and the chosen option's response all STAY — they are a view
+   * preference and the animation is most of why this card exists, and gating them
+   * would turn another shard's Explore into a dead page. What goes is the textarea
+   * (write affordance #6) and "Share an idea" (#2), the two that write.
+   */
+  isViewOnly?: boolean
 }) {
   const id = useId()
   const option = IMAGINE_OPTIONS.find((o) => o.key === choice) ?? null
@@ -105,19 +119,23 @@ export function ImagineActivity({
 
           {option && (
             <div className="flex flex-col gap-2.5 border-t border-gray-200/70 dark:border-white/[0.06] pt-3">
+              {/* The reward for choosing, and not a write. Stays either way. */}
               <p className="text-sm font-semibold text-brand dark:text-brand-light">{option.response}</p>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{option.followUp}</span>
-                <textarea
-                  rows={2}
-                  value={ideaText}
-                  onChange={(e) => onIdeaChange(e.target.value)}
-                  placeholder={option.key === 'other' ? 'Describe your idea…' : 'Add a place or a quick thought…'}
-                  maxLength={10000}
-                  className="w-full resize-y rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-gray-950 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-brand dark:focus:border-brand-light focus:bg-white dark:focus:bg-gray-950 focus:outline-none focus:ring-2 focus:ring-brand/30"
-                />
-              </label>
+              {!isViewOnly && onIdeaChange && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{option.followUp}</span>
+                  <textarea
+                    rows={2}
+                    value={ideaText}
+                    onChange={(e) => onIdeaChange(e.target.value)}
+                    placeholder={option.key === 'other' ? 'Describe your idea…' : 'Add a place or a quick thought…'}
+                    maxLength={10000}
+                    className="w-full resize-y rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-gray-950 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-brand dark:focus:border-brand-light focus:bg-white dark:focus:bg-gray-950 focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  />
+                </label>
+              )}
               <div className="flex flex-wrap items-center gap-2.5">
+                {/* Navigation, never a write — it opens the topic page. Stays. */}
                 <button
                   type="button"
                   onClick={() => onExploreTopic(option.topic)}
@@ -125,9 +143,11 @@ export function ImagineActivity({
                 >
                   Explore this topic <ArrowIcon />
                 </button>
-                <PrimaryButton size="card" onClick={() => onShareIdea(option.topic)}>
-                  {isAuthenticated ? 'Share an idea' : 'Sign in to share'}
-                </PrimaryButton>
+                {!isViewOnly && onShareIdea && (
+                  <PrimaryButton size="card" onClick={() => onShareIdea(option.topic)}>
+                    {isAuthenticated ? 'Share an idea' : 'Sign in to share'}
+                  </PrimaryButton>
+                )}
               </div>
             </div>
           )}
