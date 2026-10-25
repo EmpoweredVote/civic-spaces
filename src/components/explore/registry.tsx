@@ -26,6 +26,7 @@ import { IntroModule } from './modules/IntroModule'
 import { NearbyModule, nearbyModuleTopics } from './modules/NearbyModule'
 import { QuestionsModule } from './modules/QuestionsModule'
 import { RacesModule } from './modules/RacesModule'
+import { SeedInvitationModule } from './modules/SeedInvitationModule'
 import { WhatsNewModule } from './modules/WhatsNewModule'
 
 export interface ExploreModule {
@@ -182,31 +183,32 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     },
   },
   /**
-   * 🔴 The conditional half of the invitation, and nothing more.
+   * The welcome for a place nobody has written a word about yet.
    *
-   * 16-03 left a note here: a reserved room's copy is STATIC, so this one said
-   * "nobody has set this place up yet" on every city, county and state —
-   * including one that has bespoke topics — and that sentence stops being true
-   * the moment Bloomington's agenda lands. 16-06 is the plan that lands it, so
-   * 16-06 is the plan that has to stop the page claiming otherwise.
+   * 16-06 parked an inverted guard here — `available: !isUnseeded` with a null
+   * Component — so a reserved room's STATIC sentence ("nobody has set this
+   * place up yet") could not be told about Bloomington once its agenda landed.
+   * That was a truthfulness guard, never the invitation, and it said so. This
+   * entry replaces it outright; nothing from it is preserved.
    *
-   * `available()` is the only per-composition hook the contract has, so it is
-   * used INVERTED: true for a SEEDED place, where the component renders
-   * nothing; false for an unseeded one, where the reserved room below shows and
-   * its sentence is true. The room still renders no fact and no control.
+   * 🔴 `placeName` is in `available()` on purpose. An invitation that cannot
+   * name the place is not an invitation, and `useJurisdictionName` answers the
+   * tab label ("City") until its offline table lands — so AppShell passes null
+   * for that window. Hiding until the name resolves is a frame or two of
+   * nothing, which is better than a sentence with a gap in it. 16-10 checks the
+   * unresolved case.
    *
-   * This is a truthfulness guard, not the invitation. **16-08 Task 1 replaces
-   * this entry outright** with the real module — `available` becomes
-   * `composition.isUnseeded` and `emptyState` becomes `'hide'`, the right way
-   * round, with a card that names the place. Nothing here should be preserved.
+   * 🔴 `emptyState: 'hide'`, and the quiet SEEDED-case variant 16-DESIGN
+   * suggested is deliberately NOT built. Its only purpose is to let a member
+   * nudge what this space focuses on — which is the vote. With no vote there is
+   * nothing for it to offer, and a quiet card that offers nothing is the
+   * "coming soon" dead end goal 6 forbids. Considered and deferred, not
+   * forgotten: it ships with the vote, in the vote's own plan.
    */
   'seed-invitation': {
-    available: (ctx) => !ctx.composition.isUnseeded,
-    Component: () => null,
-    emptyState: {
-      title: 'Help shape this space',
-      body: 'Nobody has set this place up yet. An invitation to say which issues matter here is coming to this spot.',
-    },
+    available: (ctx) => ctx.composition.isUnseeded && !!ctx.placeName,
+    Component: SeedInvitationModule,
+    emptyState: 'hide',
   },
 
   // ── Reserved: a real source exists, out of this phase's scope ─────────────

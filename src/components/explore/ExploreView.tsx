@@ -25,6 +25,7 @@ import { useExploreComposition } from '../../lib/exploreData'
 import {
   canPostDraft,
   draftKey,
+  MIN_RANKED,
   isHttpUrl,
   migrateSignedOutDrafts,
   shouldResume,
@@ -217,6 +218,21 @@ export function ExploreView({
   }, [composition, agendaMeeting])
 
   /**
+   * Did this member's own Compass answers actually order the page?
+   *
+   * 🔴 Both halves are needed, and both are the difference between a true
+   * sentence and a plausible one. `rankByCompass` returns source order untouched
+   * below MIN_RANKED, and scores every topic 0 — another no-op — when none of
+   * them maps to something answered. A module that says "your own answers put
+   * the closest ones first" may only say it when this is true. Nothing
+   * aggregates: this is one member's answers ordering one member's page.
+   */
+  const compassRanked = useMemo(() => {
+    if (!composition || !answeredCompassTopicIds || answeredCompassTopicIds.size < MIN_RANKED) return false
+    return composition.topics.some((t) => !!t.compassTopicId && answeredCompassTopicIds.has(t.compassTopicId))
+  }, [composition, answeredCompassTopicIds])
+
+  /**
    * Every topic any module may open, by id.
    *
    * Wider than `composition.topics` on purpose: Imagine and Nearby own their own
@@ -398,6 +414,7 @@ export function ExploreView({
     composition,
     topicsById,
     placeName: placeName ?? null,
+    compassRanked,
     destination,
     isAuthenticated,
     isViewOnly,

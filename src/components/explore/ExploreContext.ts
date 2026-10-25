@@ -46,6 +46,19 @@ export interface ExploreCtx {
    */
   placeName: string | null
 
+  /**
+   * True only when this page's ordering really is this member's own.
+   *
+   * 🔴 Locked decision 7, and the copy trap it protects. `rankByCompass` reads
+   * the VIEWING MEMBER's own answers and nothing else — no slice-wide aggregate
+   * of members' political answers is computed, stored or requested anywhere,
+   * and none should be designed. This flag exists so a module can SAY the
+   * ordering is theirs only when it is: below `MIN_RANKED` answers, and when
+   * none of this page's topics maps to something they have answered, ranking is
+   * a no-op and the sentence would be a small lie told to most members.
+   */
+  compassRanked: boolean
+
   /** Where a post lands. null when signed out or with no slice for this tab. */
   destination: ExploreDestination | null
   isAuthenticated: boolean
