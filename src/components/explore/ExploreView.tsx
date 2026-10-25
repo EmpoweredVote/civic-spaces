@@ -57,6 +57,17 @@ interface ExploreViewProps {
   sliceType: string
   /** null for a placeless level, a signed-out visitor, or a member with no slice here. */
   geoid: string | null
+  /**
+   * The resolved city name and state abbreviation for this tab, or absent.
+   *
+   * 🔴 Fetch by name; attach by geoid. The meetings API accepts no geoid, so the
+   * agenda request is made by name — but the topics it yields are stamped with
+   * `geoid` above and re-checked against it in resolveComposition. Absent on
+   * every tab but City, and whenever the name has not resolved: the API would
+   * have nothing to match, and a tab label is not a city.
+   */
+  city?: string | null
+  stateAbbrev?: string | null
   /** null when signed out, or when the member has no local community. */
   destination: ExploreDestination | null
   isAuthenticated: boolean
@@ -118,6 +129,8 @@ const TEXT_FIELD = `w-full rounded-xl border border-gray-300 dark:border-white/1
 export function ExploreView({
   sliceType,
   geoid,
+  city,
+  stateAbbrev,
   destination,
   isAuthenticated,
   isViewOnly,
@@ -135,7 +148,29 @@ export function ExploreView({
 }: ExploreViewProps) {
   const drafts = useExploreDrafts()
   const [ui, setUi] = useExploreUiState()
-  const { composition, isLoading } = useExploreComposition({ sliceType, geoid })
+  const { composition, agendaMeeting, isLoading } = useExploreComposition({
+    sliceType,
+    geoid,
+    city,
+    stateAbbrev,
+  })
+
+  /**
+   * The agenda section's content, assembled from what the composition ACTUALLY
+   * kept — not from the derivation.
+   *
+   * 🔴 That distinction is the geoid guard. resolveComposition discards a
+   * bespoke topic stamped with a different geoid, so reading the topics back off
+   * the composition is what makes the module unable to render a discarded one.
+   * Deriving ctx.agenda from the hook's raw output instead would route straight
+   * round the check that exists to prevent one city's agenda appearing on
+   * another's tab.
+   */
+  const agenda = useMemo(() => {
+    if (!composition || !agendaMeeting) return undefined
+    const topics = composition.topics.filter((topic) => topic.provenance === 'derived-from-agenda')
+    return topics.length > 0 ? { meeting: agendaMeeting, topics } : undefined
+  }, [composition, agendaMeeting])
 
   /**
    * Every topic any module may open, by id.
@@ -327,6 +362,7 @@ export function ExploreView({
     featuredPhoto: featuredPhoto ?? null,
     meetings,
     elections,
+    agenda,
     ui,
     setUi,
     draftFor,

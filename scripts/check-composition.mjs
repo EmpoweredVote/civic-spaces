@@ -10,7 +10,7 @@
  * shipped code is wrong. If you are tempted to copy a function in here, don't — make the
  * function importable instead.
  *
- * What it covers (55 assertions, extended to 57 by 16-06 and 62 by 16-08;
+ * What it covers (57 assertions, extended to 62 by 16-08;
  * 16-10 re-runs it as a phase gate):
  *
  *   1–8    composition keys and the five module lists
@@ -24,6 +24,7 @@
  *          the state. scripts/check-explore-gate.mjs covers the invariant instead.
  *   22–30  selection against the module list, Compass ranking, the level filter
  *   31–39  resolution, races areas, href validation
+ *   56–57  the geoid stamp on a bespoke topic — fetch by name, attach by geoid
  *   40–41  the same functions over THIS APP'S REAL DATA — the generic pool, the module-owned
  *          topic sets and the dev Compass fixture. 22–30 use synthetic inputs, which prove
  *          the functions behave but not that they behave on the content we ship.
@@ -591,6 +592,54 @@ check(
     'isHttpUrl accepts https/http and rejects javascript:, protocol-relative, empty and null',
     same(got, [true, true, false, false, false, false]),
     got.join(', '),
+  )
+}
+
+// ── 56–57  Fetch by name, attach by geoid ────────────────────────────────────
+//
+// 🔴 The meetings API is keyed on a city NAME plus a state abbreviation — it has
+// no geoid at all — so a bespoke topic is FETCHED by name. It must not be
+// ATTACHED by one: two cities of one name in one state would collide, and
+// `(slice_type, geoid)` is the composition key everywhere else in this phase.
+// agendaItemsToTopics stamps each topic with the SLICE's geoid; resolveComposition
+// re-checks the stamp rather than trusting its caller. A collision must yield a
+// place with no bespoke topics, never one city's agenda shown to another's.
+
+{
+  const stampedA = [
+    topic('agenda-x', 'city', { provenance: 'derived-from-agenda', geoid: '1805860' }),
+  ]
+  const c = resolveComposition({
+    sliceType: 'city',
+    geoid: '0644000', // Los Angeles. A different place entirely.
+    generic: GENERIC_TOPICS.city,
+    bespoke: stampedA,
+  })
+  check(
+    56,
+    'a bespoke topic stamped with ANOTHER geoid is DISCARDED, and the composition stays unseeded',
+    c !== null &&
+      c.isUnseeded === true &&
+      !ids(c.topics).includes('agenda-x') &&
+      c.topics.every((t) => t.provenance !== 'derived-from-agenda'),
+    c === null ? 'null' : `isUnseeded ${c.isUnseeded} / ${ids(c.topics).slice(0, 3).join(', ')}`,
+  )
+}
+{
+  const stampedB = [
+    topic('agenda-x', 'city', { provenance: 'derived-from-agenda', geoid: '1805860' }),
+  ]
+  const c = resolveComposition({
+    sliceType: 'city',
+    geoid: '1805860',
+    generic: GENERIC_TOPICS.city,
+    bespoke: stampedB,
+  })
+  check(
+    57,
+    'the SAME topic stamped with this composition’s geoid is kept, leads topics, and the place is seeded',
+    c !== null && c.isUnseeded === false && c.topics[0]?.id === 'agenda-x',
+    c === null ? 'null' : `isUnseeded ${c.isUnseeded} / ${ids(c.topics).slice(0, 3).join(', ')}`,
   )
 }
 

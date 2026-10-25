@@ -341,7 +341,8 @@ function ActiveExplore({
   // Meetings are a city API and nothing else: only a resolved city name is a query it
   // accepts, so every other tab passes null and the agenda module simply has no source.
   const city = activeSlice.sliceType === 'city' && name !== label ? name : null
-  const { meetings } = useUpcomingMeetings(city, city ? stateAbbrevFromGeoid(activeSlice.geoid) : null)
+  const cityState = city ? stateAbbrevFromGeoid(activeSlice.geoid) : null
+  const { meetings } = useUpcomingMeetings(city, cityState)
   // Same query (and cache) the events widget uses — the area's real election calendar.
   // 🔴 electionAreaFor, which DOES fall back to the state, and is right for "when is the
   // next election". "Which races are mine" is racesAreaFor and lands in 16-07. Never merge.
@@ -366,6 +367,12 @@ function ActiveExplore({
     <ExploreView
       sliceType={activeSlice.sliceType}
       geoid={activeSlice.geoid}
+      /* 🔴 The SAME two values the meetings query above uses, not a second
+         lookup: the agenda and the calendar must never disagree about which
+         city this tab is. Fetch by name — the meetings API accepts nothing else
+         — and attach by the geoid beside it, which resolveComposition rechecks. */
+      city={city}
+      stateAbbrev={cityState}
       destination={destination}
       isAuthenticated
       isViewOnly={isViewOnly}

@@ -553,7 +553,23 @@ export function resolveComposition(input: ResolveCompositionInput): ExploreCompo
   const level = levelFor(input.sliceType)
   if (!level) return null
 
-  const bespoke = input.bespoke ?? []
+  const geoid = PLACELESS.has(input.sliceType) ? null : input.geoid
+
+  /**
+   * 🔴 Fetch by name; attach by geoid.
+   *
+   * The meetings API only accepts a city NAME plus a state abbreviation, so the
+   * request that produces a bespoke topic has to be made that way. The
+   * attachment must not be: a name is not a key, two cities of one name in one
+   * state would collide, and `(slice_type, geoid)` is the composition key
+   * everywhere else in this phase.
+   *
+   * So a bespoke topic has to name the geoid it is for, and anything that names
+   * a different one is DISCARDED here rather than trusted from the caller. The
+   * result of a collision is a place with no bespoke topics — honest, and
+   * visibly unseeded — instead of one city's agenda shown to another's.
+   */
+  const bespoke = (input.bespoke ?? []).filter((topic) => topic.geoid === geoid)
   const ranked = rankByCompass(
     topicsForLevel(input.generic ?? [], level, input.compassLevelFlags),
     input.answeredCompassTopicIds,
@@ -562,7 +578,6 @@ export function resolveComposition(input: ResolveCompositionInput): ExploreCompo
   const topics = bespoke.length > 0 ? [...bespoke, ...ranked] : ranked
   // Copy: DEFAULT_MODULES is a module-level constant shared by every resolution.
   const modules = [...DEFAULT_MODULES[level]]
-  const geoid = PLACELESS.has(input.sliceType) ? null : input.geoid
 
   return {
     key: compositionKey(input.sliceType, input.geoid),

@@ -12,6 +12,7 @@
  * out of ExploreView with that change; this plan does not touch that file.
  */
 
+import type { AgendaSource } from '../../hooks/useAgendaItems'
 import type { UpcomingElection } from '../../hooks/useNextElection'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { ExploreComposition, ExploreTopic, TopicId } from '../../types/explore'
@@ -59,6 +60,16 @@ export interface ExploreCtx {
   featuredPhoto: FeaturedPhoto | null
   meetings: UpcomingMeeting[] | undefined
   elections: UpcomingElection[] | undefined
+  /**
+   * The published agenda this place's bespoke topics were derived from, and the
+   * topics that SURVIVED resolveComposition's geoid check — never the raw
+   * derivation. The module needs both: the topics to render, and the meeting to
+   * say whose agenda they are and link the document.
+   *
+   * Undefined for every place the pipeline does not cover, which today is every
+   * place but one. That is not a failure state and must not read as one.
+   */
+  agenda?: { meeting: AgendaSource; topics: ExploreTopic[] }
 
   // UI state and actions.
   ui: ExploreUiState

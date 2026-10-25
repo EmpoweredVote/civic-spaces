@@ -13,6 +13,8 @@ import {
   resolveComposition,
   type CompassLevelFlags,
 } from './exploreComposition'
+import { agendaItemsToTopics } from './agendaTopics'
+import { useAgendaItems, type AgendaSource } from '../hooks/useAgendaItems'
 import type { ExploreComposition, ExploreTopic } from '../types/explore'
 
 /**
@@ -48,7 +50,18 @@ export function getAdventureTopics(): ExploreTopic[] {
 export interface ExploreCompositionInput {
   sliceType: string
   geoid: string | null
-  /** Topics derived from a real source for this exact place. 16-06 supplies Bloomington's. */
+  /**
+   * The resolved city NAME and state abbreviation, or null on every other tab.
+   *
+   * 🔴 Fetch by name; attach by geoid. The meetings API has no geoid — a city
+   * name plus a state abbreviation is the only key it accepts — so the request
+   * has to be made this way. The topics it produces are stamped with `geoid`
+   * above, and resolveComposition re-checks that stamp, so a name collision
+   * discards topics rather than attaching one city's agenda to another.
+   */
+  city?: string | null
+  stateAbbrev?: string | null
+  /** Topics derived from a real source for this exact place, beyond the agenda. */
   bespoke?: ExploreTopic[]
   answeredCompassTopicIds?: ReadonlySet<string>
   compassLevelFlags?: ReadonlyMap<string, CompassLevelFlags>
@@ -80,12 +93,44 @@ interface ExploreCompositionPayload {
  */
 export function useExploreComposition(input: ExploreCompositionInput): {
   composition: ExploreComposition | null
+  /** The meeting the agenda topics came from, so the module can name and link it. */
+  agendaMeeting: AgendaSource | undefined
   isLoading: boolean
 } {
-  const { sliceType, geoid, bespoke, answeredCompassTopicIds, compassLevelFlags } = input
+  const { sliceType, geoid, city, stateAbbrev, bespoke, answeredCompassTopicIds, compassLevelFlags } =
+    input
+
+  /**
+   * 🔴 The bespoke layer, as of 16-06: one real jurisdiction's published council
+   * agenda. Two client-side requests and a pure mapping, called HERE so that
+   * Explore's content still enters through exactly one file.
+   *
+   * 🔴 Stepping stone, not the destination. When
+   * `GET /api/civic-spaces/explore?sliceType=&geoid=` lands (16-09's handoff Ask
+   * 1), that route returns the composition with its bespoke topics already in
+   * it: the queryFn below becomes the fetch, and useAgendaItems.ts,
+   * agendaTopics.ts and these two blocks are deleted outright.
+   *
+   * It does not block first paint. The agenda arrives after the composition has
+   * already resolved from the generic pool, which is why the query key below
+   * carries the bespoke topics' identity — without it the arrival would never
+   * re-resolve and Bloomington would look like every other city.
+   */
+  const { agenda } = useAgendaItems(city ?? null, stateAbbrev ?? null)
+  const agendaTopics = useMemo(() => {
+    const level = levelFor(sliceType)
+    // No geoid means no place to attach to, and nothing to be bespoke ABOUT.
+    if (!agenda || !level || !geoid) return []
+    return agendaItemsToTopics(agenda.items, agenda.meeting, level, geoid)
+  }, [agenda, sliceType, geoid])
+
+  const allBespoke = useMemo(
+    () => (bespoke && bespoke.length > 0 ? [...agendaTopics, ...bespoke] : agendaTopics),
+    [agendaTopics, bespoke],
+  )
 
   const key = compositionKey(sliceType, geoid)
-  const bespokeIds = bespoke?.map((topic) => topic.id).join(',') ?? ''
+  const bespokeIds = allBespoke.map((topic) => topic.id).join(',')
 
   const query = useQuery({
     queryKey: ['explore-composition', key, bespokeIds],
@@ -95,7 +140,7 @@ export function useExploreComposition(input: ExploreCompositionInput): {
         sliceType,
         geoid,
         generic: level ? GENERIC_TOPICS[level] : [],
-        bespoke: bespoke ?? [],
+        bespoke: allBespoke,
       }
     },
     staleTime: Infinity,
@@ -117,5 +162,5 @@ export function useExploreComposition(input: ExploreCompositionInput): {
     [data, answeredCompassTopicIds, compassLevelFlags],
   )
 
-  return { composition, isLoading: query.isLoading }
+  return { composition, agendaMeeting: agenda?.meeting, isLoading: query.isLoading }
 }
