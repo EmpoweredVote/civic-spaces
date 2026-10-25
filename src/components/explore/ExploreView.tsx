@@ -229,7 +229,9 @@ export function ExploreView({
    */
   const resumedRef = useRef(false)
   useEffect(() => {
-    if (resumedRef.current || !isAuthenticated) return
+    // Wait for the slices to arrive. An empty map would read as "you hold nothing",
+    // and the marker would be dropped for a member who holds the slice perfectly well.
+    if (resumedRef.current || !isAuthenticated || !slices || Object.keys(slices).length === 0) return
     const marker = readResume()
     if (!marker) return
     const drop = () => {
@@ -242,23 +244,29 @@ export function ExploreView({
     if (Date.now() - marker.at > RESUME_MAX_AGE_MS) return drop()
     // A marker written signed out carries no geoid; the member now has one. Resolve it
     // against the slice they hold for that type, which is where the draft now lives.
-    const boundGeoid = marker.geoid ?? slices?.[marker.sliceType]?.geoid ?? null
+    const boundGeoid = marker.geoid ?? slices[marker.sliceType]?.geoid ?? null
     const key = draftKey(marker.sliceType, boundGeoid, marker.topicId)
     // They may have moved, or lost that slice, while they were away. Losing a draft
     // written for a place they have left is better than posting it somewhere they did
     // not mean — and it happens silently, because they pressed nothing.
-    if (!canPostDraft(key, slices ?? {}).ok) return drop()
-    // Only the composition that OWNS this key may resume it: startConversation builds
-    // its key from the composition being rendered, so resuming from another tab would
-    // post into the wrong jurisdiction. Leave the marker instead — switching to that
-    // tab changes topicsById, which re-runs this effect.
-    if (key !== keyFor(marker.topicId) || !topicsById.has(marker.topicId)) return
-    if (!readDrafts()[key]) return drop()
-    // Clearing a stale marker does not need a destination; resuming does.
-    if (!destination) return
+    if (!canPostDraft(key, slices).ok) return drop()
+    const draft = readDrafts()[key]
+    if (!draft) return drop()
     drop()
-    startConversation(marker.topicId)
-  }, [isAuthenticated, destination, slices, keyFor, startConversation, topicsById])
+    /**
+     * 🔴 The MARKER'S key, never keyFor(). A visitor signs in from the city page and
+     * comes back to whatever tab cs_active_tab held — 'federal' by default, since the
+     * signed-out screen has no tab bar to have changed it. Re-keying to the rendered
+     * composition would either lose the draft or, worse, aim it at the wrong
+     * jurisdiction. AppShell re-checks this key with the same guard and switches to
+     * the tab it names.
+     *
+     * The destination NAME is only passed when this composition is the one that owns
+     * the key; otherwise the note says "your City community" rather than naming the
+     * wrong place.
+     */
+    onStartConversation(key, draft, key === keyFor(marker.topicId) ? destination?.name ?? null : null)
+  }, [isAuthenticated, destination, slices, keyFor, onStartConversation])
 
   if (isLoading) return <ExploreSkeleton />
   // Volunteer has no Explore and never has — levelFor() returns null and so does this.
