@@ -305,6 +305,9 @@ function ActiveExplore({
   photoSlice,
   stateSlice,
   userId,
+  isViewOnly,
+  viewingSliceIndex,
+  onReturnToOwnSlice,
   onStartConversation,
   onScrollTop,
   onGoToView,
@@ -318,6 +321,15 @@ function ActiveExplore({
   photoSlice: SliceInfo | null
   stateSlice: SliceInfo | undefined
   userId: string | null
+  /**
+   * 🔴 `activeIsViewOnly`, computed once in AppShell and handed to the feed too.
+   * Not recomputed here: the feed and Explore disagreeing about the same shard is
+   * how half a gate ships.
+   */
+  isViewOnly: boolean
+  /** The sibling on screen. The member's own index comes off activeSlice. */
+  viewingSliceIndex: number | undefined
+  onReturnToOwnSlice: () => void
   onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null) => void
   onScrollTop: () => void
   onGoToView: (view: ForumView) => void
@@ -356,6 +368,10 @@ function ActiveExplore({
       geoid={activeSlice.geoid}
       destination={destination}
       isAuthenticated
+      isViewOnly={isViewOnly}
+      viewingSliceIndex={viewingSliceIndex}
+      ownSliceIndex={activeSlice.siblingIndex}
+      onReturnToOwnSlice={onReturnToOwnSlice}
       slices={slices}
       meetings={meetings}
       elections={elections}
@@ -916,6 +932,9 @@ export default function AppShell() {
                 geoid={null}
                 destination={null}
                 isAuthenticated={false}
+                /* A stranger is on nobody's sibling shard — there is no membership to
+                   be a sibling OF. Stated rather than defaulted: see the prop's doc. */
+                isViewOnly={false}
                 onStartConversation={handleStartConversation}
               />
             </div>
@@ -1092,6 +1111,11 @@ export default function AppShell() {
                             stateSlice={slices['state']}
                             userId={userId}
                             photoSlice={photoSliceFor(slices, activeSlice, activeTab)}
+                            isViewOnly={activeIsViewOnly}
+                            viewingSliceIndex={activeViewing?.siblingIndex}
+                            onReturnToOwnSlice={() =>
+                              handleViewSlice(activeTab, { id: activeSlice.id, siblingIndex: activeSlice.siblingIndex, memberCount: activeSlice.memberCount }, activeSlice.id)
+                            }
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
                             onGoToView={handleForumViewChange}
@@ -1103,6 +1127,11 @@ export default function AppShell() {
                             geoid={null}
                             destination={null}
                             isAuthenticated
+                            /* No slice for this tab, so there is no own shard for another
+                               to be a sibling of. activeIsViewOnly is false here by
+                               construction (it requires activeSlice); said outright so a
+                               later refactor cannot make it true without noticing. */
+                            isViewOnly={false}
                             slices={slices}
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}

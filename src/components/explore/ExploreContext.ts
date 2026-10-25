@@ -33,10 +33,27 @@ export interface ExploreCtx {
   isAuthenticated: boolean
   /**
    * True on a sibling shard of the member's own jurisdiction: readable, and every
-   * write path closed by RLS. Threaded here and always false until 16-05 wires
-   * it, so the gate lands in ONE place and every module inherits it.
+   * write path closed by RLS. One value, computed once in AppShell and shared with
+   * the feed, so the gate lands in ONE place and every module inherits it rather
+   * than each remembering its own rule.
+   *
+   * 🔴 Every module that offers a write reads this. Research Finding 5 lists the
+   * ten affordances; `scripts/check-explore-gate.mjs` is what stops nine of them
+   * being enough.
    */
   isViewOnly: boolean
+  /** Which shard is on screen, for the notice's wording. Undefined when not view-only. */
+  viewingSliceIndex?: number
+  /** The member's OWN shard, the one posting and drafting stay in. */
+  ownSliceIndex?: number
+  /**
+   * Leaves view-only — the same call the feed's amber banner makes
+   * (`handleViewSlice(tab, ownSlice, ownSlice.id)`). Explore needs its own, because
+   * the shard selector renders only in the Conversations toolbar
+   * (`AppShell.tsx`, `effectiveView === 'conversations'`) and is not reachable from
+   * here at all: without this a view-only member is stranded (research Pitfall 8).
+   */
+  onReturnToOwnSlice?: () => void
 
   // Data, all hoisted above this component and resolved once for the active tab.
   featuredPhoto: FeaturedPhoto | null

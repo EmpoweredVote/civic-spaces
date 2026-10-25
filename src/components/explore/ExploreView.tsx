@@ -59,6 +59,22 @@ interface ExploreViewProps {
   destination: ExploreDestination | null
   isAuthenticated: boolean
   /**
+   * True when the tab is pointed at a SIBLING shard of the member's own
+   * jurisdiction: readable by RLS, and every write path closed by it.
+   *
+   * 🔴 Required, not optional. An optional boolean defaulting to "not gated" is
+   * the wrong default for this field — a new call site that forgets it would
+   * silently offer writes RLS can only reject. The two call sites that are never
+   * on anyone's sibling shard (signed out, no slice for this tab) pass `false`
+   * explicitly.
+   */
+  isViewOnly: boolean
+  /** The shard on screen and the member's own, for the notice. Only meaningful while view-only. */
+  viewingSliceIndex?: number
+  ownSliceIndex?: number
+  /** Leaves view-only. Explore's only way back: the shard selector is in the Conversations bar. */
+  onReturnToOwnSlice?: () => void
+  /**
    * Every slice the member holds, by type — at most one per type. Not for
    * rendering: it is what canPostDraft() checks a stored draft key against, so a
    * resume marker for a place they have left is dropped rather than posted.
@@ -102,6 +118,10 @@ export function ExploreView({
   geoid,
   destination,
   isAuthenticated,
+  isViewOnly,
+  viewingSliceIndex,
+  ownSliceIndex,
+  onReturnToOwnSlice,
   slices,
   meetings,
   elections,
@@ -277,8 +297,10 @@ export function ExploreView({
     topicsById,
     destination,
     isAuthenticated,
-    // Always false until 16-05 computes it; threaded now so the gate lands in one place.
-    isViewOnly: false,
+    isViewOnly,
+    viewingSliceIndex,
+    ownSliceIndex,
+    onReturnToOwnSlice,
     featuredPhoto: featuredPhoto ?? null,
     meetings,
     elections,
