@@ -261,11 +261,6 @@ function ActiveAboutWidget({
 }
 
 /**
- * Explore, bound to the member's most local own community — where every topic's
- * conversation is started, whichever level tab is showing. Rendered once (not per
- * panel), so its name and meetings lookups run once and share the sidebar's cache.
- */
-/**
  * Preference order for the photo the featured card borrows. Place slices only — Unified
  * is not a place and has no banner of its own.
  */
@@ -276,17 +271,17 @@ const PHOTO_SLICE_ORDER: SliceType[] = ['city', 'county', 'state', 'federal']
  * already showing directly above it — that is always `slices[activeTab]`.
  *
  * Returns null when the member has no other place slice to borrow from, and the card
- * falls back to the drawn street. The previous expression assumed the
- * `activeTab === homeSlice.sliceType` branch always yielded something different; for a
- * member whose most local space IS their county, `slices['county']` is `homeSlice`, so
- * the County tab showed the same photo twice.
+ * falls back to the drawn street. The first branch is a leftover from when the caller
+ * passed the member's HOME slice, which could differ from the tab; now that Explore
+ * follows the tab, `currentSlice.sliceType === activeTab` always, so it never fires and
+ * the loop does the work — which is the behaviour wanted either way.
  */
 function photoSliceFor(
   slices: Partial<Record<SliceType, SliceInfo>>,
-  homeSlice: SliceInfo,
+  currentSlice: SliceInfo,
   activeTab: TabKey,
 ): SliceInfo | null {
-  if (homeSlice.sliceType !== activeTab) return homeSlice
+  if (currentSlice.sliceType !== activeTab) return currentSlice
   for (const key of PHOTO_SLICE_ORDER) {
     const candidate = slices[key]
     if (candidate && candidate.sliceType !== activeTab) return candidate
@@ -294,8 +289,18 @@ function photoSliceFor(
   return null
 }
 
+/**
+ * Explore, bound to the ACTIVE TAB — the State tab shows State's Explore, and a topic
+ * opened there starts its conversation in the State community. Rendered once (not per
+ * panel), so its name and meetings lookups run once and share the sidebar's cache.
+ *
+ * It used to bind to homeSlice, the member's most local space, which pinned every draft
+ * to one community. That pinning was deliberate — a draft must not land in whichever
+ * shard happens to be showing — and it is preserved by the draft KEY instead: a draft is
+ * `(sliceType, geoid, topicId)` and canPostDraft() re-checks it at post time.
+ */
 function ActiveExplore({
-  homeSlice,
+  activeSlice,
   slices,
   photoSlice,
   stateSlice,
@@ -305,7 +310,8 @@ function ActiveExplore({
   onGoToView,
   whatsNewInSidebar,
 }: {
-  homeSlice: SliceInfo
+  /** The slice for the tab being shown. Explore follows the tab, not the home slice. */
+  activeSlice: SliceInfo
   /** Every slice the member holds — canPostDraft checks a stored draft key against it. */
   slices: Partial<Record<SliceType, SliceInfo>>
   /** Whose banner photo the featured card borrows, or null to use the illustration instead. */
@@ -318,30 +324,36 @@ function ActiveExplore({
   /** False while the right sidebar is collapsed, so "What's new" shows inline instead. */
   whatsNewInSidebar: boolean
 }) {
-  const label = TAB_LABELS[homeSlice.sliceType]
-  const name = useJurisdictionName(homeSlice, label)
-  const city = homeSlice.sliceType === 'city' && name !== label ? name : null
-  const { meetings } = useUpcomingMeetings(city, city ? stateAbbrevFromGeoid(homeSlice.geoid) : null)
+  const label = TAB_LABELS[activeSlice.sliceType]
+  const name = useJurisdictionName(activeSlice, label)
+  // Meetings are a city API and nothing else: only a resolved city name is a query it
+  // accepts, so every other tab passes null and the agenda module simply has no source.
+  const city = activeSlice.sliceType === 'city' && name !== label ? name : null
+  const { meetings } = useUpcomingMeetings(city, city ? stateAbbrevFromGeoid(activeSlice.geoid) : null)
   // Same query (and cache) the events widget uses — the area's real election calendar.
-  const { elections } = useUpcomingElections(electionAreaFor(homeSlice, stateSlice), userId)
+  // 🔴 electionAreaFor, which DOES fall back to the state, and is right for "when is the
+  // next election". "Which races are mine" is racesAreaFor and lands in 16-07. Never merge.
+  const { elections } = useUpcomingElections(electionAreaFor(activeSlice, stateSlice), userId)
   // Same hook and shared-bucket credits as the hero banner. A photo without a credit has
   // unknown provenance (a DB override, or nothing resolved), so it is not reused here.
   // Hooks cannot be conditional, so they always run against a real slice; the result is
   // only used when photoSlice says there is a photo worth borrowing.
-  const photoSource = photoSlice ?? homeSlice
+  const photoSource = photoSlice ?? activeSlice
   const hero = useHeroBanner(photoSource)
   const photoName = useJurisdictionName(photoSource, TAB_LABELS[photoSource.sliceType])
   const featuredPhoto = photoSlice && hero?.url && hero.credit && !photoSlice.photoUrl
     ? { url: hero.url, credit: hero.credit, alt: `${photoName}` }
     : null
+  // Where a topic opened on THIS tab starts its conversation. The draft key carries the
+  // same (sliceType, geoid), and AppShell re-checks it with canPostDraft before posting.
   const destination = useMemo(
-    () => ({ sliceId: homeSlice.id, tab: homeSlice.sliceType, name }),
-    [homeSlice.id, homeSlice.sliceType, name],
+    () => ({ sliceId: activeSlice.id, tab: activeSlice.sliceType, name }),
+    [activeSlice.id, activeSlice.sliceType, name],
   )
   return (
     <ExploreView
-      sliceType={homeSlice.sliceType}
-      geoid={homeSlice.geoid}
+      sliceType={activeSlice.sliceType}
+      geoid={activeSlice.geoid}
       destination={destination}
       isAuthenticated
       slices={slices}
@@ -1073,13 +1085,13 @@ export default function AppShell() {
                         aria-labelledby={`${FORUM_VIEW_PANEL_ID.explore}-tab`}
                         className={effectiveView === 'explore' ? 'flex flex-col' : 'hidden'}
                       >
-                        {homeSlice ? (
+                        {activeSlice ? (
                           <ActiveExplore
-                            homeSlice={homeSlice}
+                            activeSlice={activeSlice}
                             slices={slices}
                             stateSlice={slices['state']}
                             userId={userId}
-                            photoSlice={photoSliceFor(slices, homeSlice, activeTab)}
+                            photoSlice={photoSliceFor(slices, activeSlice, activeTab)}
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
                             onGoToView={handleForumViewChange}
