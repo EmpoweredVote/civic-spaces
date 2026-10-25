@@ -20,7 +20,10 @@
  * 🔴 The generated-summary label is on the CARD, not only on the topic page.
  * The title and the reference are the council's; the summary is the pipeline's
  * reading of them, and a reader who only ever sees the card must still be able
- * to tell the two apart. That is SourceNote's job and it is not re-worded here.
+ * to tell the two apart. That is SourceNote's job, and the card asks it for the
+ * `compact` form: the per-item link and a one-line honesty label, without the
+ * sentence that restates this section's own header. Eight cards × the full form
+ * put one date on the page nine times and one 31-word sentence eight times.
  */
 
 import { useId } from 'react'
@@ -141,8 +144,20 @@ export function AgendaModule({ ctx }: { ctx: ExploreCtx }) {
                 </span>
               </button>
             </h4>
-            {/* 🔴 On the card, not only behind a click. */}
-            <SourceNote topic={topic} className="mt-auto border-t border-gray-200/70 pt-2.5 dark:border-white/[0.06]" />
+            {/*
+              🔴 On the card, not only behind a click — and `compact`, because the
+              section lead one screen above already says "From the Common Council's
+              agenda of October 14, 2026". Without it that date appeared nine times in
+              this section and the full 31-word disclaimer eight times verbatim, which
+              on mobile made the footer taller than the summary it qualifies. Compact
+              keeps the per-item link and keeps the generated-summary label here, in
+              short form; the full sentence is still on the topic page.
+            */}
+            <SourceNote
+              topic={topic}
+              compact
+              className="mt-auto border-t border-gray-200/70 pt-2.5 dark:border-white/[0.06]"
+            />
           </article>
         ))}
       </div>

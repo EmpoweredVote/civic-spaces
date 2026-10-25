@@ -122,17 +122,44 @@ function sourceSentence(topic: ExploreTopic): string {
  * Where this topic came from, in full: the sentence, the link to the published
  * record when there is one, and — when the summary was machine-written — the
  * line that says so.
+ *
+ * `compact` is for a card sitting UNDER A SECTION HEADER THAT ALREADY STATES THE
+ * SHARED SOURCE. Measured on Bloomington City, where eight agenda cards render
+ * at once: the full form put "October 14, 2026 agenda" on the page nine times
+ * and the same 31-word sentence eight times verbatim, and on mobile the footer
+ * under each card ran four lines against a three-line summary — qualifying text
+ * louder than the thing it qualifies (`deferred-items.md` item 7).
+ *
+ * 🔴 Compact drops the SENTENCE, never the LINK and never the honesty label.
+ *   - the sentence restates the section lead one screen above, and each card
+ *     already carries its own `Ordinance 2026-29` chip;
+ *   - the link is per-item and is the only way to the item's own record;
+ *   - the generated-summary label stays ON THE CARD, shorter. That was 16-06's
+ *     deliberate call and it is right: a reader who only ever sees the card must
+ *     still be able to tell the pipeline's words from the council's, and moving
+ *     it behind a click recreates exactly the failure it exists to prevent.
+ *
+ * The full sentence is unchanged everywhere else, including the topic page.
  */
-export function SourceNote({ topic, className = '' }: { topic: ExploreTopic; className?: string }) {
+export function SourceNote({
+  topic,
+  className = '',
+  compact = false,
+}: {
+  topic: ExploreTopic
+  className?: string
+  /** The section header above already names this source and its date. */
+  compact?: boolean
+}) {
   const href = topic.sourceUrl && isHttpUrl(topic.sourceUrl) ? topic.sourceUrl : null
 
   return (
     <div className={`flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400 ${className}`}>
       <p>
-        {sourceSentence(topic)}
+        {!compact && sourceSentence(topic)}
         {href && (
           <>
-            {' '}
+            {compact ? '' : ' '}
             <a
               href={href}
               target="_blank"
@@ -145,12 +172,15 @@ export function SourceNote({ topic, className = '' }: { topic: ExploreTopic; cla
           </>
         )}
       </p>
-      {topic.summaryIsGenerated && (
-        <p>
-          The title and the reference above are the source&rsquo;s own. The summary was written
-          automatically from that record, not by the source.
-        </p>
-      )}
+      {topic.summaryIsGenerated &&
+        (compact ? (
+          <p>Summary written automatically from that record, not by the source.</p>
+        ) : (
+          <p>
+            The title and the reference above are the source&rsquo;s own. The summary was written
+            automatically from that record, not by the source.
+          </p>
+        ))}
     </div>
   )
 }

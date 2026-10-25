@@ -629,6 +629,86 @@ console.log(`\n── BLOOMINGTON · CITY · seeded while the agenda is fresh ${
         `${room.present ? 'present, which is correct' : 'absent, which is odd — look at it'}.`,
     )
   }
+
+  /**
+   * ── 20  The honesty label is ON THE CARD, and the card's own link with it ───
+   *
+   * 🔴 16-06 decided deliberately that a machine-written summary says so on the
+   * CARD, not only behind a click: a reader who never opens the topic must still
+   * be able to tell the pipeline's words from the council's, and moving the label
+   * behind a click recreates exactly the failure it exists to prevent. That
+   * decision has lived in a code comment and in nothing else, which is how this
+   * repo lost half a gate once already.
+   *
+   * 16-10 then SHORTENED the label (deferred-items item 7: the full 31-word form
+   * rendered eight times verbatim, taller on mobile than the summary it
+   * qualifies). Shortening copy is exactly the kind of edit that deletes a line
+   * by accident, so the property is asserted from here on rather than remembered.
+   *
+   * Three parts, and all three must hold on EVERY generated card:
+   *   - the summary is machine-written (the fixture data says so, check:agenda-topics 1–13);
+   *   - the card SAYS SO, in words a reader understands;
+   *   - the card still links its OWN item, which is the half `compact` must never drop.
+   *
+   * And one negative: the per-card date sentence must be GONE, or the change did
+   * not take and the page still says one date nine times.
+   */
+  if (agendaRendered) {
+    const cards = await page.evaluate((panel) => {
+      const sec = document.querySelector(`${panel} [data-explore-module="agenda"]`)
+      if (!sec) return null
+      // 🔴 Not `sec.querySelector('p')` — SectionHeader's eyebrow ("In their own
+      // words") is a <p> and comes first. The lead is the paragraph OUTSIDE the
+      // cards that names the body and the date.
+      const lead = [...sec.querySelectorAll('p')]
+        .filter((p) => !p.closest('article'))
+        .map((p) => (p.textContent || '').trim().replace(/\s+/g, ' '))
+        .find((t) => /agenda of |agenda\./.test(t)) ?? ''
+      return {
+        lead,
+        cards: [...sec.querySelectorAll('article')].map((a) => {
+          const links = [...a.querySelectorAll('a[href]')]
+          return {
+            text: (a.innerText || '').replace(/\s+/g, ' '),
+            itemLinks: links.filter((l) => /agenda item/i.test(l.textContent || '')).length,
+          }
+        }),
+      }
+    }, PANEL)
+
+    const SAYS_GENERATED = /summary was written automatically|Summary written automatically/
+    // The sentence the card must no longer carry: the section lead already has it.
+    const RESTATES_THE_LEAD = /From the .* agenda\./
+
+    const bad = (cards?.cards ?? []).filter(
+      (c) => !SAYS_GENERATED.test(c.text) || c.itemLinks !== 1 || RESTATES_THE_LEAD.test(c.text),
+    )
+    const leadNamesTheDate = /agenda of \w+ \d{1,2}, \d{4}/.test(cards?.lead ?? '')
+
+    check(
+      20,
+      `every agenda card says its summary was machine-written, links its own item, and does ` +
+        `not restate the section lead — ${cards?.cards.length ?? 0} card(s)`,
+      !!cards && cards.cards.length > 0 && bad.length === 0 && leadNamesTheDate,
+      `lead: "${(cards?.lead ?? '(none)').slice(0, 110)}"\n            ` +
+        `leadNamesTheDate=${leadNamesTheDate} offenders=${bad.length}\n            ` +
+        JSON.stringify(bad.slice(0, 2)).slice(0, 320) +
+        '\n            A card with no honesty label presents a machine\'s reading of an ordinance as' +
+        '\n            the ordinance — the quietest form of the invented-civic-record anti-goal, and' +
+        '\n            the one a reader cannot detect. A card with no item link lost the half of the' +
+        '\n            footer that was per-item and worth keeping. A card that still says "From the' +
+        '\n            <date> agenda." means the compact form is not being used and the date is back' +
+        '\n            on the page nine times. And a lead that no longer names the date means the' +
+        '\n            cards were right to drop it and now NOBODY says it.',
+    )
+  } else {
+    skip(
+      20,
+      'every agenda card carries its machine-written-summary label and its own item link',
+      'no agenda section on screen today — there is no card to assert about. Same\n' +
+        '              45-day freshness window as 9 above.',
+    )
+  }
   await ctx.close()
 }
 
