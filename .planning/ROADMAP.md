@@ -115,7 +115,7 @@ which needs a signed-in session.
 
 ### Phase 16: Explore by Slice
 **Goal**: Each slice's Explore is bespoke to that jurisdiction — and a member is never
-offered a write they cannot make
+offered a write that RLS would reject
 **Plans**: 10 plans, executed **strictly in order** — they share five files, so despite
 `parallelization: true` in config this phase is serial. See the plan-set table in `16-01`.
 

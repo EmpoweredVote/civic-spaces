@@ -10,8 +10,15 @@ design wins. Read it before planning — it carries the reasoning, not just the 
 
 ## The goal in one line
 
-Each slice's Explore is bespoke to that jurisdiction, and a member is never offered a write they
-cannot make.
+Each slice's Explore is bespoke to that jurisdiction, and a member is never offered a write that
+**RLS would reject**.
+
+**Narrowed by Chris, 2026-10-25.** The earlier wording was "a write they cannot make", which
+read onto the tier gates as well. It is RLS-scoped only: the sibling-shard case, where the
+database refuses the insert. The suspended-member and `inform`-tier gates in
+`SliceFeedPanel.handleCompose` are a different mechanism and stay as they are — PR #112 already
+examined the `inform` case and judged it acceptable, because the draft survives for a member who
+upgrades. Nothing in the plan set changes as a result; 16-05 was written to this scope already.
 
 ## Locked decisions
 

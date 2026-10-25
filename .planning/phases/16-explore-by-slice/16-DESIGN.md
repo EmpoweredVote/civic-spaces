@@ -53,7 +53,9 @@ These make the work a failure even if it ships and functions:
   issues of places I'm not from."* A design where EV staff must write Peoria's questions is a
   design that will be wrong about everywhere.
 - **A post landing in the wrong jurisdiction.** A NATO question must not post to a city feed.
-- **Offering a write a member cannot make.** See the sibling-shard rule below.
+- **Offering a write RLS would reject.** See the sibling-shard rule below. Narrowed by Chris on
+  2026-10-25 from "a write a member cannot make", which also caught the suspended and
+  `inform`-tier gates; those are a different mechanism and are out of scope.
 - **Overwhelming the member.** If contributing looks like a form, a commitment, or a job, it
   has failed its own purpose.
 - **Inventing local facts.** No invented proposals, votes, meetings, counts or quotes — the
