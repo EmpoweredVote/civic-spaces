@@ -44,3 +44,33 @@ input changes, and the alternative (no photo on Federal/Unified) is a design cal
 bug fix.
 
 **Who should own it:** 16-10, as part of looking at all five tabs in all four modes.
+
+## The Imagine textarea is double-gated, and the check cannot see one guard go
+
+Found while independently falsifying 16-05's revert matrix (2026-10-25).
+
+`ImagineActivity` renders the textarea behind `{!isViewOnly && onIdeaChange && (…)}`
+(`ExploreActivities.tsx:124`), and `ImagineModule` separately passes `onIdeaChange={undefined}`
+while view-only (`ImagineModule.tsx:38-44`). Two independent guards on one affordance.
+
+Verified by experiment:
+
+| Reverted | `check:explore-gate` |
+|---|---|
+| `isViewOnly={ctx.isViewOnly}` prop alone | 21 PASS — green |
+| the `onIdeaChange` ternary alone | 21 PASS — green |
+| the `!isViewOnly &&` in the render alone | 21 PASS — green |
+| **both the ternary and the render guard** | **FAIL 3, City only; Federal green** |
+
+So the gate is correctly belt-and-braces, and the check does catch the affordance when it is
+genuinely exposed — the City-only failure is the half-a-gate shape working exactly as designed.
+But **a refactor that deletes either guard alone leaves the suite green** while the gate rests on
+one remaining condition, and nobody is told.
+
+16-05's report lists a matrix row "revert the `isViewOnly` guard on Imagine's textarea → 3 red,
+City only". That is not reproducible as a single-guard revert; it needs both.
+
+Not fixed, because the redundancy is worth more than the sensitivity on a gate this repo has
+already shipped half of once. For 16-10: either collapse to one guard so the check is sensitive
+to its loss, or add a source-level assertion that both guards are still present — the browser
+check can only ever see rendered output, so it can never distinguish one guard from two.
