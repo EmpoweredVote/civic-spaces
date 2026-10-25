@@ -506,8 +506,12 @@ export function ExploreView({
         }
         if (mod.emptyState === 'hide') return null
         // 🔴 A reserved room renders inside ONE grouped card, drawn where the LAST
-        // of them sits — which in every composition is immediately before
-        // 'whats-new', so the page keeps a real module as its final word.
+        // of them sits — which in every composition is immediately before 'whats-new'.
+        //
+        // That keeps a real module as the page's final word ON MOBILE only.
+        // WhatsNewModule is `md:hidden` whenever the sidebar already carries the
+        // card (see WhatsNewModule.tsx), so from md up this grouped card IS the
+        // last block in the Explore column. Verified in the browser, both widths.
         //
         // Not where the FIRST sits: Federal lists 'federal-votes' third, and a
         // nine-line "what this becomes" card above the races and the questions is

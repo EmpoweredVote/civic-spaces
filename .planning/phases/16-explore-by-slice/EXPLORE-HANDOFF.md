@@ -317,10 +317,12 @@ today — the alternative, `GET /api/meetings?raceId=<uuid>`, is one request per
 member has 10–20 races. There is no third option in the API: `/api/meetings` takes
 `city`, `state`, `status` and `raceId`, and nothing else.
 
-⚠ **`?eventKind=debate` is currently accepted and silently ignored** — it returns the
-identical 234,381-byte body as the unfiltered call. An unknown query parameter that
-returns everything rather than erroring is its own small trap; a consumer who assumes it
-worked ships a 234 KB request believing it is 8 KB.
+⚠ **Unknown query parameters are silently discarded, not rejected.** `?eventKind=debate`
+returns a byte-identical body to the unfiltered call — but so does `?zzzNotAParam=1`, so
+this is the general behaviour and not a half-built `eventKind`. The trap is the same
+either way, and worth fixing alongside the filter: a consumer who assumes the parameter
+worked ships a 234 KB request believing it is 8 KB. Rejecting unknown parameters with a
+400 would surface that at the first call instead of never.
 
 **What Civic Spaces does once it lands:** one line in `src/hooks/useRaceMedia.ts` and the
 Federal and State tabs get 176 KB lighter.
