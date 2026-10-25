@@ -136,7 +136,16 @@ export function SeedInvitationModule({ ctx }: { ctx: ExploreCtx }) {
             {placeName} is wide open.
           </h3>
 
-          <p className="max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+          {/* 🔴 `max-w-[52ch]` on all three paragraphs, measured rather than
+              assumed. `max-w-2xl` is 42rem, and at 1920 — where the words track
+              is ~660px — it rendered 87 characters of this copy per line and 90
+              of the small print, past the 65-75 the design bar asks for. A rem
+              cap cannot hold a character count across two type sizes; a ch cap
+              can. 52ch and not 65ch (`max-w-prose`) because `ch` is the width
+              of "0" and Manrope's digits are wide: 65ch still measured 87 real
+              characters. At 52ch every paragraph lands at 63-72 on desktop and
+              wide, and shorter on a phone. */}
+          <p className="max-w-[52ch] text-sm leading-relaxed text-gray-600 dark:text-gray-400">
             This is where people in {placeName} work out what is worth talking about,
             understanding and doing together. Nobody has shaped it yet, so there is nothing
             to catch up on and no wrong place to start.
@@ -144,7 +153,7 @@ export function SeedInvitationModule({ ctx }: { ctx: ExploreCtx }) {
 
           {/* 🔴 The honest line. "come up in most places" and "your own answers"
               are both load-bearing — see the copy trap at the top of this file. */}
-          <p className="max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+          <p className="max-w-[52ch] text-sm leading-relaxed text-gray-600 dark:text-gray-400">
             The questions below are ones that come up in most places; nothing has been
             written about {placeName} in particular yet.
             {compassRanked
@@ -156,8 +165,14 @@ export function SeedInvitationModule({ ctx }: { ctx: ExploreCtx }) {
             <div className="mt-1">
               {/* 🔴 One control, and it really works: it opens the first
                   candidate topic, which is a page a member can read and start a
-                  conversation from right now. `lg` is the only size in
-                  exploreUi's vocabulary whose box clears 44x44 on a phone. */}
+                  conversation from right now.
+
+                  `lg` is the only size in exploreUi's vocabulary whose box
+                  clears 44x44 on a phone. Measured, not assumed: `md` renders
+                  36px tall and `card` 40px, both short of it; `lg` is 48. It
+                  reads loud beside the featured card's own `lg` CTA below, and
+                  that is the trade — a quieter control that cannot be tapped
+                  reliably is the worse of the two. */}
               <PrimaryButton size="lg" onClick={() => ctx.openTopic(firstTopic.id)}>
                 Open the first question <ArrowIcon />
               </PrimaryButton>
@@ -169,7 +184,7 @@ export function SeedInvitationModule({ ctx }: { ctx: ExploreCtx }) {
               and a phone both get it. Then it STOPS: no countdown, no badge, no
               waitlist, no notify-me. A notify-me is a write, and it is the
               second prohibited shape in its most tempting form. */}
-          <p className="mt-0.5 max-w-2xl text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+          <p className="mt-0.5 max-w-[52ch] text-xs leading-relaxed text-gray-500 dark:text-gray-400">
             Soon you will be able to tell us which of these this space should focus on, and
             ask for one that is missing.
           </p>

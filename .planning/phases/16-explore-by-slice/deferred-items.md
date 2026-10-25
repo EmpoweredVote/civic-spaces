@@ -112,3 +112,36 @@ set (the state area's 493 races), which is the set this phase deliberately never
 Nothing is wrong and nothing needs fixing: all three named rows are present, and the
 difference is an artefact of which area was asked. Logged so that a later reader comparing
 the two documents does not go looking for five missing recordings.
+
+---
+
+## 6. Every button in Explore computes `cursor: default`, app-wide
+
+**Found during:** 16-08 Task 4, the `ui-ux-pro-max` pass over the seed invitation.
+
+Measured through the live page at 375px, light and dark: **every** `<button>` inside the
+Explore panel reports `getComputedStyle(el).cursor === 'default'`. Not just the
+invitation's — "Explore this topic", the four question cards, "See the details", "Save on
+this device", "Back to Explore", the Imagine radio labels. Fourteen of fourteen probed on
+City, thirteen of thirteen on County.
+
+**Why:** Tailwind v4's Preflight sets `button { cursor: default }`, following the CSS
+spec's default rather than v3's `cursor: pointer`. This repo has no Tailwind config file
+and no global override, so nothing puts it back. It arrived with the v4 upgrade, not with
+any of Phase 16's work.
+
+**Why it was not fixed in 16-08:** it is app-wide and lives in
+`src/components/explore/exploreUi.tsx` (`PrimaryButton`, `SecondaryButton`) and in the
+shared `SECONDARY` token in `FeedTabs.tsx` — all of them files 16-08 was told to read and
+not edit. Fixing it inside this plan would have been a one-line change with a blast radius
+across every Explore control and the feed's tab bar, which is exactly the out-of-scope
+shape the executor's scope boundary names.
+
+**What a fix looks like:** one line in the global stylesheet —
+`@layer base { button:not(:disabled) { cursor: pointer } }` — or `cursor-pointer` on the
+two shared button components. The first is probably right, because the problem is not
+confined to Explore.
+
+**Who should own it:** not 16-09 or 16-10, which are Explore-scoped. This wants its own
+small change with a four-way look at the feed, the composer and the nav rail, since it
+touches every control in the app.
