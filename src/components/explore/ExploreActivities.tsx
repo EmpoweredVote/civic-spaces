@@ -13,6 +13,7 @@ import { ArrowIcon, CARD, FOCUS, PrimaryButton } from './exploreUi'
 import { readSavedAdventures, writeSavedAdventures } from './exploreStorage'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { UpcomingElection } from '../../hooks/useNextElection'
+import type { ExploreLevel } from '../../types/explore'
 
 
 // ── Imagine a better neighborhood ─────────────────────────────────────────────────────
@@ -196,7 +197,19 @@ interface RealEvent {
   urlLabel: string
 }
 
-function fromMeeting(m: UpcomingMeeting): RealEvent {
+/**
+ * Whose schedule this is. The copy was written for a city and the card renders
+ * on County too, so the possessive comes from the level rather than being
+ * baked into the sentence.
+ */
+function placeWordFor(level: ExploreLevel): string {
+  if (level === 'city') return 'city'
+  if (level === 'county') return 'county'
+  return 'area'
+}
+
+function fromMeeting(m: UpcomingMeeting, level: ExploreLevel): RealEvent {
+  const place = placeWordFor(level)
   const zone = m.timezone ?? undefined
   const instant = m.startsAt ? new Date(m.startsAt) : new Date(`${m.date}T12:00:00`)
   const short = instant.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: zone })
@@ -205,24 +218,38 @@ function fromMeeting(m: UpcomingMeeting): RealEvent {
     icon: 'meeting',
     cardTitle: 'Sit in on a public meeting',
     cardLine: `${m.title} · ${meetingWhen(m)}`,
-    eyebrow: 'Public meeting · From your city\'s schedule',
+    eyebrow: `Public meeting · From your ${place}'s schedule`,
     title: m.title,
     month: instant.toLocaleDateString(undefined, { month: 'short', timeZone: zone }),
     day: instant.toLocaleDateString(undefined, { day: 'numeric', timeZone: zone }),
     timeChip: m.startsAt
       ? instant.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone: zone })
       : instant.toLocaleDateString(undefined, { weekday: 'long', timeZone: zone }),
-    placeChip: m.kind === 'council' ? 'City council' : 'Public meeting',
+    // Only a city slice can say whose council it is; on a county the record says
+    // "council" and naming the body would be putting words in the record's mouth.
+    placeChip: m.kind === 'council' ? (level === 'city' ? 'City council' : 'Council meeting') : 'Public meeting',
     aboutHeading: 'About this meeting',
-    about: 'A scheduled public meeting where your city works through real decisions. Reading the agenda first makes it much easier to follow — and to know what to ask.',
+    about: `A scheduled public meeting where your ${place} works through real decisions. Reading the agenda first makes it much easier to follow — and to know what to ask.`,
     steps: ['Open the agenda and skim the item titles.', 'Pick one item that affects your street or neighborhood.', 'Attend or watch, and note one question to bring back.'],
-    source: 'This meeting is from your city\'s published schedule. Times are in the meeting\'s own time zone; check the agenda for the location and any changes.',
+    source: `This meeting is from your ${place}'s published schedule. Times are in the meeting's own time zone; check the agenda for the location and any changes.`,
     url: m.url,
     urlLabel: 'View the agenda',
   }
 }
 
-function fromElection(e: UpcomingElection): RealEvent {
+/**
+ * 🔴 The step text used to read "Pick the race or measure you know least about".
+ * **No ballot measure is served anywhere in the stack** — verified live
+ * 2026-10-24: no field on any response, no table in ev-accounts, zero
+ * measure-like names among 548 distinct race names. It invents nothing today,
+ * being copy rather than data, but it promises something the product cannot
+ * deliver, so the new ComingUpCard drops it.
+ *
+ * `keepFrozenWording` exists only so the frozen AdventureActivity keeps the
+ * exact words it ships today and this plan moves no pixels. DELETE IT WITH
+ * AdventureActivity IN 16-03.
+ */
+function fromElection(e: UpcomingElection, keepFrozenWording = false): RealEvent {
   const [y, mo, d] = e.date.split('-').map(Number)
   // A calendar date: new Date('2026-11-03') would be UTC midnight, a day early in the US.
   const local = new Date(y!, mo! - 1, d!, 12)
@@ -241,13 +268,27 @@ function fromElection(e: UpcomingElection): RealEvent {
     placeChip: type,
     aboutHeading: 'About this election',
     about: 'An upcoming election on your ballot. Spending one evening with what is on it makes the day itself calmer — and gives you better questions to ask neighbors.',
-    steps: ['Look up what will be on your ballot.', 'Pick the race or measure you know least about and read up on it.', 'Write down one question to talk through with neighbors.'],
+    steps: [
+      'Look up what will be on your ballot.',
+      keepFrozenWording
+        ? 'Pick the race or measure you know least about and read up on it.'
+        : 'Pick the race you know least about and read up on it.',
+      'Write down one question to talk through with neighbors.',
+    ],
     source: 'This date comes from Empowered\'s election calendar for your area. Check your local election office for polling places, hours and deadlines.',
     url: null,
     urlLabel: '',
   }
 }
 
+/**
+ * 🔴 FROZEN, and superseded. This card fuses two unrelated things — place-scale
+ * suggestions and a real dated event — and is split below into NearbyActivity
+ * (City/County) and ComingUpCard (every level with a calendar). It survives only
+ * because ExploreView still imports it; 16-03 rewrites that file and deletes
+ * this function, AdventureDetail's `event` branch and fromElection's
+ * keepFrozenWording with it. Do not add to it.
+ */
 export function AdventureActivity({
   choice,
   onChoose,
@@ -270,7 +311,13 @@ export function AdventureActivity({
   const option = ADVENTURE_OPTIONS.find((o) => o.key === current)!
   // The evening prefers a real dated event: the city's next meeting, else the next election.
   const realEvent =
-    option.key === 'evening' ? (meeting ? fromMeeting(meeting) : election ? fromElection(election) : null) : null
+    option.key === 'evening'
+      ? meeting
+        ? fromMeeting(meeting, 'city')
+        : election
+          ? fromElection(election, true)
+          : null
+      : null
 
   return (
     <section aria-labelledby={`${id}-h`} className={`${CARD} @container p-6 @xl:p-7`}>
@@ -529,6 +576,301 @@ function AdventureDetail({
           </button>
         </div>
         {saveFailed && <p className="text-sm text-gray-600 dark:text-gray-400" role="status">Couldn't save — this browser is blocking storage.</p>}
+      </div>
+    </dialog>
+  )
+}
+
+// ── Explore nearby (the place half of the old Adventure card) ─────────────────────────
+
+/**
+ * The same card as AdventureActivity, with the real-event slot removed: a time
+ * picker and a gentle suggestion, which is City/County by construction.
+ *
+ * `readSavedAdventures` / `writeSavedAdventures` stay exactly as they were — a
+ * bookmark on this device is not a write to anything, so it survives the
+ * view-only gate in 16-05.
+ *
+ * It reuses AdventureDetail with no event, which is precisely the plain
+ * suggestion detail that component already renders.
+ */
+export function NearbyActivity({
+  choice,
+  onChoose,
+  onExploreTopic,
+}: {
+  choice: AdventureDuration | null
+  onChoose: (choice: AdventureDuration) => void
+  onExploreTopic: (topic: TopicId) => void
+}) {
+  const id = useId()
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  // 15 minutes is pre-selected, so the card always shows a suggestion rather than an empty box.
+  const current = choice ?? '15m'
+  const option = ADVENTURE_OPTIONS.find((o) => o.key === current) ?? ADVENTURE_OPTIONS[0]
+  if (!option) return null
+
+  return (
+    <section aria-labelledby={`${id}-h`} className={`${CARD} @container p-6 @xl:p-7`}>
+      {/* Picker left, suggestion right on a wide column; stacked when narrow. */}
+      <div className="grid gap-5 @xl:grid-cols-2 @xl:gap-6 @3xl:gap-8 @xl:items-center">
+      <div className="flex flex-col gap-5">
+      <div>
+        {/* The same teal eyebrow as the Imagine card, with a compass for "go and look". */}
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M15.5 8.5l-2 5-5 2 2-5 5-2z" />
+          </svg>
+          Explore nearby
+        </p>
+        <h3 id={`${id}-h`} className="mt-1.5 text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
+          How much room do you have today?
+        </h3>
+        <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
+          Choose a little pocket of time and we'll suggest a gentle way to look closer.
+        </p>
+      </div>
+
+      {/* Segmented control — real radios, so arrow keys move between the three. */}
+      <fieldset className="grid grid-cols-3 gap-1 rounded-2xl bg-gray-100 dark:bg-white/[0.06] p-1.5">
+        <legend className="sr-only">How much time do you have</legend>
+        {ADVENTURE_OPTIONS.map((o) => {
+          const checked = current === o.key
+          return (
+            <label
+              key={o.key}
+              className={[
+                'cursor-pointer select-none rounded-xl px-2 py-3 text-center text-sm font-bold motion-safe:transition-colors',
+                checked
+                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100',
+                'has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand/60 dark:has-[input:focus-visible]:ring-brand-light/70',
+              ].join(' ')}
+            >
+              <input type="radio" name={`${id}-time`} checked={checked} onChange={() => onChoose(o.key)} className="sr-only" />
+              {o.label}
+            </label>
+          )
+        })}
+      </fieldset>
+      </div>
+
+      {/* The suggestion — its icon, then what to do and where it leads. */}
+      <div aria-live="polite" className="flex gap-4 rounded-2xl bg-[#E8F6F3] dark:bg-brand/10 px-5 py-5">
+        <div className="flex w-9 flex-shrink-0 flex-col items-center" aria-hidden="true">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-gray-900 shadow-sm text-brand-coral-text dark:text-brand-coral">
+            <SuggestionIcon kind={option.key} />
+          </span>
+        </div>
+        <div className="min-w-0 flex flex-col gap-1.5">
+          <p className="text-base font-bold text-gray-900 dark:text-gray-100">{option.title}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{option.description}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <button
+              type="button"
+              onClick={() => dialogRef.current?.showModal()}
+              className={`inline-flex items-center gap-1.5 rounded text-sm font-bold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
+            >
+              See the details <ArrowIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => onExploreTopic(option.topic)}
+              className={`inline-flex items-center gap-1.5 rounded text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:underline ${FOCUS}`}
+            >
+              {option.linkLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <AdventureDetail
+        dialogRef={dialogRef}
+        option={option}
+        event={null}
+        onExploreTopic={(topic) => {
+          dialogRef.current?.close()
+          onExploreTopic(topic)
+        }}
+      />
+    </section>
+  )
+}
+
+// ── Coming up (the real-event half of the old Adventure card) ─────────────────────────
+
+/**
+ * One REAL dated thing on this place's public calendar: the next scheduled
+ * public meeting, else the next election. Never invented — if neither source
+ * answers, the module's reserved room says the calendar is empty, which is a
+ * real answer and worth saying.
+ *
+ * Unlike "Explore nearby" this is not place-scale: an election is meaningful on
+ * State and Federal too, which is why the fused card had to be split.
+ */
+export function ComingUpCard({
+  meeting,
+  election,
+  level,
+}: {
+  /** The next real scheduled public meeting, if the meetings API returned one. */
+  meeting: UpcomingMeeting | null
+  /** The area's next real election, used when no meeting is scheduled. */
+  election: UpcomingElection | null
+  /** Whose calendar this is, so the copy does not call a county a city. */
+  level: ExploreLevel
+}) {
+  const id = useId()
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const event = meeting ? fromMeeting(meeting, level) : election ? fromElection(election) : null
+  if (!event) return null
+
+  return (
+    <section aria-labelledby={`${id}-h`} className={`${CARD} @container p-6 @xl:p-7`}>
+      <div className="flex flex-col gap-5">
+        <div>
+          {/* The same teal eyebrow as the cards around it, with a calendar for "a real date". */}
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+              <path d="M4 9h16M8 3v4M16 3v4" />
+            </svg>
+            Coming up
+          </p>
+          <h3 id={`${id}-h`} className="mt-1.5 text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">
+            {event.cardTitle}
+          </h3>
+          <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
+            A real date from the public calendar for your area.
+          </p>
+        </div>
+
+        <div className="flex gap-4 rounded-2xl bg-[#E8F6F3] dark:bg-brand/10 px-5 py-5">
+          <div className="flex w-9 flex-shrink-0 flex-col items-center" aria-hidden="true">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white dark:bg-gray-900 shadow-sm text-brand-coral-text dark:text-brand-coral">
+              <SuggestionIcon kind={event.icon} />
+            </span>
+          </div>
+          <div className="min-w-0 flex flex-col gap-1.5">
+            <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white dark:bg-gray-900 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-coral-text dark:text-brand-coral">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-coral" aria-hidden="true" />
+              {event.soonLabel}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{event.cardLine}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+              <button
+                type="button"
+                onClick={() => dialogRef.current?.showModal()}
+                className={`inline-flex items-center gap-1.5 rounded text-sm font-bold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
+              >
+                See the details <ArrowIcon />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ComingUpDetail dialogRef={dialogRef} event={event} />
+    </section>
+  )
+}
+
+/**
+ * The event's detail page, as a modal. Everything on it comes from the meetings
+ * API or the election calendar; there is nothing to save, because a date on a
+ * public calendar is not a suggestion this device can bookmark.
+ */
+function ComingUpDetail({
+  dialogRef,
+  event,
+}: {
+  dialogRef: React.RefObject<HTMLDialogElement | null>
+  event: RealEvent
+}) {
+  const id = useId()
+  const close = () => dialogRef.current?.close()
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={`${id}-t`}
+      onClick={(e) => e.target === e.currentTarget && close()}
+      className="m-auto w-[min(56rem,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200/60 dark:border-white/[0.08] bg-gray-50 dark:bg-gray-950 p-0 shadow-2xl backdrop:bg-black/50"
+    >
+      {/* Header */}
+      <div className="relative flex items-start gap-5 bg-white dark:bg-gray-900 px-6 py-7 sm:px-10 sm:py-10 border-b border-gray-200/70 dark:border-white/[0.06]">
+        <span className="flex h-20 w-20 flex-shrink-0 flex-col items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-gray-800">
+          <span className="text-xs font-bold uppercase text-brand-coral-text dark:text-brand-coral">{event.month}</span>
+          <span className="text-3xl font-bold leading-none text-gray-900 dark:text-gray-100">{event.day}</span>
+        </span>
+        <div className="min-w-0 flex-1 pr-10">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">{event.eyebrow}</p>
+          <h2 id={`${id}-t`} className="mt-2 text-3xl sm:text-[2.75rem] font-medium leading-[1.1] tracking-tight text-gray-900 dark:text-gray-100">
+            {event.title}
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close"
+          className={`absolute right-5 top-5 flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${FOCUS}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-col gap-7 px-6 py-8 sm:px-10">
+        <div className="flex flex-wrap gap-3">
+          <Chip icon="clock">{event.timeChip}</Chip>
+          <Chip icon="pin">{event.placeChip}</Chip>
+        </div>
+
+        <div>
+          <h3 className="text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">{event.aboutHeading}</h3>
+          <p className="mt-2 text-base text-gray-600 dark:text-gray-400">{event.about}</p>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">How to make the most of it</h3>
+          <ol className="mt-3 flex flex-col gap-2.5">
+            {event.steps.map((step, i) => (
+              <li key={step} className="flex items-start gap-3 text-base text-gray-700 dark:text-gray-300">
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand-muted dark:bg-brand/15 text-xs font-bold text-brand dark:text-brand-light">{i + 1}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <div className="max-w-2xl rounded-2xl bg-[#E3F4F1] dark:bg-brand/10 px-5 py-4">
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Where this comes from</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{event.source}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {event.url && (
+            <a
+              href={event.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`inline-flex items-center gap-1.5 rounded-xl border border-gray-300 dark:border-white/15 bg-white dark:bg-gray-900 px-5 py-3 text-base font-bold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 ${FOCUS}`}
+            >
+              {event.urlLabel}<span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={close}
+            className={`inline-flex items-center rounded-xl border border-gray-300 dark:border-white/15 bg-white dark:bg-gray-900 px-5 py-3 text-base font-bold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 ${FOCUS}`}
+          >
+            Back to Explore
+          </button>
+        </div>
       </div>
     </dialog>
   )

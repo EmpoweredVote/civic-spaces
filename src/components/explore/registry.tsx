@@ -7,18 +7,21 @@
  *
  * 🔴 `Record<ModuleId, ExploreModule>` has no index signature, so EVERY ModuleId
  * must have an entry or the build fails. That exhaustiveness is the point: a
- * composition can never name a module nobody wrote. Never satisfy it with
- * `as Record<...>` or `as unknown` — the assertion would survive into the merge
- * and defeat the only guard there is.
+ * composition can never name a module nobody wrote. Never satisfy it with a
+ * type assertion of any kind — one would survive into the merge and defeat the
+ * only guard there is. 16-02's verification greps this file to prove there is
+ * none, so do not write one in a comment either.
  */
 
 import { useId } from 'react'
 import type { ReactElement } from 'react'
 import type { ExploreComposition, ExploreTopic, ModuleId } from '../../types/explore'
 import type { ExploreCtx } from './ExploreContext'
+import { ComingUpModule } from './modules/ComingUpModule'
 import { FeaturedModule } from './modules/FeaturedModule'
 import { ImagineModule, imagineModuleTopics } from './modules/ImagineModule'
 import { IntroModule } from './modules/IntroModule'
+import { NearbyModule, nearbyModuleTopics } from './modules/NearbyModule'
 import { QuestionsModule } from './modules/QuestionsModule'
 import { WhatsNewModule } from './modules/WhatsNewModule'
 
@@ -80,15 +83,6 @@ function reserved(title: string, body: string): ExploreModule {
   return { available: () => false, Component: () => null, emptyState: { title, body } }
 }
 
-/**
- * A module this plan set builds, before the task that builds it. Hidden rather
- * than reserved: a room saying "a welcome goes here" would be noise, and these
- * entries are replaced within Phase 16 rather than waiting on a source.
- */
-function pending(): ExploreModule {
-  return { available: () => false, Component: () => null, emptyState: 'hide' }
-}
-
 export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
   // ── The content modules ───────────────────────────────────────────────────
   intro: {
@@ -121,9 +115,23 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     emptyState: 'hide',
   },
 
-  // ── Built in Task 3 of this plan ──────────────────────────────────────────
-  nearby: pending(),
-  'coming-up': pending(),
+  nearby: {
+    // Place-scale by construction, same as Imagine.
+    available: (ctx) => ctx.composition.level === 'city' || ctx.composition.level === 'county',
+    Component: NearbyModule,
+    emptyState: 'hide',
+    topics: nearbyModuleTopics,
+  },
+  'coming-up': {
+    available: (ctx) => !!ctx.meetings?.[0] || !!ctx.elections?.[0],
+    Component: ComingUpModule,
+    // An empty calendar is a real answer and worth saying, so this one does NOT
+    // hide. Absent from the Unified composition entirely: it is not a place.
+    emptyState: {
+      title: 'Coming up',
+      body: 'Nothing is scheduled for your area right now. Public meetings and elections appear here as soon as they are published.',
+    },
+  },
 
   // ── Built later in this phase ─────────────────────────────────────────────
   agenda: reserved(
