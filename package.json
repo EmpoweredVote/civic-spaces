@@ -11,6 +11,7 @@
     "check:agenda-topics": "node --experimental-strip-types scripts/check-agenda-topics.mjs",
     "check:composition": "node --experimental-strip-types scripts/check-composition.mjs",
     "check:explore-gate": "node scripts/check-explore-gate.mjs",
+    "check:explore-rooms": "node scripts/check-explore-rooms.mjs",
     "shoot:banners": "node scripts/shoot-banners.mjs",
     "shoot:app": "node scripts/shoot-app.mjs",
     "gen:banners": "node scripts/generate-banners.mjs",
