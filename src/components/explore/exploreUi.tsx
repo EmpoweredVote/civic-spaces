@@ -89,6 +89,24 @@ export function StarterTag({ children = 'Conversation starter' }: { children?: R
   )
 }
 
+/**
+ * Eyebrow + large light heading, the design's section opener.
+ *
+ * Lives here because more than one module needs it now. ExploreView keeps its
+ * own private copy until 16-03 rewrites that file and deletes it; this plan does
+ * not touch ExploreView, and the duplication lives for exactly one plan.
+ */
+export function SectionHeader({ id, eyebrow, title }: { id: string; eyebrow: string; title: string }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-1">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">{eyebrow}</p>
+        <h3 id={id} className="mt-1.5 text-2xl font-medium tracking-tight text-gray-900 dark:text-gray-100">{title}</h3>
+      </div>
+    </div>
+  )
+}
+
 export function ArrowIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} aria-hidden="true">

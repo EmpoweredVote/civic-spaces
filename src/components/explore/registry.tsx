@@ -16,6 +16,11 @@ import { useId } from 'react'
 import type { ReactElement } from 'react'
 import type { ExploreComposition, ExploreTopic, ModuleId } from '../../types/explore'
 import type { ExploreCtx } from './ExploreContext'
+import { FeaturedModule } from './modules/FeaturedModule'
+import { ImagineModule, imagineModuleTopics } from './modules/ImagineModule'
+import { IntroModule } from './modules/IntroModule'
+import { QuestionsModule } from './modules/QuestionsModule'
+import { WhatsNewModule } from './modules/WhatsNewModule'
 
 export interface ExploreModule {
   /** May this module render at all, here, now? Pure and cheap: called every render. */
@@ -85,14 +90,40 @@ function pending(): ExploreModule {
 }
 
 export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
-  // ── Built in this plan (16-02 Tasks 2 and 3) ──────────────────────────────
-  intro: pending(),
-  featured: pending(),
-  questions: pending(),
-  imagine: pending(),
+  // ── The content modules ───────────────────────────────────────────────────
+  intro: {
+    available: () => true,
+    Component: IntroModule,
+    emptyState: 'hide',
+  },
+  featured: {
+    // 16-01's selectForModules only sets featuredTopicId when the composition
+    // HAS this module, so the two cannot disagree.
+    available: (ctx) => ctx.composition.featuredTopicId !== null,
+    Component: FeaturedModule,
+    emptyState: 'hide',
+  },
+  questions: {
+    available: (ctx) => ctx.composition.questionTopicIds.length > 0,
+    Component: QuestionsModule,
+    emptyState: 'hide',
+  },
+  imagine: {
+    // Place-scale by construction: locked decision 9 keeps it City/County.
+    available: (ctx) => ctx.composition.level === 'city' || ctx.composition.level === 'county',
+    Component: ImagineModule,
+    emptyState: 'hide',
+    topics: imagineModuleTopics,
+  },
+  'whats-new': {
+    available: () => true,
+    Component: WhatsNewModule,
+    emptyState: 'hide',
+  },
+
+  // ── Built in Task 3 of this plan ──────────────────────────────────────────
   nearby: pending(),
   'coming-up': pending(),
-  'whats-new': pending(),
 
   // ── Built later in this phase ─────────────────────────────────────────────
   agenda: reserved(
