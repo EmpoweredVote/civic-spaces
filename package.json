@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "check:banners": "node scripts/check-banner-drift.mjs",
+    "check:composition": "node --experimental-strip-types scripts/check-composition.mjs",
     "shoot:banners": "node scripts/shoot-banners.mjs",
     "shoot:app": "node scripts/shoot-app.mjs",
     "gen:banners": "node scripts/generate-banners.mjs",
