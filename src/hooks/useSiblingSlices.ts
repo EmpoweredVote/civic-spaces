@@ -29,10 +29,16 @@ interface UseSiblingSlicesResult {
  * slices exist, which `slices_select_authenticated` already allows anyone
  * authenticated to read.
  *
- * Dev/mock sessions (`?dev=1`, or an anonymous address-preview) run entirely
- * on local fixture data with no real sibling rows in Supabase — for those,
- * this returns just the caller's own slice as a single-item, safe fallback
- * rather than querying (or inventing) fake sibling data.
+ * Dev sessions (`?dev=1`) run entirely on local fixture data with no real
+ * sibling rows in Supabase — for those, this returns just the caller's own
+ * slice as a single-item, safe fallback rather than querying (or inventing)
+ * fake sibling data. The switch is the mock SLICE ID, never an environment
+ * check.
+ *
+ * 🔴 An anonymous visitor looking at a place does NOT run on fixture data, and
+ * this comment used to say they did. They hold no slices and no user id, so
+ * nothing here is reached on their behalf at all — and serving them fixtures
+ * would be inventing another place's conversations for them.
  */
 export function useSiblingSlices(
   sliceType: SliceType,

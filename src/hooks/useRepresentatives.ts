@@ -7,17 +7,48 @@ const REPS_URL = `${EV_API_ORIGIN}/api/essentials/representatives/me`
 const BY_AREA_URL = `${EV_API_ORIGIN}/api/essentials/browse/by-area`
 
 /**
- * The dev id's representatives: the REAL officials for the mock city slice, from
- * Essentials' public by-area lookup (no auth). A designer then works against real
- * names, photos and offices instead of invented ones. Fixtures are the offline
- * fallback only.
+ * The most LOCAL area a set of slices covers, as the by-area endpoint's
+ * (geo_id, mtfcc) pair: city, else county, else nothing.
+ *
+ * 🔴 The same ladder `racesAreaFor` walks, and deliberately not an import of it:
+ * that function is about which races are a member's own, and this is about which
+ * officials represent an area. Two callers, one rule — so when a visited place
+ * needs the same pair, lift THIS function rather than writing a third copy.
+ *
+ * There is no state fallback, for the reason racesAreaFor spells out: a
+ * state-area query answers about the whole state, which is a real answer for the
+ * wrong place.
+ */
+const BY_AREA_MTFCC = { city: 'G4110', county: 'G4020' } as const
+
+export function byAreaFor(
+  slices: Partial<Record<string, { geoid: string } | undefined>>,
+): { geo_id: string; mtfcc: string } | null {
+  for (const type of ['city', 'county'] as const) {
+    const geoid = slices[type]?.geoid
+    if (geoid) return { geo_id: geoid, mtfcc: BY_AREA_MTFCC[type] }
+  }
+  return null
+}
+
+/**
+ * The dev id's representatives: the REAL officials for the fixture's most local
+ * slice, from Essentials' public by-area lookup (no auth). A designer then works
+ * against real names, photos and offices instead of invented ones. Fixtures are
+ * the offline fallback only.
+ *
+ * 🔴 City is not guaranteed. `?dev=1&place=arden` is an unincorporated address
+ * and has no city slice at all, so this asks about the county instead — which is
+ * what a real member at such an address would get.
  */
 async function fetchDevRepresentatives(): Promise<PoliticianFlatRecord[]> {
+  const area = byAreaFor(MOCK_SLICES)
+  if (!area) return MOCK_REPRESENTATIVES
   try {
     const res = await fetch(BY_AREA_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ geo_id: MOCK_SLICES.city.geoid, mtfcc: 'G4110' }),
+      body: JSON.stringify(area),
     })
     if (!res.ok) throw new Error(`Failed to fetch representatives: ${res.status}`)
     return res.json()
