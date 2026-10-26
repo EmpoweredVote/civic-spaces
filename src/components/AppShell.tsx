@@ -12,7 +12,11 @@ import { useHeroBanner } from '../hooks/useHeroBanner'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
-import { useNextElection, useUpcomingElections, electionAreaFor, type NextElection } from '../hooks/useNextElection'
+import { useCompassData } from '../hooks/useCompassData'
+import { useNextElection, useUpcomingElections, useRacesForArea, electionAreaFor, type NextElection } from '../hooks/useNextElection'
+import { useRaceMedia } from '../hooks/useRaceMedia'
+import { joinMediaToRaces } from '../lib/raceMedia'
+import { racesForLevel } from '../lib/races'
 import { useUpcomingMeetings } from '../hooks/useUpcomingMeetings'
 import { UpcomingEventsWidget } from './widgets/UpcomingEventsWidget'
 import { forecastUrlFor } from '../lib/forecastLink'
@@ -28,7 +32,7 @@ import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, t
 import { ExploreView } from './explore/ExploreView'
 import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
-import type { TopicId } from './explore/exploreContent'
+import { canPostDraft, parseDraftKey, racesAreaFor, type CompassLevelFlags } from '../lib/exploreComposition'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
@@ -261,32 +265,49 @@ function ActiveAboutWidget({
 }
 
 /**
- * Explore, bound to the member's most local own community — where every topic's
- * conversation is started, whichever level tab is showing. Rendered once (not per
- * panel), so its name and meetings lookups run once and share the sidebar's cache.
- */
-/**
  * Preference order for the photo the featured card borrows. Place slices only — Unified
  * is not a place and has no banner of its own.
  */
 const PHOTO_SLICE_ORDER: SliceType[] = ['city', 'county', 'state', 'federal']
 
 /**
+ * 🔴 Tabs that are not a place, and therefore have nothing to borrow a place photo FOR.
+ *
+ * Federal and Unified are keyed on the slice type alone and have no geoid of their own
+ * (`PLACELESS` in exploreComposition.ts). Before this set existed, `photoSliceFor` walked
+ * PHOTO_SLICE_ORDER on those tabs too and handed the featured card the member's CITY
+ * photograph — so "Where should the United States be involved abroad?" and "What is
+ * happening where you live that the rest of the world is missing?" were illustrated with
+ * an Asheville skyline, under a hero banner of the Capitol and of the Earth from orbit.
+ *
+ * 🔴 It is invisible on `?dev=1&place=bloomington`, which is why it survived 16-04 and
+ * nearly survived this plan: Bloomington's shared-library banner carries no credit, and
+ * `featuredPhoto` below requires `hero.credit`, so the borrow silently produced null
+ * there. Asheville's banner IS credited, so the bug only shows on the default fixture.
+ *
+ * State is deliberately NOT in this set. A state IS a place, and borrowing a city
+ * photograph from inside that state for a statewide question is a design call rather
+ * than a mismatch — 16-04 said so and nothing here contradicts it.
+ */
+const PLACELESS_TABS = new Set<TabKey>(['federal', 'unified', 'volunteer'])
+
+/**
  * The featured card borrows a credited place photo, but never the one `HeroBanner` is
  * already showing directly above it — that is always `slices[activeTab]`.
  *
  * Returns null when the member has no other place slice to borrow from, and the card
- * falls back to the drawn street. The previous expression assumed the
- * `activeTab === homeSlice.sliceType` branch always yielded something different; for a
- * member whose most local space IS their county, `slices['county']` is `homeSlice`, so
- * the County tab showed the same photo twice.
+ * falls back to the drawn street. The first branch is a leftover from when the caller
+ * passed the member's HOME slice, which could differ from the tab; now that Explore
+ * follows the tab, `currentSlice.sliceType === activeTab` always, so it never fires and
+ * the loop does the work — which is the behaviour wanted either way.
  */
 function photoSliceFor(
   slices: Partial<Record<SliceType, SliceInfo>>,
-  homeSlice: SliceInfo,
+  currentSlice: SliceInfo,
   activeTab: TabKey,
 ): SliceInfo | null {
-  if (homeSlice.sliceType !== activeTab) return homeSlice
+  if (PLACELESS_TABS.has(activeTab)) return null
+  if (currentSlice.sliceType !== activeTab) return currentSlice
   for (const key of PHOTO_SLICE_ORDER) {
     const candidate = slices[key]
     if (candidate && candidate.sliceType !== activeTab) return candidate
@@ -294,53 +315,157 @@ function photoSliceFor(
   return null
 }
 
+/**
+ * Explore, bound to the ACTIVE TAB — the State tab shows State's Explore, and a topic
+ * opened there starts its conversation in the State community. Rendered once (not per
+ * panel), so its name and meetings lookups run once and share the sidebar's cache.
+ *
+ * It used to bind to homeSlice, the member's most local space, which pinned every draft
+ * to one community. That pinning was deliberate — a draft must not land in whichever
+ * shard happens to be showing — and it is preserved by the draft KEY instead: a draft is
+ * `(sliceType, geoid, topicId)` and canPostDraft() re-checks it at post time.
+ */
 function ActiveExplore({
-  homeSlice,
+  activeSlice,
+  slices,
   photoSlice,
   stateSlice,
   userId,
+  answeredCompassTopicIds,
+  compassLevelFlags,
+  isViewOnly,
+  viewingSliceIndex,
+  onReturnToOwnSlice,
   onStartConversation,
   onScrollTop,
   onGoToView,
   whatsNewInSidebar,
 }: {
-  homeSlice: SliceInfo
+  /** The slice for the tab being shown. Explore follows the tab, not the home slice. */
+  activeSlice: SliceInfo
+  /** Every slice the member holds — canPostDraft checks a stored draft key against it. */
+  slices: Partial<Record<SliceType, SliceInfo>>
   /** Whose banner photo the featured card borrows, or null to use the illustration instead. */
   photoSlice: SliceInfo | null
   stateSlice: SliceInfo | undefined
   userId: string | null
-  onStartConversation: (topicId: TopicId, draft: ExploreDraft) => void
+  /**
+   * The VIEWING MEMBER's own answered Compass topics, and the catalog's level
+   * flags. Both are resolved once in AppShell (useCompassData is hoisted there
+   * for the same six-panels reason as useRepresentatives) and passed down.
+   *
+   * 🔴 Nothing aggregates. Locked decision 7: Compass ranks this member's
+   * Explore topics against this member's own answers. No slice-wide view of
+   * members' political answers is computed, stored or requested anywhere.
+   */
+  answeredCompassTopicIds: ReadonlySet<string>
+  compassLevelFlags: ReadonlyMap<string, CompassLevelFlags>
+  /**
+   * 🔴 `activeIsViewOnly`, computed once in AppShell and handed to the feed too.
+   * Not recomputed here: the feed and Explore disagreeing about the same shard is
+   * how half a gate ships.
+   */
+  isViewOnly: boolean
+  /** The sibling on screen. The member's own index comes off activeSlice. */
+  viewingSliceIndex: number | undefined
+  onReturnToOwnSlice: () => void
+  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null) => void
   onScrollTop: () => void
   onGoToView: (view: ForumView) => void
   /** False while the right sidebar is collapsed, so "What's new" shows inline instead. */
   whatsNewInSidebar: boolean
 }) {
-  const label = TAB_LABELS[homeSlice.sliceType]
-  const name = useJurisdictionName(homeSlice, label)
-  const city = homeSlice.sliceType === 'city' && name !== label ? name : null
-  const { meetings } = useUpcomingMeetings(city, city ? stateAbbrevFromGeoid(homeSlice.geoid) : null)
+  const label = TAB_LABELS[activeSlice.sliceType]
+  const name = useJurisdictionName(activeSlice, label)
+  // Meetings are a city API and nothing else: only a resolved city name is a query it
+  // accepts, so every other tab passes null and the agenda module simply has no source.
+  const city = activeSlice.sliceType === 'city' && name !== label ? name : null
+  const cityState = city ? stateAbbrevFromGeoid(activeSlice.geoid) : null
+  const { meetings } = useUpcomingMeetings(city, cityState)
   // Same query (and cache) the events widget uses — the area's real election calendar.
-  const { elections } = useUpcomingElections(electionAreaFor(homeSlice, stateSlice), userId)
+  // 🔴 electionAreaFor, which DOES fall back to the state, and is right for "when is the
+  // next election". "Which races are mine" is racesAreaFor and lands in 16-07. Never merge.
+  const { elections } = useUpcomingElections(electionAreaFor(activeSlice, stateSlice), userId)
+  /**
+   * 🔴 racesAreaFor, NOT electionAreaFor — the member's most LOCAL area.
+   *
+   * The line above is right for "when is the next election" and wrong for
+   * "which races are mine": a state-area query returns all nine of Indiana's US
+   * House districts where the member has one, AND omits the statewide races
+   * (North Carolina's state area has no US Senate race, California's has no
+   * Governor). Federal geoid 'US' returns HTTP 500. racesAreaFor answers null
+   * for a member with neither a city nor a county slice, and the reserved room
+   * shows — which is the honest answer, because nine races a member cannot
+   * choose between is worse than none.
+   *
+   * On City this is the same (geoid, mtfcc) the banner already asked about, so
+   * React Query serves it from cache. On Federal and State it is ONE extra
+   * request per member, deliberately, and it is the whole correctness fix.
+   */
+  const { elections: raceElections } = useRacesForArea(racesAreaFor(slices), userId)
+  const races = useMemo(
+    () => ({
+      federal: racesForLevel(raceElections, 'federal'),
+      state: racesForLevel(raceElections, 'state'),
+    }),
+    [raceElections],
+  )
+  /**
+   * One /api/meetings fetch for the whole published list, joined locally. The
+   * per-race route would be one request per race. Not requested at all until
+   * there is a race to join against.
+   */
+  const hasRaces = races.federal.length > 0 || races.state.length > 0
+  const { media } = useRaceMedia(hasRaces)
+  const raceMedia = useMemo(
+    () => joinMediaToRaces(media, [...races.federal, ...races.state]),
+    [media, races],
+  )
   // Same hook and shared-bucket credits as the hero banner. A photo without a credit has
   // unknown provenance (a DB override, or nothing resolved), so it is not reused here.
   // Hooks cannot be conditional, so they always run against a real slice; the result is
   // only used when photoSlice says there is a photo worth borrowing.
-  const photoSource = photoSlice ?? homeSlice
+  const photoSource = photoSlice ?? activeSlice
   const hero = useHeroBanner(photoSource)
   const photoName = useJurisdictionName(photoSource, TAB_LABELS[photoSource.sliceType])
   const featuredPhoto = photoSlice && hero?.url && hero.credit && !photoSlice.photoUrl
     ? { url: hero.url, credit: hero.credit, alt: `${photoName}` }
     : null
+  // Where a topic opened on THIS tab starts its conversation. The draft key carries the
+  // same (sliceType, geoid), and AppShell re-checks it with canPostDraft before posting.
   const destination = useMemo(
-    () => ({ sliceId: homeSlice.id, tab: homeSlice.sliceType, name }),
-    [homeSlice.id, homeSlice.sliceType, name],
+    () => ({ sliceId: activeSlice.id, tab: activeSlice.sliceType, name }),
+    [activeSlice.id, activeSlice.sliceType, name],
   )
   return (
     <ExploreView
+      sliceType={activeSlice.sliceType}
+      geoid={activeSlice.geoid}
+      /* 🔴 The SAME two values the meetings query above uses, not a second
+         lookup: the agenda and the calendar must never disagree about which
+         city this tab is. Fetch by name — the meetings API accepts nothing else
+         — and attach by the geoid beside it, which resolveComposition rechecks. */
+      city={city}
+      stateAbbrev={cityState}
+      /* 🔴 The SAME resolved name again, and null — never the tab label — while
+         it is still resolving. `useJurisdictionName` answers the fallback
+         ("City", "County") until its offline table lands, and a module that
+         wrote "Welcome to City" would be worse than one that waited a frame.
+         Same `name !== TAB_LABELS[tab]` idiom handleStartConversation uses. */
+      placeName={name !== label ? name : null}
       destination={destination}
       isAuthenticated
+      isViewOnly={isViewOnly}
+      viewingSliceIndex={viewingSliceIndex}
+      ownSliceIndex={activeSlice.siblingIndex}
+      onReturnToOwnSlice={onReturnToOwnSlice}
+      slices={slices}
       meetings={meetings}
       elections={elections}
+      races={races}
+      raceMedia={raceMedia}
+      answeredCompassTopicIds={answeredCompassTopicIds}
+      compassLevelFlags={compassLevelFlags}
       onStartConversation={onStartConversation}
       onScrollTop={onScrollTop}
       whatsNewInSidebar={whatsNewInSidebar}
@@ -417,6 +542,44 @@ export default function AppShell() {
   const isAssigning = assignmentStatus === 'assigning'
   const { data: isModerator } = useIsModerator(userId)
   const repsData = useRepresentatives(userId)
+  /**
+   * Hoisted for the same reason as repsData: all five feed panels plus
+   * Volunteer mount at once, so a hook inside one of them fires 6×.
+   *
+   * 🔴 Explore is its FIRST consumer. The hook shipped complete and uncalled —
+   * its own header already said where it belongs — so "Compass ranks topics"
+   * had no running consumer at all until this call. It 401s for the dev id,
+   * which is handled inside the hook: a synthetic id short-circuits to the
+   * fixtures rather than making either request.
+   */
+  const compass = useCompassData(userId)
+  /**
+   * 🔴 Exclusion only, never selection. 45 of the 60 live Compass topics are
+   * flagged for all three levels ("Ukraine Support" among them), so these flags
+   * cannot pick out "what federal leaders attend to"; what they CAN do is keep
+   * a local-only topic off Federal, which is the job levelFilterReason gives
+   * them. A topic whose flags are absent is left in the map's hands as a miss,
+   * and a miss passes the filter — refusing to show a topic because a side
+   * lookup failed is worse than showing it.
+   */
+  const compassLevelFlags = useMemo(() => {
+    const flags = new Map<string, CompassLevelFlags>()
+    for (const topic of compass.topics) {
+      if (
+        typeof topic.applies_federal !== 'boolean' &&
+        typeof topic.applies_state !== 'boolean' &&
+        typeof topic.applies_local !== 'boolean'
+      ) {
+        continue
+      }
+      flags.set(topic.id, {
+        federal: !!topic.applies_federal,
+        state: !!topic.applies_state,
+        local: !!topic.applies_local,
+      })
+    }
+    return flags
+  }, [compass.topics])
   const { theme, toggleTheme } = useTheme()
 
   // Both side panels collapse, each remembered per browser: the nav rail to icons
@@ -664,27 +827,62 @@ export default function AppShell() {
   }, [scrollToContentTop])
 
   /**
+   * The shard on screen for the active tab, and whether it is a SIBLING of the
+   * member's own — readable by RLS, every write path closed by it.
+   *
+   * 🔴 Declared here, above handleStartConversation, rather than beside the other
+   * derived render values below: that callback needs it in its dependency array,
+   * and a block-scoped const cannot be named before it is declared. The feed reads
+   * this same value (see the FEED_TABS map), so the two cannot disagree.
+   */
+  const activeSlice = slices[activeTab]
+  const activeViewing = viewingSlices[activeTab]
+  const activeIsViewOnly = !!activeSlice && !!activeViewing && activeViewing.id !== activeSlice.id
+
+  /**
    * Explore → Conversations with a topic's draft in the composer.
    *
-   * The draft names the slice it belongs to, and that — not the tab on screen — decides
+   * 🔴 The draft KEY names the jurisdiction, and that — not the tab on screen — decides
    * where it posts: a draft started for Bloomington must not land in whichever community
-   * happens to be showing, or in a new one after the member moves. A signed-out visitor
-   * is sent through the real sign-in; ExploreView replays this after they return.
+   * happens to be showing, or in a new one after the member moves. The check is
+   * `canPostDraft`, the pure guard, and not a comparison written out again here: a copy
+   * inside this callback could not be reached by scripts/check-composition.mjs, and
+   * "a post must not land in the wrong jurisdiction" is the phase's loudest anti-goal.
+   *
+   * A signed-out visitor is sent through the real sign-in; ExploreView replays this
+   * after they return, from a resume marker carrying the whole key.
    */
-  const handleStartConversation = useCallback((topicId: TopicId, draft: ExploreDraft) => {
+  const handleStartConversation = useCallback((key: string, draft: ExploreDraft, destinationName: string | null) => {
+    /**
+     * 🔴 Defence in depth, at the far end of all three composer paths. Explore must
+     * not OFFER this while view-only (16-CONTEXT locked decision 4) and RLS would
+     * reject the insert anyway; a stale closure, or a future reordering of the route
+     * and resume effects, must not be the one path that gets through.
+     *
+     * The reset below (setViewingSlices → null) stays as the backstop behind this,
+     * and it is what makes the deep-link race harmless today: even if a resume fired
+     * while view-only, the composer would open on the member's OWN shard. This
+     * refusal is what stops it being asked to in the first place. Never delete one
+     * and keep the other — assertion 10 of check:explore-gate watches the pair.
+     */
+    if (activeIsViewOnly) return
     if (!isAuthenticated) {
-      writeResume(topicId)
+      const parsed = parseDraftKey(key)
+      if (parsed) writeResume({ ...parsed, at: Date.now() })
       window.location.assign(loginUrl)
       return
     }
     // Explore hands the draft over directly rather than us reading it back: in a private
     // window the write is refused silently, and reading back undefined used to surface as
     // "you're not in that community", which is wrong on both counts and loses the text.
-    const tab = draft.sliceId ? ALL_TAB_KEYS.find((t) => slices[t]?.id === draft.sliceId) : undefined
-    if (!tab) {
-      toast.error("That draft belongs to a community you're not in now.")
+    const verdict = canPostDraft(key, slices)
+    if (!verdict.ok) {
+      toast.error(verdict.reason === 'moved'
+        ? 'That draft was written for a different place.'
+        : "That draft belongs to a community you're not in now.")
       return
     }
+    const tab = verdict.sliceType as TabKey
     if (tab !== activeTab) handleTabChange(tab)
     // Back to the member's own shard: a sibling is read-only, and the composer is hidden there.
     setViewingSlices((prev) => ({ ...prev, [tab]: null }))
@@ -697,18 +895,20 @@ export default function AppShell() {
     }
     setForumView('conversations')
     scrollToContentTop()
-    const place = draft.communityName && draft.communityName !== TAB_LABELS[tab] ? draft.communityName : null
+    // The name Explore already resolved for this key's slice, so the note says
+    // "Bloomington, your City community" rather than just "your City community".
+    const place = destinationName && destinationName !== TAB_LABELS[tab] ? destinationName : null
     panelRefs.current[tab]?.current?.compose({
       title: draft.title,
       body: draft.body,
       contextNote: `Posting to ${place ? `${place}, your` : 'your'} ${TAB_LABELS[tab]} community. Edit anything before you post.`,
-      onPosted: () => writeDraft(topicId, null),
+      onPosted: () => writeDraft(key, null),
       onDraftChange: (values) => {
-        const current = readDrafts()[topicId]
-        if (current) writeDraft(topicId, { ...current, ...values, updatedAt: Date.now() })
+        const current = readDrafts()[key]
+        if (current) writeDraft(key, { ...current, ...values, updatedAt: Date.now() })
       },
     })
-  }, [isAuthenticated, loginUrl, slices, activeTab, activePostIds, handleTabChange, scrollToContentTop, navigate])
+  }, [isAuthenticated, loginUrl, slices, activeTab, activePostIds, handleTabChange, scrollToContentTop, navigate, activeIsViewOnly])
 
   // Restore scroll position after the new tab becomes visible
   useEffect(() => {
@@ -717,9 +917,6 @@ export default function AppShell() {
     })
   }, [activeTab])
 
-  const activeSlice = slices[activeTab]
-  const activeViewing = viewingSlices[activeTab]
-  const activeIsViewOnly = !!activeSlice && !!activeViewing && activeViewing.id !== activeSlice.id
   const activeMode = feedModes[activeTab]
   const showFeed = isAuthenticated && !isLoading && !isAssigning && (hasJurisdiction || !!slices['unified'])
   // "Showing content for …" names the member's most local space.
@@ -877,9 +1074,23 @@ export default function AppShell() {
             {/* Explore works signed out: browsing and drafting need no account. Posting
                 goes through the real sign-in above, and the draft survives the trip. */}
             <div className="w-full max-w-3xl">
+              {/* A stranger gets the place-scale generic composition, not the stored
+                  cs_active_tab: there is no tab UI on this screen, and the city page is
+                  the most legible thing to someone who has not signed in (16-CONTEXT,
+                  "Settled after research" item 3). geoid null means no bespoke layer and
+                  no seed invitation — nobody can seed a place the app cannot name. */}
               <ExploreView
+                sliceType="city"
+                geoid={null}
                 destination={null}
                 isAuthenticated={false}
+                /* A stranger is on nobody's sibling shard — there is no membership to
+                   be a sibling OF. Stated rather than defaulted: see the prop's doc. */
+                isViewOnly={false}
+                /* A stranger has answered nothing, so rankByCompass keeps source
+                   order; the level flags still exclude, which needs no account. */
+                answeredCompassTopicIds={compass.answeredTopicIds}
+                compassLevelFlags={compassLevelFlags}
                 onStartConversation={handleStartConversation}
               />
             </div>
@@ -1049,12 +1260,20 @@ export default function AppShell() {
                         aria-labelledby={`${FORUM_VIEW_PANEL_ID.explore}-tab`}
                         className={effectiveView === 'explore' ? 'flex flex-col' : 'hidden'}
                       >
-                        {homeSlice ? (
+                        {activeSlice ? (
                           <ActiveExplore
-                            homeSlice={homeSlice}
+                            activeSlice={activeSlice}
+                            slices={slices}
                             stateSlice={slices['state']}
                             userId={userId}
-                            photoSlice={photoSliceFor(slices, homeSlice, activeTab)}
+                            photoSlice={photoSliceFor(slices, activeSlice, activeTab)}
+                            answeredCompassTopicIds={compass.answeredTopicIds}
+                            compassLevelFlags={compassLevelFlags}
+                            isViewOnly={activeIsViewOnly}
+                            viewingSliceIndex={activeViewing?.siblingIndex}
+                            onReturnToOwnSlice={() =>
+                              handleViewSlice(activeTab, { id: activeSlice.id, siblingIndex: activeSlice.siblingIndex, memberCount: activeSlice.memberCount }, activeSlice.id)
+                            }
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
                             onGoToView={handleForumViewChange}
@@ -1062,8 +1281,18 @@ export default function AppShell() {
                           />
                         ) : (
                           <ExploreView
+                            sliceType={activeTab}
+                            geoid={null}
                             destination={null}
                             isAuthenticated
+                            /* No slice for this tab, so there is no own shard for another
+                               to be a sibling of. activeIsViewOnly is false here by
+                               construction (it requires activeSlice); said outright so a
+                               later refactor cannot make it true without noticing. */
+                            isViewOnly={false}
+                            slices={slices}
+                            answeredCompassTopicIds={compass.answeredTopicIds}
+                            compassLevelFlags={compassLevelFlags}
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
                             whatsNewInSidebar={!sidebarCollapsed}

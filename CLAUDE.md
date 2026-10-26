@@ -129,8 +129,11 @@ That is deliberate: it preserves scroll position and the React Query cache acros
 The consequence is that any hook you add inside `SliceFeedPanel` runs six times on load.
 
 **So sidebar and shell data hooks are hoisted to `AppShell` and passed down as props.**
-`useRepresentatives`, `useToolCoverage` and `useCompassData` are each called once there, and
-`Sidebar` / `SidebarMobile` receive the results. Follow that pattern; do not call a shared hook
+`useRepresentatives` and `useCompassData` are each called once there, and `Sidebar` /
+`SidebarMobile` / Explore receive the results. `useToolCoverage` is **defined and still has no
+caller** — the rule is right, that hook simply has no consumer yet, so hoist it when you give it
+one rather than calling it from a panel. (`useCompassData` was in the same state until Phase
+16-07 made Explore its first consumer.) Follow that pattern; do not call a shared hook
 inside a panel. Where a hook genuinely needs per-slice data, render its component only for the
 active tab (`SliceSelector` does this) or wrap it so the hook still runs unconditionally
 (`ActiveHeroBanner`, `SliceNewsWidget`).
@@ -252,7 +255,17 @@ of those four is not done.
   on white it is 2.54:1, under both the 4.5:1 AA wants for text and the 3:1 for a meaningful
   icon. In dark mode `gray-500` is 3.67:1 on `gray-900` and fails too — use `gray-400` there.
   🔴 Tailwind v4 emits `oklch()`, so any contrast check that parses `getComputedStyle().color`
-  as `rgb()` reports confident nonsense; resolve colours through a canvas instead.
+  as `rgb()` reports confident nonsense; resolve colours through a canvas instead — and
+  **setting `fillStyle` is not resolving it.** Chromium accepts `oklch()` and hands it straight
+  back from `ctx.fillStyle`, so a probe that reads `fillStyle` parses `0.446 0.03 256.802` as
+  if it were RGB and reports ~1:1 for perfectly legible text. You must `fillRect` and
+  `getImageData` one pixel. A ratio near 1:1, or a whole page "failing", is this bug, not a
+  finding.
+- 🔴 **Driving the app headless? Playwright's `colorScheme` option does nothing here.** The
+  bootstrap in `index.html` ignores `prefers-color-scheme` on purpose and reads the
+  `ev_color_scheme` cookie, so a context asking for `light` still renders dark and a "four-way"
+  run silently becomes two. Set the cookie on the browser context, and assert
+  `documentElement.classList.contains('dark')` matches what you asked for before you shoot.
 - Use the **EV brand tokens** (teal `#00657C`, coral `#FF5740`, yellow `#FED12E`) and the
   existing component vocabulary rather than inventing new colours or spacing.
 - Reuse `WidgetCard` for anything sidebar-shaped, and `react-loading-skeleton` for loading

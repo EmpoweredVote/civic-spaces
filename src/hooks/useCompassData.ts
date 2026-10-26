@@ -23,6 +23,20 @@ async function getJson<T>(path: string, token?: string): Promise<T> {
 
 export interface CompassData {
   topics: CompassTopic[]
+  /**
+   * Every Compass topic id the VIEWING MEMBER has actually answered.
+   *
+   * 🔴 Theirs alone. Locked decision 7: Compass RANKS Explore's topics against
+   * the member's own answers and nothing aggregates — no slice-wide view of
+   * members' political answers is computed, stored or requested anywhere, no
+   * endpoint serves one, and the design is explicit that the privacy question
+   * that comes with one should stay closed.
+   *
+   * Read off the raw answers rather than off `spokes`, which is keyed by
+   * short_title and drops anything the catalog cannot name — a lossy source for
+   * a set whose whole job is matching ids.
+   */
+  answeredTopicIds: ReadonlySet<string>
   /** short_title -> answered value, for the spokes to draw. */
   spokes: CompassSpokes
   invertedSpokes: InvertedSpokes
@@ -96,8 +110,13 @@ export function useCompassData(userId: string | null): CompassData {
     ? false
     : topicsQuery.isLoading || (!!userId && !!token && answersQuery.isLoading)
 
+  // An unanswered topic arrives with value 0; it is not an answer and must not
+  // rank as one. Same test the spokes use.
+  const answeredTopicIds = new Set(answers.filter((a) => a.value > 0).map((a) => a.topic_id))
+
   return {
     topics,
+    answeredTopicIds,
     spokes,
     invertedSpokes,
     isLoading,

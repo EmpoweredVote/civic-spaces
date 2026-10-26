@@ -33,11 +33,105 @@ export function isSyntheticUserId(id: string | null | undefined): boolean {
   return !!id && SYNTHETIC_USER_IDS.has(id)
 }
 
+/**
+ * Dev-only: which real place the fixture slices point at.
+ *
+ * Asheville is the default and the historical fixture city. Bloomington, IN is
+ * the only city with real council-agenda coverage (Asheville has zero meetings),
+ * so it is the proof city for Phase 16 — and it has to be reachable without a
+ * production token, because localhost has no login.
+ *
+ * A fixed table of two, not a free geoid parameter: this patches identity-shaped
+ * state, and a named choice is both safer and honest about being a fixture.
+ * Verified against public/geo/18.json and public/geo/37.json — all six geoids
+ * resolve to real names offline, so useJurisdictionName needs no network.
+ */
+const DEV_PLACES = {
+  asheville:   { city: '3702140', county: '37021', state: '37' },
+  bloomington: { city: '1805860', county: '18105', state: '18' },
+} as const
+
+export type DevPlaceKey = keyof typeof DEV_PLACES
+
+const DEV_PLACE_STORAGE_KEY = 'cs_dev_place'
+
+/**
+ * True only under `npm run dev`.
+ *
+ * Wrapped in try/catch rather than read directly because this module is also
+ * loaded by `node --experimental-strip-types` (scripts/check-composition.mjs),
+ * where `import.meta.env` is undefined and a bare `.DEV` would throw at import
+ * time. Vite still replaces the expression with a literal in a production
+ * build, so the branch below — and DEV_PLACES with it — is dropped from the
+ * bundle.
+ */
+function devBuild(): boolean {
+  try {
+    return import.meta.env.DEV === true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Which dev place is in use, resolved once at module load.
+ *
+ * `?dev=1&place=bloomington` selects it and remembers it in sessionStorage: the
+ * query string is lost the moment wouter navigates to /post/:postId or
+ * /profile/:userId, and losing the proof city mid-walk is exactly the kind of
+ * thing that gets diagnosed as a data bug. Session scope, not local — it should
+ * not outlive the window. An unknown name falls back silently to the default.
+ *
+ * Every `window` / `sessionStorage` access is guarded: this module is imported
+ * by code paths that run before the DOM is interesting, and a private window
+ * throws on sessionStorage.
+ */
+function resolveDevPlace(): DevPlaceKey {
+  if (!devBuild()) return 'asheville'
+  let requested: string | null = null
+  try {
+    requested = new URLSearchParams(window.location.search).get('place')
+  } catch {
+    requested = null
+  }
+  if (requested && requested in DEV_PLACES) {
+    try {
+      window.sessionStorage.setItem(DEV_PLACE_STORAGE_KEY, requested)
+    } catch {
+      /* private window — the choice just does not survive navigation */
+    }
+    return requested as DevPlaceKey
+  }
+  try {
+    const stored = window.sessionStorage.getItem(DEV_PLACE_STORAGE_KEY)
+    if (stored && stored in DEV_PLACES) return stored as DevPlaceKey
+  } catch {
+    /* private window */
+  }
+  return 'asheville'
+}
+
+/** Exported so a dev-only affordance can say which fixture place is on screen. */
+export const DEV_PLACE: DevPlaceKey = resolveDevPlace()
+
+/**
+ * 🔴 Only the three place geoids come from the table. Every `id`, `memberCount`,
+ * `siblingIndex` and `photoUrl` stays exactly as it was: the post, reply and
+ * sibling fixtures key on those ids, including the City sibling the Explore
+ * view-only gate check relies on.
+ *
+ * 🔴 federal.geoid ('3711') and unified.geoid ('') are deliberately left wrong
+ * relative to production ('US' / 'UNIFIED'). compositionKey() normalises
+ * placeless types to the slice type alone precisely so that this does not
+ * matter; correcting them here would hide the normalisation rather than test it.
+ */
+const DEV_PLACE_GEOIDS = DEV_PLACES[DEV_PLACE]
+
 export const MOCK_SLICES: Record<SliceType, SliceInfo> = {
   city: {
     id: `${MOCK_ID_PREFIX}city`,
     sliceType: 'city',
-    geoid: '3702140',
+    geoid: DEV_PLACE_GEOIDS.city,
     memberCount: 42,
     siblingIndex: 1,
     photoUrl: null,
@@ -45,7 +139,7 @@ export const MOCK_SLICES: Record<SliceType, SliceInfo> = {
   county: {
     id: `${MOCK_ID_PREFIX}county`,
     sliceType: 'county',
-    geoid: '37021',
+    geoid: DEV_PLACE_GEOIDS.county,
     memberCount: 128,
     siblingIndex: 1,
     photoUrl: null,
@@ -53,7 +147,7 @@ export const MOCK_SLICES: Record<SliceType, SliceInfo> = {
   state: {
     id: `${MOCK_ID_PREFIX}state`,
     sliceType: 'state',
-    geoid: '37',
+    geoid: DEV_PLACE_GEOIDS.state,
     memberCount: 890,
     siblingIndex: 1,
     photoUrl: null,
@@ -248,14 +342,68 @@ const MOCK_FEDERAL_SIBLING_POSTS: PostWithAuthor[] = [
 ]
 
 /**
+ * A second CITY shard, for the same reason MOCK_FEDERAL_SIBLING_ID exists: real
+ * siblings only appear once a jurisdiction passes its member cap, which no local
+ * fixture would otherwise reach.
+ *
+ * 🔴 City specifically, and it is not redundant with the Federal one. The City
+ * composition is the only one carrying the Imagine card, "Share an idea", the
+ * Nearby dialog and "Save on this device" — four of the ten write affordances
+ * research Finding 5 lists, and four that DEFAULT_MODULES.federal does not
+ * render at all. A view-only check driven on Federal alone would report "no
+ * textarea found" about a tab that never had one, which is a true statement
+ * about nothing. scripts/check-explore-gate.mjs runs on both because of this.
+ *
+ * 🔴 The id must stay prefixed by MOCK_SLICES.city.id. useNotificationRouting
+ * resolves a fixture sibling with `mockPost.slice_id.startsWith(info.id)`, so
+ * the prefix is what makes /post/<id> resolve to { kind: 'sibling', tab: 'city' }
+ * instead of `unavailable`.
+ */
+export const MOCK_CITY_SIBLING_ID = `${MOCK_ID_PREFIX}city-2`
+
+const MOCK_CITY_SIBLING_POSTS: PostWithAuthor[] = [
+  {
+    id: 'mock-city-2-post-1',
+    slice_id: MOCK_CITY_SIBLING_ID,
+    user_id: 'mock-user-sibling2',
+    title: null,
+    body: "This is City Slice 2. Same city, a different shard of it — you can read everything here and write nothing, which is what the database allows and what the page should offer.",
+    reply_count: 0,
+    edit_history: [],
+    created_at: '2026-04-14T10:30:00.000Z',
+    updated_at: '2026-04-14T10:30:00.000Z',
+    is_deleted: false,
+    author: author('SecondCityShardMember'),
+  },
+  {
+    id: 'mock-city-2-post-2',
+    slice_id: MOCK_CITY_SIBLING_ID,
+    user_id: 'mock-user-sibling3',
+    title: null,
+    body: "Open Explore while you are on this shard: the notice at the top should say where posting lives, and there should be no form, no textarea and no Join button anywhere on the page.",
+    reply_count: 0,
+    edit_history: [],
+    created_at: '2026-04-14T11:15:00.000Z',
+    updated_at: '2026-04-14T11:15:00.000Z',
+    is_deleted: false,
+    author: author('SecondCityShardMember'),
+  },
+]
+
+/**
  * Sibling shards per mock slice, shaped like useSiblingSlices' return rows.
- * Only Federal is sharded — one example is enough to drive the selector, and
- * every other tab exercises the single-slice (non-interactive) state.
+ * Federal and City are sharded; every other tab still exercises the single-slice
+ * (non-interactive) state. City is here so the view-only gate can be checked
+ * where four of the ten write affordances actually render.
  */
 const MOCK_SIBLINGS: Partial<Record<string, Array<{ id: string; siblingIndex: number; memberCount: number }>>> = {
   [MOCK_SLICES.federal.id]: [
     { id: MOCK_SLICES.federal.id, siblingIndex: 1, memberCount: MOCK_SLICES.federal.memberCount },
     { id: MOCK_FEDERAL_SIBLING_ID, siblingIndex: 2, memberCount: 17 },
+  ],
+  [MOCK_SLICES.city.id]: [
+    { id: MOCK_SLICES.city.id, siblingIndex: 1, memberCount: MOCK_SLICES.city.memberCount },
+    { id: MOCK_CITY_SIBLING_ID, siblingIndex: 2, memberCount: 29 },
   ],
 }
 
@@ -270,6 +418,7 @@ export function getMockSiblings(
 
 const MOCK_FEEDS: Partial<Record<string, PostWithAuthor[]>> = {
   [MOCK_FEDERAL_SIBLING_ID]: MOCK_FEDERAL_SIBLING_POSTS,
+  [MOCK_CITY_SIBLING_ID]: MOCK_CITY_SIBLING_POSTS,
   [MOCK_SLICES.federal.id]: MOCK_FEDERAL_POSTS,
   [MOCK_SLICES.state.id]: MOCK_STATE_POSTS,
   [MOCK_SLICES.county.id]: MOCK_COUNTY_POSTS,
@@ -280,9 +429,25 @@ export function getMockFeedPage(sliceId: string): PostWithAuthor[] {
   return MOCK_FEEDS[sliceId] ?? []
 }
 
-/** Looks up a single fixture post by id — used when opening a mock post's thread. */
+/**
+ * Looks up a single fixture post by id — used when opening a mock post's thread.
+ *
+ * 🔴 THIS LIST IS HAND-MAINTAINED, and leaving a new array out of it is silent.
+ * A post registered only in MOCK_FEEDS renders in its feed but is invisible here,
+ * so locatePost returns `unavailable`, /post/<id> toasts "That conversation isn't
+ * in one of your civic spaces" and navigates to `/` — and any check that then
+ * asserts about the page is asserting about the home feed. Register a new array
+ * in all THREE places: MOCK_SIBLINGS, MOCK_FEEDS and here.
+ */
 export function getMockPostById(postId: string): PostWithAuthor | null {
-  const all = [...MOCK_FEDERAL_POSTS, ...MOCK_FEDERAL_SIBLING_POSTS, ...MOCK_STATE_POSTS, ...MOCK_COUNTY_POSTS, ...MOCK_CITY_POSTS]
+  const all = [
+    ...MOCK_FEDERAL_POSTS,
+    ...MOCK_FEDERAL_SIBLING_POSTS,
+    ...MOCK_STATE_POSTS,
+    ...MOCK_COUNTY_POSTS,
+    ...MOCK_CITY_POSTS,
+    ...MOCK_CITY_SIBLING_POSTS,
+  ]
   return all.find((p) => p.id === postId) ?? null
 }
 
@@ -459,10 +624,21 @@ export const MOCK_REPRESENTATIVES: PoliticianFlatRecord[] = [
 ]
 
 /**
- * A real slice of the live Compass topic set (ids, titles and stances copied
- * from api.empowered.vote) plus fixture answers, so the compass widget renders
- * at ?dev=1. The Compass API sends no CORS headers for localhost, so without
- * this the widget would be permanently empty in local dev.
+ * A real slice of the live Compass topic set (ids, titles, stances and the
+ * applies_* / is_live flags copied verbatim from api.empowered.vote, read
+ * 2026-10-24) plus fixture answers, so the compass widget renders at ?dev=1.
+ * The Compass API sends no CORS headers for localhost, so without this the
+ * widget would be permanently empty in local dev.
+ *
+ * 🔴 Copied, never invented. An id that resolves to nothing in the live catalog
+ * makes rankByCompass and topicsForLevel silent no-ops, and nothing fails to
+ * tell you. scripts/check-composition.mjs re-checks every id here.
+ *
+ * The last two — City Sanitation and Cleanliness, Residential Zoning — are
+ * LOCAL-ONLY (applies_local alone). They are here because the other eight are
+ * each flagged for all three levels, so without them exclusion could never be
+ * observed on the dev id and every later observation of the Federal tab would
+ * be vacuous.
  */
 export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
   {
@@ -495,7 +671,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Ban abortion in all cases, with no exceptions."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "683c8084-2281-4920-a07c-18439b2dd413",
@@ -527,7 +707,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Impose high tariffs on all imports to bring manufacturing back to America."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "c5ab4eab-702f-49b8-9277-8ea53f3835c6",
@@ -559,7 +743,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Make same-sex marriage illegal and define marriage as only between one man and one woman."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "6b9ba6d9-1001-43f5-b073-4d37130696fd",
@@ -591,7 +779,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Strongly protect religious freedom and allow religious organizations complete autonomy in their operations and hiring practices."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "d1618b9c-0b9e-45af-b986-bb33d270b8e4",
@@ -623,7 +815,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Completely ban all transgender athletes from competing in any organized sports competitions."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "24e9212c-b011-422a-865c-093e35050901",
@@ -655,7 +851,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "End all aid to Ukraine immediately and stay completely out of the conflict."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "cab61e8a-64fe-4bbd-bc08-fe9914d0091b",
@@ -687,7 +887,11 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Phase out both programs and use private insurance only"
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
   },
   {
     "id": "a22215c3-6693-4bc2-b248-01aebba14570",
@@ -719,7 +923,83 @@ export const MOCK_COMPASS_TOPICS: CompassTopic[] = [
         "value": 5,
         "text": "Maximize production and open more public land and waters to drilling."
       }
-    ]
+    ],
+    "applies_federal": true,
+    "applies_state": true,
+    "applies_local": true,
+    "is_live": true
+  },
+  {
+    "id": "7687de4f-4d0b-462a-b803-bdfb23b16b42",
+    "short_title": "City Sanitation and Cleanliness",
+    "title": "City Sanitation and Cleanliness",
+    "stances": [
+      {
+        "id": "e515d3b8-9539-4fee-a244-c6b026f33ac6",
+        "value": 1,
+        "text": "Significantly expand public sanitation services, treating cleanliness as the city's responsibility"
+      },
+      {
+        "id": "9bcd2cc1-5da4-4f7b-9b8c-35def440baae",
+        "value": 2,
+        "text": "Concentrate sanitation resources on the most neglected, worst-served neighborhoods to close long-standing service gaps"
+      },
+      {
+        "id": "eadf8213-34db-4a54-ba9b-2b834e53d5fd",
+        "value": 3,
+        "text": "Maintain current public sanitation services and target enforcement at the businesses and large property owners who create the most waste"
+      },
+      {
+        "id": "57a27c31-84d1-4683-a0cf-5aa71a01d7cb",
+        "value": 4,
+        "text": "Rely primarily on enforcement of anti-littering and property maintenance laws; hold residents and businesses responsible"
+      },
+      {
+        "id": "de09c42f-1a74-48fd-b9c8-a858e2a64e43",
+        "value": 5,
+        "text": "Privatize sanitation services and require residents and businesses to contract for cleanup directly"
+      }
+    ],
+    "applies_federal": false,
+    "applies_state": false,
+    "applies_local": true,
+    "is_live": true
+  },
+  {
+    "id": "d4f18138-a2e0-4110-b925-7387d9d0d16d",
+    "short_title": "Residential Zoning",
+    "title": "Residential Zoning",
+    "stances": [
+      {
+        "id": "fd50f9bf-5cce-42ed-9b31-0cd58dca6566",
+        "value": 1,
+        "text": "Protect existing single-family neighborhoods; oppose density increases."
+      },
+      {
+        "id": "ed4d65db-1d19-485e-a4a5-ca8f7d06eb80",
+        "value": 2,
+        "text": "Allow modest density increases, like duplexes and accessory units, in single-family neighborhoods"
+      },
+      {
+        "id": "b93c6cc6-aea3-42a2-b9f3-1360e77be77f",
+        "value": 3,
+        "text": "Allow multifamily and mixed-use near commercial corridors while protecting most residential zones"
+      },
+      {
+        "id": "00c13fd0-96dd-4579-b1f5-3e0c0b1158ee",
+        "value": 4,
+        "text": "Upzone broadly to allow multifamily housing by right in most neighborhoods"
+      },
+      {
+        "id": "dea15caf-d0e4-4561-a949-04d68048e8d6",
+        "value": 5,
+        "text": "Eliminate single-family-only zoning; allow any housing type on any lot communitywide"
+      }
+    ],
+    "applies_federal": false,
+    "applies_state": false,
+    "applies_local": true,
+    "is_live": true
   }
 ]
 
@@ -755,6 +1035,14 @@ export const MOCK_COMPASS_ANSWERS: CompassAnswer[] = [
   {
     "topic_id": "a22215c3-6693-4bc2-b248-01aebba14570",
     "value": 5
+  },
+  {
+    "topic_id": "7687de4f-4d0b-462a-b803-bdfb23b16b42",
+    "value": 2
+  },
+  {
+    "topic_id": "d4f18138-a2e0-4110-b925-7387d9d0d16d",
+    "value": 4
   }
 ]
 

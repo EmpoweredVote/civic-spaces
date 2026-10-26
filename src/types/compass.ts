@@ -17,6 +17,21 @@ export interface CompassTopic {
   short_title: string
   title: string
   stances: CompassStance[]
+  /**
+   * Level eligibility flags the live catalog sends but the type never declared.
+   * Re-verified live 2026-10-24: GET /api/compass/topics returns 60 topics, all
+   * carrying is_live, applies_federal, applies_state, applies_local,
+   * applies_judicial and applies_school.
+   *
+   * 🔴 Use these to EXCLUDE, never to select. 45 of 60 topics are flagged for all
+   * three levels, so "what federal leaders attend to" is not derivable from them.
+   * What they can do is keep the 6 local-only topics off Federal, which is the
+   * job they are given here. Optional because an older fixture may not carry them.
+   */
+  applies_federal?: boolean
+  applies_state?: boolean
+  applies_local?: boolean
+  is_live?: boolean
 }
 
 export interface CompassAnswer {
