@@ -241,6 +241,16 @@ stands; if it ships first, PR A rebases cleanly because they share no files.
 
 ## 9. With `localStorage` blocked, the app never boots — so Explore's own guards cannot be reached
 
+> **Correction, 2026-10-26 (traced during Phase 17-01).** This item names `useAuth.ts:100`,
+> an unguarded `setItem`. That is not where the boot actually dies. `AppShell` renders
+> `useRepresentatives`, whose **`localStorage.getItem('cs_token')` at
+> `src/hooks/useRepresentatives.ts:54` is unguarded and throws first** — before `useAuth`'s
+> effect ever runs. The other unguarded sites on the way are `src/lib/supabase.ts:33` and
+> `:47` and `src/lib/exploreStorage.ts:9`; `index.html`'s colour-scheme bootstrap is already
+> `try`-wrapped. So the fix is a read-path problem in a hoisted hook, not only a write-path
+> problem in `useAuth` — and anyone scoping this from the paragraph below would fix the
+> wrong line and still not boot. Still out of scope; offered for Phase 17 and not chosen.
+
 **Found during:** 16-10 Task 4 Step 3, the "nobody's happy path" walk. That table has a
 row reading *"`localStorage` blocked (private window) → Explore still works and forgets on
 reload; nothing claims it saved."* **That row is not reachable as written.**
