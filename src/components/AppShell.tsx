@@ -28,6 +28,7 @@ import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
 import { WelcomeScreen } from './WelcomeScreen'
+import { PlaceStrip } from './PlaceStrip'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
 import { readViewedPlace, writeViewedPlace, placeSentinelId } from '../lib/viewedPlace'
 import type { ResolvedPlace } from '../lib/placeResolve'
@@ -769,18 +770,31 @@ export default function AppShell() {
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
 
   /**
-   * A place was named — by the welcome screen's picker here, and by the shell's
-   * copy of the same picker in 17-05.
+   * A place was named — by the welcome screen's picker, and by the shell's copy
+   * of the same picker in `PlaceStrip`. ONE handler behind both entry points
+   * (D-19), the same way one `PlacePicker` is behind both controls.
    *
    * 🔴 `cs_active_tab` is deliberately NOT written. It is the member's choice
    * for their own spaces, and another city's answer must not clobber it.
    */
-  const handlePlaceResolved = useCallback((place: ResolvedPlace) => {
+  const enterPlace = useCallback((place: ResolvedPlace) => {
     setViewedPlace(place)
     writeViewedPlace(place)
     const landing = mostLocalTab(placeSlices(place))
     if (landing) setActiveTab(landing)
     setForumView('explore')
+  }, [])
+
+  /**
+   * Back out of a visited place.
+   *
+   * For a signed-out visitor this lands on the welcome screen with no extra
+   * branch: `showShell` is `showFeedForMember || isVisitingPlace`, and clearing
+   * the place makes both false.
+   */
+  const leavePlace = useCallback(() => {
+    setViewedPlace(null)
+    writeViewedPlace(null)
   }, [])
 
   const [, navigate] = useLocation()
@@ -1212,6 +1226,18 @@ export default function AppShell() {
    * who visits a place, which is 17-05's doing.)
    */
   const homeSlice = isVisitingPlace ? undefined : (slices['city'] ?? slices['county'] ?? slices['state'])
+  /**
+   * The slice `PlaceStrip` names — the VISITED place's most local one, the
+   * mirror of `homeSlice` above.
+   *
+   * 🔴 Most local, not the active tab. Somebody who named "Asheville" and then
+   * pressed Federal is still looking at Asheville; a strip that followed the tab
+   * would read "Looking at United States of America" and answer a question
+   * nobody asked. The banner above it is the thing that follows the tab.
+   */
+  const visitedPlaceSlice = isVisitingPlace
+    ? (onScreenSlices['city'] ?? onScreenSlices['county'] ?? onScreenSlices['state'])
+    : undefined
   // Volunteer is its own space, not a place — it keeps the forum alone, no Explore.
   const hasExplore = activeTab !== 'volunteer'
   const effectiveView: ForumView = hasExplore ? forumView : 'conversations'
@@ -1365,7 +1391,7 @@ export default function AppShell() {
             Once a place is named, `showShell` renders the real shell below and
             this branch stands down — hence `!isVisitingPlace`. */}
         {!authLoading && !isAuthenticated && !isVisitingPlace && (
-          <WelcomeScreen loginUrl={loginUrl} onResolved={handlePlaceResolved} />
+          <WelcomeScreen loginUrl={loginUrl} onResolved={enterPlace} />
         )}
 
         {/* The member-state screens all stand down while a place is on screen:
@@ -1435,6 +1461,21 @@ export default function AppShell() {
                       isSampleData={isSyntheticUserId(userId)}
                     />
                   </div>
+                )}
+
+                {/* 🔴 The place control, UNDER the banner rather than inside it.
+                    The banner names where you are; this changes it; SliceSelector
+                    nests below as "which shard of it". It is absent on Volunteer,
+                    which is correct — Volunteer is not a place. See
+                    PlaceStrip.tsx for the three positions this is not in. */}
+                {hasExplore && (
+                  <PlaceStrip
+                    visitedSlice={visitedPlaceSlice}
+                    visitedFallback={visitedPlaceSlice ? TAB_LABELS[visitedPlaceSlice.sliceType] : ''}
+                    isAuthenticated={isAuthenticated}
+                    onResolved={enterPlace}
+                    onLeave={leavePlace}
+                  />
                 )}
 
                 {/* The negative margin cancels the column gap: the marker is only a position. */}
