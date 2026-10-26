@@ -418,7 +418,7 @@ export function PlacePicker({
           match. CLAUDE.md's rule for volunteers is the rule here: if a request
           fails, say so and stop. */}
       {noResults && <Problem>Nothing matched. Try the place&rsquo;s name, or its county.</Problem>}
-      {searchFailed && <Problem>The place search did not answer just now. Try again in a moment.</Problem>}
+      {searchFailed && <Problem>The place lookup did not answer just now. Try again in a moment.</Problem>}
       {resolve.isError && resolve.error && <Problem>{resolveFailureCopy(resolve.error.code)}</Problem>}
 
       {/* 🔴 Present only when it can work. PLACE_RESOLVE_ENABLED is false until
