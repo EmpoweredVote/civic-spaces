@@ -769,34 +769,6 @@ export default function AppShell() {
   // The nav rail is pinned from lg up; below that it lives in this drawer.
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
 
-  /**
-   * A place was named — by the welcome screen's picker, and by the shell's copy
-   * of the same picker in `PlaceStrip`. ONE handler behind both entry points
-   * (D-19), the same way one `PlacePicker` is behind both controls.
-   *
-   * 🔴 `cs_active_tab` is deliberately NOT written. It is the member's choice
-   * for their own spaces, and another city's answer must not clobber it.
-   */
-  const enterPlace = useCallback((place: ResolvedPlace) => {
-    setViewedPlace(place)
-    writeViewedPlace(place)
-    const landing = mostLocalTab(placeSlices(place))
-    if (landing) setActiveTab(landing)
-    setForumView('explore')
-  }, [])
-
-  /**
-   * Back out of a visited place.
-   *
-   * For a signed-out visitor this lands on the welcome screen with no extra
-   * branch: `showShell` is `showFeedForMember || isVisitingPlace`, and clearing
-   * the place makes both false.
-   */
-  const leavePlace = useCallback(() => {
-    setViewedPlace(null)
-    writeViewedPlace(null)
-  }, [])
-
   const [, navigate] = useLocation()
   // The post id the route effect has already acted on, so a URL this component
   // pushed itself does not bounce back through openPost.
@@ -902,6 +874,77 @@ export default function AppShell() {
     scrollToContentTop()
   }, [scrollToContentTop])
 
+  /**
+   * Everything that belonged to the place being left, in one place.
+   *
+   * 🔴 The two clears are the ones that get forgotten, and both produce the same
+   * bug from opposite directions: state computed for one place, read inside a
+   * shell pointed at another.
+   *
+   *   - `viewingSlices` is a SHARD INDEX within the MEMBER'S OWN geoid. While
+   *     another place is on screen it means nothing, and leaving it set means
+   *     leaving the place re-lands the member on a sibling shard they never
+   *     chose.
+   *   - `activePostIds` is an OPEN THREAD, and it belongs to the place being
+   *     left. `handleStartConversation` already does exactly this when it
+   *     re-targets a draft, and says why: *"Leaving it open would render a
+   *     sibling's post with isViewOnly cleared."* Same reasoning, wider case.
+   *
+   * The URL closes with the thread, so a reload does not reopen it either —
+   * again the same thing `handleStartConversation` does.
+   */
+  const clearPlaceScopedState = useCallback(() => {
+    setViewingSlices(INITIAL_VIEWING)
+    setActivePostIds(INITIAL_POST_IDS)
+    if (ALL_TAB_KEYS.some((tab) => activePostIds[tab])) navigate('/')
+    for (const tab of ALL_TAB_KEYS) scrollPositions.current[tab] = 0
+    scrollToContentTop()
+  }, [activePostIds, navigate, scrollToContentTop])
+
+  /**
+   * A place was named — by the welcome screen's picker, and by the shell's copy
+   * of the same picker in `PlaceStrip`. ONE handler behind both entry points
+   * (D-19), the same way one `PlacePicker` is behind both controls.
+   *
+   * 🔴 `cs_active_tab` is deliberately NOT written. It is the member's choice
+   * for their own spaces, and another city's answer must not clobber it.
+   */
+  const enterPlace = useCallback((place: ResolvedPlace) => {
+    setViewedPlace(place)
+    writeViewedPlace(place)
+    const landing = mostLocalTab(placeSlices(place))
+    if (landing) setActiveTab(landing)
+    setForumView('explore')
+    clearPlaceScopedState()
+  }, [clearPlaceScopedState])
+
+  /**
+   * Back out of a visited place.
+   *
+   * For a signed-out visitor this lands on the welcome screen with no extra
+   * branch: `showShell` is `showFeedForMember || isVisitingPlace`, and clearing
+   * the place makes both false.
+   *
+   * 🔴 The member's own remembered tab comes back with them. `cs_active_tab` is
+   * never written while visiting (see `handleTabChange`), so it still holds the
+   * tab they were on before the trip — restoring it is what makes "Back to my
+   * spaces" land where they left rather than on whichever tab the other city
+   * happened to open. A remembered tab they hold no slice for is handled by the
+   * "keep the active tab on a slice the member actually has" effect above.
+   */
+  const leavePlace = useCallback(() => {
+    setViewedPlace(null)
+    writeViewedPlace(null)
+    clearPlaceScopedState()
+    let remembered: string | null = null
+    try {
+      remembered = localStorage.getItem('cs_active_tab')
+    } catch {
+      /* blocked — the tab they were on simply is not remembered */
+    }
+    if (remembered && ALL_TAB_KEYS.includes(remembered as TabKey)) setActiveTab(remembered as TabKey)
+  }, [clearPlaceScopedState])
+
   const handleTogglePanel = useCallback((panel: 'friends' | 'directory') => {
     setActivePanel((prev) => (prev === panel ? null : panel))
     setNavDrawerOpen(false)
@@ -911,10 +954,20 @@ export default function AppShell() {
     // Save current tab's scroll position before switching
     scrollPositions.current[activeTab] = window.scrollY
     setSearchQuery('')
-    localStorage.setItem('cs_active_tab', newTab)
+    /**
+     * 🔴 Only for the member's OWN spaces. `cs_active_tab` is their choice for
+     * their own shell, and another city's answer must not clobber it — the rule
+     * `enterPlace` states, the "keep the active tab on a slice the member
+     * actually has" effect already honours, and `check-explore-gate.mjs` tells
+     * its reader about ("AppShell deliberately never WRITES this key while
+     * visiting"). This line was the one place that did write it: a member who
+     * visited Portland and pressed State came back to their own State tab
+     * afterwards, and `leavePlace` had nothing true left to restore.
+     */
+    if (!isVisitingPlace) localStorage.setItem('cs_active_tab', newTab)
     setActiveTab(newTab)
     setNavDrawerOpen(false)
-  }, [activeTab])
+  }, [activeTab, isVisitingPlace])
 
   // One resolver behind both notification clicks and /post/:postId links, so a
   // shared link and a notification land in the same place by the same route.
@@ -930,6 +983,25 @@ export default function AppShell() {
       navigate('/', { replace: true })
       return
     }
+
+    /**
+     * 🔴 THE PLACE GOES, and it has to go here rather than anywhere downstream.
+     *
+     * This is behind a notification click and behind every `/post/:postId`
+     * link. `locatePost` resolves against the member's OWN slices — note
+     * `useNotificationRouting(slices)`, which takes `slices` and must KEEP
+     * taking `slices`: a post is located by where it is, not by where the shell
+     * happens to be pointed. So without this a notification click renders the
+     * member's own thread inside a shell pointed at another city, with the gate
+     * computed against a slice that is not on screen.
+     *
+     * 🔴 AFTER the `unavailable` return, not before it. A link that resolves to
+     * nothing opens nothing, so there is no wrong shell to rescue anybody from —
+     * and clearing the place there would yank a visitor out of the city they
+     * were reading because somebody sent them a dead link.
+     */
+    setViewedPlace(null)
+    writeViewedPlace(null)
 
     handleTabChange(found.tab)
     setForumView('conversations')
@@ -1626,12 +1698,21 @@ export default function AppShell() {
                             isViewOnly={activeIsViewOnly}
                             noWriteReason={activeNoWriteReason}
                             viewingSliceIndex={activeViewing?.siblingIndex}
-                            /* 🔴 Absent while visiting: there is no own shard to go
-                               back to, and the 'other-place' notice renders without a
-                               control, which is correct rather than broken — a
-                               visitor's way out is the picker. 17-05 supplies "Back
-                               to my spaces" for a member. */
-                            onReturnToOwnSlice={isVisitingPlace ? undefined : () =>
+                            /* 🔴 While visiting, the way out is leavePlace — not a
+                               shard switch, because there is no own shard here to
+                               go back to. 17-02 built the 'other-place' notice with
+                               its control absent and 17-04 left it that way, both
+                               deliberately, because there was no handler yet; this
+                               is it. A notice that explains a state and offers no
+                               way out is the stranding failure research Pitfall 8
+                               describes for the sibling case.
+                               ReadOnlyNotice only surfaces this control on the
+                               'other-place' and 'sibling-shard' branches, so a
+                               signed-out visitor — whose reason is 'signed-out' —
+                               still gets sign-in and nothing else, which is right:
+                               "Back to my spaces" would name spaces they have not
+                               got. Their way out is the strip. */
+                            onReturnToOwnSlice={isVisitingPlace ? leavePlace : () =>
                               handleViewSlice(activeTab, { id: activeSlice.id, siblingIndex: activeSlice.siblingIndex, memberCount: activeSlice.memberCount ?? 0 }, activeSlice.id)
                             }
                             onStartConversation={handleStartConversation}
@@ -1684,7 +1765,15 @@ export default function AppShell() {
                         statement delivered silently. One honest state instead. */}
                     {isVisitingPlace ? (
                       <div className="flex flex-col gap-3">
-                        <ReadOnlyNotice reason={activeNoWriteReason} surface="feed" loginUrl={isAuthenticated ? undefined : loginUrl} />
+                        {/* The same way out as Explore's notice, on the surface a
+                            member reaches by pressing Conversations. Only the
+                            'other-place' branch renders the control. */}
+                        <ReadOnlyNotice
+                          reason={activeNoWriteReason}
+                          surface="feed"
+                          loginUrl={isAuthenticated ? undefined : loginUrl}
+                          onReturnToOwnSlice={leavePlace}
+                        />
                         <div className="rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 shadow-sm p-5 flex flex-col gap-3">
                           <h3 className="text-base font-bold tracking-tight text-gray-900 dark:text-gray-100">
                             Conversations here belong to the people who live here
