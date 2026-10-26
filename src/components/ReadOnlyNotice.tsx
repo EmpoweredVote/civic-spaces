@@ -171,9 +171,14 @@ export function ReadOnlyNotice({
                 address has been set — so an Inform account passes sign-in and
                 lands on the no-jurisdiction state. Copy that stops at "make an
                 account" strands exactly the person it was written for.
-                🔴 Not "Sign in to join" or "Sign in to share": those literals are
-                in check-explore-gate's WRITE_WORDS, and this notice would fail
-                the gate it explains. */}
+                🔴 The control says "Sign in" and nothing more. The longer
+                invitations that read "Sign in to <do a thing>" are write
+                affordances, and check-explore-gate matches them as such — a
+                notice phrased that way would fail the gate it explains. The
+                literals are in that script's WRITE_WORDS and are deliberately
+                not retyped here: a component that quotes the strings an
+                assertion greps for is how a gate starts matching its own
+                documentation. */}
             {unavailable} {surface === 'thread' ? 'belongs' : 'belong'} to the people who live under
             that government. An Empowered Vote account with an address set opens your own civic
             spaces.
