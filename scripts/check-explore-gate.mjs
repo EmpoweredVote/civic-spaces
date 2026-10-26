@@ -121,6 +121,9 @@ const TABS = [
     // City/County are the only levels whose composition has `imagine` and `nearby`.
     hasImagine: true,
     siblingPostId: 'mock-city-2-post-1',
+    // A reply ON that post (devMockData MOCK_REPLIES). Assertion 14 needs a
+    // ReplyCard to actually mount, or the thread's reply gate is untested.
+    siblingReplyText: 'A reply in City Slice 2.',
     // MOCK_SLICES.city.geoid — the planted draft key must match what the effect rebuilds.
     draftKey: 'city|3702140|safer-walking',
     resume: { sliceType: 'city', geoid: '3702140', topicId: 'safer-walking' },
@@ -129,6 +132,7 @@ const TABS = [
     tab: 'federal',
     hasImagine: false,
     siblingPostId: 'mock-federal-2-post-1',
+    siblingReplyText: 'A reply in Federal Slice 2.',
     // federal is PLACELESS, so its draft key carries no geoid segment at all.
     draftKey: 'federal|foreign-policy',
     resume: { sliceType: 'federal', geoid: null, topicId: 'foreign-policy' },
@@ -608,6 +612,9 @@ for (const spec of TABS) {
 
   await ctx.close()
 
+  // Read inside assertion 10's context below, asserted as 14 after it closes.
+  let deepRead = { replyOnScreen: false, replyButtons: -1, threadTextareas: -1, threadSubmits: -1 }
+
   // ── 10  The resume invariant, via a deep link ─────────────────────────────
   //
   // 🔴 NOT "set a marker and reload while view-only". viewingSlices is plain
@@ -634,7 +641,7 @@ for (const spec of TABS) {
     await bootedWithTheme(p2, 'dark')
     await p2.waitForTimeout(3500)
 
-    const deep = await p2.evaluate((postId) => {
+    const deep = await p2.evaluate(({ postId, replyText }) => {
       const body = document.body.innerText || ''
       const pill = [...document.querySelectorAll('button[aria-haspopup="listbox"]')]
         .map((b) => (b.textContent || '').trim())
@@ -649,8 +656,16 @@ for (const spec of TABS) {
         pill,
         // PostComposer is a sheet and is unmounted when closed.
         composerOpen: /New Post/.test(body) || /Edit anything before you post/.test(body),
+        // ── For assertion 14: the REPLY level of the same thread ────────────
+        // Visible only — the feed list is CSS-hidden behind an open thread, so
+        // anything still laid out belongs to the thread.
+        replyOnScreen: body.includes(replyText),
+        replyButtons: [...document.querySelectorAll('button')]
+          .filter((b) => b.offsetParent !== null && (b.textContent || '').trim() === 'Reply').length,
+        threadTextareas: [...document.querySelectorAll('textarea')].filter((t) => t.offsetParent !== null).length,
+        threadSubmits: [...document.querySelectorAll('button[type="submit"]')].filter((t) => t.offsetParent !== null).length,
       }
-    }, spec.siblingPostId)
+    }, { postId: spec.siblingPostId, replyText: spec.siblingReplyText })
 
     // 🔴 THE PRECONDITION FIRST. Without it a getMockPostById miss makes locatePost
     // return `unavailable`, the app toasts and navigates to '/', and the composer
@@ -678,6 +693,7 @@ for (const spec of TABS) {
             '\n            useNotificationRouting matches on.'),
     )
 
+    deepRead = deep
     errors.page.push(...e2.page)
     errors.console.push(...e2.console)
     errors.noise.push(...e2.noise)
@@ -728,6 +744,31 @@ for (const spec of TABS) {
     JSON.stringify(feedNotice) +
       '\n            The feed panel computes its own answer for its own tab. If this is the only' +
       '\n            red, look at the FEED_TABS map in AppShell, not at the gate.',
+  )
+
+  // ── 14  The THREAD's reply level, in the same deep-linked thread ──────────
+  //
+  // 🔴 This row of the plan's revert matrix was supposed to be covered by
+  // assertion 10 and was NOT. Reverting ThreadView's
+  // `canWrite={canWrite && !isViewOnly}` to `canWrite` left all 36 assertions
+  // green, for two compounding reasons: ReplyCard renders its Reply button only
+  // when canWrite AND onReply both survive, so reverting either ALONE changes
+  // nothing — and the two sibling posts had zero replies, so no ReplyCard
+  // mounted at all and neither did reverting BOTH. Assertion 10 only ever looked
+  // at the POST composer. The fixtures now carry a reply each, and this reads it.
+  check(
+    tab, 14,
+    'the view-only thread shows a REPLY and offers no reply control on it',
+    deepRead.replyOnScreen &&
+      deepRead.replyButtons === 0 &&
+      deepRead.threadTextareas === 0 &&
+      deepRead.threadSubmits === 0,
+    JSON.stringify(deepRead) +
+      '\n            replyOnScreen false is the VACUOUS case, not a gate failure: no ReplyCard' +
+      '\n            mounted, so the three zeroes beside it are statements about nothing. Look' +
+      '\n            at MOCK_REPLIES in devMockData.ts first. Any other red is the gate itself:' +
+      '\n            ThreadView passes canWrite={canWrite && !isViewOnly} AND no onReply, and' +
+      '\n            ReplyCard needs both.',
   )
 }
 

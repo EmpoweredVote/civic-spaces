@@ -381,7 +381,7 @@ const MOCK_FEDERAL_SIBLING_POSTS: PostWithAuthor[] = [
     user_id: 'mock-user-sibling1',
     title: null,
     body: "This is Federal Slice 2. If you can read this but cannot post, the sibling-slice read-only path is working.",
-    reply_count: 0,
+    reply_count: 1,
     edit_history: [],
     created_at: '2026-04-06T12:00:00.000Z',
     updated_at: '2026-04-06T12:00:00.000Z',
@@ -417,7 +417,7 @@ const MOCK_CITY_SIBLING_POSTS: PostWithAuthor[] = [
     user_id: 'mock-user-sibling2',
     title: null,
     body: "This is City Slice 2. Same city, a different shard of it — you can read everything here and write nothing, which is what the database allows and what the page should offer.",
-    reply_count: 0,
+    reply_count: 1,
     edit_history: [],
     created_at: '2026-04-14T10:30:00.000Z',
     updated_at: '2026-04-14T10:30:00.000Z',
@@ -513,6 +513,42 @@ const titledReply = (n: number, name: string, parent: number | null, body: strin
 })
 
 const MOCK_REPLIES: Record<string, ReplyWithAuthor[]> = {
+  /**
+   * 🔴 The two deep-linked SIBLING posts each carry a reply, and they are not
+   * decoration. ThreadView gates replying twice — `canWrite={canWrite &&
+   * !isViewOnly}` and `onReply={isViewOnly ? undefined : handleReply}` — and
+   * ReplyCard renders its Reply button only when BOTH survive. With zero replies
+   * on these posts no ReplyCard mounted at all, so reverting either line changed
+   * nothing a browser could see and check:explore-gate stayed green: the thread
+   * half of the gate had no coverage, which is the exact shape CLAUDE.md records
+   * this repo shipping once already. Assertion 14 reads these two bodies.
+   */
+  'mock-federal-2-post-1': [
+    {
+      id: 'mock-federal-2-reply-1',
+      post_id: 'mock-federal-2-post-1',
+      parent_reply_id: null,
+      user_id: 'mock-user-sibling4',
+      body: 'A reply in Federal Slice 2. Reading it is the point; there should be no Reply control on it from another shard.',
+      created_at: '2026-04-06T13:00:00.000Z',
+      updated_at: '2026-04-06T13:00:00.000Z',
+      is_deleted: false,
+      author: author('SecondShardMember'),
+    },
+  ],
+  'mock-city-2-post-1': [
+    {
+      id: 'mock-city-2-reply-1',
+      post_id: 'mock-city-2-post-1',
+      parent_reply_id: null,
+      user_id: 'mock-user-sibling5',
+      body: 'A reply in City Slice 2. Reading it is the point; there should be no Reply control on it from another shard.',
+      created_at: '2026-04-14T12:00:00.000Z',
+      updated_at: '2026-04-14T12:00:00.000Z',
+      is_deleted: false,
+      author: author('SecondCityShardMember'),
+    },
+  ],
   'mock-post-titled': [
     titledReply(1, 'ConcernedVoter', null, 'We got the monthly payments for our two kids. It covered most of our childcare gap over the summer — we kept both jobs instead of one of us cutting hours.', '2026-04-08T17:00:00.000Z'),
     titledReply(2, 'MonroeNeighbor', 1, 'Same here. The monthly schedule mattered more to us than the total.', '2026-04-08T17:40:00.000Z'),
