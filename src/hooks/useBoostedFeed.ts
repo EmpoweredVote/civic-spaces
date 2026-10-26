@@ -57,7 +57,8 @@ export function useBoostedFeed(sliceId: string | null) {
 
   // Realtime invalidation — invalidate on any post change in this slice
   useEffect(() => {
-    if (!sliceId) return
+    // Fixture slices have no rows to watch, and their join fails the slice_id filter check.
+    if (!sliceId || isMockSliceId(sliceId)) return
     const channel = supabase
       .channel(`boosted-feed-${sliceId}`)
       .on(
