@@ -15,6 +15,7 @@ import ThreadView from './ThreadView'
 import InformUpgradePrompt from './InformUpgradePrompt'
 import type { SortMode } from './FeedTabs'
 import type { PostWithAuthor } from '../types/database'
+import type { NoWriteReason } from '../lib/writeAccess'
 
 function sortPosts(posts: PostWithAuthor[], sort: SortMode): PostWithAuthor[] {
   // 🔴 CLIENT-SIDE OVER LOADED PAGES ONLY. The feed is paginated, so this orders the
@@ -52,8 +53,13 @@ interface SliceFeedPanelProps {
   sort: SortMode
   searchQuery: string
   panelRef?: React.Ref<FeedPanelHandle>
-  /** True when showing a sibling slice the member does not belong to. */
+  /** True when the viewer may not write in the slice on screen, for any reason. */
   isViewOnly?: boolean
+  /**
+   * WHY they may not — the notice's wording comes from this, and a notice that
+   * cannot name a reason is a panel still computing its own boolean.
+   */
+  noWriteReason?: NoWriteReason | null
   /** Sibling index currently displayed, and the member's own, for the notice. */
   viewingSliceIndex?: number
   ownSliceIndex?: number
@@ -69,6 +75,7 @@ export default function SliceFeedPanel({
   searchQuery,
   panelRef,
   isViewOnly = false,
+  noWriteReason = null,
   viewingSliceIndex,
   ownSliceIndex,
   onReturnToOwnSlice,
@@ -170,7 +177,7 @@ export default function SliceFeedPanel({
 
         {/* Informational, not an error: posting simply is not available here,
             because this is not the slice the member was assigned to. */}
-        {isViewOnly && (
+        {noWriteReason && (
           <div className="flex items-start gap-2.5 mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
             <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />

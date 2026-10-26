@@ -20,6 +20,7 @@ import type { MemberRace } from '../../lib/races'
 import type { ExploreComposition, ExploreLevel, ExploreTopic, TopicId } from '../../types/explore'
 import type { ExploreDestination, FeaturedPhoto } from './ExploreView'
 import type { ExploreDraft, ExploreUiState } from './exploreStorage'
+import type { NoWriteReason } from '../../lib/writeAccess'
 
 export interface ExploreCtx {
   composition: ExploreComposition
@@ -73,6 +74,13 @@ export interface ExploreCtx {
    * being enough.
    */
   isViewOnly: boolean
+  /**
+   * WHY the viewer may not write — 'signed-out', 'no-slice', 'other-place' or
+   * 'sibling-shard' — or null when they may. Derived from `isViewOnly`'s own
+   * source (whyNoWrite, in AppShell) and never computed beside it: two values
+   * that each decide the same thing is how they come to disagree.
+   */
+  noWriteReason: NoWriteReason | null
   /** Which shard is on screen, for the notice's wording. Undefined when not view-only. */
   viewingSliceIndex?: number
   /** The member's OWN shard, the one posting and drafting stay in. */

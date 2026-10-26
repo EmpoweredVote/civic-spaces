@@ -33,6 +33,7 @@ import { ExploreView } from './explore/ExploreView'
 import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
 import { canPostDraft, parseDraftKey, racesAreaFor, type CompassLevelFlags } from '../lib/exploreComposition'
+import { whyNoWrite, placeKey, type ViewedSlice, type NoWriteReason } from '../lib/writeAccess'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
@@ -334,6 +335,7 @@ function ActiveExplore({
   answeredCompassTopicIds,
   compassLevelFlags,
   isViewOnly,
+  noWriteReason,
   viewingSliceIndex,
   onReturnToOwnSlice,
   onStartConversation,
@@ -366,6 +368,8 @@ function ActiveExplore({
    * how half a gate ships.
    */
   isViewOnly: boolean
+  /** WHY not, for the notice's wording. Derived with it, never beside it. */
+  noWriteReason: NoWriteReason | null
   /** The sibling on screen. The member's own index comes off activeSlice. */
   viewingSliceIndex: number | undefined
   onReturnToOwnSlice: () => void
@@ -456,6 +460,7 @@ function ActiveExplore({
       destination={destination}
       isAuthenticated
       isViewOnly={isViewOnly}
+      noWriteReason={noWriteReason}
       viewingSliceIndex={viewingSliceIndex}
       ownSliceIndex={activeSlice.siblingIndex}
       onReturnToOwnSlice={onReturnToOwnSlice}
@@ -827,8 +832,39 @@ export default function AppShell() {
   }, [scrollToContentTop])
 
   /**
-   * The shard on screen for the active tab, and whether it is a SIBLING of the
-   * member's own — readable by RLS, every write path closed by it.
+   * The viewer's OWN memberships, in the two shapes whyNoWrite() asks about.
+   *
+   * 🔴 Built from `slices` — what the MEMBER HOLDS — and never from anything on
+   * screen. Research Q3.4 lists four places this shell already conflates "on
+   * screen" with "mine"; this is the one that decides whether a write is
+   * offered, so it is the one where that conflation would be worst. A later
+   * phase adds state for the things that SHOULD follow a visited place; these
+   * two are not among them and must not be rebuilt from it.
+   *
+   * Both are empty for a guest AND for an Inform account, which holds no
+   * slice_members rows — which is how D-04 ("treat Inform as a guest") is
+   * satisfied by the data rather than by a tier check someone has to remember.
+   */
+  const ownedSliceIds = useMemo(
+    () => new Set(Object.values(slices).map((s) => s.id)),
+    [slices],
+  )
+  const ownedPlaceKeys = useMemo(
+    () => new Set(Object.values(slices).map((s) => placeKey(s.sliceType, s.geoid))),
+    [slices],
+  )
+
+  /**
+   * The shard on screen for the active tab, and WHY the viewer may not write in
+   * it — one of 'signed-out' | 'no-slice' | 'other-place' | 'sibling-shard', or
+   * null meaning they may.
+   *
+   * 🔴 This replaced `!!activeSlice && !!activeViewing && activeViewing.id !==
+   * activeSlice.id`, which FAILED OPEN: with no slice at all the expression is
+   * false — "not gated" — so a signed-out visitor and a member on a tab they
+   * hold no slice for were both offered a composer RLS can only refuse. The
+   * answer now comes from one pure function (src/lib/writeAccess.ts), asked
+   * once here and once per feed panel, so the two cannot drift apart.
    *
    * 🔴 Declared here, above handleStartConversation, rather than beside the other
    * derived render values below: that callback needs it in its dependency array,
@@ -837,7 +873,30 @@ export default function AppShell() {
    */
   const activeSlice = slices[activeTab]
   const activeViewing = viewingSlices[activeTab]
-  const activeIsViewOnly = !!activeSlice && !!activeViewing && activeViewing.id !== activeSlice.id
+  /**
+   * 🔴 `activeViewing` is a SiblingSlice — { id, siblingIndex, memberCount } — and
+   * carries no sliceType and no geoid. They come from `activeSlice`, which is the
+   * same jurisdiction by construction: a sibling shares (slice_type, geoid), which
+   * is exactly what posts_select_sibling_slice joins on. SiblingSlice is NOT
+   * widened to carry a place; it is a shard index, and a visited place gets its
+   * own state rather than an overloaded one (research Q3.4 item 3).
+   *
+   * With no slice for this tab the viewed slice has a null id — honest, and the
+   * common case for a place nobody is a member of. `whyNoWrite` reaches a reason
+   * on a null id BEFORE any membership test, which is how it fails closed.
+   */
+  const activeViewedSlice: ViewedSlice = activeSlice
+    ? { id: activeViewing?.id ?? activeSlice.id, sliceType: activeSlice.sliceType, geoid: activeSlice.geoid }
+    : { id: null, sliceType: activeTab, geoid: null }
+  const activeNoWriteReason = whyNoWrite({
+    viewed: activeViewedSlice,
+    ownedSliceIds,
+    ownedPlaceKeys,
+    isAuthenticated,
+  })
+  // The name is kept: every consumer below already reads it, and renaming them in
+  // the same change that widens their meaning is how a hunk gets dropped.
+  const activeIsViewOnly = activeNoWriteReason !== null
 
   /**
    * Explore → Conversations with a topic's draft in the composer.
@@ -866,6 +925,22 @@ export default function AppShell() {
      * and keep the other — assertion 10 of check:explore-gate watches the pair.
      */
     if (activeIsViewOnly) return
+    /**
+     * 🔴 Now defence in depth, not live code, and deliberately left in place.
+     *
+     * 'signed-out' is itself a reason, so the refusal above fires first and this
+     * branch is unreachable from Explore — which is correct: a signed-out visitor
+     * no longer gets a draft form to press. (D-09 removes the placeless Explore
+     * that was its only valid home; a draft typed about a NAMED place carries that
+     * place's geoid, which migrateSignedOutDrafts rightly leaves alone and
+     * canPostDraft then refuses as 'moved' — a dead end with text in it.)
+     *
+     * It stays because it is the only writer of cs_explore_resume_v2: deleting it
+     * would delete the resume contract that markers already in members' storage
+     * depend on. It becomes reachable only if a future caller passes a context in
+     * which whyNoWrite answers null for an unauthenticated viewer — which it
+     * cannot, since 'signed-out' is its first branch.
+     */
     if (!isAuthenticated) {
       const parsed = parseDraftKey(key)
       if (parsed) writeResume({ ...parsed, at: Date.now() })
@@ -1071,9 +1146,13 @@ export default function AppShell() {
                 Log in with Empowered Vote
               </a>
             </div>
-            {/* Explore works signed out: browsing and drafting need no account. Posting
-                goes through the real sign-in above, and the draft survives the trip. */}
-            <div className="w-full max-w-3xl">
+            {/* Explore works signed out: browsing needs no account. Every write
+                affordance on it is gated — see the notice the view renders. */}
+            {/* data-signed-out-explore: this branch has no #forum-view-explore
+                tabpanel (that one only exists once a member has a feed), so the
+                signed-out viewer of scripts/check-explore-gate.mjs scopes its
+                queries to this attribute instead. */}
+            <div className="w-full max-w-3xl" data-signed-out-explore="">
               {/* A stranger gets the place-scale generic composition, not the stored
                   cs_active_tab: there is no tab UI on this screen, and the city page is
                   the most legible thing to someone who has not signed in (16-CONTEXT,
@@ -1084,9 +1163,14 @@ export default function AppShell() {
                 geoid={null}
                 destination={null}
                 isAuthenticated={false}
-                /* A stranger is on nobody's sibling shard — there is no membership to
-                   be a sibling OF. Stated rather than defaulted: see the prop's doc. */
-                isViewOnly={false}
+                /* 🔴 The real answer, which is always 'signed-out' here.
+                   This used to read `isViewOnly={false}`, with a comment saying a
+                   stranger is on nobody's sibling shard. That was true about SIBLINGS
+                   and false about WRITING: a visitor cannot write anywhere, and the
+                   flag's job is the write gate, not the shard comparison. The notice
+                   says so, and offers sign-in as its control. */
+                isViewOnly={activeIsViewOnly}
+                noWriteReason={activeNoWriteReason}
                 /* A stranger has answered nothing, so rankByCompass keeps source
                    order; the level flags still exclude, which needs no account. */
                 answeredCompassTopicIds={compass.answeredTopicIds}
@@ -1270,6 +1354,7 @@ export default function AppShell() {
                             answeredCompassTopicIds={compass.answeredTopicIds}
                             compassLevelFlags={compassLevelFlags}
                             isViewOnly={activeIsViewOnly}
+                            noWriteReason={activeNoWriteReason}
                             viewingSliceIndex={activeViewing?.siblingIndex}
                             onReturnToOwnSlice={() =>
                               handleViewSlice(activeTab, { id: activeSlice.id, siblingIndex: activeSlice.siblingIndex, memberCount: activeSlice.memberCount }, activeSlice.id)
@@ -1285,11 +1370,17 @@ export default function AppShell() {
                             geoid={null}
                             destination={null}
                             isAuthenticated
-                            /* No slice for this tab, so there is no own shard for another
-                               to be a sibling of. activeIsViewOnly is false here by
-                               construction (it requires activeSlice); said outright so a
-                               later refactor cannot make it true without noticing. */
-                            isViewOnly={false}
+                            /* 🔴 The real answer — which is 'no-slice' here, because
+                               there is no slice at this level to be a member of.
+                               This used to read `isViewOnly={false}`, annotated
+                               "activeIsViewOnly is false here by construction (it
+                               requires activeSlice); said outright so a later refactor
+                               cannot make it true without noticing". That comment was
+                               an accurate description of the BUG: requiring activeSlice
+                               is exactly the fail-open, and "no slice here" is precisely
+                               the state where a write must not be offered. */
+                            isViewOnly={activeIsViewOnly}
+                            noWriteReason={activeNoWriteReason}
                             slices={slices}
                             answeredCompassTopicIds={compass.answeredTopicIds}
                             compassLevelFlags={compassLevelFlags}
@@ -1315,13 +1406,25 @@ export default function AppShell() {
                       if (!slice) return null
                       const isShown = activeTab === tabKey
                       const viewing = viewingSlices[tabKey]
-                      const isViewOnly = !!viewing && viewing.id !== slice.id
+                      /* 🔴 The SAME function the active tab asks, asked again per tab —
+                         not a second expression that can drift from the first. This was
+                         `!!viewing && viewing.id !== slice.id`, a copy of the fail-open
+                         rule; a boolean computed here can say "gated" but can never say
+                         WHY, which is what the notice below needs. */
+                      const noWriteReason = whyNoWrite({
+                        viewed: { id: viewing?.id ?? slice.id, sliceType: slice.sliceType, geoid: slice.geoid },
+                        ownedSliceIds,
+                        ownedPlaceKeys,
+                        isAuthenticated,
+                      })
+                      const isViewOnly = noWriteReason !== null
                       const mode = feedModes[tabKey]
                       return (
                         <div key={tabKey} className={isShown ? 'flex flex-col' : 'hidden'}>
                           <SliceFeedPanel
                             sliceId={viewing?.id ?? slice.id}
                             isViewOnly={isViewOnly}
+                            noWriteReason={noWriteReason}
                             viewingSliceIndex={viewing?.siblingIndex}
                             ownSliceIndex={slice.siblingIndex}
                             onReturnToOwnSlice={() =>

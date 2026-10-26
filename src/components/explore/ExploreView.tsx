@@ -20,6 +20,7 @@ import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { UpcomingElection } from '../../hooks/useNextElection'
 import type { RaceRecording } from '../../lib/raceMedia'
 import type { MemberRace } from '../../lib/races'
+import type { NoWriteReason } from '../../lib/writeAccess'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useExploreComposition } from '../../lib/exploreData'
 import {
@@ -94,6 +95,12 @@ interface ExploreViewProps {
    * explicitly.
    */
   isViewOnly: boolean
+  /**
+   * WHY the viewer may not write here, or null when they may. Required for the
+   * same reason `isViewOnly` is: a call site that forgot it would render a notice
+   * that cannot say which of the four states it is in.
+   */
+  noWriteReason: NoWriteReason | null
   /** The shard on screen and the member's own, for the notice. Only meaningful while view-only. */
   viewingSliceIndex?: number
   ownSliceIndex?: number
@@ -173,6 +180,7 @@ export function ExploreView({
   destination,
   isAuthenticated,
   isViewOnly,
+  noWriteReason,
   viewingSliceIndex,
   ownSliceIndex,
   onReturnToOwnSlice,
@@ -418,6 +426,7 @@ export function ExploreView({
     destination,
     isAuthenticated,
     isViewOnly,
+    noWriteReason,
     viewingSliceIndex,
     ownSliceIndex,
     onReturnToOwnSlice,
