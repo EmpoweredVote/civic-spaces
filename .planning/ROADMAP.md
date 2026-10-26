@@ -246,6 +246,26 @@ elections, compass topics — and the committed gazetteer. **It must not touch
   half survives, the "never geocodes" half is narrowed for observers only.
 - The ev-accounts handoff for `POST /api/civic-spaces/resolve`.
 
+**Plans**: 7 plans, executed **strictly in order** — 17-02, 17-04, 17-05 and 17-06 all edit
+`AppShell.tsx`, and 17-02 and 17-06 both edit `scripts/check-explore-gate.mjs`, so despite
+`parallelization: true` in config this phase is serial. See the plan-set table in
+`17-SHARED.md`.
+
+Plans:
+- [ ] `17-01-PLAN.md` — Reaching the signed-out app, and the write predicate (`canWriteIn`)
+- [ ] `17-02-PLAN.md` — The gate fails closed; the notices learn which of four reasons
+- [ ] `17-03-PLAN.md` — Resolving a place with no account, and the rule D-14 narrows
+- [ ] `17-04-PLAN.md` — The welcome screen, and a named place on screen
+- [ ] `17-05-PLAN.md` — The second entry point, the way back, and the place-entry check
+- [ ] `17-06-PLAN.md` — Officials, the sidebar and Explore for a visited place
+- [ ] `17-07-PLAN.md` — The four-way visual pass and the phase gate
+
+Shared context: `17-SHARED.md` — the phase boundary, the execution order, the three viewer
+states, the coverage matrix and the constraints every plan inherits. Read it before `17-01`.
+
+Validation: `17-VALIDATION.md` — how every claim in the phase is checked, which commands
+run it, and the gaps it knowingly leaves.
+
 Research: `17-RESEARCH.md` (`4991a00`). Context and locked decisions: `17-CONTEXT.md`.
 
 ### Phase 18: The Public Square
@@ -312,5 +332,5 @@ validation in ev-accounts so the next real name cannot arrive silently.
 | 14. Slice Taxonomy | — | 1/1 | Complete | 2026-09-02 |
 | 15. Tool Deep Links | — | 1/1 | Complete | 2026-09-08 |
 | 16. Explore by Slice | — | 10/10 | Complete | 2026-10-25 |
-| 17. The Signed-Out Arrival | — | 0/? | Planning | — |
+| 17. The Signed-Out Arrival | — | 0/7 | Planned | — |
 | 18. The Public Square | — | 0/? | Not planned | — |
