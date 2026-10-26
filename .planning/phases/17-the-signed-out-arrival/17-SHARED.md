@@ -53,19 +53,21 @@ under "Known gaps" so the next phase can find them.
 Seven plans. **Execute them strictly in order, 01 → 07. Do not parallelise any of them.**
 
 `.planning/config.json` has `"parallelization": true`, which is right for most phases and
-wrong for this one: 17-02, 17-04, 17-05 and 17-06 all edit `AppShell.tsx`, and 17-02 and
-17-06 both edit `scripts/check-explore-gate.mjs`. Two agents in those files at once drops
-hunks in the exact places where a dropped hunk is a dropped gate. The "Depends on" line in
-each plan names its *logical* prerequisite; the *execution* order is serial regardless.
+wrong for this one: 17-02, 17-04, 17-05 and 17-06 all edit `AppShell.tsx`, and **three
+plans — 17-02, 17-04 and 17-06 — edit `scripts/check-explore-gate.mjs`**. Two agents in
+those files at once drops hunks in the exact places where a dropped hunk is a dropped gate.
+The "Depends on" line in each plan names its *logical* prerequisite; the *execution* order
+is serial regardless.
 
 | Plan | What lands | Logical prerequisite | Spine files it edits |
 |---|---|---|---|
 | **17-01** | Reaching the signed-out app at all, and the write predicate | — | `useAuth.ts`, `lib/writeAccess.ts` (new) |
 | **17-02** | The gate fails closed; the notices learn why | 17-01 | `AppShell.tsx`, `ViewOnlyNotice.tsx`, `SliceFeedPanel.tsx`, `devMockData.ts`, `check-explore-gate.mjs` |
 | **17-03** | Resolving a place with no account — and the rule that narrows | 17-01 | `lib/placeResolve.ts`, `lib/viewedPlace.ts`, `hooks/usePlaceSearch.ts` (all new), `CLAUDE.md`, `LocationPrompt.tsx` |
-| **17-04** | The welcome screen, and a named place on screen | 17-03 | `WelcomeScreen.tsx`, `PlacePicker.tsx` (new), `AppShell.tsx` |
+| **17-04** | The welcome screen, and a named place on screen | 17-03 | `WelcomeScreen.tsx`, `PlacePicker.tsx` (new), `AppShell.tsx`, `useSiblingSlices.ts`, `HeroBanner.tsx`, **`check-explore-gate.mjs`** |
 | **17-05** | The second entry point, and what must **not** follow a place | 17-04 | `AppShell.tsx`, `NavSidebar.tsx`, `check-place-entry.mjs` (new) |
 | **17-06** | Officials, the sidebar and Explore for a visited place | 17-05 | `AppShell.tsx`, `hooks/usePlaceRepresentatives.ts` (new), `registry.tsx`, `check-explore-gate.mjs`, `check-explore-rooms.mjs` |
+| **17-07** | The four-way visual pass and the phase gate | all | `scripts/shoot-welcome.mjs` (new) |
 
 🔴 **17-04 carries `viewedPlace` and `onScreenSlices` as well as the screen, deliberately.**
 A picker that sets a state nothing reads is a control that looks live and does nothing —
@@ -73,19 +75,25 @@ the exact failure `check:explore-rooms` was written to catch in Phase 16. So the
 ships the picker also ships the thing it changes. 17-05 then adds the *second* entry point
 (D-19) and audits the four places research Q3.4 says the shell conflates "on screen" with
 "mine".
-| **17-07** | The four-way visual pass and the phase gate | all | `scripts/shoot-welcome.mjs` (new) |
 
 ### Cross-plan dependencies that are easy to miss and are not optional
 
-- 🔴 **17-01 creates `?signedout=1`. Nothing before it can see a signed-out screen at all.**
+- 🔴 **17-01 creates `?signedout=1`. On a fresh clone — and in every committed check —
+  nothing before it can reach the signed-out screen.**
   `useAuth.ts:219-225` enters dev-guest mode unconditionally when `VITE_SUPABASE_URL` is
-  absent, so on a fresh clone dropping `?dev=1` does **not** sign you out. This is the gap
-  `16-VALIDATION.md` recorded as "the signed-out presentation is not reachable on a fresh
-  clone", and in Phase 16 it was a tolerable blind spot. In this phase the signed-out screen
-  **is the deliverable**, so it is a Wave 0 blocker, not a gap.
-- 🔴 **17-02 adds the `signed-out` and `no-slice` cases to `check-explore-gate.mjs`;
-  17-06 adds `other-place` and re-points the `signed-out` case** at the welcome screen's
-  place view, which does not exist until 17-05. Both edit the same script. 17-02 first.
+  absent, so on a fresh clone dropping `?dev=1` does **not** sign you out. ⚠️ **On a machine
+  that already has a `.env.local`, the signed-out branch *is* reachable today** — just visit
+  without `?dev=1` and the silent-SSO check fails from localhost. That is why the ordering
+  still holds rather than why it does not: 17-02 and 17-06 both boot a **committed** check at
+  `?signedout=1`, and a check that only runs on machines with somebody's `.env.local` is not
+  a check. This is the gap `16-VALIDATION.md` recorded as "the signed-out presentation is not
+  reachable on a fresh clone"; in Phase 16 it was a tolerable blind spot, and here the
+  signed-out screen **is the deliverable**.
+- 🔴 **Three plans edit `check-explore-gate.mjs`, in this order.** 17-02 adds the
+  `signed-out` and `no-slice` viewers against **today's** signed-out Explore; **17-04 deletes
+  that screen (D-09) and therefore owns re-pointing the `signed-out` viewer** at the welcome
+  screen's place view, in its own plan, leaving no red check behind; 17-06 adds `other-place`
+  and `observer-with-a-place` on top. One script, six viewers, never a fork.
 - **17-02 adds a no-city dev fixture (`?dev=1&place=arden`); 17-05 and 17-06 both rely on
   it.** An unincorporated address is a real, common answer — ev-accounts states it
   outright: *"`city` is null for unincorporated addresses. That is an answer, not a
@@ -135,6 +143,45 @@ the composer, the FAB and the reply box are offered to someone RLS can only refu
 written when the only non-writable state was *a sibling of a slice you hold*, where absence
 of a slice meant "no tab", not "a tab you cannot write in". It is the single highest-risk
 line in the phase.
+
+### 🔴 An observer has NO user id — and `'preview-guest'` is deleted, not adopted
+
+`src/lib/devMockData.ts:21-30` reserves an id for something that sounds exactly like this
+phase's observer:
+
+> `'preview-guest'` — a real anonymous visitor who entered their address to see a feed
+> across all levels (works in a production build too — **the id itself is the safety
+> boundary, not an environment check**, since a real Supabase user id can never collide with
+> these strings)
+
+It is in `SYNTHETIC_USER_IDS` and **nothing else in the repo references it** — verified
+2026-10-26, two lines in one file, both comments or the set itself. Nothing creates it,
+nothing routes to it.
+
+**It is not adopted, because adopting it would ship fixture forum content to strangers.**
+`isSyntheticUserId()` is the switch behind every fallback in the app. Give an observer that
+id and `useAllSlices` answers `MOCK_SLICES` with `hasJurisdiction: true`, `useRepresentatives`
+answers the fixture city's officials, `useCompassData` short-circuits to fixtures, and
+`fetchElections` falls back to `MOCK_ELECTIONS`. A visitor who typed "Portland" would be
+shown Asheville's fixture slices and invented conversations **as if they were Portland's** —
+the "a real answer for the wrong place" failure, with the fixtures' own safety switch
+flipped to produce it. The reservation was written for a different design — a *demo* feed
+across all levels — and this phase's design is the opposite: real public data, and no forum
+content at all for a place you are not in.
+
+**An observer's `userId` stays `null`**, which is a stronger boundary than a reserved
+string: every hook that could serve fixtures is already `enabled: !!userId`, so none of them
+runs at all.
+
+🔴 **The principle in that comment is kept, applied where it belongs.** *The id itself is
+the safety boundary, not an environment check* is exactly why a visited place's slice id is
+the `place:<type>:<geoid>` sentinel (17-04): a real `slices.id` is a UUID and can never
+collide with it, so a leak is loud rather than a zero-row answer. Same reasoning, moved from
+user ids — where it would have unlocked fixtures — to slice ids, where it locks a query out.
+
+**17-02 Task 2 Step 0 removes the dead reservation.** A reserved name for exactly this
+feature, left sitting unused while the feature ships, is how dead concepts accumulate and
+how the next reader concludes the wrong design was intended.
 
 ---
 

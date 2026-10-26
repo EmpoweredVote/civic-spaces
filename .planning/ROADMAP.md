@@ -247,9 +247,9 @@ elections, compass topics — and the committed gazetteer. **It must not touch
 - The ev-accounts handoff for `POST /api/civic-spaces/resolve`.
 
 **Plans**: 7 plans, executed **strictly in order** — 17-02, 17-04, 17-05 and 17-06 all edit
-`AppShell.tsx`, and 17-02 and 17-06 both edit `scripts/check-explore-gate.mjs`, so despite
-`parallelization: true` in config this phase is serial. See the plan-set table in
-`17-SHARED.md`.
+`AppShell.tsx`, and three of them (17-02, 17-04, 17-06) edit
+`scripts/check-explore-gate.mjs`, so despite `parallelization: true` in config this phase is
+serial. See the plan-set table in `17-SHARED.md`.
 
 Plans:
 - [ ] `17-01-PLAN.md` — Reaching the signed-out app, and the write predicate (`canWriteIn`)

@@ -68,9 +68,19 @@ oversights, and each plan says so in place:
 
 | Revert | Why nothing goes red | Where it is recorded |
 |---|---|---|
-| adding a `tier === 'inform'` term to `whyNoWrite` | D-04 already holds by construction — an Inform account has no `slice_members` rows | 17-01 Task 3 Step 3 |
-| leaving the per-tab feed gate as the old expression | it agrees with the predicate for every case a browser can currently reach | 17-02 Task 5 |
-| pointing `repsData` at the member's own officials while visiting | no check can tell one real person's name from another's | 17-06 Task 4; closed by the human step in 17-07 Task 4 |
+| adding a `tier === 'inform'` term to `whyNoWrite` | D-04 already holds by construction — an Inform account has no `slice_members` rows, so there is no consequence to observe, and the absence of one is the demonstration | 17-01 Task 3 Step 3 |
+
+🔴 **That is the only one, and an earlier draft of this phase claimed three.** The other two
+were conceded too early and are now assertions:
+
+| Was conceded | Why the concession was wrong | Now covered by |
+|---|---|---|
+| leaving the per-tab feed gate as the old expression | it was routed to "`check:write-access` and a later visited-place run". Neither reaches it: the first exercises the function and never the call site, and 17-04 guards the whole `FEED_TABS.map` off while visiting, so no visited-place run renders a feed panel at all | the feed surface's notice-reason assertion on the existing `member-sibling-shard` viewer — 17-02 Task 4 Step 1b |
+| pointing `repsData` at the member's own officials while visiting | *"no check can tell one real person's name from another's"* — true, and irrelevant. The revert is a **wrong source**, and a source is observable in a request body | 17-06 Task 3b, assertions 1–3; the human read in 17-07 Task 4 keeps **correctness**, which is a different question |
+
+**The rule this leaves behind:** *"no check can see this"* is a conclusion to reach **after**
+looking for an observable consequence, not instead of looking. A reason that must be
+computed to be displayed is observable; so is a request body, and so is a request count.
 
 ---
 
@@ -82,7 +92,7 @@ oversights, and each plan says so in place:
 | `npm run check:write-access` | 17-01 (18) | — | < 1 s |
 | `npm run check:place-resolve` | 17-03 | committed fixtures, no network | < 1 s |
 | `node scripts/check-place-resolve.mjs --live` | 17-03 | **network** | ~5 s |
-| `npm run check:place-entry` | 17-05 (13) | `npm run dev` running | ~30 s |
+| `npm run check:place-entry` | 17-05 (14) | `npm run dev` running | ~30 s |
 | `npm run check:explore-gate` | existing; **extended** by 17-02, 17-04, 17-06 | `npm run dev` running | ~45 s at six viewers |
 | `npm run check:composition` | existing (62) | — | < 1 s |
 | `npm run check:explore-rooms` | existing; **its failure text** touched by 17-06 | `npm run dev` running | ~15 s |
@@ -140,6 +150,8 @@ acceptance criteria.
 | 🔴 An **unincorporated** place yields four tabs and reads as an answer, not an error | 2 | `check:place-entry` 6, on the `arden` fixture |
 | 🔴 A place with **no slice row** — the common case at 15 rows in the whole product — shows the honest state and never an empty feed | 2 | `check:place-entry` 3 |
 | `coordinate-lookup` fires **exactly once** per chosen place, never in the typeahead | 2 | `check:place-entry` 4 |
+| 🔴 **No PostgREST request carries the visited geoid — from *any* of the four surfaces** | 2 | `check:place-entry`'s network assertion. Three surfaces query for the slice on screen (`FEED_TABS.map`, `ActiveHeroBanner`, `ActiveSliceSelector`), and the last two sit in the sticky tab bar **outside** the feed map. Both defences are needed: `useSiblingSlices` bails on the sentinel (returning **empty**, never `getMockSiblings`), and the selector and search are render-guarded |
+| 🔴 **The banner states no member count it does not have** | 4 | `HeroBanner.memberCount` widens to `number \| null` and the stat is omitted (17-04 Step 5b). A sentinel slice would otherwise have rendered "0 members in this slice" about a real jurisdiction. Confirmed absent, not zero, in 17-07's presentations 4 and 6 |
 | The place survives a reload and does not outlive the window | 2 | `check:place-entry` 4 and 5 |
 | A signed-in member can enter a place from the shell and get back | 2 | `check:place-entry` 8 |
 | A notification or `/post/` link clears the place and opens the member's own thread | 2 | `check:place-entry` 9 |
@@ -203,6 +215,8 @@ These make the work a failure even if it ships and functions.
 | **A write offered where RLS can only refuse** | `whyNoWrite` failing closed; `check:explore-gate` across six viewers with its control case; RLS as the backstop | 1 + 2 |
 | **A post landing in the wrong jurisdiction** | `canPostDraft(key, slices)` stays on the member's **own** slices — audited and commented in 17-04 Task 4 — plus `check:composition` 16–21 | 1 + human |
 | 🔴 **An empty feed read as "nobody has said anything here"** | the conversations panel is guarded off for a visited place **in the same commit** that introduces `onScreenSlices`; `check:place-entry` 3 and the network assertion | 2 |
+| 🔴 **A confident false fact about a jurisdiction nobody here holds** — "0 members in this slice", "This is the only slice in Portland so far" | 17-04 Step 5: the sentinel bail in `useSiblingSlices`, the render guards on the shard selector and the feed search, and the omitted member count | 2 + 4 |
+| 🔴 **Fixture conversations shown as a real place's** | the sentinel bail returns **empty**, never `getMockSiblings`; and `'preview-guest'` is deleted rather than adopted, because `isSyntheticUserId` is the switch behind every fixture fallback in the app | structural |
 | **A stranger shown a place as if it were theirs** | D-10: the welcome screen names no place; every place-scoped string is resolved from a geoid the visitor chose; `ActiveLocationCard` is hidden while visiting | human + 2 |
 | **A placeless shell** | D-09: the `geoid: null` `ExploreView` is deleted in 17-04; a visitor sees a real place or the welcome screen | 2 |
 | **A control that looks live and does nothing** | the address input does not render until `VITE_PLACE_RESOLVE_URL` is set; the picker ships in the same plan as the state it changes; `check:explore-rooms` stays green | 2 |
@@ -217,7 +231,7 @@ These make the work a failure even if it ships and functions.
 
 | Gap | Closed by | Why it mattered |
 |---|---|---|
-| 🔴 **A way to be signed out on localhost** | 17-01 Task 1 (`?signedout=1`) | `useAuth` enters dev-guest mode unconditionally with no `VITE_SUPABASE_URL`, so dropping `?dev=1` does not sign you out. `16-VALIDATION.md` recorded this and routed around it; this phase ships the signed-out screen, so there was nothing to route around |
+| 🔴 **A way for a committed check to be signed out** | 17-01 Task 1 (`?signedout=1`) | `useAuth` enters dev-guest mode unconditionally with no `VITE_SUPABASE_URL`, so on a fresh clone dropping `?dev=1` does not sign you out. ⚠️ On a machine with a `.env.local` the branch *is* reachable by hand — which is why this is still Wave 0 rather than why it is not: a check that passes only on machines carrying somebody's `.env.local` is a memory, not a check |
 | **A pure, import-free module Node can run** | 17-01 Task 2 (`src/lib/writeAccess.ts`) | Otherwise every logic check tests a transcription, and a copy-test passes while the shipped code is wrong — `exploreComposition.ts`'s own header says so |
 | 🔴 **A fixture with no slice for a level** | 17-02 Task 2 (`?dev=1&place=arden`) | No dev fixture lacked a slice, so the `no-slice` branch was unreachable and "no composer found" would have been a true statement about a tab that never had one. It is also a real answer: ev-accounts states that `city` is null for unincorporated addresses |
 | **Committed API fixtures** | 17-03 Task 4 | A browser check bound to a live API is non-deterministic and offline-hostile; a fixture branch inside the app would be fake data shipped to production to serve a test |
@@ -233,10 +247,10 @@ Stated rather than hidden. Each is a judgement, not an oversight.
 | Gap | Why | Mitigation |
 |---|---|---|
 | 🔴 **Conversations for a visited place are not readable, so there is nothing to check.** The welcome screen's conversations paragraph and the visited-place conversations state are **Phase 18's to revise.** | Every `civic_spaces` grant is `TO authenticated` and `posts_select_sibling_slice` joins on `geoid`. D-22 put the one-way door in Phase 18. | Both are marked in source with a Phase 18 comment so that phase can grep rather than re-read. 17-07 Task 5 Step 1 confirms the markers are still there. |
-| 🔴 **"Officials are the right place's" is human-verified only.** | No automated check can tell one real person's name from another's, and inventing one that compares against a fixture would check the fixture. | 17-06 Task 4 names the gap in its revert matrix; 17-07 Task 4 closes it with a named human step on City and on Federal. |
+| **Whether the officials are the *right people* is human-verified.** Their **source** is not a gap. | A script can prove the request carried the visited geoid and that `/representatives/me` was not consulted; it cannot know who represents Asheville. | Source: 17-06 Task 3b assertions 1–3, deterministic. Change-on-entry: assertion 4, which needs the live endpoint and **SKIPs loudly** rather than passing when a set is empty. Correctness: the human read in 17-07 Task 4, on City and on Federal. |
 | **The address path is unverifiable end to end.** | `POST /api/civic-spaces/resolve` does not exist. | The client is written, typed, and covered by pure checks over a fixture response; `PLACE_RESOLVE_ENABLED` is false so no dead control ships; `ACCOUNTS-HANDOFF.md` is the ask. When it lands it is one env var and a re-run of `check:place-resolve --live`. |
 | **The signed-in production pass** — real `photoUrl` / credit precedence, real sibling shards, a real Compass token. | Needs a pasted `cs_token`; localhost has no login. | `scripts/shoot-app.mjs` after merge (17-07 Task 5 Step 4). The same place Phases 15 and 16 left theirs. |
-| **The six-panel hoisting rule has no automated check.** | A lint rule would be the right tool and this phase adds no tooling. | Demonstrated rather than asserted: 17-06 Task 4's last revert shows six `by-area` requests in the network log. Enforced by the hoisting pattern and by review. |
+| **The six-panel hoisting rule is pinned at exactly one hook, not in general.** | A lint rule would be the right tool and this phase adds no tooling. | 🔴 17-06 Task 3b assertion 3 asserts **exactly one** `by-area` request per place change, so moving `usePlaceRepresentatives` into `SliceFeedPanel` shows six and goes red. That is the first assertion in the repo to pin this rule at all. Every **other** shared hook is still enforced by the pattern and by review. |
 | **Place-name search quality is not checked.** | It is ev-accounts' ranking, not ours. The fixtures pin the *shape*, not the ordering. | `--live` catches shape drift. Ordering changes are ev-accounts' to own, and the picker shows the area type so two Portlands are told apart regardless. |
 | **The welcome screen's copy is not checked by a machine.** | Prose quality is not mechanisable. | Read out loud, in all four presentations, against a named list of six things it must not say (17-07 Task 2 Step 2). The literals that would violate the phase boundary are enumerated there rather than left to judgement. |
 | **`cursor: default` on 196 of 416 controls.** | App-wide, Tailwind v4 Preflight, unowned. | Item 6 of `16-explore-by-slice/deferred-items.md`. Not made worse here; new controls get `cursor-pointer`. |
