@@ -31,10 +31,24 @@ never copy real members' posts or profiles into fixtures.
 To work against the real backend instead, copy `.env.example` to `.env.local` and fill in
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; then `?dev=1` still opts into the dev id.
 `VITE_SLICE_ASSIGNMENT_URL` is optional; without it the fire-and-forget slice-assignment POST
-fails silently and you see the "no jurisdiction" state.
+fails silently and you see the "no jurisdiction" state. `VITE_PLACE_RESOLVE_URL` is optional
+too and is **not the same switch** — it turns on the signed-out *address* path, and the
+endpoint it needs does not exist yet. Leave it unset. See "Talking to the rest of the
+platform" below. ⚠️ It is missing from `.env.example`, which could not be edited from the
+agent session that added it; add it there when you are next in that file.
 
 The `?dev=1` token is unsigned and local-only. It is behind `import.meta.env.DEV` and is checked
 last, after the hash, localStorage and silent-SSO paths, so a real session always wins.
+
+**`?signedout=1` is the mirror of it, and is checked *first*.** Dev-only and session-scoped
+(`sessionStorage`, like `cs_dev_place` — a fresh tab is signed in again), it makes this window
+a signed-out visitor: it clears `cs_token` once per page load and keeps the window a visitor
+even when another tab signs in. The reversed ordering is the whole point and is safe for one
+reason: `?dev=1` **grants** a session, so it must never outrank a real one, whereas this only
+ever **removes** one — there is no privilege it can confer and nothing it can mask. It is how
+`check:explore-gate` reaches the signed-out screen on a fresh clone, where dropping `?dev=1`
+does not sign you out (with no `VITE_SUPABASE_URL`, `useAuth` enters dev-guest mode
+unconditionally).
 
 🔴 **You still cannot log in by clicking Sign in.** `useAuth.ts` hardcodes the redirect to
 `https://civicspaces.empowered.vote`, so the accounts hub sends you to production, not back to
@@ -234,8 +248,49 @@ is not this app's data.
 | Setting or changing an address | link out to `app.empowered.vote/settings/location` |
 | Posts, replies, slices, friends, notifications | Supabase, `civic_spaces` schema |
 
-This app **never geocodes and never stores a location.** If a member has no jurisdiction, the
-fix is always to send them to the accounts app — never to add address handling here.
+This app **never stores a location**, and **never geocodes for a member.** Those used to be
+one sentence; Phase 17 narrowed the second half and left the first intact, so read them as
+two rules.
+
+**Never stores** survives whole, and is load-bearing. The resolved **geoids** may be held for
+the session (`src/lib/viewedPlace.ts`, `sessionStorage`, `cs_viewed_place`); the typed string
+is never persisted, never logged by us, and never rendered back. `ResolvedPlace` has no
+`name` field *at all* — the display name is looked up **from the geoid** through
+`geoNames.ts`, so a call site cannot echo the input even by accident. `npm run check:place-resolve`
+asserts that key set structurally, and asserts that what reaches `sessionStorage` contains
+none of a sample input string.
+
+**Never geocodes for a member** is the other half, and it is unchanged where it was ever
+about members. A member's location belongs in their ev-accounts profile, where it is
+validated, encrypted and sits beside its privacy controls. If a member has no jurisdiction
+the fix is still, always, to send them to the accounts app — **never to add address handling
+to `LocationPrompt`.** An **observer** has no profile to put an address in, which is the one
+case Phase 17 added: `src/lib/placeResolve.ts` + `src/hooks/usePlaceResolve.ts`, for someone
+with no account at all.
+
+🔴 **Three obvious ways to do that are wrong, all probed live 2026-10-26.** They are named
+in `placeResolve.ts`'s header too, because each is attractive enough to be re-discovered:
+
+| Tempting | Why not |
+|---|---|
+| `GET /api/essentials/address-search?address=…` | Public and one call, and it violates the no-echo rule twice: the address is in the **query string**, which Render's access log records, and `matchedAddress` comes **back** in the response. Also missing the place geoid outside ev-accounts' `PLACE_LOADED_STATES` |
+| Browser `fetch()` to `geocoding.geo.census.gov` | **No CORS** — reproduced in real Chromium from the real origin. `vary: Origin` with no `access-control-allow-origin`, and the `OPTIONS` 200 is an Apache `Allow:`, which a browser reads as a failed preflight. 🔴 **Node's `fetch` does not enforce CORS, so every Node probe passes and the browser still fails.** Re-check in Chromium or do not claim it |
+| JSONP to the same host | Works, and executes third-party script in our origin, reproduces only the first geocoder with none of ev-accounts' NAD fallbacks, and still puts the address in a query string. Last resort, not the plan |
+
+The accepted shape is a **body-only POST** — Render's access log records the request line, not
+the body. The place-name path (`location-search` → the committed gazetteer centroid →
+`coordinate-lookup`) is CORS-clean and ships today, handling no address at all. The address
+path is written in full and gated behind **`VITE_PLACE_RESOLVE_URL`**, which is deliberately
+**not** `VITE_SLICE_ASSIGNMENT_URL`: the two point at the same ev-accounts base, so one
+switch would turn the address path on for every deployment that had configured assignment.
+Unset, no address input renders. The endpoint it waits on,
+`POST /api/civic-spaces/resolve`, is specified in
+`.planning/phases/17-the-signed-out-arrival/ACCOUNTS-HANDOFF.md`.
+
+🔴 One honest caveat, because the privacy copy has to respect it: **census.gov sees the
+address regardless** — `onelineaddress` is a GET on every path. The member path has the same
+property. So the claim is *"geocoded once and never kept"*, never *"it never leaves your
+browser"*.
 
 ## Design rules
 
