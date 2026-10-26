@@ -16,12 +16,15 @@
  *   |-----------------------|------------------------|-----------------------------|
  *   | member-sibling-shard  | ?dev=1 then Slice 2    | the affordances are PRESENT |
  *   |                       | (City and Federal)     | on the member's own shard   |
- *   | signed-out            | ?signedout=1           | INVERTED — see below        |
+ *   | signed-out            | ?signedout=1, then a   | INVERTED — see below        |
+ *   |                       | place NAMED in the     |                             |
+ *   |                       | welcome screen's picker|                             |
  *   | member-no-slice       | ?dev=1&place=arden     | County is writable          |
  *
- * 🔴 Never fork this file. 17-04 re-points the signed-out viewer at the welcome
- * screen's place view when it deletes today's placeless signed-out Explore, and
- * 17-06 adds two more viewers on top. One script, one set of readers.
+ * 🔴 Never fork this file. 17-02 added the signed-out and no-slice viewers;
+ * 17-04 RE-POINTED the signed-out one when it deleted the placeless signed-out
+ * Explore that viewer was written against (D-09); 17-06 adds two more on top.
+ * One script, one set of readers.
  *
  * 🔴 This repo shipped exactly half of this gate once already — the feed was
  * gated and the thread was not (CLAUDE.md). The reason it shipped half-done is
@@ -81,14 +84,39 @@ const PANEL = '#forum-view-explore'
 const FEED_PANEL = '#forum-view-conversations'
 
 /**
- * The signed-out screen's Explore wrapper.
+ * The welcome screen, and the place picker on it.
  *
- * 🔴 A signed-out visitor has no #forum-view-explore: that tabpanel only exists
- * once `showFeed` is true, which requires a session. AppShell's signed-out branch
- * carries `data-signed-out-explore` for exactly this reason. 17-04 replaces that
- * branch with the welcome screen and owns re-pointing this constant.
+ * 🔴 This replaces `[data-signed-out-explore]`, and the replacement is the whole
+ * point of the viewer below. 17-02 wrote the signed-out viewer against the
+ * `geoid: null` Explore a stranger used to get; 17-04 DELETED that screen (D-09,
+ * "an explore of a blank space which doesn't make a ton of sense") and so owns
+ * re-pointing this. A red check carried across a plan boundary stops being read,
+ * and the next person to see it assumes it was already red.
+ *
+ * An observer's Explore is now the REAL `#forum-view-explore`, because naming a
+ * place renders the real shell — so after the walk below this viewer uses the
+ * same PANEL every other viewer does.
  */
-const SIGNED_OUT_PANEL = '[data-signed-out-explore]'
+const WELCOME = '[data-welcome-screen]'
+const PICKER = '[data-place-picker]'
+
+/**
+ * The place the signed-out viewer names, and the frozen answers it is given.
+ *
+ * 🔴 Served by route interception from 17-03's committed fixtures rather than
+ * from the live API, so this viewer is deterministic and goes red on OUR gate
+ * rather than on a ranking change at ev-accounts. `place-search-asheville.json`
+ * was captured from the real endpoint and `check:place-resolve --live` is what
+ * keeps it honest; 17-05's browser check serves the same two.
+ *
+ * The SECOND leg is not optional. A chosen place row answers city + state; the
+ * county comes from `POST /api/essentials/coordinate-lookup` against the
+ * gazetteer centroid, and without it `resolveChosenPlace` throws `no-county` and
+ * the viewer never leaves the welcome screen — which is precisely the vacuous
+ * shape assertion 1 below exists to catch.
+ */
+const PLACE_QUERY = 'asheville'
+const PLACE_NAME = 'Asheville'
 
 /** Text that can only come from a write affordance. Affordances #1, #2, #7 and #8. */
 const WRITE_WORDS = 'Join the conversation|Share an idea|Discard draft|Sign in to (join|share)|Post it in .* instead'
@@ -258,6 +286,36 @@ function hitTest({ sel, selector }) {
     ok: !!at && (at === el || el.contains(at)),
     blockedBy: at ? `${at.tagName.toLowerCase()}.${String(at.className || '').split(' ')[0]}` : 'nothing',
   }
+}
+
+/** The frozen fixture bodies, read once. `rows` / `body` are the envelopes 17-03 chose. */
+async function readFixtures() {
+  const { readFile } = await import('node:fs/promises')
+  const { fileURLToPath } = await import('node:url')
+  const { dirname, join } = await import('node:path')
+  const here = dirname(fileURLToPath(import.meta.url))
+  const load = async (name) => JSON.parse(await readFile(join(here, 'fixtures', name), 'utf8'))
+  const search = await load('place-search-asheville.json')
+  const coords = await load('coordinate-lookup-asheville.json')
+  return { searchRows: search.rows, coordinateBody: coords.body ?? coords }
+}
+
+/**
+ * Serve the two place legs from the fixtures.
+ *
+ * Only these two. Everything else on the page — banners, meetings, elections,
+ * Compass topics — reaches the network exactly as it does for the member
+ * viewers above, so this viewer is no more and no less network-bound than they
+ * are. What is pinned is the RESOLUTION, which is what decides whether the run
+ * is about a place at all.
+ */
+async function stubPlaceLegs(page, fx) {
+  await page.route('**/api/essentials/location-search*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx.searchRows) }),
+  )
+  await page.route('**/api/essentials/coordinate-lookup', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx.coordinateBody) }),
+  )
 }
 
 // ── The run ──────────────────────────────────────────────────────────────────
@@ -772,35 +830,70 @@ for (const spec of TABS) {
   )
 }
 
-// ── Viewer: signed out ───────────────────────────────────────────────────────
+// ── Viewer: signed out, looking at a place they named ────────────────────────
+//
+// 🔴 RE-POINTED BY 17-04. 17-02 wrote this viewer against the `geoid: null`
+// Explore a stranger used to be given above a "Log in to view your civic
+// community" strip. 17-04 deleted that screen (D-09) and replaced it with the
+// welcome screen, so the viewer now WALKS: boot signed out, assert the welcome
+// screen, name a place through the picker, and run the same absence assertions
+// against that place's real Explore.
 //
 // 🔴 THE CONTROL CASE HERE IS INVERTED, and that has to be stated rather than
 // skipped. There is no shard to switch back from, so "the affordances are
-// present first" cannot be it. Two things make this run non-vacuous instead:
-//   1. Explore is on screen and rendered MODULES. Without that, every "zero
+// present first" cannot be it. Three things make this run non-vacuous instead:
+//   1. The welcome screen rendered, the place RESOLVED, and the hero banner
+//      names it. 🔴 This is the half 17-04 added, and it is now the likeliest
+//      way the viewer goes quietly vacuous: a run where the place never
+//      resolved has no textareas either, and would pass 2–5 having tested a
+//      welcome screen.
+//   2. Explore is on screen and rendered MODULES. Without that, every "zero
 //      textareas" below is a true statement about a blank page.
-//   2. The notice is present and names the signed-out reason. A gate with no
+//   3. The notice is present and names the signed-out reason. A gate with no
 //      explanation strands the visitor, and a missing notice is the shape that
 //      says the gate was applied to a component that never mounted.
-async function runSignedOut() {
+async function runSignedOut(fx) {
   const tab = 'signed-out'
-  console.log(`\n── SIGNED OUT ${'─'.repeat(42)}`)
+  console.log(`\n── SIGNED OUT, LOOKING AT A PLACE ${'─'.repeat(22)}`)
 
   const { ctx, page, errors } = await freshContext('dark', DESKTOP, {
     fn: () => {
       for (const k of ['cs_explore_ui', 'cs_explore_drafts_v2', 'cs_explore_resume_v2', 'cs_saved_adventures']) {
         localStorage.removeItem(k)
       }
+      // 🔴 Cleared, not set: the picker lands on the place's most local tab and
+      // AppShell deliberately never WRITES this key while visiting. A leftover
+      // value here would be ignored, and a reader who assumed otherwise would
+      // be chasing the wrong thing when the banner names the wrong level.
+      localStorage.removeItem('cs_active_tab')
+      try { sessionStorage.removeItem('cs_viewed_place') } catch { /* blocked */ }
     },
   })
+  await stubPlaceLegs(page, fx)
 
   await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
-  if (!(await bootedWithTheme(page, 'dark', SIGNED_OUT_PANEL))) {
+  if (!(await bootedWithTheme(page, 'dark', WELCOME))) {
     check(tab, 1, 'the page booted with the requested theme (ev_color_scheme cookie)', false,
-      'documentElement.dark does not match the cookie, or the signed-out Explore never mounted.')
+      'documentElement.dark does not match the cookie, or the welcome screen never mounted.')
     await ctx.close()
     return
   }
+
+  // ── Name a place, the way a visitor does ──────────────────────────────────
+  const walked = { welcome: true, options: 0, resolved: false, heroName: null }
+  try {
+    await page.locator(`${PICKER} input[role="combobox"]`).click()
+    await page.keyboard.type(PLACE_QUERY)
+    await page.waitForSelector(`${PICKER} [role="option"]`, { timeout: 10000 })
+    walked.options = await page.locator(`${PICKER} [role="option"]`).count()
+    await page.locator(`${PICKER} [role="option"]`).first().click()
+    await page.waitForSelector(PANEL, { timeout: 20000 })
+    await page.waitForTimeout(2500)
+    walked.resolved = true
+  } catch (err) {
+    walked.error = String(err).split('\n')[0]
+  }
+  walked.heroName = await page.evaluate(() => document.querySelector('h2')?.innerText?.trim() ?? null)
 
   // 🔴 Choose an Imagine option FIRST, exactly as the member control case does.
   // The Imagine textarea (#6) and "Sign in to share" (#2) live inside
@@ -809,34 +902,44 @@ async function runSignedOut() {
   // for precisely the two affordances a signed-out visitor used to be offered.
   // The radios themselves are a view preference and are NOT gated (see the
   // member run's assertion 8), so the click must still land.
-  await page.locator(`${SIGNED_OUT_PANEL} [data-explore-module="imagine"] input[type="radio"]`)
+  await page.locator(`${PANEL} [data-explore-module="imagine"] input[type="radio"]`)
     .first().click({ force: true }).catch(() => {})
   await page.waitForTimeout(500)
   const radioChecked = await page.evaluate(
     (sel) => [...document.querySelectorAll(`${sel} [data-explore-module="imagine"] input[type="radio"]`)].some((r) => r.checked),
-    SIGNED_OUT_PANEL,
+    PANEL,
   )
 
-  const list = await read(page, SIGNED_OUT_PANEL)
-  const listNotice = await page.evaluate(readNotice, { sel: SIGNED_OUT_PANEL })
-  await openTopic(page, SIGNED_OUT_PANEL)
-  const topic = await read(page, SIGNED_OUT_PANEL)
-  const topicNotice = await page.evaluate(readNotice, { sel: SIGNED_OUT_PANEL })
-  await closeTopic(page, SIGNED_OUT_PANEL)
+  const list = await read(page, PANEL)
+  const listNotice = await page.evaluate(readNotice, { sel: PANEL })
+  await openTopic(page, PANEL)
+  const topic = await read(page, PANEL)
+  const topicNotice = await page.evaluate(readNotice, { sel: PANEL })
+  await closeTopic(page, PANEL)
 
   const both = (fn) => fn(list) && fn(topic)
   const where = (fn) => `list=${JSON.stringify(fn(list))} topicPage=${JSON.stringify(fn(topic))}`
 
-  // ── 1  The inverted control case, part one ────────────────────────────────
+  // ── 1  The inverted control case ──────────────────────────────────────────
   check(
     tab, 1,
-    `CONTROL CASE (inverted) — Explore is on screen with modules: ${(list.modules ?? []).join(', ') || 'NONE'}, and an Imagine option is chosen`,
-    Array.isArray(list.modules) && list.modules.length > 0 && radioChecked,
-    `${JSON.stringify(list)}\n            radioChecked=${radioChecked}` +
-      '\n            Every absence below is vacuous without this: zero textareas is trivially true' +
-      '\n            of a page that rendered nothing, and of a page where the Imagine option that' +
-      '\n            REVEALS a textarea and "Sign in to share" was never chosen. A stranger gets' +
-      '\n            six modules today, imagine among them.',
+    `CONTROL CASE (inverted) — the welcome screen rendered, "${PLACE_QUERY}" resolved to a banner reading ` +
+      `"${walked.heroName}", and Explore is on screen with modules: ${(list.modules ?? []).join(', ') || 'NONE'}, ` +
+      'with an Imagine option chosen',
+    walked.resolved &&
+      walked.heroName === PLACE_NAME &&
+      Array.isArray(list.modules) &&
+      list.modules.length > 0 &&
+      radioChecked,
+    `walk=${JSON.stringify(walked)}\n            panel=${JSON.stringify(list)}` +
+      `\n            radioChecked=${radioChecked}` +
+      '\n            Every absence below is vacuous without this, and in TWO ways now. If the place' +
+      '\n            never resolved, the viewer is still on the welcome screen — which has no' +
+      '\n            textareas either, so 2-5 would pass having tested nothing. Look at walk.error' +
+      '\n            and at the coordinate-lookup stub FIRST: a chosen row answers city and state,' +
+      '\n            and resolveChosenPlace throws no-county without the second leg. If the place' +
+      '\n            DID resolve, the remaining risk is the Imagine option that REVEALS a textarea' +
+      '\n            and "Sign in to share" never being chosen.',
   )
 
   // ── 2–5  No write affordance, on the LIST and in an OPEN TOPIC ────────────
@@ -875,9 +978,9 @@ async function runSignedOut() {
       for (const vp of [DESKTOP, MOBILE]) {
         await page.setViewportSize(vp)
         await page.waitForTimeout(400)
-        await page.evaluate((sel) => document.querySelector(`${sel} [data-read-only-notice]`)?.scrollIntoView({ block: 'center' }), SIGNED_OUT_PANEL)
+        await page.evaluate((sel) => document.querySelector(`${sel} [data-read-only-notice]`)?.scrollIntoView({ block: 'center' }), PANEL)
         await page.waitForTimeout(250)
-        const r = await page.evaluate(hitTest, { sel: SIGNED_OUT_PANEL, selector: '[data-read-only-notice] a' })
+        const r = await page.evaluate(hitTest, { sel: PANEL, selector: '[data-read-only-notice] a' })
         results.push({ theme, w: vp.width, classOk, ...r })
       }
     }
@@ -1032,7 +1135,7 @@ async function runMemberNoSlice() {
   )
 }
 
-await runSignedOut()
+await runSignedOut(await readFixtures())
 await runMemberNoSlice()
 
 await browser.close()
