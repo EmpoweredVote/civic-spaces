@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { isSyntheticUserId } from '../lib/devMockData'
 import type { Notification } from '../types/database'
 
 // ---- useNotifications ----
@@ -17,8 +18,11 @@ export function useNotifications(): UseNotificationsResult {
   const queryClient = useQueryClient()
 
   // Subscribe to Realtime changes on civic_spaces.notifications for this recipient
+  // Synthetic ids (the ?dev=1 session) present an unsigned token, so Realtime
+  // falls back to anon, which cannot read recipient_id — every join was rejected
+  // with "invalid column for filter recipient_id" in the production Postgres log.
   useEffect(() => {
-    if (!userId) return
+    if (!userId || isSyntheticUserId(userId)) return
 
     const channel = supabase
       .channel(`notifications-${userId}`)
