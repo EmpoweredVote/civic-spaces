@@ -217,6 +217,79 @@ generic composition stays — browsing without an account is deliberate, and dra
 survives the trip through sign-in — but it must be framed as an example of what a Civic
 Space looks like, not as *their* civic space.
 
+**Scope (split after research, 2026-10-26).** This phase is the reversible half: the welcome
+screen, place navigation, and the write gate. It ships against endpoints that are **already**
+anonymous — `/essentials/location-search`, `/coordinate-lookup`, `/browse/by-area`, meetings,
+elections, compass topics — and the committed gazetteer. **It must not touch
+`supabase/migrations/`.** Opening conversations to `anon` is Phase 18.
+
+- Welcome screen: the Connect Pillar introduction, the privacy pitch, and what an observer
+  cannot do *yet*. Copy follows `empowered-vote-primer.md` § The Three Pillars rather than
+  inventing a vocabulary.
+- Place entry, both paths. The place-name path (`location-search` → `public/geo/` centroid →
+  `coordinate-lookup`) is CORS-clean and shippable today. The address path needs one new
+  anonymous body-only endpoint from ev-accounts, modelled line-for-line on
+  `essentialsCoordinateLookup.ts` — **the Census Geocoder sends no
+  `Access-Control-Allow-Origin` and cannot be called from a browser**, and
+  `/essentials/address-search` is rejected because it puts the address in the query string
+  and echoes `matchedAddress` back. Ship behind the place-name path; the address path lands
+  when ev-accounts does.
+- 🔴 `isViewOnly` **fails open today.** `AppShell.tsx:840` is
+  `!!activeSlice && !!activeViewing && …`, so a viewer holding no slice of that type reads as
+  *not* view-only. And `viewingSlices` stores a `SiblingSlice` — a shard index — which cannot
+  represent another *place* at all. Rewrite it to fail closed, add the observer and the
+  non-member-place cases to `check:explore-gate`, and extract a `canWriteIn()` predicate as
+  the seam D-21 asks for.
+- Explore, banner, sidebar and representatives for a visited place. `useRepresentatives`
+  cannot follow one; `POST /essentials/browse/by-area` already can.
+- `CLAUDE.md` and `LocationPrompt.tsx`'s 🔴 comment updated per D-14 — the "never stores"
+  half survives, the "never geocodes" half is narrowed for observers only.
+- The ev-accounts handoff for `POST /api/civic-spaces/resolve`.
+
+Research: `17-RESEARCH.md` (`4991a00`). Context and locked decisions: `17-CONTEXT.md`.
+
+### Phase 18: The Public Square
+**Goal**: Civic Spaces' conversations are readable by anyone, as a public town square — and
+the one-way door is walked through deliberately, with the exposure measured first
+
+The irreversible half of #17. Chris's rule: *"it is after all, a public square"* — Inform and
+Guest observe, only Connect and Empowered post, vote or impact.
+
+🔴 **This phase is not reversible.** Once the PostgREST endpoint is publicly queryable, it is
+permanently, scriptably public. Its failures are also silent: an over-wide grant publishes the
+member roster and nothing turns red.
+
+**The gate is not RLS.** `civic_spaces` has no `GRANT USAGE ON SCHEMA … TO anon`, so PostgREST
+cannot resolve the schema before a policy is ever consulted. Both feed RPCs fail independently
+of policy: `get_feed_filtered` welds `AND p.slice_id IN (SELECT slice_id FROM slice_members
+WHERE user_id = current_user_id())` into its body, and `get_boosted_feed_filtered` is
+`SECURITY INVOKER` and reads `friendships` / `follows` / `blocks` as the caller. This is a
+grants-and-a-new-RPC job.
+
+- Schema `USAGE`, **column-level** grants (`useThread` does `select('*')`, so a table grant
+  publishes `edit_history`), a narrow `get_public_feed`, and an author-scoped
+  `connected_profiles` policy — `USING (true)` there publishes the whole member roster in one
+  query.
+- One policy, not two: D-18 makes the rule identical for `anon` and for an authenticated
+  non-member.
+- `scripts/check-anon-read.mjs` with an explicit **must-fail** list: `slice_members`,
+  notifications, friends, drafts, anything keyed to a person.
+- Realtime gating, and the `CLAUDE.md` "members-only by design" correction.
+- `locatePost` gains a fourth outcome — once posts are public, a signed-out visitor on
+  `/post/:postId` can simply be shown the post, which partly dissolves the deferred
+  shared-link arrival. `unavailable`'s deliberate conflation still earns its keep for deleted
+  posts and suspended authors.
+- **Not in this phase:** search-engine indexing and link unfurling. No SSR, no prerender, no
+  `robots.txt`, one static set of `og:` tags. Crawlable ≠ indexed, and the copy must not
+  overclaim.
+
+**The display-name question is answered.** Measured in production 2026-10-26, aggregates only:
+11 connected profiles, **0** matching a real-name shape, **0** with an avatar, 12 live posts
+and 8 replies by 7 authors. Accepted risk, signed off by Chris with the number in front of
+him. Two riders: re-run the aggregate immediately before the migration, and add handle
+validation in ev-accounts so the next real name cannot arrive silently.
+
+
 ---
 
 ## Progress
@@ -240,3 +313,4 @@ Space looks like, not as *their* civic space.
 | 15. Tool Deep Links | — | 1/1 | Complete | 2026-09-08 |
 | 16. Explore by Slice | — | 10/10 | Complete | 2026-10-25 |
 | 17. The Signed-Out Arrival | — | 0/? | Planning | — |
+| 18. The Public Square | — | 0/? | Not planned | — |

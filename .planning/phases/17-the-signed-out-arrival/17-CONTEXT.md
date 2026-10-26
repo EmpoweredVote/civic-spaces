@@ -144,6 +144,47 @@ anywhere; only your own slices accept your voice.**
   consequence. The pitch says *private from other members and from stalkers*, never
   *anonymous*, and never *untraceable*.
 
+### Settled after research (2026-10-26)
+
+- **D-22 — The phase splits at the one-way door.** Chris: *"Splitting sounds great."*
+  **Phase 17** = the welcome screen, place navigation, and the `isViewOnly` fix — all of it
+  reversible, all of it against endpoints that are already anonymous. **Phase 18 — The Public
+  Square** = opening conversations to `anon`. Everything below about grants, policies and
+  `get_public_feed` belongs to 18, not here. Phase 17 must not touch `supabase/migrations/`.
+- **D-23 — Build now; the pillar's "parked" status does not block.** The 2026-09-11 briefing
+  records the Connect pillar as parked until after November. Put to Chris directly:
+  *"We can build it now."*
+- **D-24 — The display-name exposure is sized, and it is zero.** The audit the context
+  demanded before any `anon` read has been run against production (2026-10-26, aggregates
+  only — no names read):
+
+  | | |
+  |---|---|
+  | `connected_profiles` total | 11 |
+  | `display_name` matching `^[A-Z][a-z]+ [A-Z][a-z]+$` (a real-name shape) | **0** |
+  | `display_name` matching an auto-generated handle shape | 4 |
+  | containing a space at all | 1 |
+  | `avatar_url IS NOT NULL` | **0** |
+  | live posts / replies, by distinct authors | 12 / 8, by 7 |
+  | `slices` rows in the entire product | 15 |
+
+  Chris's own account of the cohort matches: *"The only people with Connected Accounts so far
+  are a handful of people I've invited personally, most work on EV with me. So we're not at a
+  problematic point if this is wrong, this is why I'm trying to sort it now."*
+
+  **Therefore option B — accepted risk, documented — is correct, and it is signed off with
+  the number in front of him.** No notify-and-offer, no auto-rename, no `public_handle`
+  column. ⚠️ Two riders for Phase 18: re-run the aggregate immediately before the migration
+  (it is minutes, and the number is only true on the day it was taken), and add the
+  going-forward handle validation in ev-accounts (option F) so the *next* real name cannot
+  arrive silently.
+- **D-25 — Crawlable is not the same as indexed, and the copy must not overclaim.** This is a
+  client-rendered Vite SPA with no SSR, no prerender and no `robots.txt`, carrying one static
+  set of `og:` tags. After Phase 18 the **PostgREST endpoint** is publicly queryable — that is
+  the real, permanent, scriptable exposure. Search-engine indexing and link unfurling are a
+  separate piece of work that is in neither phase. The welcome screen must not imply a post
+  will appear in search results.
+
 ### Claude's Discretion
 
 - The shape, components and layout of the welcome screen, within the v3.0 standard (light
