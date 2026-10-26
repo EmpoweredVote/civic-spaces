@@ -78,6 +78,21 @@ were conceded too early and are now assertions:
 | leaving the per-tab feed gate as the old expression | it was routed to "`check:write-access` and a later visited-place run". Neither reaches it: the first exercises the function and never the call site, and 17-04 guards the whole `FEED_TABS.map` off while visiting, so no visited-place run renders a feed panel at all | the feed surface's notice-reason assertion on the existing `member-sibling-shard` viewer — 17-02 Task 4 Step 1b |
 | pointing `repsData` at the member's own officials while visiting | *"no check can tell one real person's name from another's"* — true, and irrelevant. The revert is a **wrong source**, and a source is observable in a request body | 17-06 Task 3b, assertions 1–3; the human read in 17-07 Task 4 keeps **correctness**, which is a different question |
 
+### 🔴 Three rows turned nothing red when they were actually run — 17-05
+
+Added after the fact, because this is the shape the section above is about and the plan
+predicting the pairing is not the same as observing it. Each of these was a **green check
+over a broken app**, and each was found by running the revert rather than by reasoning about
+it. 17-01's report had already mispaired a revert with an assertion number and sent the next
+executor hunting a hole that did not exist; these are the opposite error — holes that did
+exist behind predictions that read as reassuring.
+
+| Revert | Predicted | Actually observed | What was wrong, and what closed it |
+|---|---|---|---|
+| storing the picker's raw query beside the geoids | D-13 assertion 1 | **nothing** | The check typed its tracer token FIRST and replaced it with "asheville" before choosing a row, so the string the picker held at the moment of choice was never the tracer. The tracer is now typed **second** and is the query in the box when the row is chosen. Row 1 then goes red on `D13-1` alone, as predicted |
+| removing the conversations panel's `!isVisitingPlace` guard | the network assertion **and** assertion 3 | **assertion 3 only** | The conversations feed is `supabase.rpc('get_boosted_feed_filtered')` — a POST whose slice id is in the JSON **body** — so the single most important request in the phase was invisible to a query-string check. The network assertion now records request bodies and walks every string in the parsed JSON; the revert takes assertion 3 and **both** network assertions down together |
+| `enterPlace` not clearing `activePostIds` | assertion 9 | **nothing** | Assertion 9 goes through `openPost` and says nothing about `enterPlace`. Closed by a new assertion `9b`, which starts from the state 9 leaves behind — the member's own thread open, no place on screen — enters a place, and asserts the thread AND the URL close |
+
 **The rule this leaves behind:** *"no check can see this"* is a conclusion to reach **after**
 looking for an observable consequence, not instead of looking. A reason that must be
 computed to be displayed is observable; so is a request body, and so is a request count.
@@ -92,7 +107,7 @@ computed to be displayed is observable; so is a request body, and so is a reques
 | `npm run check:write-access` | 17-01 (18) | — | < 1 s |
 | `npm run check:place-resolve` | 17-03 | committed fixtures, no network | < 1 s |
 | `node scripts/check-place-resolve.mjs --live` | 17-03 | **network** | ~5 s |
-| `npm run check:place-entry` | 17-05 (19) | `npm run dev` running | ~2 min |
+| `npm run check:place-entry` | 17-05 (20) | `npm run dev` running | ~2 min |
 | `npm run check:explore-gate` | existing; **extended** by 17-02, 17-04, 17-06 | `npm run dev` running | ~45 s at six viewers |
 | `npm run check:composition` | existing (62) | — | < 1 s |
 | `npm run check:explore-rooms` | existing; **its failure text** touched by 17-06 | `npm run dev` running | ~15 s |
