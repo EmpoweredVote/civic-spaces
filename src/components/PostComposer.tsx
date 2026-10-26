@@ -102,19 +102,21 @@ export default function PostComposer({
 
   return (
     <Sheet isOpen={isOpen} onClose={onClose} detent="content-height">
-      <Sheet.Container>
-        <Sheet.Header />
+      {/* react-modal-sheet paints the container and the drag handle white from its own
+          stylesheet, so the surface has to be set here as well as the text inside it. */}
+      <Sheet.Container className="bg-white dark:!bg-gray-900">
+        <Sheet.Header className="bg-white dark:!bg-gray-900" />
         <Sheet.Content>
           <div className="px-4 pb-8">
             {/* Title bar */}
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {isEditMode ? 'Edit Post' : 'New Post'}
               </h2>
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="p-1 rounded-full text-gray-600 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                className="p-1 rounded-full text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -131,15 +133,15 @@ export default function PostComposer({
             </div>
 
             {!isEditMode && request?.contextNote && (
-              <p className="mb-3 rounded-md bg-brand-muted px-3 py-2 text-sm text-brand">
+              <p className="mb-3 rounded-md bg-brand-muted dark:bg-brand/15 px-3 py-2 text-sm text-brand dark:text-brand-light">
                 {request.contextNote}
               </p>
             )}
 
             {/* Server error banner */}
             {serverError && (
-              <div className="mb-4 rounded-md bg-red-50 border border-red-200 p-3">
-                <p className="text-sm text-red-700">{serverError}</p>
+              <div className="mb-4 rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 p-3">
+                <p className="text-sm text-red-700 dark:text-red-300">{serverError}</p>
               </div>
             )}
 
@@ -150,11 +152,11 @@ export default function PostComposer({
                   <input
                     type="text"
                     placeholder="What's happening in your community?"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                     {...createForm.register('title')}
                   />
                   {createForm.formState.errors.title && (
-                    <p className="mt-1 text-xs text-red-600">
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                       {createForm.formState.errors.title.message}
                     </p>
                   )}
@@ -164,11 +166,11 @@ export default function PostComposer({
                   <textarea
                     rows={4}
                     placeholder="Share your thoughts..."
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand resize-none"
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand resize-none"
                     {...createForm.register('body')}
                   />
                   {createForm.formState.errors.body && (
-                    <p className="mt-1 text-xs text-red-600">
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                       {createForm.formState.errors.body.message}
                     </p>
                   )}
@@ -185,7 +187,7 @@ export default function PostComposer({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="text-sm text-gray-600 hover:text-gray-700 hover:underline"
+                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:underline"
                   >
                     Cancel
                   </button>
@@ -199,11 +201,11 @@ export default function PostComposer({
                 <div className="mb-4">
                   <textarea
                     rows={4}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand resize-none"
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand resize-none"
                     {...editForm.register('body')}
                   />
                   {editForm.formState.errors.body && (
-                    <p className="mt-1 text-xs text-red-600">
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                       {editForm.formState.errors.body.message}
                     </p>
                   )}
@@ -220,7 +222,7 @@ export default function PostComposer({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="text-sm text-gray-600 hover:text-gray-700 hover:underline"
+                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:underline"
                   >
                     Cancel
                   </button>
