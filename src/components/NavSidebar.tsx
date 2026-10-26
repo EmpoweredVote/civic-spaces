@@ -287,6 +287,7 @@ function NavItem({
   isActive,
   onClick,
   accent = false,
+  tabKey,
 }: {
   icon: string
   label: string
@@ -294,12 +295,24 @@ function NavItem({
   onClick: () => void
   /** Yellow highlight for the selected civic space, vs. the default brand highlight elsewhere */
   accent?: boolean
+  /**
+   * 🔴 The civic-space rows only, and it is there so a CHECK can find a tab
+   * without knowing its name. City and County render their RESOLVED names
+   * ("Asheville", "Buncombe County"), which is right on screen and useless to a
+   * script: a check that matched them would be asserting about the fixture's
+   * city rather than about the City tab, and would go red the day the fixture
+   * moves. `check-place-entry.mjs` walks City and Federal on both views, so it
+   * needs a handle that does not depend on where the place is. Rows that are not
+   * a civic space pass nothing and carry no attribute.
+   */
+  tabKey?: string
 }) {
   const collapsed = useContext(RailCollapsedContext)
   return (
     <button
       type="button"
       onClick={onClick}
+      data-nav-tab={tabKey}
       aria-current={isActive ? 'true' : undefined}
       title={collapsed ? label : undefined}
       className={[
@@ -351,6 +364,7 @@ function GeoNavItem({
       isActive={isActive}
       onClick={onClick}
       accent
+      tabKey={tab.key}
     />
   )
 }
@@ -556,6 +570,11 @@ function NavSidebarContent({
             isActive={activeTab === 'volunteer'}
             onClick={() => onTabChange('volunteer')}
             accent
+            /* It is a civic space, and it lives in this group only because it is
+               not a PLACE — which is also why `placeSlices` never carries one and
+               why its absence while visiting, and its return on leaving, are the
+               same fact seen twice. check:place-entry 8 reads exactly that. */
+            tabKey="volunteer"
           />
         )}
         {isAuthenticated && (

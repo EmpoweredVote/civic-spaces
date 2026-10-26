@@ -13,6 +13,7 @@
     "check:explore-gate": "node scripts/check-explore-gate.mjs",
     "check:write-access": "node --experimental-strip-types scripts/check-write-access.mjs",
     "check:place-resolve": "node --experimental-strip-types scripts/check-place-resolve.mjs",
+    "check:place-entry": "node scripts/check-place-entry.mjs",
     "check:explore-rooms": "node scripts/check-explore-rooms.mjs",
     "shoot:banners": "node scripts/shoot-banners.mjs",
     "shoot:explore": "node scripts/shoot-explore.mjs",

@@ -38,13 +38,28 @@ Reproduced identically on `?dev=1`.
    `node --experimental-strip-types`: `readViewedPlace()` → null, `writeViewedPlace()` does
    not throw), and `check:place-resolve` 39–42 cover the round trip.
 2. 🔴 **17-05's planned `check:place-entry` assertion 12 — "proves it by actually throwing" —
-   will go red for this reason and not for ours.** `17-VALIDATION.md` currently claims *"this
+   would have gone red for this reason and not for ours.** `17-VALIDATION.md` claimed *"this
    phase adds no second instance — every new access is guarded and `check:place-entry` 12
-   proves it by actually throwing."* The first half is true. The second half will fail
-   against a dependency. 17-05 should either scope the throw to the keys this app owns
-   (`cs_viewed_place`, `cs_dev_place`, `cs_signed_out`) rather than replacing the whole
-   `sessionStorage` object, or assert the guard where it lives — in Node, over the shipped
-   module — and say in the assertion's text why the browser cannot be asked.
+   proves it by actually throwing."* The first half is true. The second half would have
+   failed against a dependency.
+
+   ✅ **Resolved in 17-05, by the first of the two shapes offered here.** The assertion
+   overrides `Storage.prototype`'s three methods for real and throws a `SecurityError` for
+   **`sessionStorage` keys beginning `cs_`** — `cs_viewed_place`, `cs_signed_out`,
+   `cs_dev_place`, which is the whole of what this phase touches. Everything else passes
+   through, so `@supabase/supabase-js` boots and our guards are the only thing under test.
+   `17-VALIDATION.md`'s three claims about that assertion were corrected in the same commit
+   as the script, to what it does rather than what it was first asked to do.
+
+   ⚠️ **One thing found while doing it, and it belongs to this item's sibling.**
+   `Storage.prototype` is SHARED between `sessionStorage` and `localStorage`, so the first
+   draft's `cs_` throw also hit `cs_token` — and the page died on an uncaught `SecurityError`
+   with nothing rendered, because `useAuth.ts` reads and removes that key unguarded. That is
+   item 9 of `16-explore-by-slice/deferred-items.md`, reproduced exactly, by a check aimed at
+   something else. Whoever picks up either item should know they are **two** unguarded-storage
+   deaths and not one: fixing the Supabase client at module scope leaves `useAuth` still
+   fatal to a storage-blocked boot. The check keeps them apart with a receiver test
+   (`this === window.sessionStorage`).
 3. It is a sibling of item 9 of `16-explore-by-slice/deferred-items.md`
    (`useAuth.ts:100` writes `localStorage` unguarded), but it is **worse**, because it is in
    a dependency and fires at import time.

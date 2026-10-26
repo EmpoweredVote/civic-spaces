@@ -120,6 +120,19 @@ const ASHEVILLE = fixture('place-search-asheville.json').rows
 const PORTLAND = fixture('place-search-portland.json').rows
 const NO_RESULTS = fixture('place-search-no-results.json').rows
 const COORDINATE_LOOKUP = fixture('coordinate-lookup-asheville.json').body
+/**
+ * 🔴 Read ONLY by `--live` below, deliberately.
+ *
+ * Captured by 17-05 for `check:place-entry` assertion 6 — the unincorporated
+ * case, which needs a **G4020 county** row, the one level none of the fixtures
+ * above carry. The county branch's pure behaviour is already covered here
+ * (assertion 36 parses `{geo_id: '37021', mtfcc: 'G4020'}` directly), so a
+ * second pure assertion over the same shape would be noise. What it would NOT
+ * have without this line is a drift guard — and a browser check served from an
+ * unguarded fixture is exactly the "stale fixture" row of 17-VALIDATION.md's
+ * vacuous-pass table.
+ */
+const BUNCOMBE = fixture('place-search-buncombe.json').rows
 
 // ── 1–7  normalisePlaceQuery ─────────────────────────────────────────────────
 
@@ -612,6 +625,19 @@ async function live() {
     report('location-search?q=asheville', keyShape(ASHEVILLE), keyShape(await search('asheville')))
     report('location-search?q=portland', keyShape(PORTLAND), keyShape(await search('portland')))
     report('location-search, no results', keyShape(NO_RESULTS), keyShape(await search('zzzqqqxnotaplace')))
+
+    const liveBuncombe = await search('buncombe')
+    report('location-search?q=buncombe', keyShape(BUNCOMBE), keyShape(liveBuncombe))
+    // 🔴 Not only the SHAPE here, the ORDER. check:place-entry 6 clicks the first
+    // `[role="option"]`, so a ranking change that pushed "Buncombe, IL · City" above
+    // the county would leave this fixture's key shape identical and quietly turn that
+    // assertion into a second CITY run — a true statement about the wrong level, which
+    // is the whole family of failure this phase guards hardest against.
+    report(
+      'location-search?q=buncombe, first row is still the COUNTY',
+      `${BUNCOMBE[0]?.geo_id} ${BUNCOMBE[0]?.mtfcc}`,
+      `${liveBuncombe[0]?.geo_id} ${liveBuncombe[0]?.mtfcc}`,
+    )
 
     const shard = await fetch(`${origin}/geo/37.json`)
     const centroid = (await shard.json()).names['3702140']

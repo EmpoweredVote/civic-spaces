@@ -1,0 +1,54 @@
+{
+  "_README": [
+    "FROZEN FIXTURE — the live response of GET /api/essentials/location-search?q=buncombe&limit=8,",
+    "captured 2026-10-26 through the dev proxy (vite.config.ts) against api.empowered.vote.",
+    "",
+    "Three rows. The FIRST is a G4020 COUNTY — Buncombe County, NC, geoid 37021 — and it is the",
+    "only committed fixture carrying one. 17-05 needs it: assertion 6 of check:place-entry is the",
+    "UNINCORPORATED case, where a county row resolves through placeFromSearchRow's `complete`",
+    "branch — no coordinate-lookup leg at all — city stays null, and the place yields FOUR tabs.",
+    "That is an ANSWER, not a failure: ev-accounts' jurisdictionPayload.ts says so outright, and",
+    "?dev=1&place=arden is the member-side twin of the same state.",
+    "",
+    "🔴 Added by 17-05, not 17-03, and that is the only fixture in this phase that is. 17-03",
+    "captured the rows its own pure checks needed — all five of place-search-asheville.json are",
+    "G4110 places — and 17-05's assertion 6 asks for a level none of them exercise end to end.",
+    "",
+    "37021 is the same county geoid public/geo/37.json, devMockData.ts and",
+    "coordinate-lookup-asheville.json already carry, so nothing here is a new place.",
+    "",
+    "The two G4110 rows after it are real places that merely sound alike, and they are kept",
+    "verbatim: a fixture is the API's answer, not a curated one.",
+    "",
+    "Frozen on purpose, and kept honest by `node scripts/check-place-resolve.mjs --live`, which",
+    "compares this shape against the live endpoint and exits non-zero on drift.",
+    "",
+    "Captured: 2026-10-26"
+  ],
+  "rows": [
+    {
+      "geo_id": "37021",
+      "mtfcc": "G4020",
+      "label": "Buncombe County, NC · County",
+      "state": "NC",
+      "area_type": "County",
+      "has_local_data": true
+    },
+    {
+      "geo_id": "1709551",
+      "mtfcc": "G4110",
+      "label": "Buncombe, IL · City",
+      "state": "IL",
+      "area_type": "City",
+      "has_local_data": false
+    },
+    {
+      "geo_id": "1922755",
+      "mtfcc": "G4110",
+      "label": "Duncombe, IA · City",
+      "state": "IA",
+      "area_type": "City",
+      "has_local_data": false
+    }
+  ]
+}

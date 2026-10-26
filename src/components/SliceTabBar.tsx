@@ -29,6 +29,11 @@ export default function SliceTabBar({ activeTab, onTabChange, slices, showVolunt
         key={tab.key}
         type="button"
         onClick={() => onTabChange(tab.key)}
+        /* 🔴 The same handle the nav rail carries (NavSidebar's `tabKey`), so a
+           check can walk City and Federal at ANY width without knowing where the
+           place is. Below lg this bar IS the navigation — the rail is a drawer —
+           which is exactly the surface a desktop-only run never sees. */
+        data-slice-tab={tab.key}
         className={[
           'flex flex-col items-center text-sm font-medium whitespace-nowrap rounded-lg px-4 py-2',
           isActive
