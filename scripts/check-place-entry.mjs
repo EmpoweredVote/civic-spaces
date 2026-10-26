@@ -347,9 +347,19 @@ async function freshContext(theme, viewport, init) {
     ;(EXPECTED_NOISE.some((re) => re.test(t)) ? errors.noise : errors.console).push(t)
   })
   const counters = { search: 0, coordinate: 0 }
-  const requests = { recording: false, urls: [] }
+  /**
+   * 🔴 The BODY is recorded, not only the URL, and that is not belt-and-braces.
+   *
+   * The conversations feed is `supabase.rpc('get_boosted_feed_filtered', …)` —
+   * a POST to `/rest/v1/rpc/…` whose slice id travels in the JSON body. A
+   * network assertion that read query parameters alone could not see the single
+   * most important request in this phase, and the revert matrix proved it: with
+   * the conversations guard removed and feed panels mounted on the visited
+   * place, assertion 3 went red and the network assertion stayed green.
+   */
+  const requests = { recording: false, seen: [] }
   page.on('request', (r) => {
-    if (requests.recording) requests.urls.push(r.url())
+    if (requests.recording) requests.seen.push({ url: r.url(), body: r.postData() ?? null })
   })
   if (init) await page.addInitScript(init)
   await stubPlaceLegs(page, fx, counters)
@@ -459,19 +469,48 @@ async function goToView(page, view) {
  * rows rather than an error, and zero rows renders as "nobody has said anything
  * here", which is a lie told silently.
  */
-function postgrestHits(urls) {
+/** Is this one string a visited geoid, or the place sentinel? */
+function offending(value) {
+  if (typeof value !== 'string') return null
+  if (value.includes('place:')) return 'place sentinel'
+  // PostgREST filters arrive as `eq.3702140`, `in.(a,b)`, `like.*x*`. Compared as
+  // whole values, never as substrings of the URL: a substring search for the
+  // state geoid `37` matches a third of all UUIDs.
+  const bare = value.replace(/^[a-z]+\.\(?/, '').replace(/\)$/, '')
+  for (const part of bare.split(',')) {
+    if (VISITED_VALUES.has(part)) return 'visited geoid'
+  }
+  return null
+}
+
+/** Every string inside a parsed JSON body, however nested. */
+function strings(value, out = []) {
+  if (typeof value === 'string') out.push(value)
+  else if (Array.isArray(value)) for (const v of value) strings(v, out)
+  else if (value && typeof value === 'object') for (const v of Object.values(value)) strings(v, out)
+  return out
+}
+
+function postgrestHits(seen) {
   const hits = []
-  for (const raw of urls) {
+  for (const { url: raw, body } of seen) {
     if (!raw.includes('/rest/v1/')) continue
     let url
     try { url = new URL(raw) } catch { continue }
     for (const [key, value] of url.searchParams) {
-      // PostgREST values arrive as `eq.3702140`, `in.(a,b)`, `like.*x*`.
-      const bare = value.replace(/^[a-z]+\.\(?/, '').replace(/\)$/, '')
-      for (const part of bare.split(',')) {
-        if (part.startsWith('place:')) hits.push(`${key}=${value} (place sentinel)`)
-        else if (VISITED_VALUES.has(part)) hits.push(`${key}=${value} (visited geoid)`)
-      }
+      const why = offending(value)
+      if (why) hits.push(`${url.pathname}?${key}=${value} (${why})`)
+    }
+    if (!body) continue
+    // 🔴 The RPC path. `get_boosted_feed_filtered` is a POST whose slice id is in
+    // the JSON body, so the whole conversations feed is invisible to the query
+    // string above. Parsed where it parses, searched as text where it does not.
+    let parsed = null
+    try { parsed = JSON.parse(body) } catch { parsed = null }
+    const values = parsed === null ? [body] : strings(parsed)
+    for (const value of values) {
+      const why = offending(value)
+      if (why) hits.push(`POST ${url.pathname} body ${JSON.stringify(value).slice(0, 60)} (${why})`)
     }
   }
   return hits
@@ -520,12 +559,23 @@ async function runSignedOutWalk() {
   // resolution legs themselves are in the log and the positive half is real.
   requests.recording = true
 
-  // The tracer first, then the real query. Two distinct queries, so
-  // "location-search fired more than once" is a statement about typing rather
-  // than about one keystroke.
+  // 🔴 THE TRACER IS TYPED SECOND, AND IS THE QUERY IN THE BOX WHEN THE ROW IS
+  // CHOSEN. The order matters and the first draft had it backwards.
+  //
+  // Typed first and replaced by "asheville", the tracer is not what the picker
+  // is holding at the moment of choice — so a picker that stored or echoed
+  // "what they typed" would store "asheville", and the D-13 assertions, which
+  // can only look for the tracer, would stay green through exactly the change
+  // they exist to catch. The revert matrix caught that: row 1 — the one row the
+  // plan says to run slowly — turned nothing red.
+  //
+  // This way round the tracer IS the typed string at choose-time, and the two
+  // distinct queries still make "location-search fired more than once" a
+  // statement about typing rather than about one keystroke. The stub answers
+  // every query with the Asheville rows, so the tracer resolves a real place.
+  await typeInto(page, PICKER, PLACE_NAME.toLowerCase())
   await typeInto(page, PICKER, TRACER)
   const options = await page.locator(`${PICKER} [role="option"]`).count()
-  await typeInto(page, PICKER, PLACE_NAME.toLowerCase())
   await page.locator(`${PICKER} [role="option"]`).first().click()
   const settledOn = await settle(page)
   await page.waitForTimeout(2500)
@@ -677,8 +727,8 @@ async function runSignedOutWalk() {
         '\n              nothing; a member count there is "0 members" about a real jurisdiction.',
     )
 
-    const hits = postgrestHits(requests.urls)
-    const sawRequests = requests.urls.length
+    const hits = postgrestHits(requests.seen)
+    const sawRequests = requests.seen.length
     check(
       run, 'NET',
       'nothing about the visited place reaches the database — and the page WAS doing something',
@@ -1002,7 +1052,7 @@ async function runMemberVisit() {
 
   const visiting = await page.evaluate(readPlace, { panel: PANEL, rail: RAIL, bar: TABBAR })
   const seen = await traverse(page, 'city')
-  const hits = postgrestHits(requests.urls)
+  const hits = postgrestHits(requests.seen)
   check(
     run, 'NET',
     'entering a place FROM THE SHELL sends nothing about it to the database either — both views, City and Federal',
