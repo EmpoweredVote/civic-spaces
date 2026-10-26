@@ -1123,6 +1123,43 @@ async function runMemberVisit() {
     )
   }
 
+  // ── 9b  Entering a place CLOSES the thread that belonged to the last one ──
+  //
+  // 🔴 Added because the revert matrix found it missing. Removing
+  // `clearPlaceScopedState()` from `enterPlace` turned NOTHING red: the plan
+  // predicted assertion 9, but that assertion goes through `openPost` and says
+  // nothing about `enterPlace`. The state is left over from the member's OWN
+  // thread, which is still open from assertion 9 above — so this starts exactly
+  // where the bug would start.
+  {
+    const before = await page.evaluate(() => ({
+      thread: /sidewalk repairs/i.test(document.body.innerText || ''),
+      path: location.pathname,
+    }))
+    await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+    await page.waitForTimeout(300)
+    await typeInto(page, STRIP, PLACE_NAME.toLowerCase())
+    await page.locator(`${STRIP} [role="option"]`).first().click()
+    await page.waitForTimeout(3000)
+    const after = await page.evaluate(() => ({
+      hero: document.querySelector('h2')?.innerText?.trim() ?? null,
+      thread: /sidewalk repairs/i.test(document.body.innerText || ''),
+      path: location.pathname,
+    }))
+    check(
+      run, '9b',
+      "entering a place closes the thread that belonged to the last one, and the URL closes with it",
+      before.thread && before.path.startsWith('/post/') && after.hero === PLACE_NAME && !after.thread && after.path === '/',
+      `before=${JSON.stringify(before)} after=${JSON.stringify(after)}` +
+        '\n              🔴 `before.thread` false is the vacuous case and is checked first: no thread was' +
+        '\n              open, so "it is closed now" is a statement about nothing.' +
+        '\n              A thread still on screen is enterPlace not clearing activePostIds — the member\'s' +
+        '\n              own post rendered inside a shell pointed at another city, with the gate computed' +
+        '\n              against a slice that is not on screen. A path still /post/… is the URL half of' +
+        '\n              the same clear, and it is what makes a reload reopen it.',
+    )
+  }
+
   // ── 8  Leave returns the member to their own tabs and own banner ──────────
   await page.goto(`${ORIGIN}/?dev=1&place=bloomington`, { waitUntil: 'domcontentloaded' })
   await page.waitForSelector(RAIL, { timeout: 25000 })
