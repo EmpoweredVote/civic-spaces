@@ -1,12 +1,14 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { isMockSliceId } from '../lib/devMockData'
 
 export function useRealtimeInvalidation(sliceId: string | null) {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    if (!sliceId) return
+    // Fixture slices have no rows to watch, and their join fails the slice_id filter check.
+    if (!sliceId || isMockSliceId(sliceId)) return
 
     const channel = supabase
       .channel(`feed-${sliceId}`)
