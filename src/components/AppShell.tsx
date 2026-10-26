@@ -1171,6 +1171,8 @@ export default function AppShell() {
                    says so, and offers sign-in as its control. */
                 isViewOnly={activeIsViewOnly}
                 noWriteReason={activeNoWriteReason}
+                /* The notice's only control: there is no shard to switch back from. */
+                loginUrl={loginUrl}
                 /* A stranger has answered nothing, so rankByCompass keeps source
                    order; the level flags still exclude, which needs no account. */
                 answeredCompassTopicIds={compass.answeredTopicIds}

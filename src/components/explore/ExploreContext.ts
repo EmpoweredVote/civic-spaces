@@ -81,6 +81,11 @@ export interface ExploreCtx {
    * that each decide the same thing is how they come to disagree.
    */
   noWriteReason: NoWriteReason | null
+  /**
+   * The real sign-in, for the signed-out notice's control. Undefined for a
+   * member, who has one already.
+   */
+  loginUrl?: string
   /** Which shard is on screen, for the notice's wording. Undefined when not view-only. */
   viewingSliceIndex?: number
   /** The member's OWN shard, the one posting and drafting stay in. */
