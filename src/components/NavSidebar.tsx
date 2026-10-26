@@ -25,6 +25,22 @@ interface NavSidebarProps {
   slices: Partial<Record<SliceType, SliceInfo>>
   showVolunteerTab: boolean
   isModerator?: boolean
+  /**
+   * 🔴 False for an observer, and the Community group's entries do not render.
+   * Friends and the Member Directory both read member data — the directory reads
+   * `civic_spaces.slice_members`, which is "which person lives in which
+   * jurisdiction". The header already gates its copies of these inside
+   * `{isAuthenticated && …}`; this rail was NOT gated, which is the half that
+   * was missing.
+   */
+  isAuthenticated?: boolean
+  /**
+   * True while the viewer is looking at a place they named rather than at their
+   * own spaces. 🔴 Only the section's heading changes: D-10 — nothing addresses
+   * a viewer's place as theirs until it is. Which tabs exist is already decided
+   * by `slices`, which AppShell hands over as `onScreenSlices`.
+   */
+  isVisitingPlace?: boolean
   activePanel: 'friends' | 'directory' | null
   onTogglePanel: (panel: 'friends' | 'directory') => void
   onOpenModQueue: () => void
@@ -498,6 +514,8 @@ function NavSidebarContent({
   slices,
   showVolunteerTab,
   isModerator,
+  isAuthenticated = true,
+  isVisitingPlace = false,
   activePanel,
   onTogglePanel,
   onOpenModQueue,
@@ -506,11 +524,17 @@ function NavSidebarContent({
   const [informOpen, setInformOpen] = useState(true)
   const [connectOpen, setConnectOpen] = useState(true)
   const visibleGeoTabs = GEO_TABS.filter((tab) => !!slices[tab.key as SliceType])
+  // Friends and the Member Directory both need a session; Moderation already
+  // needed one by way of isModerator. With none of the three and no Volunteer
+  // space, the group has nothing in it and its divider would be a rule under
+  // nothing.
+  const showCommunity = showVolunteerTab || isAuthenticated
 
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        <SectionLabel>Your Civic Spaces</SectionLabel>
+        {/* 🔴 D-10: never show someone a place as if it were already theirs. */}
+        <SectionLabel>{isVisitingPlace ? 'Civic Spaces Here' : 'Your Civic Spaces'}</SectionLabel>
         {visibleGeoTabs.map((tab) => (
           <GeoNavItem
             key={tab.key}
@@ -522,6 +546,7 @@ function NavSidebarContent({
         ))}
       </div>
 
+      {showCommunity && (
       <div className="flex flex-col gap-1.5 border-t border-gray-100 dark:border-gray-800 pt-5">
         <SectionLabel>Community</SectionLabel>
         {showVolunteerTab && (
@@ -533,18 +558,22 @@ function NavSidebarContent({
             accent
           />
         )}
-        <NavItem
-          icon="friends"
-          label="Friends"
-          isActive={activePanel === 'friends'}
-          onClick={() => onTogglePanel('friends')}
-        />
-        <NavItem
-          icon="directory"
-          label="Member Directory"
-          isActive={activePanel === 'directory'}
-          onClick={() => onTogglePanel('directory')}
-        />
+        {isAuthenticated && (
+          <>
+            <NavItem
+              icon="friends"
+              label="Friends"
+              isActive={activePanel === 'friends'}
+              onClick={() => onTogglePanel('friends')}
+            />
+            <NavItem
+              icon="directory"
+              label="Member Directory"
+              isActive={activePanel === 'directory'}
+              onClick={() => onTogglePanel('directory')}
+            />
+          </>
+        )}
         {isModerator && (
           <NavItem
             icon="shield"
@@ -554,6 +583,7 @@ function NavSidebarContent({
           />
         )}
       </div>
+      )}
 
       <ToolGroup label="Inform Tools" accent="yellow" isOpen={informOpen} onToggle={() => setInformOpen((v) => !v)}>
         {INFORM_TOOLS.map((item) => (

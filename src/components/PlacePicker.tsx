@@ -365,6 +365,14 @@ export function PlacePicker({
               rows.map((row, index) => {
                 const isActive = index === activeIndex
                 const isChosen = !!row.geo_id && row.geo_id === chosenGeoid
+                const label = row.label ?? row.geo_id ?? ''
+                // The API's label usually already ends in the area type —
+                // "Portland, OR · City" — and that label is what tells the two
+                // Portlands apart. Showing the type a second time beside it is
+                // noise, so it renders only when the label does not carry it.
+                const areaType = row.area_type
+                const typeShown =
+                  areaType && !label.toLowerCase().endsWith(areaType.toLowerCase()) ? areaType : null
                 return (
                   <li
                     key={row.geo_id ?? `${row.label ?? 'row'}-${index}`}
@@ -386,12 +394,14 @@ export function PlacePicker({
                     ].join(' ')}
                   >
                     <PinIcon className="h-4 w-4 flex-shrink-0 text-brand dark:text-brand-light" />
-                    <span className="min-w-0 flex-1 truncate">{row.label ?? row.geo_id}</span>
-                    {/* The area type the API already returns, so "Portland, OR ·
-                        City" and "Portland, ME · City" are told apart. */}
-                    {row.area_type && (
+                    {/* 🔴 The API's own canonical label for a real place, which
+                        carries the state — "Portland, OR · City" against
+                        "Portland, ME · City". It is resolved from a geoid and is
+                        NOT an echo of what was typed (D-13). */}
+                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                    {typeShown && (
                       <span className="flex-shrink-0 text-xs font-medium text-gray-600 dark:text-gray-400">
-                        {row.area_type}
+                        {typeShown}
                       </span>
                     )}
                   </li>

@@ -27,6 +27,10 @@ import { useCurrentWeather } from '../hooks/useCurrentWeather'
 import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
+import { WelcomeScreen } from './WelcomeScreen'
+import { ReadOnlyNotice } from './ReadOnlyNotice'
+import { readViewedPlace, writeViewedPlace, placeSentinelId } from '../lib/viewedPlace'
+import type { ResolvedPlace } from '../lib/placeResolve'
 import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
 import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
 import { ExploreView } from './explore/ExploreView'
@@ -329,9 +333,13 @@ function photoSliceFor(
 function ActiveExplore({
   activeSlice,
   slices,
+  onScreenSlices,
   photoSlice,
   stateSlice,
   userId,
+  isAuthenticated,
+  loginUrl,
+  destinationEnabled,
   answeredCompassTopicIds,
   compassLevelFlags,
   isViewOnly,
@@ -345,12 +353,35 @@ function ActiveExplore({
 }: {
   /** The slice for the tab being shown. Explore follows the tab, not the home slice. */
   activeSlice: SliceInfo
-  /** Every slice the member holds — canPostDraft checks a stored draft key against it. */
+  /**
+   * 🔴 Every slice the MEMBER HOLDS — canPostDraft checks a stored draft key
+   * against it, and ExploreView's draft migration and resume read it. Never the
+   * place on screen: a draft must not become postable BECAUSE somebody is
+   * looking at that place.
+   */
   slices: Partial<Record<SliceType, SliceInfo>>
+  /**
+   * 🔴 What is ON SCREEN — the member's own slices, or a visited place. Only
+   * `racesAreaFor` reads it: "which races are these" is a fact about the place,
+   * and the endpoint is anonymous and keyed on (geoid, mtfcc). Pitfall 9 applied
+   * to races — otherwise Portland's Explore shows YOUR House race.
+   */
+  onScreenSlices: Partial<Record<SliceType, SliceInfo>>
   /** Whose banner photo the featured card borrows, or null to use the illustration instead. */
   photoSlice: SliceInfo | null
   stateSlice: SliceInfo | undefined
   userId: string | null
+  /** False for an observer. ExploreView gates its draft migration and resume on it. */
+  isAuthenticated: boolean
+  /** The real sign-in, for the signed-out notice's only control. */
+  loginUrl?: string
+  /**
+   * 🔴 False for a visited place. A destination names a slice a conversation
+   * would START in, and a `place:` sentinel is not a slice anyone can write to.
+   * The gate already hides every write affordance; this stops the sentinel being
+   * handed to one at all.
+   */
+  destinationEnabled: boolean
   /**
    * The VIEWING MEMBER's own answered Compass topics, and the catalog's level
    * flags. Both are resolved once in AppShell (useCompassData is hoisted there
@@ -372,7 +403,8 @@ function ActiveExplore({
   noWriteReason: NoWriteReason | null
   /** The sibling on screen. The member's own index comes off activeSlice. */
   viewingSliceIndex: number | undefined
-  onReturnToOwnSlice: () => void
+  /** Absent while visiting a place: there is no own shard to return to. 17-05 adds "Back to my spaces". */
+  onReturnToOwnSlice?: () => void
   onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null) => void
   onScrollTop: () => void
   onGoToView: (view: ForumView) => void
@@ -406,7 +438,7 @@ function ActiveExplore({
    * React Query serves it from cache. On Federal and State it is ONE extra
    * request per member, deliberately, and it is the whole correctness fix.
    */
-  const { elections: raceElections } = useRacesForArea(racesAreaFor(slices), userId)
+  const { elections: raceElections } = useRacesForArea(racesAreaFor(onScreenSlices), userId)
   const races = useMemo(
     () => ({
       federal: racesForLevel(raceElections, 'federal'),
@@ -438,8 +470,8 @@ function ActiveExplore({
   // Where a topic opened on THIS tab starts its conversation. The draft key carries the
   // same (sliceType, geoid), and AppShell re-checks it with canPostDraft before posting.
   const destination = useMemo(
-    () => ({ sliceId: activeSlice.id, tab: activeSlice.sliceType, name }),
-    [activeSlice.id, activeSlice.sliceType, name],
+    () => (destinationEnabled ? { sliceId: activeSlice.id, tab: activeSlice.sliceType, name } : null),
+    [destinationEnabled, activeSlice.id, activeSlice.sliceType, name],
   )
   return (
     <ExploreView
@@ -458,7 +490,11 @@ function ActiveExplore({
          Same `name !== TAB_LABELS[tab]` idiom handleStartConversation uses. */
       placeName={name !== label ? name : null}
       destination={destination}
-      isAuthenticated
+      /* 🔴 The real answer, never a hard-coded `true`. An observer reaches this
+         path too now — the place they named renders the same Explore — and
+         ExploreView gates its draft migration and resume on this. */
+      isAuthenticated={isAuthenticated}
+      loginUrl={loginUrl}
       isViewOnly={isViewOnly}
       noWriteReason={noWriteReason}
       viewingSliceIndex={viewingSliceIndex}
@@ -478,6 +514,68 @@ function ActiveExplore({
       onGoToView={onGoToView}
     />
   )
+}
+
+/**
+ * A visited place, shaped as the `Partial<Record<SliceType, SliceInfo>>` the
+ * whole shell already consumes — so tabs, the nav rail, the hero banner,
+ * population, weather, elections, meetings and Explore all follow it with NO
+ * change to any of them. That one substitution is the whole mechanism.
+ *
+ * 🔴 `id` is a `place:<type>:<geoid>` sentinel and is NEVER a `slices.id`. The
+ * format, and the reasoning behind its shape, live in `src/lib/viewedPlace.ts`;
+ * nothing else constructs or parses it.
+ *
+ * 🔴 `memberCount` is **null**, not 0. There is no row to count, and a zero
+ * would be rendered — by `HeroBanner`'s fact chip and by `SliceTabBar`'s
+ * active-tab subtitle — as "0 members in this slice" about a real jurisdiction.
+ * The sentinel is the only thing here standing in for a row that may not exist.
+ *
+ * 🔴 `city` only when `place.city` is non-null. An unincorporated place gets
+ * FOUR tabs, and that is an answer rather than a failure — ev-accounts says so
+ * outright, and `?dev=1&place=arden` is the fixture for the member-side twin.
+ *
+ * `volunteer` is never here: it is role-gated and is never a visitor's.
+ * `photoUrl: null` so `useHeroBanner` resolves the shared-library banner for the
+ * geoid, exactly as it does for a member.
+ */
+function placeSlices(place: ResolvedPlace): Partial<Record<SliceType, SliceInfo>> {
+  const entry = (sliceType: SliceType, geoid: string): SliceInfo => ({
+    id: placeSentinelId(sliceType, geoid),
+    sliceType,
+    geoid,
+    memberCount: null,
+    siblingIndex: 1,
+    photoUrl: null,
+  })
+
+  const out: Partial<Record<SliceType, SliceInfo>> = {}
+  if (place.city) out['city'] = entry('city', place.city)
+  if (place.county) out['county'] = entry('county', place.county)
+  out['state'] = entry('state', place.state)
+  // 🔴 Literals, never looked up: ev-accounts' SLICE_ASSIGNMENTS keys federal on
+  // 'US' and assignUnifiedIfNotAssigned on 'UNIFIED' (research Q3.2).
+  out['federal'] = entry('federal', place.nation)
+  out['unified'] = entry('unified', place.unified)
+  return out
+}
+
+/** Most local first — a place's own tab, before the ones it sits inside. */
+const MOST_LOCAL_ORDER: TabKey[] = ['city', 'county', 'state', 'federal', 'unified']
+
+/**
+ * The tab a newly named place should open on.
+ *
+ * 🔴 Somebody who types "Asheville" must arrive in Asheville. Without this they
+ * land on whatever `cs_active_tab` last held — 'federal' by default — and the
+ * answer to "show me Asheville" is a banner reading "United States of America".
+ * A true page about the wrong thing is still the wrong answer.
+ */
+function mostLocalTab(slices: Partial<Record<SliceType, SliceInfo>>): TabKey | null {
+  for (const tab of MOST_LOCAL_ORDER) {
+    if (slices[tab]) return tab
+  }
+  return null
 }
 
 type ActivePanel = 'friends' | 'directory' | null
@@ -543,6 +641,34 @@ export default function AppShell() {
   // after their session started, not someone without one. Ask the assigner again
   // before concluding they have no jurisdiction. See useEnsureSlices.
   const hasAnySlices = Object.keys(slices).length > 0
+
+  /**
+   * The place the viewer named, for this window only.
+   *
+   * 🔴 ITS OWN STATE, never `viewingSlices`. That one holds a `SiblingSlice` —
+   * `{id, siblingIndex, memberCount}` — which is a SHARD INDEX within the
+   * member's own geoid and structurally cannot represent another place
+   * (research Q3.4 item 3). Widening it would make every existing reader of it
+   * ambiguous. Two states, two meanings; 17-05's control is what keeps them from
+   * being set at once.
+   *
+   * Hydrated from `sessionStorage` (geoids only — D-13), so the place survives a
+   * reload and survives wouter dropping the query string on `/post/:postId`. A
+   * new tab is a new visitor.
+   */
+  const [viewedPlace, setViewedPlace] = useState<ResolvedPlace | null>(() => readViewedPlace())
+  const isVisitingPlace = viewedPlace !== null
+  /**
+   * 🔴 The one substitution. Everything that PRESENTS a place reads this;
+   * everything that answers "what is MINE" keeps reading `slices`.
+   */
+  const onScreenSlices = useMemo(
+    () => (viewedPlace ? placeSlices(viewedPlace) : slices),
+    [viewedPlace, slices],
+  )
+  // 🔴 useEnsureSlices is disabled without a userId — confirmed, not assumed: its
+  // effect returns on `if (!userId …)` before anything else. A retry loop on the
+  // welcome screen would be invisible and permanent.
   const assignmentStatus = useEnsureSlices({ userId, hasAnySlices, isLoading })
   const isAssigning = assignmentStatus === 'assigning'
   const { data: isModerator } = useIsModerator(userId)
@@ -595,7 +721,12 @@ export default function AppShell() {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     const saved = localStorage.getItem('cs_active_tab')
-    return (ALL_TAB_KEYS.includes(saved as TabKey) ? saved : 'federal') as TabKey
+    const remembered = (ALL_TAB_KEYS.includes(saved as TabKey) ? saved : 'federal') as TabKey
+    // 🔴 A window rehydrating a visited place opens IN that place, not in the
+    // tab a previous session left behind. `cs_active_tab` is the member's choice
+    // for their OWN spaces and is never written while visiting, so without this
+    // every reload of a visited place would land on 'federal'.
+    return viewedPlace ? (mostLocalTab(placeSlices(viewedPlace)) ?? remembered) : remembered
   })
   const [activePostIds, setActivePostIds] = useState<Record<TabKey, string | null>>(INITIAL_POST_IDS)
   const [scrollToLatestMap, setScrollToLatestMap] = useState<Record<TabKey, boolean>>(INITIAL_SCROLL_MAP)
@@ -612,6 +743,21 @@ export default function AppShell() {
   const [modQueueOpen, setModQueueOpen] = useState(false)
   // The nav rail is pinned from lg up; below that it lives in this drawer.
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
+
+  /**
+   * A place was named — by the welcome screen's picker here, and by the shell's
+   * copy of the same picker in 17-05.
+   *
+   * 🔴 `cs_active_tab` is deliberately NOT written. It is the member's choice
+   * for their own spaces, and another city's answer must not clobber it.
+   */
+  const handlePlaceResolved = useCallback((place: ResolvedPlace) => {
+    setViewedPlace(place)
+    writeViewedPlace(place)
+    const landing = mostLocalTab(placeSlices(place))
+    if (landing) setActiveTab(landing)
+    setForumView('explore')
+  }, [])
 
   const [, navigate] = useLocation()
   // The post id the route effect has already acted on, so a URL this component
@@ -668,7 +814,9 @@ export default function AppShell() {
     })
   }, [])
 
-  const showVolunteerTab = !!slices['volunteer']
+  // 🔴 `onScreenSlices` — placeSlices never carries a volunteer entry, so the tab
+  // is absent while visiting. It is role-gated and is never a visitor's.
+  const showVolunteerTab = !!onScreenSlices['volunteer']
 
   // The right sidebar is hidden entirely on Volunteer, and when the member collapses
   // it, so the content grid drops to a single column then — otherwise its track
@@ -692,14 +840,20 @@ export default function AppShell() {
   // the feed column renders nothing at all: that tab's panel returns null for a
   // missing slice, and every other panel is CSS-hidden because it is not active.
   // The result is a tab bar above an empty page, with nothing to say why.
+  //
+  // 🔴 `onScreenSlices`, so a visited place with no incorporated city moves off
+  // the City tab the same way an unincorporated member does. The REMEMBERED tab
+  // is only rewritten when the viewer is on their own spaces: another city's
+  // answer must not clobber what a member chose for theirs.
+  const hasAnyOnScreenSlices = Object.keys(onScreenSlices).length > 0
   useEffect(() => {
-    if (isLoading || !hasAnySlices || slices[activeTab]) return
-    const firstAvailable = ALL_TAB_KEYS.find((tab) => slices[tab])
+    if (isLoading || !hasAnyOnScreenSlices || onScreenSlices[activeTab]) return
+    const firstAvailable = ALL_TAB_KEYS.find((tab) => onScreenSlices[tab])
     if (firstAvailable) {
       setActiveTab(firstAvailable)
-      localStorage.setItem('cs_active_tab', firstAvailable)
+      if (!isVisitingPlace) localStorage.setItem('cs_active_tab', firstAvailable)
     }
-  }, [isLoading, hasAnySlices, slices, activeTab])
+  }, [isLoading, hasAnyOnScreenSlices, onScreenSlices, activeTab, isVisitingPlace])
 
   const handleViewSlice = useCallback((tab: TabKey, sibling: SiblingSlice, ownSliceId: string) => {
     setViewingSlices((prev) => ({ ...prev, [tab]: sibling.id === ownSliceId ? null : sibling }))
@@ -871,8 +1025,14 @@ export default function AppShell() {
    * and a block-scoped const cannot be named before it is declared. The feed reads
    * this same value (see the FEED_TABS map), so the two cannot disagree.
    */
-  const activeSlice = slices[activeTab]
-  const activeViewing = viewingSlices[activeTab]
+  const activeSlice = onScreenSlices[activeTab]
+  /**
+   * 🔴 Ignored while visiting a place. `viewingSlices` is a shard index within
+   * the MEMBER's own jurisdiction; combining it with another place's slice would
+   * produce a viewed id from one place and a geoid from another — the shape
+   * whyNoWrite cannot answer honestly about.
+   */
+  const activeViewing = isVisitingPlace ? null : viewingSlices[activeTab]
   /**
    * 🔴 `activeViewing` is a SiblingSlice — { id, siblingIndex, memberCount } — and
    * carries no sliceType and no geoid. They come from `activeSlice`, which is the
@@ -993,7 +1153,13 @@ export default function AppShell() {
   }, [activeTab])
 
   const activeMode = feedModes[activeTab]
-  const showFeed = isAuthenticated && !isLoading && !isAssigning && (hasJurisdiction || !!slices['unified'])
+  const showFeedForMember = isAuthenticated && !isLoading && !isAssigning && (hasJurisdiction || !!slices['unified'])
+  /**
+   * The real shell — tabs, rail, banner, Explore — for a member on their own
+   * spaces OR for anyone looking at a place they named. There is nothing in
+   * between any more: an observer gets a real place or the welcome screen (D-09).
+   */
+  const showShell = showFeedForMember || isVisitingPlace
   // "Showing content for …" names the member's most local space.
   const homeSlice = slices['city'] ?? slices['county'] ?? slices['state']
   // Volunteer is its own space, not a place — it keeps the forum alone, no Explore.
@@ -1135,78 +1301,50 @@ export default function AppShell() {
           </div>
         )}
 
-        {!authLoading && !isAuthenticated && (
-          <div className="flex flex-col flex-1 items-center gap-6 px-3 py-8 md:py-12">
-            <div className="flex flex-col items-center gap-4">
-              <p className="text-gray-600 dark:text-gray-400 text-sm">Log in to view your civic community.</p>
-              <a
-                href={loginUrl}
-                className="px-5 py-2 bg-brand-btn text-white text-sm font-medium rounded-full hover:bg-brand-hover transition-colors"
-              >
-                Log in with Empowered Vote
-              </a>
-            </div>
-            {/* Explore works signed out: browsing needs no account. Every write
-                affordance on it is gated — see the notice the view renders. */}
-            {/* data-signed-out-explore: this branch has no #forum-view-explore
-                tabpanel (that one only exists once a member has a feed), so the
-                signed-out viewer of scripts/check-explore-gate.mjs scopes its
-                queries to this attribute instead. */}
-            <div className="w-full max-w-3xl" data-signed-out-explore="">
-              {/* A stranger gets the place-scale generic composition, not the stored
-                  cs_active_tab: there is no tab UI on this screen, and the city page is
-                  the most legible thing to someone who has not signed in (16-CONTEXT,
-                  "Settled after research" item 3). geoid null means no bespoke layer and
-                  no seed invitation — nobody can seed a place the app cannot name. */}
-              <ExploreView
-                sliceType="city"
-                geoid={null}
-                destination={null}
-                isAuthenticated={false}
-                /* 🔴 The real answer, which is always 'signed-out' here.
-                   This used to read `isViewOnly={false}`, with a comment saying a
-                   stranger is on nobody's sibling shard. That was true about SIBLINGS
-                   and false about WRITING: a visitor cannot write anywhere, and the
-                   flag's job is the write gate, not the shard comparison. The notice
-                   says so, and offers sign-in as its control. */
-                isViewOnly={activeIsViewOnly}
-                noWriteReason={activeNoWriteReason}
-                /* The notice's only control: there is no shard to switch back from. */
-                loginUrl={loginUrl}
-                /* A stranger has answered nothing, so rankByCompass keeps source
-                   order; the level flags still exclude, which needs no account. */
-                answeredCompassTopicIds={compass.answeredTopicIds}
-                compassLevelFlags={compassLevelFlags}
-                onStartConversation={handleStartConversation}
-              />
-            </div>
-          </div>
+        {/* 🔴 The welcome screen, and NOTHING behind it (D-09).
+            What stood here was one grey sentence, one button, and the `geoid:
+            null` ExploreView — "WELCOME TO YOUR CIVIC SPACE / Discover what's
+            happening in your community" addressed to someone in nobody's
+            community, "Nothing is on the public calendar FOR YOUR AREA right
+            now" said to a visitor who has none, and five reserved rooms
+            promising what "this space becomes" to someone who has no space.
+            Chris: "an explore of a blank space which doesn't make a ton of
+            sense". An observer now looks at a REAL place or at this screen.
+            Nothing in between.
+
+            Once a place is named, `showShell` renders the real shell below and
+            this branch stands down — hence `!isVisitingPlace`. */}
+        {!authLoading && !isAuthenticated && !isVisitingPlace && (
+          <WelcomeScreen loginUrl={loginUrl} onResolved={handlePlaceResolved} />
         )}
 
-        {isAuthenticated && isLoading && (
+        {/* The member-state screens all stand down while a place is on screen:
+            the place is what the viewer asked for, and "Loading your slices…"
+            above another city's banner describes nothing they can see. */}
+        {isAuthenticated && isLoading && !isVisitingPlace && (
           <div className="flex flex-1 items-center justify-center text-gray-500 text-sm">
             Loading your slices&hellip;
           </div>
         )}
 
-        {isAuthenticated && !isLoading && isAssigning && (
+        {isAuthenticated && !isLoading && isAssigning && !isVisitingPlace && (
           <div className="flex flex-1 items-center justify-center text-gray-500 dark:text-gray-500 text-sm">
             Setting up your civic spaces&hellip;
           </div>
         )}
 
-        {isAuthenticated && !isLoading && !isAssigning && !hasJurisdiction && !slices['unified'] && (
+        {isAuthenticated && !isLoading && !isAssigning && !hasJurisdiction && !slices['unified'] && !isVisitingPlace && (
           <LocationPrompt />
         )}
 
-        {showFeed && (
+        {showShell && (
           <>
             {/* Below lg the nav rail is a drawer, so the tab bar carries navigation. */}
             <div className="lg:hidden">
               <SliceTabBar
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
-                slices={slices}
+                slices={onScreenSlices}
                 showVolunteerTab={showVolunteerTab}
               />
             </div>
@@ -1221,9 +1359,11 @@ export default function AppShell() {
                 <NavSidebar
                   activeTab={activeTab}
                   onTabChange={handleTabChange}
-                  slices={slices}
+                  slices={onScreenSlices}
                   showVolunteerTab={showVolunteerTab}
                   isModerator={!!isModerator}
+                  isAuthenticated={isAuthenticated}
+                  isVisitingPlace={isVisitingPlace}
                   activePanel={activePanel}
                   onTogglePanel={handleTogglePanel}
                   onOpenModQueue={() => setModQueueOpen(true)}
@@ -1267,7 +1407,19 @@ export default function AppShell() {
                         {hasExplore && (
                           <div className="hidden md:block w-px h-5 bg-gray-200 dark:bg-white/10 flex-shrink-0" aria-hidden="true" />
                         )}
-                        {activeSlice && FEED_TABS.includes(activeTab as (typeof FEED_TABS)[number]) && (
+                        {/* 🔴 `!isVisitingPlace`, and this guard lives OUTSIDE the
+                            FEED_TABS map — so the feed guard below never reached
+                            it. Two things go wrong without it. The control calls
+                            useSiblingSlices, which is a live PostgREST query on
+                            `slices` filtered by the VISITED geoid; and it offers
+                            to switch shards of a jurisdiction the viewer does not
+                            hold, captioned "This is the only slice in Portland so
+                            far". The hook now bails on a `place:` sentinel too —
+                            both are needed, because NOT QUERYING and NOT OFFERING
+                            are different requirements, and shipping only the hook
+                            bail is silent on the network and still wrong on
+                            screen. */}
+                        {!isVisitingPlace && activeSlice && FEED_TABS.includes(activeTab as (typeof FEED_TABS)[number]) && (
                           <div className="order-3 md:order-none min-w-0">
                             <ActiveSliceSelector
                               slice={activeSlice}
@@ -1277,6 +1429,13 @@ export default function AppShell() {
                             />
                           </div>
                         )}
+                        {/* 🔴 `!isVisitingPlace` for the same reason as the search
+                            beside it: New / Top sorts the posts a feed has
+                            loaded, and while visiting a place there is no feed —
+                            an honest empty state stands in its place. A sort
+                            control over nothing is a control that works and
+                            looks broken. */}
+                        {!isVisitingPlace && (
                         <div className="order-2 md:order-none flex-1 md:flex-none min-w-0 overflow-x-auto md:overflow-visible">
                         <FeedTabs
                           mode={activeMode}
@@ -1286,10 +1445,16 @@ export default function AppShell() {
                           }}
                         />
                         </div>
+                        )}
                         {/* Search lives with the feed it filters (it only searches the posts
                             loaded below), not in the global header. Beside the pill on phones;
                             inline before Post from md, sticking with the bar as you scroll. */}
-                        {activeSlice && (
+                        {/* 🔴 `!isVisitingPlace`, same bar, same outside-the-map
+                            blind spot. It filters the posts a feed has loaded,
+                            and while visiting a place the feed below renders no
+                            posts at all — so it is a control that works
+                            perfectly and looks broken. */}
+                        {!isVisitingPlace && activeSlice && (
                           <ActiveFeedSearch
                             slice={activeSlice}
                             fallbackName={TAB_LABELS[activeTab]}
@@ -1328,10 +1493,10 @@ export default function AppShell() {
                         <ActiveLocationCard slice={homeSlice} fallbackName={TAB_LABELS[homeSlice.sliceType]} />
                       )}
                       events={activeSlice && (
-                        <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={slices['state']} userId={userId} />
+                        <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={onScreenSlices['state']} userId={userId} />
                       )}
                       about={activeSlice && (
-                        <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={slices['county']} />
+                        <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={onScreenSlices['county']} />
                       )}
                     />
 
@@ -1349,17 +1514,28 @@ export default function AppShell() {
                         {activeSlice ? (
                           <ActiveExplore
                             activeSlice={activeSlice}
+                            /* 🔴 The MEMBER's own, deliberately — ExploreView checks
+                               a stored draft key against it. Never onScreenSlices. */
                             slices={slices}
-                            stateSlice={slices['state']}
+                            onScreenSlices={onScreenSlices}
+                            stateSlice={onScreenSlices['state']}
                             userId={userId}
-                            photoSlice={photoSliceFor(slices, activeSlice, activeTab)}
+                            isAuthenticated={isAuthenticated}
+                            loginUrl={loginUrl}
+                            destinationEnabled={!isVisitingPlace}
+                            photoSlice={photoSliceFor(onScreenSlices, activeSlice, activeTab)}
                             answeredCompassTopicIds={compass.answeredTopicIds}
                             compassLevelFlags={compassLevelFlags}
                             isViewOnly={activeIsViewOnly}
                             noWriteReason={activeNoWriteReason}
                             viewingSliceIndex={activeViewing?.siblingIndex}
-                            onReturnToOwnSlice={() =>
-                              handleViewSlice(activeTab, { id: activeSlice.id, siblingIndex: activeSlice.siblingIndex, memberCount: activeSlice.memberCount }, activeSlice.id)
+                            /* 🔴 Absent while visiting: there is no own shard to go
+                               back to, and the 'other-place' notice renders without a
+                               control, which is correct rather than broken — a
+                               visitor's way out is the picker. 17-05 supplies "Back
+                               to my spaces" for a member. */
+                            onReturnToOwnSlice={isVisitingPlace ? undefined : () =>
+                              handleViewSlice(activeTab, { id: activeSlice.id, siblingIndex: activeSlice.siblingIndex, memberCount: activeSlice.memberCount ?? 0 }, activeSlice.id)
                             }
                             onStartConversation={handleStartConversation}
                             onScrollTop={scrollToContentTop}
@@ -1403,7 +1579,46 @@ export default function AppShell() {
                       aria-labelledby={hasExplore ? `${FORUM_VIEW_PANEL_ID.conversations}-tab` : undefined}
                       className={effectiveView === 'conversations' ? 'flex flex-col gap-3' : 'hidden'}
                     >
-                    {FEED_TABS.map((tabKey) => {
+                    {/* 🔴 NOT A FEED FOR A VISITED PLACE, and not an empty one
+                        either. Mounting a panel for a `place:` sentinel would
+                        query PostgREST with the visited geoid; and a SIGNED-IN
+                        member on another city gets a 200 with zero rows from RLS,
+                        which renders as "nobody has said anything here" — a false
+                        statement delivered silently. One honest state instead. */}
+                    {isVisitingPlace ? (
+                      <div className="flex flex-col gap-3">
+                        <ReadOnlyNotice reason={activeNoWriteReason} surface="feed" loginUrl={isAuthenticated ? undefined : loginUrl} />
+                        <div className="rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 shadow-sm p-5 flex flex-col gap-3">
+                          <h3 className="text-base font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                            Conversations here belong to the people who live here
+                          </h3>
+                          <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                            Posting, replying and voting in a civic space belong to the people who
+                            live under that government.
+                          </p>
+                          {/*
+                            🔴 PHASE 18 REVISES THIS PARAGRAPH, and it is worded so it is
+                            true whether or not a slices row exists — because Phase 17
+                            CANNOT TELL THE TWO APART and must not pretend to. An observer
+                            cannot read `slices` at all, and this phase makes no Supabase
+                            request for a visited place by design. Phase 18 can read the
+                            rows and can say which it is.
+
+                            🔴 And "nobody has joined yet" is the COMMON case, not an error
+                            branch: slice rows are created on demand by /assign, which only
+                            runs for a signed-in Connected member, and there are 15 `slices`
+                            rows in the entire product (research Q3.3). So the honest
+                            sentence is also the better half of the pitch.
+                          */}
+                          <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                            For most places nobody has joined yet — these spaces open as people
+                            arrive. An Empowered Vote account with an address set opens the ones
+                            where you live, and you can be the first voice in them.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                    FEED_TABS.map((tabKey) => {
                       const slice = slices[tabKey]
                       if (!slice) return null
                       const isShown = activeTab === tabKey
@@ -1430,7 +1645,7 @@ export default function AppShell() {
                             viewingSliceIndex={viewing?.siblingIndex}
                             ownSliceIndex={slice.siblingIndex}
                             onReturnToOwnSlice={() =>
-                              handleViewSlice(tabKey, { id: slice.id, siblingIndex: slice.siblingIndex, memberCount: slice.memberCount }, slice.id)
+                              handleViewSlice(tabKey, { id: slice.id, siblingIndex: slice.siblingIndex, memberCount: slice.memberCount ?? 0 }, slice.id)
                             }
                             activePostId={activePostIds[tabKey]}
                             onNavigateToThread={(postId) => handleNavigateToThread(tabKey, postId)}
@@ -1441,10 +1656,11 @@ export default function AppShell() {
                           />
                         </div>
                       )
-                    })}
+                    })
+                    )}
 
                     {/* Volunteer feed — conditionally rendered for users with volunteer slice */}
-                    {showVolunteerTab && slices['volunteer'] && (
+                    {!isVisitingPlace && showVolunteerTab && slices['volunteer'] && (
                       <div className={activeTab === 'volunteer' ? 'flex flex-col' : 'hidden'}>
                         <SliceFeedPanel
                           sliceId={slices['volunteer'].id}
@@ -1472,10 +1688,10 @@ export default function AppShell() {
                         <ActiveLocationCard slice={homeSlice} fallbackName={TAB_LABELS[homeSlice.sliceType]} />
                       )}
                       events={activeSlice && (
-                        <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={slices['state']} userId={userId} />
+                        <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={onScreenSlices['state']} userId={userId} />
                       )}
                       about={activeSlice && (
-                        <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={slices['county']} />
+                        <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={onScreenSlices['county']} />
                       )}
                       whatsNew={effectiveView === 'explore' && <WhatsNewCard onGoTo={handleForumViewChange} />}
                     />
@@ -1501,9 +1717,11 @@ export default function AppShell() {
               variant="drawer"
               activeTab={activeTab}
               onTabChange={handleTabChange}
-              slices={slices}
+              slices={onScreenSlices}
               showVolunteerTab={showVolunteerTab}
               isModerator={!!isModerator}
+              isAuthenticated={isAuthenticated}
+              isVisitingPlace={isVisitingPlace}
               activePanel={activePanel}
               onTogglePanel={handleTogglePanel}
               onOpenModQueue={() => {
@@ -1516,13 +1734,20 @@ export default function AppShell() {
         </div>
       )}
 
-      {/* Friends panel overlay */}
-      {activePanel === 'friends' && (
+      {/* Friends panel overlay — a session's, never a visitor's. */}
+      {isAuthenticated && activePanel === 'friends' && (
         <FriendsList onClose={() => setActivePanel(null)} />
       )}
 
-      {/* Member Directory panel overlay */}
-      {activePanel === 'directory' && (
+      {/* Member Directory panel overlay.
+          🔴 Gated on the session, and on `slices` — the MEMBER's own, never the
+          place on screen. It reads civic_spaces.slice_members, the user_id x
+          slice_id join, which is "which person lives in which jurisdiction" and
+          the single most sensitive thing in the schema (research Q2.6; ADR
+          0007's location floor exists for it). The entry points are gated rather
+          than the query being left to fail: a query that fails is a query that
+          was sent. */}
+      {isAuthenticated && activePanel === 'directory' && (
         <MemberDirectory
           sliceId={slices[activeTab as SliceType]?.id ?? null}
           onClose={() => setActivePanel(null)}

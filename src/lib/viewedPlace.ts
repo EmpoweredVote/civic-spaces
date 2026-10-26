@@ -32,6 +32,47 @@ import type { ResolvedPlace } from './placeResolve'
 
 const VIEWED_PLACE_KEY = 'cs_viewed_place'
 
+/**
+ * The id a visited place's slice carries on screen.
+ *
+ * 🔴 It is NEVER a `slices.id`, and the shape is chosen so a leak is LOUD. A
+ * real id is a UUID; this is `place:<sliceType>:<geoid>`. Phase 17 makes no
+ * Supabase request for a visited place — every grant is `TO authenticated` so an
+ * observer reads nothing, and `posts_select_sibling_slice` joins on geoid so a
+ * signed-in member reads nothing in another city either — and if one were ever
+ * built from this, PostgREST fails visibly on a non-UUID rather than answering
+ * zero rows that read as "nobody has said anything here".
+ *
+ * 🔴 It is deliberately NOT a `mock-` id. `isMockSliceId` routes to the
+ * FIXTURES, and routing a real place there would show a stranger invented shards
+ * and invented conversations about their own city — the "a real answer for the
+ * wrong place" failure with the fixture switch flipped to produce it.
+ *
+ * 🔴 `canWriteIn()` never matches it, because `ownedSliceIds` holds real ids
+ * only. That is the same reasoning `devMockData.ts` states for its reserved user
+ * ids — *the id itself is the safety boundary, not an environment check* — moved
+ * from user ids, where it would have UNLOCKED fixtures, to slice ids, where it
+ * locks a query out.
+ *
+ * 🔴 Both halves live HERE rather than in `AppShell`. `AppShell` imports
+ * `useSiblingSlices`, so a hook importing the predicate back out of `AppShell`
+ * is a cycle — and the executor meets a cycle as a confusing runtime
+ * `undefined`, not as a build error. This module already owns the place concept,
+ * has no React imports, and is imported by both. One file defines the format;
+ * nobody else constructs or parses it.
+ */
+const PLACE_SENTINEL_PREFIX = 'place:'
+
+/** `place:<sliceType>:<geoid>` — the only constructor. */
+export function placeSentinelId(sliceType: string, geoid: string): string {
+  return `${PLACE_SENTINEL_PREFIX}${sliceType}:${geoid}`
+}
+
+/** Is this id a visited place standing in for a slice row that may not exist? */
+export function isPlaceSentinelId(id: string): boolean {
+  return id.startsWith(PLACE_SENTINEL_PREFIX)
+}
+
 function storage(): Storage | null {
   try {
     return window.sessionStorage

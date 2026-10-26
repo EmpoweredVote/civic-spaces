@@ -39,7 +39,13 @@ export default function SliceTabBar({ activeTab, onTabChange, slices, showVolunt
         aria-current={isActive ? 'true' : undefined}
       >
         <span>{tab.label}</span>
-        {isActive && sliceInfo ? (
+        {/* 🔴 Omitted, never zero. A VISITED place has no slices row and so no
+            count (SliceInfo.memberCount is null there), and this subtitle would
+            otherwise have said "0 members" about a real jurisdiction — on
+            phones and tablets only, since this bar replaces the nav rail below
+            lg, which is where a false number is least likely to be noticed. The
+            same omission HeroBanner makes, found by widening the type. */}
+        {isActive && sliceInfo && sliceInfo.memberCount !== null ? (
           <span className="text-xs font-normal text-white/80 mt-0.5">
             {sliceInfo.memberCount.toLocaleString()} {sliceInfo.memberCount === 1 ? 'member' : 'members'}
           </span>

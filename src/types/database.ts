@@ -6,7 +6,18 @@ export interface SliceInfo {
   id: string
   sliceType: SliceType
   geoid: string
-  memberCount: number
+  /**
+   * 🔴 Null for a VISITED PLACE, which has no `slices` row to count. Phase 17
+   * must not invent one: a sentinel slice carrying 0 would state "0 members in
+   * this slice" about a real jurisdiction — a confident false fact, the exact
+   * class of bug Phase 17 exists to delete.
+   *
+   * Widened rather than defaulted on purpose. The compiler is what finds every
+   * surface that RENDERS the count, and it found two: `HeroBanner`'s fact chip
+   * and `SliceTabBar`'s active-tab subtitle. The second is below `lg` only, so a
+   * phone would have been the one place the false number showed.
+   */
+  memberCount: number | null
   siblingIndex: number
   photoUrl?: string | null
 }

@@ -17,8 +17,23 @@ interface HeroBannerProps {
   sliceName: string
   /** The level's tab label ("City", "Federal", …), shown as the eyebrow. */
   levelLabel: string
-  /** Members of the slice on screen — the member's own, or the sibling being browsed. */
-  memberCount: number
+  /**
+   * Members of the slice on screen — the member's own, or the sibling being
+   * browsed.
+   *
+   * 🔴 Null means "there is no count", and the chip is OMITTED rather than
+   * rendered as zero. A visited place (Phase 17) has no `slices` row at all, and
+   * this prop was required and rendered "N members in this slice" — so a
+   * sentinel slice would have announced "0 members in this slice" about a real
+   * jurisdiction, confidently and falsely.
+   *
+   * 🔴 This is the ONE change Phase 17 makes to this component, and it is
+   * deliberately not the one 17-05 forbids. That instruction is about putting an
+   * interactive control INTO this component, because PR #92's unclickable credit
+   * link lived in its layering. Removing a stat adds no layer and no
+   * interaction.
+   */
+  memberCount: number | null
   /** Total population of the area from POPULATION_SOURCE, when Census answered. */
   population?: number
   /**
@@ -315,6 +330,10 @@ export function HeroBanner({
           {/* One row of short facts: icon + value. The sentence behind each one is in its
               details panel, so the row scans at a glance and still wraps cleanly. */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
+            {/* 🔴 Omitted, never zero. See the prop's comment: a visited place has
+                no slices row, and "0 members in this slice" about a real
+                jurisdiction is a false fact stated confidently. */}
+            {memberCount !== null && (
             <FactChip
               icon="👥"
               label={memberCount === 1 ? 'member in this slice' : 'members in this slice'}
@@ -330,6 +349,7 @@ export function HeroBanner({
             >
               <span className="font-semibold tabular-nums">{memberCount.toLocaleString()}</span>
             </FactChip>
+            )}
             {population !== undefined && (
               <FactChip
                 icon="🏘️"

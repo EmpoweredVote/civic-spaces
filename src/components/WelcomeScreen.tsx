@@ -126,7 +126,12 @@ export function WelcomeScreen({
         <header className="flex flex-col gap-3">
           <div className="flex items-center gap-2.5">
             <CivicSpacesMark className="h-8 w-8 flex-shrink-0" />
-            <p className="text-lg font-extrabold tracking-tight">
+            {/* The base colour is written even though both spans carry their own:
+                without it the fallback is the browser's black, which on the dark
+                default is black on near-black. A colour that is only ever
+                correct because a child overrides it is a colour waiting to be
+                wrong. */}
+            <p className="text-lg font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
               <span className="text-brand dark:text-brand-light">Civic</span>{' '}
               <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
             </p>
