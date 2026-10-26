@@ -672,8 +672,25 @@ export default function AppShell() {
   const assignmentStatus = useEnsureSlices({ userId, hasAnySlices, isLoading })
   const isAssigning = assignmentStatus === 'assigning'
   const { data: isModerator } = useIsModerator(userId)
+  /**
+   * 🔴 AUDIT — "on screen" is not "mine": STAYS THE MEMBER'S, in this plan.
+   *
+   * Pitfall 9 proper. This calls `/representatives/me` with a bearer token and
+   * CANNOT follow a place at all — there is no argument to give it. 17-06 adds
+   * the by-area substitute (`usePlaceRepresentatives`, the anonymous
+   * `/essentials/browse/by-area`). Until then the sidebar shows the member's own
+   * officials while visiting, which is a known, ONE-PLAN gap recorded in
+   * 17-VALIDATION.md. For an observer `userId` is null, the query is disabled,
+   * and the widget simply has no source — which is honest rather than wrong.
+   */
   const repsData = useRepresentatives(userId)
   /**
+   * 🔴 AUDIT — STAYS THE MEMBER'S, PERMANENTLY. Ranking is about the READER,
+   * not the place: it orders this member's Explore by this member's own
+   * answers. Locked decision 7 — nothing aggregates, no endpoint serves a
+   * slice-wide view of members' political answers, and none should be designed.
+   * Pointing this at a place would be the first step towards asking for one.
+   *
    * Hoisted for the same reason as repsData: all five feed panels plus
    * Volunteer mount at once, so a hook inside one of them fires 6×.
    *
@@ -739,7 +756,14 @@ export default function AppShell() {
   // a notification, or a draft being posted switches to Conversations.
   const [forumView, setForumView] = useState<ForumView>('explore')
   // Hoisted like repsData, and for the active tab only: the banner is the one consumer.
-  const nextElection = useNextElection(electionAreaFor(slices[activeTab], slices['state']), userId)
+  /**
+   * 🔴 AUDIT — FOLLOWS `onScreenSlices`. "When does this place vote next" is a
+   * fact ABOUT THE PLACE, and the banner that renders it is the visited place's
+   * banner. The endpoint is anonymous and keyed on the area, so it needs nothing
+   * new; left on `slices` it would caption another city's banner with the
+   * member's own election.
+   */
+  const nextElection = useNextElection(electionAreaFor(onScreenSlices[activeTab], onScreenSlices['state']), userId)
   const [modQueueOpen, setModQueueOpen] = useState(false)
   // The nav rail is pinned from lg up; below that it lives in this drawer.
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
@@ -998,6 +1022,13 @@ export default function AppShell() {
    * Both are empty for a guest AND for an Inform account, which holds no
    * slice_members rows — which is how D-04 ("treat Inform as a guest") is
    * satisfied by the data rather than by a tier check someone has to remember.
+   *
+   * 🔴 AUDIT, re-read now that the thing it warns against EXISTS. 17-02 wrote
+   * "a later phase adds state for the things that SHOULD follow a visited
+   * place"; that state is `viewedPlace`/`onScreenSlices` above, and these two
+   * are not among them. Build either from `onScreenSlices` and whyNoWrite
+   * answers null for every place anybody looks at — the fail-open this module
+   * was extracted to close, re-entering through the back door.
    */
   const ownedSliceIds = useMemo(
     () => new Set(Object.values(slices).map((s) => s.id)),
@@ -1110,6 +1141,16 @@ export default function AppShell() {
     // Explore hands the draft over directly rather than us reading it back: in a private
     // window the write is refused silently, and reading back undefined used to surface as
     // "you're not in that community", which is wrong on both counts and loses the text.
+    /**
+     * 🔴 AUDIT — STAYS `slices`. NEVER `onScreenSlices`. This is the single most
+     * dangerous line in Phase 17.
+     *
+     * It is the guard against the phase's loudest anti-goal — a post must not
+     * land in the wrong jurisdiction — and pointing it at the place ON SCREEN
+     * would make a draft postable BECAUSE somebody is looking at that place.
+     * `check:composition` 16–21 cover the FUNCTION; nothing covers this CALL
+     * SITE, so this comment is the only defence it has.
+     */
     const verdict = canPostDraft(key, slices)
     if (!verdict.ok) {
       toast.error(verdict.reason === 'moved'
@@ -1160,8 +1201,17 @@ export default function AppShell() {
    * between any more: an observer gets a real place or the welcome screen (D-09).
    */
   const showShell = showFeedForMember || isVisitingPlace
-  // "Showing content for …" names the member's most local space.
-  const homeSlice = slices['city'] ?? slices['county'] ?? slices['state']
+  /**
+   * "Showing content for Asheville · Change" — the member's most local space.
+   *
+   * 🔴 AUDIT — STAYS `slices`, **and is hidden while visiting**. It is about the
+   * MEMBER'S OWN ADDRESS and its Change link goes to the accounts app; beside
+   * another city's feed it is simply wrong, whichever slice set it is built
+   * from. 17-05's place control says what is on screen instead. (For an observer
+   * it is undefined anyway — they hold nothing — so this guard is for the member
+   * who visits a place, which is 17-05's doing.)
+   */
+  const homeSlice = isVisitingPlace ? undefined : (slices['city'] ?? slices['county'] ?? slices['state'])
   // Volunteer is its own space, not a place — it keeps the forum alone, no Explore.
   const hasExplore = activeTab !== 'volunteer'
   const effectiveView: ForumView = hasExplore ? forumView : 'conversations'
@@ -1523,6 +1573,12 @@ export default function AppShell() {
                             isAuthenticated={isAuthenticated}
                             loginUrl={loginUrl}
                             destinationEnabled={!isVisitingPlace}
+                            /* 🔴 AUDIT — FOLLOWS `onScreenSlices`. The featured
+                               card borrows a credited place photo from another
+                               of the slices on screen; borrowing the MEMBER's
+                               own city's photo for another city's page is the
+                               Asheville-skyline-under-the-Capitol bug this
+                               function was written to stop, one level out. */
                             photoSlice={photoSliceFor(onScreenSlices, activeSlice, activeTab)}
                             answeredCompassTopicIds={compass.answeredTopicIds}
                             compassLevelFlags={compassLevelFlags}
