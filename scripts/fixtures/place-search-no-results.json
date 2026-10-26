@@ -1,0 +1,15 @@
+{
+  "_README": [
+    "FROZEN FIXTURE — the live response of",
+    "GET /api/essentials/location-search?q=zzzqqqxnotaplace&limit=8, captured 2026-10-26.",
+    "",
+    "🔴 200 with an EMPTY ARRAY. \"No place by that name\" is an ANSWER, not an error, and the",
+    "check asserts that it parses to an empty list rather than a failure. The same discipline the",
+    "geocoder forces everywhere on this path: never branch on status, branch on content.",
+    "",
+    "`rows` is the response body verbatim — `[]`.",
+    "",
+    "Captured: 2026-10-26"
+  ],
+  "rows": []
+}

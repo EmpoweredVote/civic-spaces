@@ -1,0 +1,62 @@
+{
+  "_README": [
+    "FROZEN FIXTURE — the live response of GET /api/essentials/location-search?q=asheville&limit=8,",
+    "captured 2026-10-26 through the dev proxy (vite.config.ts) against api.empowered.vote.",
+    "",
+    "Five rows, every one a G4110 incorporated place. The first is Asheville, NC — geoid",
+    "3702140, byte-identical to the one public/geo/37.json and devMockData.ts already carry.",
+    "",
+    "Frozen on purpose. scripts/check-place-resolve.mjs reads this instead of the network so it",
+    "goes red on OUR parsing and never on a ranking change at ev-accounts. Run",
+    "`node scripts/check-place-resolve.mjs --live` to re-check the SHAPE against the real API;",
+    "that mode exits non-zero on drift, because 17-05 serves these same rows through Playwright",
+    "route interception and a stale fixture would make that check green against an API that moved.",
+    "",
+    "`rows` is the response body verbatim. A consumer serving this as a stubbed response should",
+    "serve `rows`, not the envelope.",
+    "",
+    "Captured: 2026-10-26"
+  ],
+  "rows": [
+    {
+      "geo_id": "3702140",
+      "mtfcc": "G4110",
+      "label": "Asheville, NC · City",
+      "state": "NC",
+      "area_type": "City",
+      "has_local_data": true
+    },
+    {
+      "geo_id": "2002600",
+      "mtfcc": "G4110",
+      "label": "Asherville, KS · City",
+      "state": "KS",
+      "area_type": "City",
+      "has_local_data": false
+    },
+    {
+      "geo_id": "0507330",
+      "mtfcc": "G4110",
+      "label": "Blytheville, AR · City",
+      "state": "AR",
+      "area_type": "City",
+      "has_local_data": false
+    },
+    {
+      "geo_id": "2260985",
+      "mtfcc": "G4110",
+      "label": "Plaucheville, LA · City",
+      "state": "LA",
+      "area_type": "City",
+      "has_local_data": false
+    },
+    {
+      "geo_id": "5188000",
+      "mtfcc": "G4110",
+      "label": "Wytheville, VA · City",
+      "state": "VA",
+      "area_type": "City",
+      "has_local_data": false
+    }
+  ]
+}

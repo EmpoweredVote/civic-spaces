@@ -182,26 +182,57 @@ export function normalisePlaceQuery(raw: unknown): string | null {
 export type SearchRowKind = 'place' | 'county' | 'state' | 'unusable'
 
 /**
- * What a search row is, branched on the LENGTH of its geoid.
+ * The MTFCC a row must carry for its geoid to mean what its length suggests.
  *
- * 🔴 Length, never `mtfcc`. Both `G4110` (incorporated place) and `G4120`
- * (census designated place) are places, and ev-accounts may add more; branching
- * on the code would require this file to be kept in agreement with a list that
- * lives in another repo, and the failure when it drifts is silent — a whole
- * class of real places quietly becoming unselectable. FIPS length is the
- * property that does not move: 7 digits is a place, 5 a county, 2 a state.
+ * `G4110` is an incorporated place and `G4120` a census designated place; both
+ * are places, and ev-accounts' own `ST_Covers` query names both, so a check
+ * that only knew `G4110` would silently drop every CDP. `G4020` is a county,
+ * `G4000` a state.
+ */
+const PLACE_MTFCC = new Set(['G4110', 'G4120'])
+const COUNTY_MTFCC = new Set(['G4020'])
+const STATE_MTFCC = new Set(['G4000'])
+
+/**
+ * What a search row is — the geoid's SHAPE and the row's MTFCC, which must
+ * agree.
+ *
+ * 🔴 Length alone is not enough, and that is a live finding, not a theory.
+ * 17-03-PLAN.md specified "7 numeric digits → place, never branch on mtfcc", on
+ * the reasoning that an MTFCC list in this repo would drift out of agreement
+ * with ev-accounts. The reasoning is sound and the rule is wrong, because
+ * **a school district geoid is also seven digits**: state FIPS plus a five-digit
+ * district code. Verified live 2026-10-26 — `location-search?q=portland`
+ * returns `4110040 G5420 "Portland Public Schools, OR"` and `2312330 G5420
+ * "South Portland Public Schools, ME"` alongside the two real Portlands, and
+ * across sixteen sample queries 23 of 118 rows were G5420 at seven digits.
+ * Length alone would have offered a school district as a CITY and keyed a civic
+ * space, its banner, its officials and its whole Explore on it —
+ * "never invent a place", with the fixture `place-search-portland.json` as the
+ * proof.
+ *
+ * So both, and the two must agree. The failure modes are deliberately
+ * asymmetric: an unknown MTFCC makes a row UNSELECTABLE (it drops out of the
+ * list, which is the plan's "silent coverage loss" and is survivable), whereas
+ * length alone makes a wrong row SELECTABLE as the wrong level, which is the
+ * one failure this repo has already been burned by. Between a missing option
+ * and a real answer about the wrong place, take the missing option.
  *
  * `unusable` rather than a throw, for the reason `toolCoverage.ts` states: this
  * is remote data from an origin we do not control, and an unrecognised row must
- * drop out of the list rather than take down a render.
+ * drop out of the list rather than take down a render. `location-search` also
+ * returns a `NATIONAL` row with `geo_id: null`, a 10-digit `G4040` township and
+ * a 25-character `X0024` — all three land here.
  */
 export function searchRowKind(row: PlaceSearchRow | null | undefined): SearchRowKind {
   const geoid = row?.geo_id
   if (typeof geoid !== 'string') return 'unusable'
   if (!/^\d+$/.test(geoid)) return 'unusable'
-  if (geoid.length === 7) return 'place'
-  if (geoid.length === 5) return 'county'
-  if (geoid.length === 2) return 'state'
+  const mtfcc = row?.mtfcc
+  if (typeof mtfcc !== 'string') return 'unusable'
+  if (geoid.length === 7) return PLACE_MTFCC.has(mtfcc) ? 'place' : 'unusable'
+  if (geoid.length === 5) return COUNTY_MTFCC.has(mtfcc) ? 'county' : 'unusable'
+  if (geoid.length === 2) return STATE_MTFCC.has(mtfcc) ? 'state' : 'unusable'
   return 'unusable'
 }
 
@@ -217,6 +248,29 @@ export function stateFromGeoid(geoid: unknown): string | null {
   if (!/^\d+$/.test(geoid)) return null
   if (geoid.length !== 2 && geoid.length !== 5 && geoid.length !== 7) return null
   return geoid.slice(0, 2)
+}
+
+/**
+ * A `location-search` response body, as the list a chooser may offer.
+ *
+ * 🔴 An empty list is an ANSWER — "no place by that name" — and never an error.
+ * Everything on this path is downstream of the Census Geocoder family, which
+ * answers `200 OK` with zero matches for every failure, so "nothing found" has
+ * to be a value. A function here that threw, or a hook that treated `[]` as a
+ * failed query, would turn a correct answer into an error state and send
+ * somebody to a retry that cannot help them.
+ *
+ * 🔴 This lives here rather than inside `usePlaceSearch` deliberately. The hook
+ * imports React and so cannot be loaded by `--experimental-strip-types`; a
+ * filter written inside it is a decision no check can reach. Everything the
+ * list decision turns on is pure, so it belongs where the check can run it.
+ *
+ * A body that is not an array at all is also an empty list: remote data from an
+ * origin we do not control drops out rather than taking down a render.
+ */
+export function usablePlaceRows(body: unknown): PlaceSearchRow[] {
+  if (!Array.isArray(body)) return []
+  return (body as PlaceSearchRow[]).filter((row) => searchRowKind(row) !== 'unusable')
 }
 
 /**

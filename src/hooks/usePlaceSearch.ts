@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { EV_API_ORIGIN } from '../lib/evApi'
-import { normalisePlaceQuery, searchRowKind, type PlaceSearchRow } from '../lib/placeResolve'
+import { normalisePlaceQuery, usablePlaceRows, type PlaceSearchRow } from '../lib/placeResolve'
 
 /**
  * The place-name typeahead: what somebody types, as a short list of real
@@ -43,13 +43,17 @@ function useDebounced(value: string, delayMs: number): string {
 }
 
 /**
- * 🔴 Rows are filtered through `searchRowKind` here, so no consumer has to.
- * A row whose `geo_id` is not a 2, 5 or 7-digit FIPS code cannot be turned into
- * a civic space, and offering it would produce a control that looks live and
- * resolves to nothing. Remote data from an origin we do not control drops out
- * of the list rather than taking down a render.
+ * 🔴 The list decision is `usablePlaceRows`, in `placeResolve.ts`, and is not
+ * written here. This file imports React and so cannot be loaded by
+ * `--experimental-strip-types`; a filter written inline here would be a
+ * decision `check:place-resolve` could not reach, which is how a vacuous pass
+ * gets built. It drops rows that cannot be turned into a civic space — a
+ * seven-digit school district among them — and it returns an EMPTY LIST for an
+ * empty response, because "no place by that name" is an answer and not an
+ * error.
  *
- * An empty array is an ANSWER — "no place by that name" — and never an error.
+ * Status is checked only to tell "the service failed" from "the service
+ * answered". It is never used to decide whether a place was found.
  */
 async function fetchPlaceSearch(query: string): Promise<PlaceSearchRow[]> {
   const url = new URL(LOCATION_SEARCH_URL, window.location.origin)
@@ -59,9 +63,7 @@ async function fetchPlaceSearch(query: string): Promise<PlaceSearchRow[]> {
   const res = await fetch(url.toString())
   if (!res.ok) throw new Error(`location-search failed: ${res.status}`)
 
-  const body: unknown = await res.json()
-  if (!Array.isArray(body)) return []
-  return (body as PlaceSearchRow[]).filter((row) => searchRowKind(row) !== 'unusable')
+  return usablePlaceRows(await res.json())
 }
 
 export function usePlaceSearch(query: string) {
