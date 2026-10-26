@@ -89,6 +89,30 @@ says which wins.
   can't go further than observing *for now* — not be left to discover it by pressing
   something.
 
+### Hopping between places (Chris, 2026-10-26 — added after the first pass)
+
+This reframes the phase. It is not "a welcome screen for guests". It is: **anyone may look
+anywhere; only your own slices accept your voice.**
+
+- **D-18 — Observation is the expected default, for everyone.** "Anyone should be expected
+  to observe a Civic Slice — they're public town squares." Looking at a place you do not
+  live in is not an edge case to be tolerated; it is normal use.
+- **D-19 — Slice hopping is NOT guest-only.** Observers *and* authenticated accounts need to
+  move between slices and locations. A signed-in Connect member must be able to go and look
+  at another city. ⚠️ **Scope consequence:** the place-entry mechanism (D-12) cannot be built
+  only into the signed-out welcome screen — it is shell-level navigation available to a
+  signed-in member too. Plan it as one mechanism with two entry points, not two features.
+- **D-20 — Connect posts only in their own slices.** Read anywhere, write only where you
+  belong. This is the existing sibling-shard rule generalised: the UI must not offer a write
+  in a place that is not yours, and RLS already refuses it. `isViewOnly` is the existing
+  carrier — a member viewing a non-member place is the same state as a member viewing a
+  sibling shard, which Phase 16 already built and `check:explore-gate` already pins.
+- **D-21 — Empowered reach is the exception, and it is a future phase.** An Empowered account
+  has broader reach tied to their role as a civic leader: **their posts reveal their identity
+  and can reach many slices at once.** This is the Empower Pillar, which is not built. ⚠️ Do
+  not build it here — but do not design a write gate that assumes "one author, one slice"
+  so hard that cross-slice authorship later requires tearing it out. Leave the seam.
+
 ### Place entry
 
 - **D-12 — Both paths, address first.** Typing a **street address** loads the City, County,
