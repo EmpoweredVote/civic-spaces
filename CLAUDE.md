@@ -65,19 +65,15 @@ files, that is a behind-by-N branch, not lost work; check the counts
 allowlist is the security boundary, so `.github/**` is excluded — a PR touching CI never
 auto-approves, including one that edits that workflow. `build` is required either way.
 
-🔴 **`services/slice-assignment` is FROZEN — do not develop it.** It was folded into the
-ev-accounts engine (ev-cto decision 0018) and is **canonical at
-`ev-accounts/backend/src/civic_spaces/`**, endpoint `POST /api/civic-spaces/assign`. Any
-change to slice-assignment behaviour goes there, not here. See
-`services/slice-assignment/FROZEN.md`; the local copy still runs and still compiles, so
-nothing stops you editing the wrong one.
+🔴 **Slice assignment lives in the ev-accounts engine, not in this repo.** It was folded in
+per ev-cto decision 0018 and is **canonical at `ev-accounts/backend/src/civic_spaces/`**,
+endpoint `POST /api/civic-spaces/assign`. Any change to slice-assignment behaviour goes there.
+The old standalone copy (`services/slice-assignment`) was deleted on 2026-10-26; it is in git
+history if you need to read it.
 
-**The frontend half stays active.** `src/lib/sliceAssignment.ts` still builds
-`${VITE_SLICE_ASSIGNMENT_URL}/assign`; cutover is that one env var pointing at the engine
-base `https://api.empowered.vote/api/civic-spaces`.
-
-(The frozen service does still have vitest tests — `npm test` in that directory, a separate
-npm project the root build does not reach. Run them only if you are forced to touch it.)
+**The frontend half stays active.** `src/lib/sliceAssignment.ts` builds
+`${VITE_SLICE_ASSIGNMENT_URL}/assign`; production points that env var at the engine base
+`https://api.empowered.vote/api/civic-spaces`.
 
 ## Where things are on screen
 
@@ -179,23 +175,17 @@ unlinked WorkOS account is **rejected outright** there, rather than authenticati
 WorkOS sub and reading nothing. Both fail closed; they fail closed differently, and only
 one of them looks like an auth error.
 
-The old `services/slice-assignment/src/middleware/verifyToken.ts` is **frozen and was
-deliberately not carried into the engine** — it 401'd every WorkOS member after the
-cutover. Do not use it as the reference implementation.
+The old standalone service's `verifyToken.ts` (deleted, in git history) was **deliberately
+not carried into the engine** — it 401'd every WorkOS member after the cutover. Do not use
+it as the reference implementation.
 
 The symptom of a mismatch: the member queries `user_id=eq.<WorkOS sub>`, matches zero rows,
 and sits on "Setting up your civic spaces…" forever, because an empty membership list is
 indistinguishable from a new account and `useEnsureSlices` keeps retrying.
 
-**Both verifiers need the WorkOS issuer registered, or a WorkOS token is a 401:**
-- The **frozen** `services/slice-assignment` needs `WORKOS_ISSUER` and `WORKOS_JWKS_URL`
-  alongside the existing `ACCOUNTS_ISSUER` / `ACCOUNTS_JWKS_URL`. Defaults follow the
-  WorkOS docs: `https://api.workos.com/user_management/<WORKOS_CLIENT_ID>` and
-  `https://api.workos.com/sso/jwks/<WORKOS_CLIENT_ID>`. Take the client id from the
-  `ev-accounts-api` Render env — it is not in the local accounts `.env`. This applies only
-  while that service still serves traffic; the engine carries its own issuer config.
-- **Supabase Third-Party Auth must trust the WorkOS issuer too**, or every `/rest/v1/*`
-  call 401s. That is project config, not SQL, and not in this repo.
+**Supabase Third-Party Auth must trust the WorkOS issuer**, or every `/rest/v1/*` call
+401s. That is project config, not SQL, and not in this repo. (The engine carries its own
+issuer config.)
 
 🔴 **`cs_token` is this app's key, `ev_token` is Compass's.** Same JWT, same auth hub, different
 localStorage keys. Copying a snippet from CompassV2 that reads `ev_token` will silently find
