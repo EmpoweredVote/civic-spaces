@@ -895,6 +895,42 @@ async function runSignedOut(fx) {
   }
   walked.heroName = await page.evaluate(() => document.querySelector('h2')?.innerText?.trim() ?? null)
 
+  /**
+   * 🔴 If the walk did not land on the place, STOP — loudly, and without
+   * crashing.
+   *
+   * Found by this plan's own revert matrix: breaking the coordinate-lookup stub
+   * leaves the viewer on the welcome screen, and the absence assertions below
+   * then threw on a locator timeout and took the whole run with them. A crashed
+   * run tells you less than a failed one (the same argument assertion 9 above
+   * already makes), and it hides the member viewers that ran fine before it.
+   *
+   * A SKIP is not a pass, so it says exactly what was not checked.
+   */
+  if (!walked.resolved || walked.heroName !== PLACE_NAME) {
+    check(
+      tab, 1,
+      `CONTROL CASE (inverted) — "${PLACE_QUERY}" did NOT resolve to a place on screen`,
+      false,
+      `walk=${JSON.stringify(walked)}` +
+        '\n            The viewer is still on the welcome screen. Look at walk.error, then at the two' +
+        '\n            route stubs: a chosen row answers city and state, and resolveChosenPlace throws' +
+        '\n            no-county without the coordinate-lookup leg. If walk.options is 0 the search' +
+        '\n            stub did not match the request; if it is >0 the second leg is the one.',
+    )
+    console.log('  SKIP 2-7  the absence assertions — NOT CHECKED, and not meaningful here: the welcome')
+    console.log('            screen has no submits, textareas or inputs either, so every one of them')
+    console.log('            would be a true statement about the wrong page.')
+    await ctx.close()
+    check(
+      tab, 11,
+      'zero uncaught page errors and zero unexpected console errors throughout',
+      errors.page.length === 0 && errors.console.length === 0,
+      [...errors.page, ...errors.console].slice(0, 3).join('\n            '),
+    )
+    return
+  }
+
   // 🔴 Choose an Imagine option FIRST, exactly as the member control case does.
   // The Imagine textarea (#6) and "Sign in to share" (#2) live inside
   // `{option && …}` and the saved default is null, so WITHOUT this click
