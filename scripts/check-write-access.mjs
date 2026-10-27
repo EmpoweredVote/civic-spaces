@@ -40,6 +40,7 @@
 import {
   canReadConversationsIn,
   canWriteIn,
+  isSameJurisdiction,
   placeKey,
   whyNoWrite,
 } from '../src/lib/writeAccess.ts'
@@ -281,6 +282,64 @@ check(
     `          slice type alone, which is right for choosing Explore content and wrong for comparing\n` +
     `          places: the dev fixture gives federal the geoid '3711' and production 'US', and a key\n` +
     `          that erased that would call them the same place. Two keys, two jobs — do not merge them.`,
+)
+
+// ── isSameJurisdiction: which rows a visited place shows as the viewer's own ──
+//
+// 🔴 These exist because the BROWSER CHECKS CANNOT REACH THE FEDERAL CASE.
+// `devMockData.ts` gives the dev id `federal.geoid = '3711'` on purpose, to keep
+// compositionKey's normalisation honest, so no Playwright run can exercise the
+// production shape where a member's federal row and every visited place's
+// federal level are both ('federal', 'US'). 19–24 are that shape.
+
+check(
+  19,
+  'isSameJurisdiction: the same level and the same geoid IS the viewer\'s own row',
+  isSameJurisdiction({ sliceType: 'county', geoid: '37021' }, 'county', '37021'),
+  'a member of Buncombe County looking at Buncombe County is looking at their own county',
+)
+
+check(
+  20,
+  'isSameJurisdiction: the same level, a DIFFERENT geoid, is not',
+  !isSameJurisdiction({ sliceType: 'city', geoid: CITY_A }, 'city', CITY_B),
+  `${CITY_A} vs ${CITY_B} — every member holds SOME city, which is why sliceType alone cannot decide this`,
+)
+
+check(
+  21,
+  'isSameJurisdiction: the same geoid at a DIFFERENT level is not',
+  !isSameJurisdiction({ sliceType: 'county', geoid: '37' }, 'state', '37'),
+  'geoids are only unique within a level, so the level is half the comparison',
+)
+
+check(
+  22,
+  'isSameJurisdiction: no row at this level is never a match',
+  !isSameJurisdiction(undefined, 'city', CITY_A) && !isSameJurisdiction(null, 'city', CITY_A),
+  'an unincorporated member has no city row at all; absence must not read as a match',
+)
+
+check(
+  23,
+  '🔴 PRODUCTION FEDERAL: the national space IS the viewer\'s own on every visit',
+  isSameJurisdiction({ sliceType: 'federal', geoid: 'US' }, 'federal', 'US') &&
+    isSameJurisdiction({ sliceType: 'unified', geoid: 'UNIFIED' }, 'unified', 'UNIFIED'),
+  `In production a member's federal row is ('federal','US') and EVERY visited place's federal\n` +
+    `          level is ('federal','US') too. There is one national space, so it is theirs wherever\n` +
+    `          they are looking — and before this it rendered "You're exploring Slice — read-only"\n` +
+    `          on the Federal tab of every single visit. No browser check can see this: the dev\n` +
+    `          fixture's federal geoid is '3711' by design (see assertion 18).`,
+)
+
+check(
+  24,
+  'isSameJurisdiction is NOT placeKey membership — they differ exactly where the bug lived',
+  isSameJurisdiction({ sliceType: 'county', geoid: '37021' }, 'county', '37021') &&
+    placeKey('county', '37021') === placeKey('county', '37021'),
+  `ownedPlaceKeys answers "does the viewer hold this jurisdiction at all", which is TRUE for a\n` +
+    `          different shard of the same place — the sibling-shard question. This asks whether THIS\n` +
+    `          row is the one to render. Collapsing them re-introduces the bug, so they stay apart.`,
 )
 
 // ── Result ───────────────────────────────────────────────────────────────────

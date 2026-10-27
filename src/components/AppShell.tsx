@@ -31,7 +31,7 @@ import LocationPrompt from './LocationPrompt'
 import { WelcomeScreen } from './WelcomeScreen'
 import { PlaceStrip } from './PlaceStrip'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
-import { readViewedPlace, writeViewedPlace, placeSentinelId } from '../lib/viewedPlace'
+import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId } from '../lib/viewedPlace'
 import type { ResolvedPlace } from '../lib/placeResolve'
 import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
 import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
@@ -39,7 +39,7 @@ import { ExploreView } from './explore/ExploreView'
 import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
 import { canPostDraft, parseDraftKey, racesAreaFor, type CompassLevelFlags } from '../lib/exploreComposition'
-import { whyNoWrite, placeKey, type ViewedSlice, type NoWriteReason } from '../lib/writeAccess'
+import { whyNoWrite, placeKey, isSameJurisdiction, type ViewedSlice, type NoWriteReason } from '../lib/writeAccess'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
@@ -541,15 +541,48 @@ function ActiveExplore({
  * `photoUrl: null` so `useHeroBanner` resolves the shared-library banner for the
  * geoid, exactly as it does for a member.
  */
-function placeSlices(place: ResolvedPlace): Partial<Record<SliceType, SliceInfo>> {
-  const entry = (sliceType: SliceType, geoid: string): SliceInfo => ({
-    id: placeSentinelId(sliceType, geoid),
-    sliceType,
-    geoid,
-    memberCount: null,
-    siblingIndex: 1,
-    photoUrl: null,
-  })
+function placeSlices(
+  place: ResolvedPlace,
+  own: Partial<Record<SliceType, SliceInfo>> = {},
+): Partial<Record<SliceType, SliceInfo>> {
+  /**
+   * 🔴 A LEVEL THE VIEWER ALREADY HOLDS IS THEIR OWN ROW, NOT A SENTINEL.
+   *
+   * `own[sliceType]` is the member's slice at this level; if its geoid equals the
+   * visited place's geoid at the same level, this is the same jurisdiction and
+   * the member is a member of it. Handing back the sentinel there was the bug:
+   * `whyNoWrite` found the sentinel absent from `ownedSliceIds` while
+   * `placeKey(type, geoid)` WAS in `ownedPlaceKeys`, took branch 4 and answered
+   * `sibling-shard` — about a place the viewer lives in.
+   *
+   * 🔴 It is NOT the self-visit edge case the deferred item described. The
+   * overlap is per LEVEL, so it fires on the common path: a member in Asheville
+   * looking at Buncombe County was told `sibling-shard` on the County tab AND on
+   * the State tab, and the State tab overlaps on EVERY in-state visit. Refusing
+   * to enter a place you fully hold — the other candidate fix — would not have
+   * touched that, which is why this is the shape.
+   *
+   * Returning the real row fixes three things at once and adds no branch
+   * anywhere else: `whyNoWrite` reaches branch 3 and answers null; the notice
+   * stops rendering `Slice {viewingSliceIndex ?? '—'}` as "Slice —", because a
+   * real row has a `siblingIndex`; and `memberCount` is the true count rather
+   * than null, which is right — there IS a row to count.
+   *
+   * Everything that asks "what is MINE" still reads `slices`; this only changes
+   * what the shell PRESENTS, which is the same one-substitution rule as before.
+   */
+  const entry = (sliceType: SliceType, geoid: string): SliceInfo => {
+    const mine = own[sliceType]
+    if (mine && isSameJurisdiction(mine, sliceType, geoid)) return mine
+    return {
+      id: placeSentinelId(sliceType, geoid),
+      sliceType,
+      geoid,
+      memberCount: null,
+      siblingIndex: 1,
+      photoUrl: null,
+    }
+  }
 
   const out: Partial<Record<SliceType, SliceInfo>> = {}
   if (place.city) out['city'] = entry('city', place.city)
@@ -665,7 +698,7 @@ export default function AppShell() {
    * everything that answers "what is MINE" keeps reading `slices`.
    */
   const onScreenSlices = useMemo(
-    () => (viewedPlace ? placeSlices(viewedPlace) : slices),
+    () => (viewedPlace ? placeSlices(viewedPlace, slices) : slices),
     [viewedPlace, slices],
   )
   // 🔴 useEnsureSlices is disabled without a userId — confirmed, not assumed: its
@@ -1774,58 +1807,87 @@ export default function AppShell() {
                       aria-labelledby={hasExplore ? `${FORUM_VIEW_PANEL_ID.conversations}-tab` : undefined}
                       className={effectiveView === 'conversations' ? 'flex flex-col gap-3' : 'hidden'}
                     >
-                    {/* 🔴 NOT A FEED FOR A VISITED PLACE, and not an empty one
-                        either. Mounting a panel for a `place:` sentinel would
-                        query PostgREST with the visited geoid; and a SIGNED-IN
+                    {/* 🔴 ONE MAP, AND THE DECISION IS PER TAB, NOT PER VISIT.
+                        It used to be `isVisitingPlace ? honestCard : feeds`, which
+                        gated the whole surface on a NAVIGATION state — and so told
+                        a member looking at their own county that the conversations
+                        there belong to someone else. The question is per slice:
+                        does the row on screen belong to the viewer?
+
+                        `onScreenSlices` answers it. Off a visit it IS `slices`, so
+                        every id is real and every tab gets its feed, exactly as
+                        before. On a visit, a level the viewer holds carries their
+                        REAL row (see placeSlices) and a level they do not still
+                        carries a `place:` sentinel — which is the one case that
+                        must not mount a panel.
+
+                        🔴 Why a sentinel must not: mounting a panel for one would
+                        query PostgREST with the visited geoid, and a SIGNED-IN
                         member on another city gets a 200 with zero rows from RLS,
                         which renders as "nobody has said anything here" — a false
                         statement delivered silently. One honest state instead. */}
-                    {isVisitingPlace ? (
-                      <div className="flex flex-col gap-3">
-                        {/* The same way out as Explore's notice, on the surface a
-                            member reaches by pressing Conversations. Only the
-                            'other-place' branch renders the control. */}
-                        <ReadOnlyNotice
-                          reason={activeNoWriteReason}
-                          surface="feed"
-                          loginUrl={isAuthenticated ? undefined : loginUrl}
-                          onReturnToOwnSlice={leavePlace}
-                        />
-                        <div className="rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 shadow-sm p-5 flex flex-col gap-3">
-                          <h3 className="text-base font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                            Conversations here belong to the people who live here
-                          </h3>
-                          <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                            Posting, replying and voting in a civic space belong to the people who
-                            live under that government.
-                          </p>
-                          {/*
-                            🔴 PHASE 18 REVISES THIS PARAGRAPH, and it is worded so it is
-                            true whether or not a slices row exists — because Phase 17
-                            CANNOT TELL THE TWO APART and must not pretend to. An observer
-                            cannot read `slices` at all, and this phase makes no Supabase
-                            request for a visited place by design. Phase 18 can read the
-                            rows and can say which it is.
-
-                            🔴 And "nobody has joined yet" is the COMMON case, not an error
-                            branch: slice rows are created on demand by /assign, which only
-                            runs for a signed-in Connected member, and there are 15 `slices`
-                            rows in the entire product (research Q3.3). So the honest
-                            sentence is also the better half of the pitch.
-                          */}
-                          <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                            For most places nobody has joined yet — these spaces open as people
-                            arrive. An Empowered Vote account with an address set opens the ones
-                            where you live, and you can be the first voice in them.
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                    FEED_TABS.map((tabKey) => {
-                      const slice = slices[tabKey]
+                    {FEED_TABS.map((tabKey) => {
+                      const slice = onScreenSlices[tabKey]
                       if (!slice) return null
                       const isShown = activeTab === tabKey
-                      const viewing = viewingSlices[tabKey]
+
+                      if (isPlaceSentinelId(slice.id)) {
+                        const reason = whyNoWrite({
+                          viewed: { id: slice.id, sliceType: slice.sliceType, geoid: slice.geoid },
+                          ownedSliceIds,
+                          ownedPlaceKeys,
+                          isAuthenticated,
+                        })
+                        return (
+                          <div key={tabKey} className={isShown ? 'flex flex-col gap-3' : 'hidden'}>
+                            {/* The same way out as Explore's notice, on the surface a
+                                member reaches by pressing Conversations. Only the
+                                'other-place' branch renders the control. */}
+                            <ReadOnlyNotice
+                              reason={reason}
+                              surface="feed"
+                              loginUrl={isAuthenticated ? undefined : loginUrl}
+                              onReturnToOwnSlice={leavePlace}
+                            />
+                            <div className="rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 shadow-sm p-5 flex flex-col gap-3">
+                              <h3 className="text-base font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                                Conversations here belong to the people who live here
+                              </h3>
+                              <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                                Posting, replying and voting in a civic space belong to the people who
+                                live under that government.
+                              </p>
+                              {/*
+                                🔴 PHASE 18 REVISES THIS PARAGRAPH, and it is worded so it is
+                                true whether or not a slices row exists — because Phase 17
+                                CANNOT TELL THE TWO APART and must not pretend to. An observer
+                                cannot read `slices` at all, and this phase makes no Supabase
+                                request for a visited place by design. Phase 18 can read the
+                                rows and can say which it is.
+
+                                🔴 And "nobody has joined yet" is the COMMON case, not an error
+                                branch: slice rows are created on demand by /assign, which only
+                                runs for a signed-in Connected member, and there are 15 `slices`
+                                rows in the entire product (research Q3.3). So the honest
+                                sentence is also the better half of the pitch.
+                              */}
+                              <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                                For most places nobody has joined yet — these spaces open as people
+                                arrive. An Empowered Vote account with an address set opens the ones
+                                where you live, and you can be the first voice in them.
+                              </p>
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      /* 🔴 No sibling override while visiting, for the same reason
+                         `activeViewing` is null there: a SiblingSlice carries no
+                         geoid, so pairing one with a visited place's slice would
+                         make a viewed id from one place and a geoid from another.
+                         The viewer sees their own shard of their own jurisdiction,
+                         which is what they came back to. */
+                      const viewing = isVisitingPlace ? undefined : viewingSlices[tabKey]
                       /* 🔴 The SAME function the active tab asks, asked again per tab —
                          not a second expression that can drift from the first. This was
                          `!!viewing && viewing.id !== slice.id`, a copy of the fail-open
@@ -1859,8 +1921,7 @@ export default function AppShell() {
                           />
                         </div>
                       )
-                    })
-                    )}
+                    })}
 
                     {/* Volunteer feed — conditionally rendered for users with volunteer slice */}
                     {!isVisitingPlace && showVolunteerTab && slices['volunteer'] && (

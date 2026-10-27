@@ -1818,10 +1818,218 @@ async function runMemberOtherPlace(fx) {
   )
 }
 
+/**
+ * ── VIEWER 4 — A MEMBER LOOKING AT A PLACE THEY ALREADY HOLD ───────────────
+ *
+ * 🔴 There was no viewer for this, and the gap shipped a bug to production.
+ * `member-other-place` boots on `&place=bloomington` and visits Asheville, so it
+ * is genuinely somewhere else and every level takes branch 5. Nothing exercised
+ * the OVERLAP: a level where the visited place and the viewer are the same
+ * jurisdiction.
+ *
+ * The bare dev id lives in Asheville and `stubPlaceLegs` answers every query
+ * with the Asheville rows, so entering through the strip here IS the self-visit
+ * — and the county and state levels overlap on top of it.
+ *
+ * 🔴 What it catches: `placeSlices` used to hand `whyNoWrite` a `place:` sentinel
+ * for EVERY level. A sentinel is never in `ownedSliceIds`, while `placeKey(type,
+ * geoid)` IS in `ownedPlaceKeys` for an overlapping level — so branch 4 fired and
+ * answered `sibling-shard` about a place the viewer lives in. That rendered
+ * "You're exploring Slice — read-only" (the dash is `viewingSliceIndex ?? '—'`,
+ * because a sentinel has no shard index) and told a resident that the
+ * conversations there belong to someone else: over-gating, the D-18 anti-goal.
+ *
+ * The STATE level overlaps on every in-state visit, so this was the common path
+ * and not an edge case.
+ */
+/**
+ * What the CONVERSATIONS surface is showing on the ACTIVE tab.
+ *
+ * 🔴 Reads only the VISIBLE child, and proves the panel is displayed first.
+ * Both halves matter, and getting them wrong cost a false FAIL while the code
+ * was right: all five tabs are mounted at once with the inactive ones at
+ * `display:none`, and `innerText` on a panel that is ITSELF display:none falls
+ * back to including those hidden subtrees. Reading the whole panel therefore
+ * found the FEDERAL tab's honest card and reported it against the City tab.
+ */
+function readVisibleConversation() {
+  const panel = document.querySelector('#forum-view-conversations')
+  if (!panel) return { panel: false }
+  const shown = getComputedStyle(panel).display !== 'none'
+  const child = [...panel.children].find((c) => getComputedStyle(c).display !== 'none')
+  const txt = child ? (child.innerText || '') : ''
+  const el = child ? child.querySelector('[data-read-only-notice]') : null
+  return {
+    panel: true,
+    shown,
+    honestCard: /Conversations here belong to the people who live here/.test(txt),
+    hasPosts: !!child && !!child.querySelector('article, [data-post-card], textarea'),
+    reason: el ? el.getAttribute('data-read-only-notice') : null,
+  }
+}
+
+async function runMemberOwnPlace(fx) {
+  const tab = 'member-own-place'
+  console.log(`\n── MEMBER, LOOKING AT A PLACE THEY HOLD ${'─'.repeat(18)}`)
+
+  const { ctx, page, errors } = await freshContext('dark', DESKTOP, {
+    fn: () => {
+      try { localStorage.setItem('cs_active_tab', 'city') } catch { /* blocked */ }
+    },
+  })
+  await stubPlaceLegs(page, fx)
+  await stubByArea(page, [])
+
+  await page.goto(`${ORIGIN}/?dev=1`, { waitUntil: 'domcontentloaded' })
+  if (!(await bootedWithTheme(page, 'dark'))) {
+    check(tab, 1, 'the page booted with the requested theme (ev_color_scheme cookie)', false,
+      'documentElement.dark does not match the cookie, or the member shell never mounted.')
+    await ctx.close()
+    return
+  }
+
+  // ── 1  CONTROL CASE: the member is home, in Asheville, and nothing is gated ──
+  const homeHero = await page.evaluate(() => document.querySelector('h2')?.innerText?.trim() ?? null)
+  const homeNotice = await page.evaluate(readNotice, { sel: PANEL })
+  check(
+    tab, 1,
+    `CONTROL CASE — home in ${homeHero}, and nothing is gated there`,
+    homeHero === PLACE_NAME && !(homeNotice.found && homeNotice.visible),
+    `hero=${homeHero} notice=${JSON.stringify(homeNotice)}` +
+      '\n            Every assertion below is vacuous if the member was already gated at home.',
+  )
+
+  // ── Enter the SAME place through the strip ───────────────────────────────
+  const walked = { entered: false }
+  try {
+    await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+    await page.waitForTimeout(300)
+    await typeInto(page, STRIP, PLACE_QUERY)
+    await page.locator(`${STRIP} [role="option"]`).first().click()
+    await page.waitForTimeout(3500)
+    walked.entered = true
+  } catch (err) {
+    walked.error = String(err).split('\n')[0]
+  }
+  const visiting = await page.evaluate(() => !!document.querySelector('[data-place-strip-leave]'))
+  check(
+    tab, 2,
+    `the member entered "${PLACE_QUERY}" — the place they already live in`,
+    walked.entered && visiting,
+    `walk=${JSON.stringify(walked)} visiting=${visiting}` +
+      "\n            Without the trip, 3-7 are statements about the member's own spaces.",
+  )
+  if (!walked.entered || !visiting) {
+    console.log('  SKIP 3-8  NOT CHECKED — the member never entered the place.')
+    await ctx.close()
+    return
+  }
+
+  // ── 3  🔴 THE BUG ITSELF: no level the viewer holds may read sibling-shard ──
+  const LEVELS = ['city', 'county', 'state', 'federal', 'unified']
+  const reasons = {}
+  for (const t of LEVELS) {
+    const present = await page.evaluate((k) => !!document.querySelector(`[data-nav-tab="${k}"]`), t)
+    if (!present) { reasons[t] = 'absent'; continue }
+    await page.evaluate((k) => document.querySelector(`[data-nav-tab="${k}"]`)?.click(), t)
+    await page.waitForTimeout(900)
+    reasons[t] = await page.evaluate(() => {
+      const el = [...document.querySelectorAll('[data-read-only-notice]')].find((x) => x.offsetParent !== null)
+      return el ? el.getAttribute('data-read-only-notice') : null
+    })
+  }
+  check(
+    tab, 3,
+    'NO level the viewer holds is called a sibling shard — city, county, state, federal, unified',
+    Object.values(reasons).every((r) => r !== 'sibling-shard'),
+    `reasons=${JSON.stringify(reasons)}` +
+      '\n            🔴 A `place:` sentinel is never in ownedSliceIds while its placeKey IS in' +
+      '\n            ownedPlaceKeys, so whyNoWrite branch 4 answers sibling-shard about a place the' +
+      '\n            viewer LIVES IN. The fix is placeSlices returning the viewer\'s REAL row where' +
+      '\n            isSameJurisdiction holds — not a new branch in whyNoWrite.',
+  )
+
+  // ── 4  the literal hole a sentinel leaves in the copy ────────────────
+  //
+  // 🔴 ON AN OVERLAPPING TAB, and that is the whole assertion. The loop above
+  // leaves the shell on ‘unified’, which does NOT overlap in the dev fixture and
+  // whose other-place notice carries no shard index at all — so reading the page
+  // here without switching back found no dash and PASSED over the live bug. Found
+  // by running the revert: 3, 5 and 6 went red and 4 stayed green.
+  await page.evaluate(() => document.querySelector(`[data-nav-tab="city"]`)?.click())
+  await page.waitForTimeout(900)
+  const hole = await page.evaluate(() => {
+    const txt = document.body.innerText || ''
+    const m = txt.match(/Slice\s+—/)
+    return m ? txt.slice(Math.max(0, m.index - 40), m.index + 60).replace(/\s+/g, ' ') : null
+  })
+  check(
+    tab, 4,
+    'no "Slice —" anywhere on screen — the hole a sentinel leaves in ReadOnlyNotice',
+    hole === null,
+    `found: ${JSON.stringify(hole)}` +
+      '\n            ReadOnlyNotice renders `Slice {viewingSliceIndex ?? dash}`. A sentinel carries' +
+      '\n            no shard index, so the gate rendered a dash where a name belongs.',
+  )
+
+  // ── 5  the levels they hold are WRITABLE ─────────────────────────────────
+  const owned = ['city', 'county', 'state'].filter((t) => reasons[t] !== 'absent')
+  check(
+    tab, 5,
+    `the levels the viewer holds are writable while visiting — ${owned.join(', ')}`,
+    owned.length > 0 && owned.every((t) => reasons[t] === null),
+    `reasons=${JSON.stringify(reasons)}` +
+      '\n            null means no read-only notice rendered at all. The dev fixture gives federal' +
+      '\n            geoid 3711 and unified an empty string ON PURPOSE (check:write-access 18), so' +
+      '\n            those two levels do NOT overlap here and are expected to stay gated. The' +
+      '\n            PRODUCTION federal case is check:write-access 23, which no browser run reaches.',
+  )
+
+  // ── 6  🔴 the conversations surface stops telling a resident it is not theirs ──
+  await page.evaluate(() => document.querySelector('[data-nav-tab="city"]')?.click())
+  await page.waitForTimeout(700)
+  await page.evaluate(() => document.querySelector('#forum-view-conversations-tab')?.click())
+  await page.waitForTimeout(1600)
+  const convo = await page.evaluate(readVisibleConversation)
+  check(
+    tab, 6,
+    'the conversations surface shows a resident their REAL feed, not the honest card',
+    convo.panel && convo.shown && !convo.honestCard && convo.hasPosts,
+    `convo=${JSON.stringify(convo)}` +
+      '\n            🔴 This was gated on isVisitingPlace — a NAVIGATION state — so a member who' +
+      '\n            typed their own city was shown "Conversations here belong to the people who' +
+      '\n            live here". The decision is per SLICE: a level carrying the viewer\'s real row' +
+      '\n            gets its feed; a level still carrying a sentinel gets the card.',
+  )
+
+  // ── 7  and a level they do NOT hold still gets the honest card ───────────
+  await page.evaluate(() => document.querySelector('[data-nav-tab="federal"]')?.click())
+  await page.waitForTimeout(1400)
+  const fed = await page.evaluate(readVisibleConversation)
+  check(
+    tab, 7,
+    'a level the viewer does NOT hold still gets the honest card and stays gated — the control for 5 and 6',
+    fed.panel && fed.shown && fed.honestCard && fed.reason === 'other-place',
+    `federal=${JSON.stringify(fed)}` +
+      '\n            Without this, 5 and 6 are satisfied by simply ungating everything, which is the' +
+      '\n            opposite failure and the one this phase was written to prevent.',
+  )
+
+  await ctx.close()
+  check(
+    tab, 8,
+    'zero uncaught page errors throughout',
+    errors.page.length === 0,
+    [...errors.page].slice(0, 3).join('\n            ') +
+      '\n            A thrown render is not a gate.',
+  )
+}
+
 const FIXTURES = await readFixtures()
 await runSignedOut(FIXTURES)
 await runMemberNoSlice()
 await runMemberOtherPlace(FIXTURES)
+await runMemberOwnPlace(FIXTURES)
 
 await browser.close()
 
