@@ -176,8 +176,49 @@ const VISITED_CITY_GEOID = '3702140'
  *
  * The matching half for the static ROOM copy is `check:explore-rooms` 21.
  */
+/**
+ * 🔴 `discover your community` was added by 17-07, in the SAME commit that
+ * fixed it — never before, which is the rule the comment above states.
+ *
+ * `WhatsNewCard`'s featured update renders inside the Explore panel, so its
+ * title is Explore chrome by the same test as every other string here: the
+ * product update read *"A better way to discover your community"* to a visitor
+ * who had typed Asheville from anywhere. 17-07's four-way pass found it on
+ * screen. It is a STATEMENT, so it was fixed outright rather than branched —
+ * the boundary deferred item 3 drew — and the string that replaced it,
+ * "discover ANY community", is also the phase's own thesis.
+ */
 const CLAIMS_THE_PLACE =
-  /Welcome to your Civic Space|happening in your community|across your state|share your perspective|Questions for your community|races where you live|your (own )?area|your ballot|None of yours|your legislators|What your local government|your local election office/i
+  /Welcome to your Civic Space|happening in your community|across your state|share your perspective|Questions for your community|discover your community|races where you live|your (own )?area|your ballot|None of yours|your legislators|What your local government|your local election office/i
+
+/**
+ * 🔴 WHY THE D-10 READ NEEDS A THIRD HAYSTACK, found by 17-07's four-way pass.
+ *
+ * `WhatsNewModule` renders `WhatsNewCard` with `className="md:hidden"` whenever
+ * the sidebar is carrying the same card (`ctx.whatsNewInSidebar`). This check
+ * drives a DESKTOP viewport, so at `md` and up the Explore panel's copy of that
+ * card is `display: none` — and `innerText` on the rendered PANEL skips a
+ * `display:none` subtree. The sidebar's copy is outside `#forum-view-explore`
+ * and was never in scope either.
+ *
+ * So the featured product update's title was invisible to assertion 10 from
+ * BOTH directions at once, which is how *"A better way to discover YOUR
+ * community"* survived 17-06's whole D-10 sweep and reached a visitor who had
+ * typed Asheville from anywhere. Widening `CLAIMS_THE_PLACE` alone did NOT turn
+ * the assertion red — the regex was never the binding constraint, the scope
+ * was.
+ *
+ * Read by `textContent`, not `innerText`: `textContent` does not care whether
+ * the node is rendered, which is the whole point. The `<dialog>` inside the
+ * card contributes nothing while closed — its body is behind `{view && …}` —
+ * so this stays bounded to the eyebrow, the heading, the featured update and
+ * two row titles.
+ */
+const WHATS_NEW_TEXT = () =>
+  [...document.querySelectorAll('section')]
+    .filter((s) => /^What's new$/i.test(s.querySelector('h3')?.textContent?.trim() ?? ''))
+    .map((s) => s.textContent ?? '')
+    .join(' \n ')
 
 /** Text that can only come from a write affordance. Affordances #1, #2, #7 and #8. */
 const WRITE_WORDS = 'Join the conversation|Share an idea|Discard draft|Sign in to (join|share)|Post it in .* instead'
@@ -1288,21 +1329,25 @@ async function runSignedOut(fx) {
   // copy ("agendas were found for your area").
   {
     const listText = await page.evaluate((sel) => document.querySelector(sel)?.innerText ?? '', PANEL)
+    const whatsNew = await page.evaluate(WHATS_NEW_TEXT)
     await openTopic(page, PANEL)
     const topicText = await page.evaluate((sel) => document.querySelector(sel)?.innerText ?? '', PANEL)
     await closeTopic(page, PANEL)
-    const hits = [listText, topicText].map((t) => CLAIMS_THE_PLACE.exec(t)?.[0] ?? null)
+    const hits = [listText, topicText, whatsNew].map((t) => CLAIMS_THE_PLACE.exec(t)?.[0] ?? null)
     check(
       tab, 10,
-      "D-10: no Explore chrome tells the visitor the place is theirs — list and topic page",
+      "D-10: no Explore chrome tells the visitor the place is theirs — list, topic page and What's new",
       hits.every((h) => h === null),
-      `list=${JSON.stringify(hits[0])} topicPage=${JSON.stringify(hits[1])}` +
+      `list=${JSON.stringify(hits[0])} topicPage=${JSON.stringify(hits[1])} whatsNew=${JSON.stringify(hits[2])}` +
         '\n            D-10: never show someone a place as if it were already theirs. The fix is' +
         '\n            ctx.isOwnPlace in the module, or a sentence rewritten true of both readers' +
         '\n            where the string is a static emptyState. 🔴 The generic TOPIC QUESTIONS' +
         '\n            ("What should get built in your city, and where?") are deliberately NOT in' +
         '\n            CLAIMS_THE_PLACE — they are deferred item 3, not a pass. Do not widen the' +
-        '\n            regex before fixing them: a check that is red on purpose is one nobody reads.',
+        '\n            regex before fixing them: a check that is red on purpose is one nobody reads.' +
+        '\n            🔴 whatsNew is read by textContent and NOT from the panel: the Explore copy' +
+        '\n            of that card is md:hidden when the sidebar carries it, so innerText on the' +
+        '\n            panel cannot see it. See WHATS_NEW_TEXT.',
     )
   }
 
@@ -1622,17 +1667,19 @@ async function runMemberOtherPlace(fx) {
   // ── 9  D-10: the page does not address the visitor as a resident ──────────
   {
     const listText = await page.evaluate((sel) => document.querySelector(sel)?.innerText ?? '', PANEL)
+    const whatsNew = await page.evaluate(WHATS_NEW_TEXT)
     await openTopic(page, PANEL)
     const topicText = await page.evaluate((sel) => document.querySelector(sel)?.innerText ?? '', PANEL)
     await closeTopic(page, PANEL)
-    const hits = [listText, topicText].map((t) => CLAIMS_THE_PLACE.exec(t)?.[0] ?? null)
+    const hits = [listText, topicText, whatsNew].map((t) => CLAIMS_THE_PLACE.exec(t)?.[0] ?? null)
     check(
       tab, 9,
-      'D-10: no Explore chrome tells the member this place is theirs — list and topic page',
+      "D-10: no Explore chrome tells the member this place is theirs — list, topic page and What's new",
       hits.every((h) => h === null),
-      `list=${JSON.stringify(hits[0])} topicPage=${JSON.stringify(hits[1])}` +
+      `list=${JSON.stringify(hits[0])} topicPage=${JSON.stringify(hits[1])} whatsNew=${JSON.stringify(hits[2])}` +
         '\n            🔴 The generic TOPIC QUESTIONS are deliberately not in CLAIMS_THE_PLACE —' +
-        '\n            deferred item 3. See the regex\'s own comment before widening it.',
+        '\n            deferred item 3. See the regex\'s own comment before widening it.' +
+        '\n            🔴 whatsNew is read by textContent and NOT from the panel — see WHATS_NEW_TEXT.',
     )
   }
 

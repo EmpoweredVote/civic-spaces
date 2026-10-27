@@ -584,7 +584,24 @@ export const productUpdatesResponse: { updates: ProductUpdate[] } = {
     {
       id: 'explore',
       category: 'Civic Spaces improvement',
-      title: 'A better way to discover your community',
+      /**
+       * 🔴 "any community", not "your community", and it is on the FIXED side
+       * of the boundary deferred item 3 drew rather than the deferred side.
+       *
+       * The line that boundary settled on is: *a STATEMENT the page makes about
+       * the place is fixed; a QUESTION put to the reader is deferred* — because
+       * the second person is what makes a conversation starter an invitation,
+       * and changing that is a decision about the product's voice. This is a
+       * statement, and `WhatsNewCard` renders it as the featured update inside
+       * the Explore panel, so a visitor to Asheville was being told Explore is
+       * "a better way to discover YOUR community" about a place they have never
+       * been. It was deferred only because it lives in the same FILE as the
+       * questions, and the file boundary is the one deferred item 3 records
+       * itself correcting.
+       *
+       * It is also simply truer of what shipped: anyone may look anywhere.
+       */
+      title: 'A better way to discover any community',
       summary: 'Explore gives every Civic Space useful context—even before its first conversation.',
       whatChanged: 'Civic Spaces now opens on Explore: topics, short activities and updates, with Conversations one tab away.',
       why: 'A useful community should not depend on a busy feed. Starting from a question to react to is easier than a blank box.',

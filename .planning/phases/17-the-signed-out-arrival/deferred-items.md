@@ -192,3 +192,84 @@ viewers `signed-out` and `member-other-place` have a `CLAIMS_THE_PLACE` regex th
 list of shapes to look for, and `check:explore-rooms` 21 is the same rule over the static
 room copy. 🔴 **Widen `CLAIMS_THE_PLACE` in the SAME commit that fixes these**, never
 before: a check that is red on purpose is a check nobody reads.
+
+---
+
+## 4. 🔴 A member who enters THEIR OWN place from the strip is told they are on a sibling shard
+
+**Found during:** 17-07 Task 1, building `scripts/shoot-welcome.mjs`. The first draft of
+presentation 6 — "a visited place, signed in" — booted on a bare `?dev=1` and resolved
+Asheville. The bare dev guest **lives in Asheville**, so the cell was unintentionally a
+member entering their own city, and it shot this.
+
+**What happens.** `enterPlace` has no "you already hold this place" branch. `placeSlices()`
+hands `whyNoWrite` the `place:<type>:<geoid>` sentinel, which is not in `ownedSliceIds`,
+while `placeKey('city','3702140')` **is** in `ownedPlaceKeys` — so branch 4 fires and the
+reason is `sibling-shard`. Reproduced deterministically with a Playwright probe; both
+notices on the page carry it:
+
+```
+[data-read-only-notice="sibling-shard"] surface=explore  visible
+   "You're exploring Slice — read-only. Starting a conversation — and the draft it
+    begins with — stays in your own community, Slice 1."
+[data-read-only-notice="sibling-shard"] surface=feed     hidden
+   "You're browsing Slice — read-only. Switch back"
+```
+
+**Three things are wrong, in increasing order of how much they matter:**
+
+1. **A literal hole in the copy.** `viewingSliceIndex` is undefined for a sentinel, so
+   `ReadOnlyNotice` renders `Slice {viewingSliceIndex ?? '—'}` as *"Slice —"*.
+2. **The reason is wrong.** A sentinel is not a shard. It is the place itself.
+3. 🔴 **The conversations surface then tells a resident the conversations are not theirs.**
+   `isVisitingPlace` guards the feed off and renders *"Conversations here belong to the
+   people who live here"* and *"For most places nobody has joined yet"* — to someone who
+   lives there and holds a writable slice two clicks away. That is **over-gating**, the
+   D-18 anti-goal `17-VALIDATION.md` lists as *"another place's Explore as a dead page"*,
+   and it is the one direction the fail-closed rewrite was not asked about.
+
+**Why `check:explore-gate` never saw it.** Its `member-other-place` viewer boots on
+`?dev=1&place=bloomington` and visits Asheville, so it is genuinely somewhere else and
+takes branch 5. There is no viewer for "the member visits their own place", and before
+17-05 there was no control that could produce one.
+
+**Reachability.** High, and it is not an edge case: `PlaceStrip`'s own state reads *"Look at
+another place"* and the picker accepts any name. A member typing the city they live in is a
+plausible first thing to try.
+
+**Why 17-07 did not fix it.** What SHOULD happen is a product decision, not a bug fix, and
+the phase gate is the wrong place to guess it. Two shapes, both small:
+
+- **(a) Do not enter.** `enterPlace` compares the resolved place's keys against the
+  member's own `ownedPlaceKeys`; a full match is a no-op (or a `leavePlace`), because there
+  is nothing different to show. Reads well with D-18 — "looking at your own place" IS your
+  own spaces. Needs an answer for a PARTIAL match (same county, different city), where
+  entering is right.
+- **(b) Enter, but do not gate.** Keep the trip and let `whyNoWrite` answer `null` when the
+  viewer holds the place, which means `AppShell` passing the member's REAL slice id rather
+  than the sentinel once it knows there is one. Larger, and it re-opens the question the
+  sentinel exists to close.
+
+🔴 Whichever is chosen, `check-explore-gate.mjs` wants a **seventh** viewer for it —
+"member visits their own place" — or the next change to `whyNoWrite` will re-introduce it.
+`scripts/shoot-welcome.mjs` carries a note that fails the cell if presentation 6 ever shoots
+`sibling-shard` again.
+
+**Who should own it:** its own small PR, with Chris deciding (a) or (b) first.
+
+---
+
+## 5. Observations from 17-07's four-way pass that are NOT defects, recorded so they are not re-found
+
+Each of these was looked at, judged, and deliberately left. None is a blocker and none is a
+bug; they are the things a reader of the 24 shots will notice and wonder about.
+
+| What | Where | Judgement |
+|---|---|---|
+| **The nav rail names City and County but not State, Federal or Unified** — a visited place reads "Asheville / Buncombe County / State / Federal / Unified" | `NavSidebar`, at a visited place | Mixed specificity in one list. "North Carolina" is derivable from the geoid through the same `useJurisdictionName` the first two rows use. A small consistency win, not a correctness one, and it touches a file no plan in this phase owns |
+| **The mobile slice tab bar never names the place** — City / County / State / … at every width below `lg` | `SliceTabBar` | Pre-existing and consistent with the member's own spaces, where the same bar shows level labels. The place IS on screen twice at that width (the banner and the strip), so nothing is unlabelled |
+| **"What happens to an address" ships while no address input renders** | `WelcomeScreen`, with `PLACE_RESOLVE_ENABLED` false | Correct as written: the block follows "an Empowered Vote account with an address set", so it is about the address given to the ACCOUNT, which is the only one Phase 17 asks for. It becomes exactly right the day `VITE_PLACE_RESOLVE_URL` is set. Flagged only because a reader may expect a field |
+| **The native `type="search"` clear glyph is the one control on the welcome screen outside the EV palette** | `PlacePicker`'s input, both themes | A UA widget. Suppressing it costs a real affordance; restyling it is `::-webkit-search-cancel-button`, which is one browser's private pseudo-element |
+| **In dark mode the picker's listbox (`bg-gray-900`) sits on a card that is also near-`gray-900`**, so it is separated by its border alone — `shadow-lg` does nothing on a dark surface | `PlacePicker` | Legible, and the border does delimit it. Worth a look if the dark card palette is ever revisited |
+| **`check:banners` covers 232 assets, not the 227** `CLAUDE.md` and `17-07-PLAN.md` both state | `src/lib/banners.manifest.json` | The shared library grew. The check is green and derives its own count; only the prose is stale |
+| 🔴 **`scripts/shoot-explore.mjs`'s header says its frames are shot "at scale 2"**; both of its contexts are created with `deviceScaleFactor: 1` | `scripts/shoot-explore.mjs:60`, `:284`, `:509` | A stale comment in a Phase 16 script, not a behaviour bug — but it is the kind of sentence someone reads instead of checking, so it is written down here rather than fixed in a phase-gate commit |
