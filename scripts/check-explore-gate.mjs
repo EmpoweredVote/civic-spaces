@@ -20,10 +20,29 @@
  *   |                       | place NAMED in the     |                             |
  *   |                       | welcome screen's picker|                             |
  *   | member-no-slice       | ?dev=1&place=arden     | County is writable          |
+ *   | member-other-place    | ?dev=1&place=bloomington,| the affordances are PRESENT|
+ *   |                       | then Asheville through | on the member's own spaces  |
+ *   |                       | the shell's place strip| before the trip             |
+ *
+ * 🔴 FOUR VIEWERS, NOT SIX, AND THAT IS A CORRECTION TO 17-06's PLAN.
+ *
+ * That plan asked for `member-other-place` AND `observer-with-a-place` as two
+ * new viewers. Only the first is new. **`observer-with-a-place` IS the
+ * `signed-out` viewer**: 17-04 deleted the placeless signed-out Explore (D-09)
+ * and re-pointed this run at a place named in the welcome screen's picker, so
+ * "signed out" and "an observer looking at a place" have been ONE STATE since
+ * that plan landed — there is no placeless signed-out Explore left for a
+ * separate viewer to be about. A near-identical sixth run would have doubled
+ * the runtime and left two readers for one state, which is the fork this file's
+ * own rule forbids. What 17-06 asked for THAT viewer — the seed invitation
+ * absent, the hero naming the place, assertion 8 at a visited place — is added
+ * to it below, as assertions 8, 9 and 10. Its id stays `signed-out` so the
+ * `red:` list and 17-VALIDATION's references still read.
  *
  * 🔴 Never fork this file. 17-02 added the signed-out and no-slice viewers;
  * 17-04 RE-POINTED the signed-out one when it deleted the placeless signed-out
- * Explore that viewer was written against (D-09); 17-06 adds two more on top.
+ * Explore that viewer was written against (D-09); 17-06 adds the
+ * member-other-place viewer and extends the observer.
  * One script, one set of readers.
  *
  * 🔴 This repo shipped exactly half of this gate once already — the feed was
@@ -117,6 +136,48 @@ const PICKER = '[data-place-picker]'
  */
 const PLACE_QUERY = 'asheville'
 const PLACE_NAME = 'Asheville'
+
+/** The shell's place control (17-05), and the way out of a place. */
+const STRIP = '[data-place-strip]'
+
+/** The nav rail, and 17-05's per-tab hook on it — City/County render RESOLVED names. */
+const RAIL = 'nav[aria-label="Civic space navigation"]'
+
+/**
+ * The member viewer 5 travels FROM, and the geoids either end of the trip.
+ *
+ * 🔴 Bloomington, Indiana — deliberately not Asheville. Visiting Asheville from
+ * the Asheville fixture would compare a roster against itself and pass no matter
+ * what, which is the vacuous shape this whole script is written against. Both
+ * gazetteer shards are committed (public/geo/18.json, public/geo/37.json).
+ */
+const OWN_CITY_GEOID = '1805860'
+const VISITED_CITY_GEOID = '3702140'
+
+/**
+ * 🔴 D-10, and the assertion `deferred-items.md` item 2 had nobody watching.
+ *
+ * Every alternative here is a string that was ON SCREEN over Asheville, read by
+ * a visitor from anywhere, until 17-06 Task 2: "Welcome to YOUR Civic Space",
+ * "Federal races WHERE YOU LIVE", "None of YOURS has one published yet". The
+ * data under them was already right; only the second person was wrong, which is
+ * exactly what D-10 forbids — *never show someone a place as if it were already
+ * theirs.*
+ *
+ * 🔴 NARROW ON PURPOSE, and the omissions are a deferral rather than an
+ * oversight. The generic topic catalogue (`src/mocks/civicSpacesExplore.ts`)
+ * still asks "What should get built in YOUR city, and where?" and ~40 more like
+ * it. Those are the conversation-starter QUESTIONS, the second person is what
+ * makes them an invitation rather than a survey item, and rewriting them is a
+ * decision about the product's voice — logged as item 3 of this phase's
+ * `deferred-items.md` with file and line. 🔴 Do NOT widen this regex to cover
+ * them without fixing them first: a check that is red on purpose is a check
+ * nobody reads.
+ *
+ * The matching half for the static ROOM copy is `check:explore-rooms` 21.
+ */
+const CLAIMS_THE_PLACE =
+  /Welcome to your Civic Space|happening in your community|across your state|share your perspective|Questions for your community|races where you live|your (own )?area|your ballot|None of yours|your legislators|What your local government|your local election office/i
 
 /** Text that can only come from a write affordance. Affordances #1, #2, #7 and #8. */
 const WRITE_WORDS = 'Join the conversation|Share an idea|Discard draft|Sign in to (join|share)|Post it in .* instead'
@@ -270,6 +331,36 @@ function readNotice({ sel }) {
   }
 }
 
+/**
+ * Which by-area response the "Representing this community" widget is rendering.
+ *
+ * 🔴 It reads TAGS, not names, and that is the whole design. No script can tell
+ * one real person's name from another's — 17-06's first draft concluded from
+ * that, wrongly, that Task 1 was uncheckable. The revert being guarded against
+ * is a WRONG SOURCE, and a source is observable: `taggedByArea` below answers
+ * every by-area POST with a roster whose names encode the geo_id that was asked
+ * for, so "the sidebar is rendering the VISITED place's officials" becomes a
+ * string comparison with no network in it.
+ *
+ * Correctness — are these the right people — is NOT this assertion's question
+ * and cannot be. That is the human read in 17-07 Task 4.
+ *
+ * The widget carries no data attribute; it is found by its own heading so that
+ * `Sidebar.tsx` stays untouched, which is 17-06's test of whether the hook's
+ * signature was right.
+ */
+function readRepsTags() {
+  const h3 = [...document.querySelectorAll('h3')].find((h) =>
+    /Representing This Community/i.test(h.textContent || ''),
+  )
+  const card = h3?.closest('div')
+  const text = card ? card.innerText || '' : ''
+  return {
+    widget: !!h3,
+    tags: [...new Set(text.match(/GEOID-[0-9A-Za-z]+/g) || [])].sort(),
+  }
+}
+
 /** elementFromPoint at a control's centre: does a click actually land on it? */
 function hitTest({ sel, selector }) {
   const p = document.querySelector(sel)
@@ -316,6 +407,133 @@ async function stubPlaceLegs(page, fx) {
   await page.route('**/api/essentials/coordinate-lookup', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx.coordinateBody) }),
   )
+}
+
+/**
+ * A by-area roster whose every name says which geo_id was asked for.
+ *
+ * 🔴 These are ROUTING TAGS, not people, and nothing like them ever reaches the
+ * app: this fulfils a route inside one Playwright context. `CLAUDE.md`'s rule is
+ * that the APP never invents civic record and never swaps in fixture data when a
+ * request fails — `usePlaceRepresentatives` has no fallback at all for exactly
+ * that reason. A check that stubs an endpoint to prove which end of a wire is
+ * connected is a different thing, and it is the only way to make "the officials
+ * came from the visited place" deterministic: the real endpoint's answer is two
+ * sets of real names that a script cannot tell apart from each other, let alone
+ * tell apart from the wrong ones.
+ *
+ * `district_type` has to survive `filterRepsByTab` (src/types/representatives.ts)
+ * or the widget renders nothing and the assertion is vacuous: LOCAL for City,
+ * NATIONAL_LOWER for Federal, COUNTY for County.
+ */
+function taggedRoster(geoId) {
+  const one = (district_type, office_title) => ({
+    id: `${geoId}-${district_type}`,
+    full_name: `GEOID-${geoId} ${office_title}`,
+    office_title,
+    photo_origin_url: '',
+    district_type,
+    government_type: 'CHECK_FIXTURE',
+    is_vacant: false,
+    is_elected: true,
+    images: [],
+  })
+  return [one('LOCAL', 'Mayor'), one('COUNTY', 'County Commissioner'), one('NATIONAL_LOWER', 'U.S. Representative')]
+}
+
+/**
+ * Serve every `POST /essentials/browse/by-area` from `taggedRoster`, and record
+ * each request's BODY.
+ *
+ * 🔴 The geoid is in the body, not the query string — by-area is a POST. A
+ * network assertion that read URLs alone could not see the single request this
+ * whole task is about, which is the mistake 17-05's revert matrix caught in
+ * `check-place-entry` and is recorded in 17-VALIDATION.
+ */
+async function stubByArea(page, log) {
+  await page.route('**/api/essentials/browse/by-area', (route) => {
+    const body = route.request().postData() ?? ''
+    log.push(body)
+    let geoId = 'UNKNOWN'
+    try {
+      geoId = JSON.parse(body).geo_id ?? 'UNKNOWN'
+    } catch {
+      /* a body we cannot parse is itself worth seeing in the log */
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(taggedRoster(geoId)),
+    })
+  })
+}
+
+/**
+ * Type into a picker from empty and wait for the list to answer.
+ *
+ * 🔴 The fixed wait is not padding: `usePlaceSearch` debounces at 250 ms and the
+ * stub answers every query with the same rows, so a run that only waited for
+ * `[role="option"]` would be satisfied by the PREVIOUS query's list. Copied from
+ * `check-place-entry.mjs`, where that cost a finding.
+ */
+async function typeInto(page, scope, text) {
+  const input = page.locator(`${scope} input[role="combobox"]`)
+  await input.click()
+  await input.fill('')
+  await input.fill(text)
+  await page.waitForTimeout(900)
+  await page.waitForSelector(`${scope} [role="option"]`, { timeout: 10000 })
+}
+
+/**
+ * "Not over-gated", as an object, so the three viewers that ask it ask it the
+ * same way. A failure here is OVER-gating: another place's Explore reduced to a
+ * dead page, which fails D-18 from the other direction. `cs_saved_adventures`
+ * and `cs_explore_ui` never touch Supabase, so neither is a write
+ * (16-CONTEXT locked decision 4's companion).
+ */
+async function readNotOverGated(page) {
+  await page.locator(`${PANEL} [data-explore-module="nearby"]`).getByRole('button', { name: /See the details/ }).click()
+  await page.waitForTimeout(500)
+  const saveHit = await page.evaluate(hitTest, { sel: PANEL, selector: 'dialog button[aria-pressed]' })
+  const saveState = () => page.evaluate((sel) => {
+    const b = document.querySelector(`${sel} dialog button[aria-pressed]`)
+    return { pressed: b?.getAttribute('aria-pressed'), label: (b?.textContent || '').trim() }
+  }, PANEL)
+  await page.locator(`${PANEL} dialog button[aria-pressed]`).click()
+  await page.waitForTimeout(400)
+  const afterSave = await saveState()
+  // Toggled back, so this assertion leaves cs_saved_adventures as it found it.
+  await page.locator(`${PANEL} dialog button[aria-pressed]`).click()
+  await page.waitForTimeout(400)
+  const afterUnsave = await saveState()
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(400)
+
+  const checkedIndex = () => page.evaluate(
+    (sel) => [...document.querySelectorAll(`${sel} [data-explore-module="imagine"] input[type="radio"]`)].findIndex((r) => r.checked),
+    PANEL,
+  )
+  const before = await checkedIndex()
+  await page.locator(`${PANEL} [data-explore-module="imagine"] input[type="radio"]`).nth(1).click({ force: true })
+  await page.waitForTimeout(400)
+  const after = await checkedIndex()
+
+  return {
+    saveHit,
+    afterSave,
+    afterUnsave,
+    radio: `${before} -> ${after}`,
+    ok:
+      saveHit.found &&
+      saveHit.ok &&
+      afterSave.pressed === 'true' &&
+      /^Saved on this device$/.test(afterSave.label) &&
+      afterUnsave.pressed === 'false' &&
+      /^Save on this device$/.test(afterUnsave.label) &&
+      after === 1 &&
+      after !== before,
+  }
 }
 
 // ── The run ──────────────────────────────────────────────────────────────────
@@ -596,46 +814,14 @@ for (const spec of TABS) {
 
   // ── 8  Not over-gated: the device-local controls still work (City only) ───
   if (spec.hasImagine) {
-    await page.locator(`${PANEL} [data-explore-module="nearby"]`).getByRole('button', { name: /See the details/ }).click()
-    await page.waitForTimeout(500)
-    const saveHit = await page.evaluate(hitTest, { sel: PANEL, selector: 'dialog button[aria-pressed]' })
-    const saveState = () => page.evaluate((sel) => {
-      const b = document.querySelector(`${sel} dialog button[aria-pressed]`)
-      return { pressed: b?.getAttribute('aria-pressed'), label: (b?.textContent || '').trim() }
-    }, PANEL)
-    await page.locator(`${PANEL} dialog button[aria-pressed]`).click()
-    await page.waitForTimeout(400)
-    const afterSave = await saveState()
-    // Toggle it back: it proves the control works both ways, and it leaves
-    // cs_saved_adventures as it was found so the control case after the
-    // switch-back is not reading state this assertion left behind.
-    await page.locator(`${PANEL} dialog button[aria-pressed]`).click()
-    await page.waitForTimeout(400)
-    const afterUnsave = await saveState()
-    await page.keyboard.press('Escape')
-    await page.waitForTimeout(400)
-
-    const checkedIndex = () => page.evaluate(
-      (sel) => [...document.querySelectorAll(`${sel} [data-explore-module="imagine"] input[type="radio"]`)].findIndex((r) => r.checked),
-      PANEL,
-    )
-    const before = await checkedIndex()
-    await page.locator(`${PANEL} [data-explore-module="imagine"] input[type="radio"]`).nth(1).click({ force: true })
-    await page.waitForTimeout(400)
-    const after = await checkedIndex()
-
+    // 🔴 One helper, three viewers. 17-06 needed this same block at a VISITED
+    // place; a second copy of it is how two readers of one rule drift apart.
+    const gated = await readNotOverGated(page)
     check(
       tab, 8,
       'NOT over-gated: "Save on this device" is clickable and toggles both ways, and the Imagine radios still select',
-      saveHit.found &&
-        saveHit.ok &&
-        afterSave.pressed === 'true' &&
-        /^Saved on this device$/.test(afterSave.label) &&
-        afterUnsave.pressed === 'false' &&
-        /^Save on this device$/.test(afterUnsave.label) &&
-        after === 1 &&
-        after !== before,
-      `saveHit=${JSON.stringify(saveHit)} save=${JSON.stringify(afterSave)} unsave=${JSON.stringify(afterUnsave)} radio ${before} -> ${after}` +
+      gated.ok,
+      JSON.stringify(gated) +
         `\n            A failure here is OVER-gating: another shard's Explore reduced to a dead page,` +
         `\n            which fails goal 6 from the other direction. cs_saved_adventures and` +
         `\n            cs_explore_ui never touch Supabase, so neither is a write.`,
@@ -830,7 +1016,7 @@ for (const spec of TABS) {
   )
 }
 
-// ── Viewer: signed out, looking at a place they named ────────────────────────
+// ── Viewer: signed out, looking at a place they named = `observer-with-a-place`
 //
 // 🔴 RE-POINTED BY 17-04. 17-02 wrote this viewer against the `geoid: null`
 // Explore a stranger used to be given above a "Log in to view your civic
@@ -854,7 +1040,7 @@ for (const spec of TABS) {
 //      says the gate was applied to a component that never mounted.
 async function runSignedOut(fx) {
   const tab = 'signed-out'
-  console.log(`\n── SIGNED OUT, LOOKING AT A PLACE ${'─'.repeat(22)}`)
+  console.log(`\n── OBSERVER WITH A PLACE — SIGNED OUT ${'─'.repeat(18)}`)
 
   const { ctx, page, errors } = await freshContext('dark', DESKTOP, {
     fn: () => {
@@ -1030,6 +1216,74 @@ async function runSignedOut(fx) {
     )
   }
 
+  // ── 8  The seed invitation is ABSENT ──────────────────────────────────────
+  //
+  // 🔴 This is 17-06 Task 2's assertion, and it has to be made on a place that
+  // is GENUINELY unseeded or it says nothing. Asheville is: it has zero
+  // meetings, so no bespoke layer, so `composition.isUnseeded` — which is also
+  // why `check:explore-rooms` runs its whole invitation suite there. At 15
+  // slice rows in the entire product the unseeded place is the COMMON case
+  // (research Q3.3), so this module WOULD be the second one in the list.
+  //
+  // The invitation invites a VOTE (16-CONTEXT locked decision 6). D-11: an
+  // observer is never offered an action they cannot take.
+  check(
+    tab, 8,
+    'the seed invitation does NOT open for an observer, on a genuinely unseeded place',
+    Array.isArray(list.modules) && !list.modules.includes('seed-invitation'),
+    `modules=${JSON.stringify(list.modules)}` +
+      '\n            If `seed-invitation` is in that list, registry.tsx lost the isAuthenticated /' +
+      '\n            !isViewOnly terms from its available(). If NO module is unseeded-only in it at' +
+      '\n            all, check Asheville is still unseeded — a composition change would make this' +
+      '\n            a true statement about a module that was never going to render.',
+  )
+
+  // ── 9  NOT over-gated, at a visited place ─────────────────────────────────
+  //
+  // 🔴 A dead page fails D-18 from the other direction: observation is the
+  // expected default, for everyone, so another place's Explore has to still
+  // WORK. City/County only, by composition — Asheville's picker landing is City.
+  if ((list.modules ?? []).includes('nearby')) {
+    const gated = await readNotOverGated(page)
+    check(
+      tab, 9,
+      'NOT over-gated at a visited place: "Save on this device" toggles both ways and the Imagine radios still select',
+      gated.ok,
+      JSON.stringify(gated) +
+        '\n            Over-gating is the failure here, not under-gating. Device-local preferences' +
+        '\n            never touch Supabase and are not writes.',
+    )
+  } else {
+    console.log('  SKIP  9  NOT over-gated — the nearby module is not on this tab; City/County only')
+  }
+
+  // ── 10  D-10: the page does not address the visitor as a resident ─────────
+  //
+  // 🔴 `deferred-items.md` item 2, which had NOTHING watching it: with Asheville
+  // on screen a visitor was told "Welcome to YOUR Civic Space / Discover what's
+  // happening in YOUR community / None of YOURS has one published yet". Read
+  // across the LIST and the TOPIC PAGE, because the topic page carries its own
+  // copy ("agendas were found for your area").
+  {
+    const listText = await page.evaluate((sel) => document.querySelector(sel)?.innerText ?? '', PANEL)
+    await openTopic(page, PANEL)
+    const topicText = await page.evaluate((sel) => document.querySelector(sel)?.innerText ?? '', PANEL)
+    await closeTopic(page, PANEL)
+    const hits = [listText, topicText].map((t) => CLAIMS_THE_PLACE.exec(t)?.[0] ?? null)
+    check(
+      tab, 10,
+      "D-10: no Explore chrome tells the visitor the place is theirs — list and topic page",
+      hits.every((h) => h === null),
+      `list=${JSON.stringify(hits[0])} topicPage=${JSON.stringify(hits[1])}` +
+        '\n            D-10: never show someone a place as if it were already theirs. The fix is' +
+        '\n            ctx.isOwnPlace in the module, or a sentence rewritten true of both readers' +
+        '\n            where the string is a static emptyState. 🔴 The generic TOPIC QUESTIONS' +
+        '\n            ("What should get built in your city, and where?") are deliberately NOT in' +
+        '\n            CLAIMS_THE_PLACE — they are deferred item 3, not a pass. Do not widen the' +
+        '\n            regex before fixing them: a check that is red on purpose is one nobody reads.',
+    )
+  }
+
   await ctx.close()
 
   // ── 11  Errors ────────────────────────────────────────────────────────────
@@ -1171,8 +1425,334 @@ async function runMemberNoSlice() {
   )
 }
 
-await runSignedOut(await readFixtures())
+// ── Viewer: a signed-in member looking at another city ───────────────────────
+//
+// 17-06's one genuinely NEW viewer. The member starts on their own spaces —
+// where the control case is positive and strong — and then enters Asheville
+// through the shell's place strip (D-19's second entry point, 17-05).
+//
+// 🔴 FROM BLOOMINGTON, INDIANA, and not from the Asheville fixture. Assertion
+// 14 compares the officials before the trip with the officials after it;
+// visiting Asheville FROM Asheville would compare a set against itself and pass
+// no matter what, which is the vacuous shape this whole script exists to expose.
+// Both gazetteer shards are committed, so both place names resolve offline.
+//
+// 🔴 This is the only viewer where the two REPS SOURCES differ at all. An
+// observer has no `userId`, so `useRepresentatives` is disabled for them and
+// there is nothing for `usePlaceRepresentatives` to be confused with.
+async function runMemberOtherPlace(fx) {
+  const tab = 'member-other-place'
+  console.log(`\n── MEMBER, VISITING ANOTHER PLACE ${'─'.repeat(22)}`)
+
+  const { ctx, page, errors } = await freshContext('dark', DESKTOP, {
+    fn: () => {
+      // 🔴 PLANTED as 'city', never cleared, and assertion 15 is about this key.
+      // Cleared, the shell opens on 'federal' (AppShell's default) and the
+      // "cs_active_tab is unmoved while visiting" assertion would be comparing
+      // two values the member never chose.
+      try { localStorage.setItem('cs_active_tab', 'city') } catch { /* blocked */ }
+      for (const k of ['cs_explore_ui', 'cs_explore_drafts_v2', 'cs_explore_resume_v2', 'cs_saved_adventures']) {
+        try { localStorage.removeItem(k) } catch { /* blocked */ }
+      }
+    },
+  })
+  await stubPlaceLegs(page, fx)
+  const byAreaBodies = []
+  await stubByArea(page, byAreaBodies)
+
+  await page.goto(`${ORIGIN}/?dev=1&place=bloomington`, { waitUntil: 'domcontentloaded' })
+  if (!(await bootedWithTheme(page, 'dark'))) {
+    check(tab, 1, 'the page booted with the requested theme (ev_color_scheme cookie)', false,
+      'documentElement.dark does not match the cookie, or the member shell never mounted.')
+    await ctx.close()
+    return
+  }
+
+  // ── 1  CONTROL CASE, on the member's OWN spaces, before the trip ──────────
+  //
+  // 🔴 Positive and strong here, unlike the observer's. The Imagine textarea and
+  // "Share an idea" live inside `{option && …}` with a persisted default of
+  // null, so `controlCase` clicks a radio FIRST — delete that click and this
+  // fails on the first run in a perfectly ungated build.
+  const spec = { hasImagine: true }
+  const own = await controlCase(page, spec)
+  const ownTags = await page.evaluate(readRepsTags)
+  const ownTab = await page.evaluate(() => { try { return localStorage.getItem('cs_active_tab') } catch { return 'blocked' } })
+  const ownHero = await page.evaluate(() => document.querySelector('h2')?.innerText?.trim() ?? null)
+  const presentList = Object.entries(own).filter(([, v]) => v).map(([k]) => k).join(', ') || 'NOTHING'
+  const controlOk = controlCaseOk(own, spec) && ownHero === 'Bloomington' && ownTags.tags.length > 0
+  check(
+    tab, 1,
+    `CONTROL CASE — on the member's OWN spaces: banner "${ownHero}", officials ${ownTags.tags.join(', ') || 'NONE'}, ` +
+      `and present: ${presentList}`,
+    controlOk,
+    `${JSON.stringify(own)} hero=${ownHero} reps=${JSON.stringify(ownTags)} cs_active_tab=${ownTab}` +
+      '\n            Every absence below is vacuous without this, and so is assertion 14: if no' +
+      '\n            officials rendered BEFORE the trip, "they changed" is a statement about an' +
+      '\n            empty set. A missing reps widget means the by-area stub did not match, or' +
+      '\n            filterRepsByTab rejected every tagged row on this tab.',
+  )
+  if (!controlOk) {
+    console.log('  SKIP 2-15  NOT CHECKED — the run never started on the member\'s own writable spaces.')
+    await ctx.close()
+    return
+  }
+
+  // ── Enter Asheville through the SHELL's place strip (D-19, 17-05) ─────────
+  const byAreaBefore = byAreaBodies.length
+  const repsMeAfterEntry = []
+  page.on('request', (r) => {
+    if (/\/essentials\/representatives\/me/.test(r.url())) repsMeAfterEntry.push(r.url())
+  })
+
+  const walked = { entered: false, hero: null }
+  try {
+    await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+    await page.waitForTimeout(300)
+    await typeInto(page, STRIP, PLACE_QUERY)
+    await page.locator(`${STRIP} [role="option"]`).first().click()
+    await page.waitForTimeout(3500)
+    walked.entered = true
+  } catch (err) {
+    walked.error = String(err).split('\n')[0]
+  }
+  walked.hero = await page.evaluate(() => document.querySelector('h2')?.innerText?.trim() ?? null)
+
+  if (!walked.entered || walked.hero !== PLACE_NAME) {
+    check(
+      tab, 2,
+      `"${PLACE_QUERY}" did NOT resolve to a place on screen — the absence assertions cannot run`,
+      false,
+      `walk=${JSON.stringify(walked)}` +
+        '\n            Look at walk.error, then at the two route stubs: a chosen row answers city' +
+        '\n            and state, and resolveChosenPlace throws no-county without coordinate-lookup.',
+    )
+    console.log('  SKIP 3-15  NOT CHECKED — the member is still on their own spaces, which has every')
+    console.log('            affordance, so neither the absences nor their inverse mean anything here.')
+    await ctx.close()
+    return
+  }
+
+  // 🔴 Choose an Imagine option FIRST, exactly as the control case does: the
+  // Imagine textarea (#6) and "Share an idea" (#2) are inside `{option && …}`,
+  // so without this click assertions 4 and 6 are true of a page that never had
+  // them. The radios themselves are a view preference and are NOT gated.
+  await page.locator(`${PANEL} [data-explore-module="imagine"] input[type="radio"]`)
+    .first().click({ force: true }).catch(() => {})
+  await page.waitForTimeout(500)
+
+  const list = await read(page, PANEL)
+  const listNotice = await page.evaluate(readNotice, { sel: PANEL })
+  await openTopic(page, PANEL)
+  const topic = await read(page, PANEL)
+  const topicNotice = await page.evaluate(readNotice, { sel: PANEL })
+  await closeTopic(page, PANEL)
+  const both = (fn) => fn(list) && fn(topic)
+  const where = (fn) => `list=${JSON.stringify(fn(list))} topicPage=${JSON.stringify(fn(topic))}`
+
+  check(tab, 2, 'zero button[type="submit"] — list and topic page (#1)',
+    both((v) => v.submits === 0), where((v) => v.submits))
+  check(tab, 3, 'zero textarea — list and topic page (#5, #6)',
+    both((v) => v.textareas === 0), where((v) => v.textareas))
+  check(tab, 4, 'zero free-text input, radios and checkboxes excluded — list and topic page (#4)',
+    both((v) => v.freeTextInputs === 0), where((v) => v.freeTextInputs))
+  check(tab, 5, 'no write wording — list and topic page (#1, #2, #7, #8)',
+    both((v) => v.writeWord === null), where((v) => v.writeWord))
+
+  // ── 6  The notice names the OTHER-PLACE reason, not the sibling-shard one ─
+  //
+  // 🔴 `namesReason` rejects a notice that carries ANOTHER viewer's sentence, so
+  // hard-coding the reason to 'sibling-shard' takes this down while viewers 1
+  // and 2 stay green — the half-a-gate shape in its newest form.
+  check(
+    tab, 6,
+    'the Explore notice names the other-place reason and offers a way back — list and topic page',
+    namesReason(listNotice, 'other-place') && namesReason(topicNotice, 'other-place') && !!listNotice.button,
+    `list=${JSON.stringify(listNotice)}\n            topicPage=${JSON.stringify(topicNotice)}`,
+  )
+
+  // ── 7  The seed invitation is ABSENT ──────────────────────────────────────
+  check(
+    tab, 7,
+    'the seed invitation does NOT open for a member at a place that is not theirs',
+    Array.isArray(list.modules) && !list.modules.includes('seed-invitation'),
+    `modules=${JSON.stringify(list.modules)}` +
+      '\n            Asheville is genuinely unseeded (zero meetings, no bespoke layer), so this' +
+      '\n            module WOULD be second in the list. If it is there, registry.tsx lost the' +
+      '\n            isAuthenticated / !isViewOnly terms. The invitation invites a VOTE.',
+  )
+
+  // ── 8  NOT over-gated, at a visited place ─────────────────────────────────
+  if ((list.modules ?? []).includes('nearby')) {
+    const gated = await readNotOverGated(page)
+    check(
+      tab, 8,
+      'NOT over-gated at a visited place: "Save on this device" toggles both ways and the Imagine radios still select',
+      gated.ok,
+      JSON.stringify(gated) +
+        '\n            A dead page fails D-18 from the other direction: observation is the expected' +
+        '\n            default, for everyone, so another place\'s Explore has to still work.',
+    )
+  } else {
+    console.log('  SKIP  8  NOT over-gated — the nearby module is not on this tab; City/County only')
+  }
+
+  // ── 9  D-10: the page does not address the visitor as a resident ──────────
+  {
+    const listText = await page.evaluate((sel) => document.querySelector(sel)?.innerText ?? '', PANEL)
+    await openTopic(page, PANEL)
+    const topicText = await page.evaluate((sel) => document.querySelector(sel)?.innerText ?? '', PANEL)
+    await closeTopic(page, PANEL)
+    const hits = [listText, topicText].map((t) => CLAIMS_THE_PLACE.exec(t)?.[0] ?? null)
+    check(
+      tab, 9,
+      'D-10: no Explore chrome tells the member this place is theirs — list and topic page',
+      hits.every((h) => h === null),
+      `list=${JSON.stringify(hits[0])} topicPage=${JSON.stringify(hits[1])}` +
+        '\n            🔴 The generic TOPIC QUESTIONS are deliberately not in CLAIMS_THE_PLACE —' +
+        '\n            deferred item 3. See the regex\'s own comment before widening it.',
+    )
+  }
+
+  // ── 10  The by-area POST carries the VISITED geoid ────────────────────────
+  //
+  // 🔴 Read from `request.postData()`, because by-area is a POST and the geoid
+  // is in the BODY. A query-string reader cannot see this request at all.
+  const bodiesAfterEntry = byAreaBodies.slice(byAreaBefore)
+  check(
+    tab, 10,
+    `a by-area POST after entering the place carries the VISITED geoid ${VISITED_CITY_GEOID}`,
+    bodiesAfterEntry.some((b) => (b ?? '').includes(VISITED_CITY_GEOID)),
+    `bodies after entry: ${JSON.stringify(bodiesAfterEntry)} (before: ${byAreaBefore} request(s), own geoid ${OWN_CITY_GEOID})` +
+      '\n            🔴 ON ITS OWN THIS IS WEAK, and the plan that asked for it overrated it:' +
+      '\n            usePlaceRepresentatives fires for the visited place whether or not AppShell' +
+      '\n            PASSES its result to the sidebar, so `repsData = ownReps` leaves this GREEN.' +
+      '\n            Assertion 14 is the one that catches that revert. This one catches the hook' +
+      '\n            not being wired, or being handed the wrong slices.',
+  )
+
+  // ── 11  Errors ───────────────────────────────────────────────── (below) ──
+
+  // ── 12  /representatives/me is not the live source after entering ─────────
+  check(
+    tab, 12,
+    'no request to /essentials/representatives/me after the place is entered',
+    repsMeAfterEntry.length === 0,
+    `seen: ${JSON.stringify(repsMeAfterEntry)}` +
+      '\n            🔴 STRUCTURALLY VACUOUS FOR THIS HARNESS, and it is kept anyway — say so' +
+      '\n            rather than reading it as the thing that caught a revert. The dev id is a' +
+      '\n            SYNTHETIC id, so useRepresentatives short-circuits to fetchDevRepresentatives' +
+      '\n            and never calls /representatives/me at all, before OR after the trip. This' +
+      '\n            pins the production path, where it would be called, and costs one line.',
+  )
+
+  // ── 13  Exactly ONE by-area request per place change ──────────────────────
+  check(
+    tab, 13,
+    'exactly ONE by-area request fired when the place changed',
+    bodiesAfterEntry.length === 1,
+    `${bodiesAfterEntry.length} request(s): ${JSON.stringify(bodiesAfterEntry)}` +
+      '\n            🔴 THIS DOES NOT PIN THE SIX-PANEL RULE, and 17-06\'s plan claimed it did.' +
+      '\n            TanStack Query dedupes by queryKey, so six components calling one hook with' +
+      '\n            one key make ONE fetch — and since 17-04 no feed panel mounts at a visited' +
+      '\n            place at all, so a hook moved into SliceFeedPanel fires ZERO times here, not' +
+      '\n            six. What this DOES catch is an unstable query key and a refetch loop: 0 means' +
+      '\n            the hook never ran, >1 means its key changes on every render.',
+  )
+
+  // ── 14  The rendered officials are the VISITED place's ────────────────────
+  //
+  // 🔴 The assertion the plan first conceded was impossible, on the grounds that
+  // no script can tell one real person's name from another's. True, and
+  // irrelevant: the revert is a WRONG SOURCE, and a source is observable. The
+  // by-area stub tags every roster with the geo_id it was asked about, so this
+  // is a string comparison with no network in it — deterministic, and no SKIP.
+  const visitedTags = await page.evaluate(readRepsTags)
+  check(
+    tab, 14,
+    `the sidebar renders the VISITED place's officials: ${visitedTags.tags.join(', ') || 'NONE'} (was ${ownTags.tags.join(', ')})`,
+    visitedTags.widget &&
+      visitedTags.tags.length > 0 &&
+      visitedTags.tags.every((t) => t === `GEOID-${VISITED_CITY_GEOID}`) &&
+      !visitedTags.tags.includes(`GEOID-${OWN_CITY_GEOID}`),
+    `before=${JSON.stringify(ownTags)} after=${JSON.stringify(visitedTags)}` +
+      '\n            🔴 THIS is the assertion that catches `repsData = ownReps`. Pitfall 9 is the' +
+      '\n            member\'s own representatives rendering beside another city\'s conversations,' +
+      '\n            and it is invisible to every other assertion here: the place query still' +
+      '\n            fires, the counts are still right, and the names are real either way.' +
+      '\n            Correctness — are these the right PEOPLE — is 17-07 Task 4\'s human read.',
+  )
+
+  // ── 15  cs_active_tab is NOT written while visiting ───────────────────────
+  //
+  // 🔴 A REAL BUG WITH NO COVERAGE. 17-05 fixed it — AppShell's handleTabChange
+  // writes `cs_active_tab` only `if (!isVisitingPlace)` — and nothing watched
+  // the fix: removing the guard left check:place-entry at 20 PASS, 0 FAIL.
+  //
+  // The consequence is quiet and permanent. `cs_active_tab` is the member's
+  // choice for their OWN shell; another city's answer must not clobber it. With
+  // the guard gone, a member who looks at Portland and presses State comes back
+  // to their own State tab instead of the one they left, and `leavePlace` has
+  // nothing true left to restore.
+  //
+  // Both halves are asserted, because the key alone is not the behaviour: the
+  // key is unmoved WHILE visiting, and the member lands back on their own City
+  // tab AFTER leaving. With the guard removed the second half fails too — the
+  // shell comes back on State, and the banner reads Indiana rather than
+  // Bloomington.
+  {
+    const probe = { planted: ownTab, duringVisit: null, afterLeaving: null, heroAfter: null, error: null }
+    try {
+      await page.locator(`${RAIL} [data-nav-tab="state"]`).first().click()
+      await page.waitForTimeout(1200)
+      probe.duringVisit = await page.evaluate(() => { try { return localStorage.getItem('cs_active_tab') } catch { return 'blocked' } })
+      await page.locator(`${STRIP} [data-place-strip-leave]`).first().click()
+      await page.waitForTimeout(2500)
+      probe.afterLeaving = await page.evaluate(() => { try { return localStorage.getItem('cs_active_tab') } catch { return 'blocked' } })
+      probe.heroAfter = await page.evaluate(() => document.querySelector('h2')?.innerText?.trim() ?? null)
+    } catch (err) {
+      probe.error = String(err).split('\n')[0]
+    }
+    check(
+      tab, 15,
+      "pressing a tab WHILE VISITING does not write cs_active_tab, and leaving comes back to the member's own tab",
+      probe.planted === 'city' &&
+        probe.duringVisit === 'city' &&
+        probe.afterLeaving === 'city' &&
+        probe.heroAfter === 'Bloomington',
+      JSON.stringify(probe) +
+        '\n            🔴 planted !== "city" is the VACUOUS case and is checked first: if the key was' +
+        '\n            never "city" to begin with, "it is still city" says nothing.' +
+        '\n            duringVisit === "state" means AppShell.handleTabChange lost its' +
+        '\n            `if (!isVisitingPlace)` guard — the ONE line that keeps another city out of' +
+        '\n            the member\'s remembered tab. heroAfter reading "Indiana" rather than' +
+        '\n            "Bloomington" is the same bug seen from the member\'s side: they pressed' +
+        '\n            State in Asheville and came home to their own State tab.',
+    )
+  }
+
+  await ctx.close()
+
+  if (errors.noise.length) {
+    console.log(
+      `  (noise) ${errors.noise.length} expected dev-id network errors suppressed: ` +
+        [...new Set(errors.noise)].map((t) => t.slice(0, 64)).join(' | '),
+    )
+  }
+  check(
+    tab, 11,
+    'zero uncaught page errors and zero unexpected console errors throughout',
+    errors.page.length === 0 && errors.console.length === 0,
+    [...errors.page, ...errors.console].slice(0, 3).join('\n            ') +
+      '\n            A thrown render is not a gate: an exception while hiding a control can leave' +
+      '\n            the control on screen.',
+  )
+}
+
+const FIXTURES = await readFixtures()
+await runSignedOut(FIXTURES)
 await runMemberNoSlice()
+await runMemberOtherPlace(FIXTURES)
 
 await browser.close()
 
