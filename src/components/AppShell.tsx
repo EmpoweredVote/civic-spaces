@@ -12,6 +12,7 @@ import { useHeroBanner } from '../hooks/useHeroBanner'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
+import { usePlaceRepresentatives } from '../hooks/usePlaceRepresentatives'
 import { useCompassData } from '../hooks/useCompassData'
 import { useNextElection, useUpcomingElections, useRacesForArea, electionAreaFor, type NextElection } from '../hooks/useNextElection'
 import { useRaceMedia } from '../hooks/useRaceMedia'
@@ -674,17 +675,33 @@ export default function AppShell() {
   const isAssigning = assignmentStatus === 'assigning'
   const { data: isModerator } = useIsModerator(userId)
   /**
-   * 🔴 AUDIT — "on screen" is not "mine": STAYS THE MEMBER'S, in this plan.
+   * 🔴 AUDIT — "on screen" is not "mine", and this is the pair that resolves it.
    *
-   * Pitfall 9 proper. This calls `/representatives/me` with a bearer token and
-   * CANNOT follow a place at all — there is no argument to give it. 17-06 adds
-   * the by-area substitute (`usePlaceRepresentatives`, the anonymous
-   * `/essentials/browse/by-area`). Until then the sidebar shows the member's own
-   * officials while visiting, which is a known, ONE-PLAN gap recorded in
-   * 17-VALIDATION.md. For an observer `userId` is null, the query is disabled,
-   * and the widget simply has no source — which is honest rather than wrong.
+   * Pitfall 9 proper. `useRepresentatives` calls `/representatives/me` with a
+   * bearer token and CANNOT follow a place at all — there is no argument to
+   * give it. The substitute is `usePlaceRepresentatives`, the anonymous
+   * `POST /essentials/browse/by-area`, keyed on the visited place's most LOCAL
+   * area. Same return type, so `Sidebar` and `SidebarMobile` are untouched.
+   *
+   * 🔴 BOTH are called unconditionally — rules of hooks — and only ONE fetches,
+   * because the other's `enabled` is false. Hoisted here rather than called in
+   * a panel: all five feed panels plus Volunteer mount at once, so a hook inside
+   * one of them fires 6×. `check:explore-gate`'s `member-other-place` viewer
+   * asserts exactly one by-area request per place change, which is the first
+   * assertion anywhere that pins that rule.
+   *
+   * 🔴 `racesAreaFor(onScreenSlices)` — city else county else NULL. A place with
+   * neither is federal or unified as the only level, which is not a place to ask
+   * about; `racesAreaFor` answers null rather than falling back to the state
+   * (its own doc says why at length), no request is made, and the sidebar shows
+   * its existing no-representatives state, which is honest.
+   *
+   * For an observer with no place, `userId` is null AND `area` is null, so
+   * neither query runs and the widget simply has no source.
    */
-  const repsData = useRepresentatives(userId)
+  const ownReps = useRepresentatives(userId)
+  const placeReps = usePlaceRepresentatives(isVisitingPlace ? racesAreaFor(onScreenSlices) : null)
+  const repsData = isVisitingPlace ? placeReps : ownReps
   /**
    * 🔴 AUDIT — STAYS THE MEMBER'S, PERMANENTLY. Ranking is about the READER,
    * not the place: it orders this member's Explore by this member's own
