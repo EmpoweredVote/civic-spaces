@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** Every Connected user is part of four geographic communities plus specialized civic spaces — and they can move fluidly between all of them from a single hub.
-**Current focus:** Planning next milestone (v4.0)
+**Current focus:** Phase 16 shipped; next phase undecided
 
 ## Current Position
 
-Phase: — (v3.0 complete — planning v4.0)
-Plan: Not started
-Status: Ready for next milestone
-Last activity: 2026-04-10 — v3.0 milestone complete and archived
+Phase: 16 — Explore by Slice (complete)
+Plan: 10/10 complete
+Status: Shipped — next phase not yet defined in ROADMAP.md
+Last activity: 2026-10-25 — #120 merged (1096e7a), closing #111
 
-Progress: [██████████] 100% (v3.0 — Phases 9–13 all complete)
+Progress: [██████████] 100% (Phase 16 — 10/10 plans)
 
 ## Performance Metrics
 
@@ -58,6 +58,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-10
-Stopped at: v3.0 milestone archived — tag and commit pending
+Last session: 2026-10-25
+Stopped at: Phase 16 shipped and verified in production; Phase 17 undecided. Open
+  follow-ups in phases/16-explore-by-slice/deferred-items.md; ev-accounts asks in
+  EXPLORE-HANDOFF.md. The signed-in in-situ visual check is still outstanding.
 Resume file: None

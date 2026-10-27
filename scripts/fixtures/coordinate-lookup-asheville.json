@@ -1,0 +1,43 @@
+{
+  "_README": [
+    "FROZEN FIXTURE — POST /api/essentials/coordinate-lookup with Asheville's gazetteer centroid",
+    "{lat: 35.570972, lng: -82.552725}, read out of public/geo/37.json. Captured 2026-10-26.",
+    "",
+    "🔴 TRIMMED to the keys the parser reads, deliberately. The live body is 100,025 bytes: 57",
+    "politician records with finance summaries, committee lists and photo URLs. Committing that",
+    "would be a 100 KB fixture AND real people's records sitting in a test file for no reason.",
+    "The dropped keys are `politicians`, `jurisdiction` and `tribal_land`.",
+    "",
+    "🔴 `locality.incorporated` is NULL for Asheville, and it is kept here because that is the",
+    "trap. It looks like the field that answers \"which city is this point in\"; it is null for most",
+    "of the country, because ev-accounts loads place geofences only for PLACE_LOADED_STATES and NC",
+    "is not among them. Counties are nationwide. countyFromCoordinateLookup reads county.geoid and",
+    "nothing else, and the check goes red if it is ever pointed at locality.incorporated.",
+    "",
+    "`matchedAddress` is kept, and it is deliberately BLANK in the live response — ev-accounts",
+    "blanks it for the same privacy reason D-13 states on our side.",
+    "",
+    "`body` is the trimmed response body.",
+    "",
+    "Captured: 2026-10-26"
+  ],
+  "body": {
+    "matchedAddress": "",
+    "county": {
+      "geoid": "37021",
+      "name": "Buncombe County"
+    },
+    "jurisdictionGeoIds": {
+      "congressional": "3711",
+      "state_senate": "37049",
+      "state_house": "37116",
+      "county": "37021",
+      "school_district": null
+    },
+    "locality": {
+      "incorporated": null,
+      "place_name": null,
+      "county_name": "Buncombe County"
+    }
+  }
+}

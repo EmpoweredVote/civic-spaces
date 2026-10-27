@@ -20,14 +20,29 @@ export function isMockSliceId(sliceId: string): boolean {
 
 /**
  * Reserved, never-real user ids that intentionally resolve to fixture data:
- * - 'dev-guest'    — the opt-in (?dev=1) local dev session
- * - 'preview-guest'— a real anonymous visitor who entered their address to
- *                    see a feed across all levels (works in a production
- *                    build too — the id itself is the safety boundary, not
- *                    an environment check, since a real Supabase user id
- *                    can never collide with these strings)
+ * - 'dev-guest' — the opt-in (?dev=1) local dev session
+ *
+ * 🔴 There is exactly one, and an anonymous visitor must never be given one.
+ * `isSyntheticUserId()` is the switch behind every fixture fallback in the app:
+ * hand an observer a reserved id and `useAllSlices` answers MOCK_SLICES with
+ * hasJurisdiction true, `useRepresentatives` answers the fixture city's
+ * officials and `fetchElections` falls back to MOCK_ELECTIONS — so someone who
+ * typed "Portland" would be shown Asheville's fixtures AS IF they were
+ * Portland's. An observer's userId stays null, which is the stronger boundary:
+ * every hook that could serve fixtures is already `enabled: !!userId`, so none
+ * of them runs at all.
+ *
+ * 🔴 A second id was reserved here for an anonymous visitor who had typed an
+ * address, and deleted in Phase 17 when that visitor was actually built —
+ * nothing had ever referenced it. The principle it carried — *the id itself is
+ * the safety boundary, not an environment check* — is kept, and it
+ * belongs to SLICE ids, not user ids. A visited place's slice id is the
+ * `place:<type>:<geoid>` sentinel: a real slices.id is a UUID and can never
+ * collide with it, so a leak is loud rather than a silent zero-row answer. Same
+ * reasoning, moved from where it would have unlocked fixtures to where it locks
+ * a query out.
  */
-const SYNTHETIC_USER_IDS = new Set(['dev-guest', 'preview-guest'])
+const SYNTHETIC_USER_IDS = new Set(['dev-guest'])
 
 export function isSyntheticUserId(id: string | null | undefined): boolean {
   return !!id && SYNTHETIC_USER_IDS.has(id)
@@ -41,14 +56,29 @@ export function isSyntheticUserId(id: string | null | undefined): boolean {
  * so it is the proof city for Phase 16 — and it has to be reachable without a
  * production token, because localhost has no login.
  *
- * A fixed table of two, not a free geoid parameter: this patches identity-shaped
- * state, and a named choice is both safer and honest about being a fixture.
- * Verified against public/geo/18.json and public/geo/37.json — all six geoids
- * resolve to real names offline, so useJurisdictionName needs no network.
+ * Arden is the third, and it is the one with NO city. An unincorporated address
+ * is a real and common answer, not an error state: ev-accounts says so outright
+ * in jurisdictionPayload.ts — "`city` is null for unincorporated addresses. That
+ * is an answer, not a failure." A member there gets four tabs, so the write
+ * gate's no-slice branch is reachable in dev and the absence of a composer on a
+ * tab that could have had one is a statement about something.
+ *
+ * A fixed table of three, not a free geoid parameter: this patches
+ * identity-shaped state, and a named choice is both safer and honest about being
+ * a fixture. Verified against public/geo/18.json and public/geo/37.json — every
+ * geoid here resolves to a real name offline, so useJurisdictionName needs no
+ * network.
  */
 const DEV_PLACES = {
   asheville:   { city: '3702140', county: '37021', state: '37' },
   bloomington: { city: '1805860', county: '18105', state: '18' },
+  // An unincorporated address: Buncombe County, North Carolina, no incorporated
+  // place. Verified live 2026-10-26 — the Census Geocoder returns state 37 and
+  // county 37021 for 525 Citrine Ln, Arden NC and no Incorporated Places layer
+  // at all. Four tabs, not five, and that is an ANSWER (ev-accounts
+  // jurisdictionPayload.ts), not a failure. 37 and 37021 are the same two
+  // entries Asheville already reads out of public/geo/37.json.
+  arden:       { city: null, county: '37021', state: '37' },
 } as const
 
 export type DevPlaceKey = keyof typeof DEV_PLACES
@@ -127,53 +157,72 @@ export const DEV_PLACE: DevPlaceKey = resolveDevPlace()
  */
 const DEV_PLACE_GEOIDS = DEV_PLACES[DEV_PLACE]
 
-export const MOCK_SLICES: Record<SliceType, SliceInfo> = {
-  city: {
-    id: `${MOCK_ID_PREFIX}city`,
-    sliceType: 'city',
-    geoid: DEV_PLACE_GEOIDS.city,
-    memberCount: 42,
-    siblingIndex: 1,
-    photoUrl: null,
-  },
+/**
+ * The fixture slices' identity — id, member count, shard index — independent of
+ * which dev place is loaded.
+ *
+ * 🔴 Separate from MOCK_SLICES on purpose. The post, sibling and feed fixtures
+ * below are keyed on these ids, and a place with no city (arden) has no entry in
+ * MOCK_SLICES at all — so a fixture reading MOCK_SLICES.city.id would be reading
+ * `SliceInfo | undefined` for a key that is genuinely absent. The ids are what
+ * the fixtures need and they never vary; the geoid is the only thing the place
+ * table changes.
+ */
+const MOCK_SLICE_BASE: Record<SliceType, { id: string; memberCount: number; siblingIndex: number }> = {
+  city:      { id: `${MOCK_ID_PREFIX}city`,      memberCount: 42,    siblingIndex: 1 },
+  county:    { id: `${MOCK_ID_PREFIX}county`,    memberCount: 128,   siblingIndex: 1 },
+  state:     { id: `${MOCK_ID_PREFIX}state`,     memberCount: 890,   siblingIndex: 1 },
+  federal:   { id: `${MOCK_ID_PREFIX}federal`,   memberCount: 6,     siblingIndex: 1 },
+  unified:   { id: `${MOCK_ID_PREFIX}unified`,   memberCount: 15000, siblingIndex: 1 },
+  volunteer: { id: `${MOCK_ID_PREFIX}volunteer`, memberCount: 12,    siblingIndex: 1 },
+}
+
+/**
+ * 🔴 PARTIAL, and the City key is genuinely ABSENT for an unincorporated place —
+ * not present-and-null. That is what `useAllSlices` would return for a real
+ * member at such an address, it is what makes NavSidebar and SliceTabBar render
+ * four tabs instead of five, and it is what makes whyNoWrite's `no-slice` branch
+ * reachable in dev at all.
+ */
+export const MOCK_SLICES: Partial<Record<SliceType, SliceInfo>> = {
+  ...(DEV_PLACE_GEOIDS.city !== null
+    ? {
+        city: {
+          ...MOCK_SLICE_BASE.city,
+          sliceType: 'city' as const,
+          geoid: DEV_PLACE_GEOIDS.city,
+          photoUrl: null,
+        },
+      }
+    : {}),
   county: {
-    id: `${MOCK_ID_PREFIX}county`,
+    ...MOCK_SLICE_BASE.county,
     sliceType: 'county',
     geoid: DEV_PLACE_GEOIDS.county,
-    memberCount: 128,
-    siblingIndex: 1,
     photoUrl: null,
   },
   state: {
-    id: `${MOCK_ID_PREFIX}state`,
+    ...MOCK_SLICE_BASE.state,
     sliceType: 'state',
     geoid: DEV_PLACE_GEOIDS.state,
-    memberCount: 890,
-    siblingIndex: 1,
     photoUrl: null,
   },
   federal: {
-    id: `${MOCK_ID_PREFIX}federal`,
+    ...MOCK_SLICE_BASE.federal,
     sliceType: 'federal',
     geoid: '3711',
-    memberCount: 6,
-    siblingIndex: 1,
     photoUrl: null,
   },
   unified: {
-    id: `${MOCK_ID_PREFIX}unified`,
+    ...MOCK_SLICE_BASE.unified,
     sliceType: 'unified',
     geoid: '',
-    memberCount: 15000,
-    siblingIndex: 1,
     photoUrl: null,
   },
   volunteer: {
-    id: `${MOCK_ID_PREFIX}volunteer`,
+    ...MOCK_SLICE_BASE.volunteer,
     sliceType: 'volunteer',
     geoid: '',
-    memberCount: 12,
-    siblingIndex: 1,
     photoUrl: null,
   },
 }
@@ -199,7 +248,7 @@ const MOCK_FEDERAL_POSTS: PostWithAuthor[] = [
   {
     // An explicit title, long enough to wrap — exercises the thread's topic header.
     id: 'mock-post-titled',
-    slice_id: MOCK_SLICES.federal.id,
+    slice_id: MOCK_SLICE_BASE.federal.id,
     user_id: 'mock-user-civicparticipant',
     title: 'Should Congress make the expanded Child Tax Credit permanent, and how would it change things for working families in our area?',
     body: 'The expansion lapsed at the end of 2021. Several bills would bring it back in some form. If you received the monthly payments, what did they change for your household? And if you think it is the wrong approach, what would you do instead?',
@@ -212,7 +261,7 @@ const MOCK_FEDERAL_POSTS: PostWithAuthor[] = [
   },
   {
     id: 'mock-post-1',
-    slice_id: MOCK_SLICES.federal.id,
+    slice_id: MOCK_SLICE_BASE.federal.id,
     user_id: 'mock-user-kades',
     title: null,
     body: 'This is the first post in our Connect hub, Civic Spaces.',
@@ -225,7 +274,7 @@ const MOCK_FEDERAL_POSTS: PostWithAuthor[] = [
   },
   {
     id: 'mock-post-2',
-    slice_id: MOCK_SLICES.federal.id,
+    slice_id: MOCK_SLICE_BASE.federal.id,
     user_id: 'mock-user-monroeneighbor',
     title: null,
     body: "He put out a statement about deficit concerns but voted for the 2017 tax cuts which added $1.9T. Would like to hear from constituents who've talked to his office directly.",
@@ -238,7 +287,7 @@ const MOCK_FEDERAL_POSTS: PostWithAuthor[] = [
   },
   {
     id: 'mock-post-3',
-    slice_id: MOCK_SLICES.federal.id,
+    slice_id: MOCK_SLICE_BASE.federal.id,
     user_id: 'mock-user-civicparticipant',
     title: null,
     body: 'The IRA drug price negotiation provision just survived its first legal challenge. Indiana has a higher-than-average share of Medicare beneficiaries. This is one of the more tangible federal policy wins in a while.',
@@ -259,7 +308,7 @@ const MOCK_FEDERAL_POSTS: PostWithAuthor[] = [
 const MOCK_STATE_POSTS: PostWithAuthor[] = [
   {
     id: 'mock-state-post-1',
-    slice_id: MOCK_SLICES.state.id,
+    slice_id: MOCK_SLICE_BASE.state.id,
     user_id: 'mock-user-example1',
     title: null,
     body: 'The state legislature is debating a new education funding formula this session — what would you want to see prioritized?',
@@ -272,7 +321,7 @@ const MOCK_STATE_POSTS: PostWithAuthor[] = [
   },
   {
     id: 'mock-state-post-2',
-    slice_id: MOCK_SLICES.state.id,
+    slice_id: MOCK_SLICE_BASE.state.id,
     user_id: 'mock-user-example2',
     title: null,
     body: "Does anyone know when the next state budget town hall is scheduled? Would like to weigh in before it's finalized.",
@@ -288,7 +337,7 @@ const MOCK_STATE_POSTS: PostWithAuthor[] = [
 const MOCK_COUNTY_POSTS: PostWithAuthor[] = [
   {
     id: 'mock-county-post-1',
-    slice_id: MOCK_SLICES.county.id,
+    slice_id: MOCK_SLICE_BASE.county.id,
     user_id: 'mock-user-example3',
     title: null,
     body: "County commissioners are reviewing next year's budget — road maintenance and library funding are both on the table at Thursday's meeting.",
@@ -304,7 +353,7 @@ const MOCK_COUNTY_POSTS: PostWithAuthor[] = [
 const MOCK_CITY_POSTS: PostWithAuthor[] = [
   {
     id: 'mock-city-post-1',
-    slice_id: MOCK_SLICES.city.id,
+    slice_id: MOCK_SLICE_BASE.city.id,
     user_id: 'mock-user-example4',
     title: null,
     body: "Anyone else notice more sidewalk repairs happening around the block lately? Wondering if it's tied to the city's infrastructure plan.",
@@ -332,7 +381,7 @@ const MOCK_FEDERAL_SIBLING_POSTS: PostWithAuthor[] = [
     user_id: 'mock-user-sibling1',
     title: null,
     body: "This is Federal Slice 2. If you can read this but cannot post, the sibling-slice read-only path is working.",
-    reply_count: 0,
+    reply_count: 1,
     edit_history: [],
     created_at: '2026-04-06T12:00:00.000Z',
     updated_at: '2026-04-06T12:00:00.000Z',
@@ -354,7 +403,7 @@ const MOCK_FEDERAL_SIBLING_POSTS: PostWithAuthor[] = [
  * textarea found" about a tab that never had one, which is a true statement
  * about nothing. scripts/check-explore-gate.mjs runs on both because of this.
  *
- * 🔴 The id must stay prefixed by MOCK_SLICES.city.id. useNotificationRouting
+ * 🔴 The id must stay prefixed by MOCK_SLICE_BASE.city.id. useNotificationRouting
  * resolves a fixture sibling with `mockPost.slice_id.startsWith(info.id)`, so
  * the prefix is what makes /post/<id> resolve to { kind: 'sibling', tab: 'city' }
  * instead of `unavailable`.
@@ -368,7 +417,7 @@ const MOCK_CITY_SIBLING_POSTS: PostWithAuthor[] = [
     user_id: 'mock-user-sibling2',
     title: null,
     body: "This is City Slice 2. Same city, a different shard of it — you can read everything here and write nothing, which is what the database allows and what the page should offer.",
-    reply_count: 0,
+    reply_count: 1,
     edit_history: [],
     created_at: '2026-04-14T10:30:00.000Z',
     updated_at: '2026-04-14T10:30:00.000Z',
@@ -397,12 +446,12 @@ const MOCK_CITY_SIBLING_POSTS: PostWithAuthor[] = [
  * where four of the ten write affordances actually render.
  */
 const MOCK_SIBLINGS: Partial<Record<string, Array<{ id: string; siblingIndex: number; memberCount: number }>>> = {
-  [MOCK_SLICES.federal.id]: [
-    { id: MOCK_SLICES.federal.id, siblingIndex: 1, memberCount: MOCK_SLICES.federal.memberCount },
+  [MOCK_SLICE_BASE.federal.id]: [
+    { id: MOCK_SLICE_BASE.federal.id, siblingIndex: 1, memberCount: MOCK_SLICE_BASE.federal.memberCount },
     { id: MOCK_FEDERAL_SIBLING_ID, siblingIndex: 2, memberCount: 17 },
   ],
-  [MOCK_SLICES.city.id]: [
-    { id: MOCK_SLICES.city.id, siblingIndex: 1, memberCount: MOCK_SLICES.city.memberCount },
+  [MOCK_SLICE_BASE.city.id]: [
+    { id: MOCK_SLICE_BASE.city.id, siblingIndex: 1, memberCount: MOCK_SLICE_BASE.city.memberCount },
     { id: MOCK_CITY_SIBLING_ID, siblingIndex: 2, memberCount: 29 },
   ],
 }
@@ -419,10 +468,10 @@ export function getMockSiblings(
 const MOCK_FEEDS: Partial<Record<string, PostWithAuthor[]>> = {
   [MOCK_FEDERAL_SIBLING_ID]: MOCK_FEDERAL_SIBLING_POSTS,
   [MOCK_CITY_SIBLING_ID]: MOCK_CITY_SIBLING_POSTS,
-  [MOCK_SLICES.federal.id]: MOCK_FEDERAL_POSTS,
-  [MOCK_SLICES.state.id]: MOCK_STATE_POSTS,
-  [MOCK_SLICES.county.id]: MOCK_COUNTY_POSTS,
-  [MOCK_SLICES.city.id]: MOCK_CITY_POSTS,
+  [MOCK_SLICE_BASE.federal.id]: MOCK_FEDERAL_POSTS,
+  [MOCK_SLICE_BASE.state.id]: MOCK_STATE_POSTS,
+  [MOCK_SLICE_BASE.county.id]: MOCK_COUNTY_POSTS,
+  [MOCK_SLICE_BASE.city.id]: MOCK_CITY_POSTS,
 }
 
 export function getMockFeedPage(sliceId: string): PostWithAuthor[] {
@@ -464,6 +513,42 @@ const titledReply = (n: number, name: string, parent: number | null, body: strin
 })
 
 const MOCK_REPLIES: Record<string, ReplyWithAuthor[]> = {
+  /**
+   * 🔴 The two deep-linked SIBLING posts each carry a reply, and they are not
+   * decoration. ThreadView gates replying twice — `canWrite={canWrite &&
+   * !isViewOnly}` and `onReply={isViewOnly ? undefined : handleReply}` — and
+   * ReplyCard renders its Reply button only when BOTH survive. With zero replies
+   * on these posts no ReplyCard mounted at all, so reverting either line changed
+   * nothing a browser could see and check:explore-gate stayed green: the thread
+   * half of the gate had no coverage, which is the exact shape CLAUDE.md records
+   * this repo shipping once already. Assertion 14 reads these two bodies.
+   */
+  'mock-federal-2-post-1': [
+    {
+      id: 'mock-federal-2-reply-1',
+      post_id: 'mock-federal-2-post-1',
+      parent_reply_id: null,
+      user_id: 'mock-user-sibling4',
+      body: 'A reply in Federal Slice 2. Reading it is the point; there should be no Reply control on it from another shard.',
+      created_at: '2026-04-06T13:00:00.000Z',
+      updated_at: '2026-04-06T13:00:00.000Z',
+      is_deleted: false,
+      author: author('SecondShardMember'),
+    },
+  ],
+  'mock-city-2-post-1': [
+    {
+      id: 'mock-city-2-reply-1',
+      post_id: 'mock-city-2-post-1',
+      parent_reply_id: null,
+      user_id: 'mock-user-sibling5',
+      body: 'A reply in City Slice 2. Reading it is the point; there should be no Reply control on it from another shard.',
+      created_at: '2026-04-14T12:00:00.000Z',
+      updated_at: '2026-04-14T12:00:00.000Z',
+      is_deleted: false,
+      author: author('SecondCityShardMember'),
+    },
+  ],
   'mock-post-titled': [
     titledReply(1, 'ConcernedVoter', null, 'We got the monthly payments for our two kids. It covered most of our childcare gap over the summer — we kept both jobs instead of one of us cutting hours.', '2026-04-08T17:00:00.000Z'),
     titledReply(2, 'MonroeNeighbor', 1, 'Same here. The monthly schedule mattered more to us than the total.', '2026-04-08T17:40:00.000Z'),

@@ -1,0 +1,91 @@
+{
+  "_README": [
+    "FROZEN FIXTURE — the live response of GET /api/essentials/location-search?q=portland&limit=8,",
+    "captured 2026-10-26 through the dev proxy against api.empowered.vote.",
+    "",
+    "🔴 THIS IS THE ROW SET THAT DISPROVES \"a 7-digit geoid is a place\".",
+    "Eight rows, and TWO of them are school districts with SEVEN-DIGIT geoids:",
+    "  4110040  G5420  \"Portland Public Schools, OR · LOCAL\"",
+    "  2312330  G5420  \"South Portland Public Schools, ME · School District\"",
+    "A school district geoid is state FIPS + a five-digit district code, so it is exactly the",
+    "same length as an incorporated place FIPS. Branching on length alone — which 17-03-PLAN.md",
+    "specified — would have offered \"Portland Public Schools\" as a CITY and keyed a civic space,",
+    "its banner, its officials and its Explore on a school district. Across sixteen sample",
+    "queries on the capture date, 23 of 118 rows were G5420 at seven digits; the other 82",
+    "seven-digit rows were G4110 places. searchRowKind therefore requires the geoid SHAPE and",
+    "the MTFCC to agree, and this fixture is the live proof of why.",
+    "",
+    "It also carries the Portland OR / Portland ME pair, which is the reason banners.generated.ts",
+    "joins on path and never on a place name.",
+    "",
+    "`rows` is the response body verbatim.",
+    "",
+    "Captured: 2026-10-26"
+  ],
+  "rows": [
+    {
+      "geo_id": "2360545",
+      "mtfcc": "G4110",
+      "label": "Portland, ME · City",
+      "state": "ME",
+      "area_type": "City",
+      "has_local_data": true
+    },
+    {
+      "geo_id": "4159000",
+      "mtfcc": "G4110",
+      "label": "Portland, OR · City",
+      "state": "OR",
+      "area_type": "City",
+      "has_local_data": true
+    },
+    {
+      "geo_id": "2371990",
+      "mtfcc": "G4110",
+      "label": "South Portland, ME · City",
+      "state": "ME",
+      "area_type": "City",
+      "has_local_data": true
+    },
+    {
+      "geo_id": "4110040",
+      "mtfcc": "G5420",
+      "label": "Portland Public Schools, OR · LOCAL",
+      "state": "OR",
+      "area_type": "LOCAL",
+      "has_local_data": true
+    },
+    {
+      "geo_id": "2312330",
+      "mtfcc": "G5420",
+      "label": "South Portland Public Schools, ME · School District",
+      "state": "ME",
+      "area_type": "School District",
+      "has_local_data": true
+    },
+    {
+      "geo_id": "4262264",
+      "mtfcc": "G4110",
+      "label": "Portland, PA · City",
+      "state": "PA",
+      "area_type": "City",
+      "has_local_data": false
+    },
+    {
+      "geo_id": "1964155",
+      "mtfcc": "G4110",
+      "label": "Portland, IA · City",
+      "state": "IA",
+      "area_type": "City",
+      "has_local_data": false
+    },
+    {
+      "geo_id": "0961870",
+      "mtfcc": "G4110",
+      "label": "Portland, CT · City",
+      "state": "CT",
+      "area_type": "City",
+      "has_local_data": false
+    }
+  ]
+}

@@ -198,6 +198,34 @@ const LOCALISING_WORDS = /for your area|in your community/i
 const MAY_LOCALISE = new Set(['agenda'])
 
 /**
+ * Assertion 21 — D-10, and the hole assertion 15 left.
+ *
+ * 🔴 Added by 17-06, because the violation it catches was LIVE and green. Since
+ * Phase 17 anyone may look at any place, so a room that says "your ballot",
+ * "your legislators", "none of yours" or "where you live" is making a claim
+ * about the reader that is false whenever the place on screen is not theirs —
+ * which `17-CONTEXT.md` D-10 forbids outright: *never show someone a place as if
+ * it were already theirs.*
+ *
+ * Assertion 15 could not see any of it. Its regex is two exact phrases, so
+ * `races` saying "The races for your OWN area" and `debates` saying "None of
+ * YOURS has one published yet" both sailed past it for the whole of Phase 16 and
+ * most of 17 — found by reading the page out loud (`deferred-items.md` item 2),
+ * never by a check.
+ *
+ * 🔴 `agenda` is NOT exempt here, though it is from 15. The two rules are
+ * different: 15 is about localising a gap that is universal, which agenda's
+ * genuinely is not; this is about the possessive, which is wrong for every room
+ * including that one.
+ *
+ * An `emptyState` is a static string with no `ctx` to branch on, so the fix is
+ * always to write the sentence so it is true of both readers. A module that CAN
+ * branch uses `ctx.isOwnPlace` — `intro`, `questions` and `races` do.
+ */
+const CLAIMS_THE_PLACE =
+  /\byour (own )?(ballot|area|community|city|county|state|town|neighborhood|neighbourhood|legislators|representatives|races|government|local government)\b|\bwhere you live\b|\bnone of yours\b|\byours\b/i
+
+/**
  * Assertion 19 — the mechanical half of "never invent civic record".
  *
  * A reserved room exists precisely because no source serves it, so ANY concrete
@@ -472,8 +500,16 @@ console.log(`\n── ASHEVILLE · CITY · unseeded ${'─'.repeat(28)}`)
     room.present === true,
     `modules on screen: ${(await modulesOn(page)).join(', ') || 'NONE'}` +
       '\n            If this is red every assertion below is vacuous. Check resolveComposition' +
-      "\n            marks Asheville unseeded, and that the registry entry's available() is" +
-      '\n            `isUnseeded && !!placeName` and not the inverted 16-06 guard.' +
+      "\n            marks Asheville unseeded, and that the registry entry's available() is all" +
+      '\n            FOUR of `isUnseeded && !!placeName && isAuthenticated && !isViewOnly` — and' +
+      '\n            not the inverted 16-06 guard.' +
+      '\n            🔴 The last two terms are 17-06\'s and they are NOT checked here: this run is' +
+      '\n            `?dev=1`, an authenticated dev guest on their own shard, so both are true by' +
+      '\n            construction and this assertion cannot tell whether they exist. Their own' +
+      '\n            coverage is `check:explore-gate` viewers 5 (member-other-place) and 6' +
+      '\n            (observer-with-a-place), which assert the invitation is ABSENT there. If this' +
+      '\n            went red the day those were added, the dev guest is failing one of them and' +
+      '\n            that is a finding about AppShell, not a reason to relax this assertion.' +
       `\n            themeApplied=${themeOk}`,
   )
 
@@ -876,6 +912,30 @@ check(
       '\n            carry a date once their module fills, and coming-up renders an election year.',
   )
 }
+
+// ── 21  D-10: no room addresses the reader as a resident of this place ───────
+//
+// 🔴 Added by 17-06, and it is the hole assertion 15 left. "The races for your
+// OWN area" and "None of YOURS has one published yet" both passed 15 for the
+// whole of Phase 16 and most of 17, because 15 matches two exact phrases. The
+// violation was found by reading the page out loud with Asheville on screen and
+// a visitor behind it (deferred-items.md item 2), never by a check.
+//
+// `agenda` is exempt from 15 and NOT from this: the two rules are different.
+check(
+  21,
+  `no room claims the place is the reader's — "your ballot", "your legislators", "where you live", "none of yours" — ${allRooms.length} room(s)`,
+  allRooms.every((r) => !CLAIMS_THE_PLACE.test(r.text)),
+  `offenders: ${where((r) => CLAIMS_THE_PLACE.test(r.text))}\n            ` +
+    JSON.stringify(allRooms.filter((r) => CLAIMS_THE_PLACE.test(r.text)).map((r) => ({ at: `${r.level}/${r.id}`, hit: CLAIMS_THE_PLACE.exec(r.text)?.[0] }))) +
+    '\n            D-10: never show someone a place as if it were already theirs. Since Phase 17' +
+    '\n            anyone may look anywhere, so the possessive is a claim about the READER and it' +
+    '\n            is false whenever the place on screen is not theirs. An emptyState is a static' +
+    '\n            string with no ctx, so the fix is to write the sentence true of both — "this' +
+    '\n            ballot", "these legislators", "here". A module that CAN branch uses' +
+    '\n            ctx.isOwnPlace; intro, questions and races do. Do NOT exempt a room here' +
+    '\n            instead: the rendered half of this rule is check:explore-gate viewers 5 and 6.',
+)
 
 // ── 11  Errors ───────────────────────────────────────────────────────────────
 

@@ -73,6 +73,68 @@ function isTokenExpired(token: string): boolean {
 
 const DEV_GUEST_ID = 'dev-guest'
 
+const SIGNED_OUT_STORAGE_KEY = 'cs_signed_out'
+
+/**
+ * True only under `npm run dev`.
+ *
+ * Wrapped in try/catch rather than read directly, exactly as devBuild() in
+ * src/lib/devMockData.ts is: a script loaded with `node --experimental-strip-types`
+ * has no `import.meta.env`, and a bare `.DEV` would throw at import time. This
+ * module is not loaded that way today, but the guard costs nothing and the next
+ * check script that reaches for it will not have to add one. Vite still replaces
+ * the expression with a literal in a production build, so the branches behind it
+ * are dropped from the bundle.
+ */
+function devBuild(): boolean {
+  try {
+    return import.meta.env.DEV === true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Dev-only: has this window asked to be a signed-out visitor?
+ *
+ * `?signedout=1` sets it, and sessionStorage remembers it. The stored half is
+ * load-bearing: wouter drops the query string the moment it navigates to
+ * /post/:postId or /profile/:userId, so a flag read only from location.search
+ * would silently sign the visitor back in mid-walk. Session scope rather than
+ * local, for the same reason cs_dev_place is — the choice should not outlive the
+ * window, and a fresh tab is signed in again.
+ *
+ * Every window / sessionStorage access is guarded, the way resolveDevPlace() in
+ * devMockData.ts guards its own: a private window throws, and the privacy-minded
+ * visitor this flag exists to simulate is the one most likely to be in one.
+ */
+/** Per page load, not per useAuth() mount — see where it is read. */
+let devSignedOutCleared = false
+
+function isDevSignedOut(): boolean {
+  if (!devBuild()) return false
+  let requested: string | null = null
+  try {
+    requested = new URLSearchParams(window.location.search).get('signedout')
+  } catch {
+    requested = null
+  }
+  if (requested === '1') {
+    try {
+      window.sessionStorage.setItem(SIGNED_OUT_STORAGE_KEY, '1')
+    } catch {
+      /* private window — the choice just does not survive navigation */
+    }
+    return true
+  }
+  try {
+    return window.sessionStorage.getItem(SIGNED_OUT_STORAGE_KEY) === '1'
+  } catch {
+    /* private window */
+    return false
+  }
+}
+
 function b64url(obj: Record<string, unknown>): string {
   return btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
@@ -173,6 +235,36 @@ export function useAuth(): AuthState & { loginUrl: string } {
 
   useEffect(() => {
     async function resolveAuth() {
+      // 0. Dev-only (?signedout=1), and checked FIRST — the one place that reverses
+      // the ?dev=1 ordering rule, deliberately. CLAUDE.md says the dev token is
+      // "checked last … so a real session always wins", and the asymmetry is the
+      // whole justification: ?dev=1 GRANTS a session, so it must never outrank a
+      // real one; this flag only ever REMOVES one, so there is no privilege it can
+      // confer and nothing it can mask. Behind import.meta.env.DEV, so Vite drops
+      // the branch from a production build entirely.
+      //
+      // The removeItem matters as much as the state: ?dev=1 persists its fallback
+      // token to localStorage, so without the clear, step 2 below reads that token
+      // straight back on the very next reload and signs the visitor in again.
+      if (isDevSignedOut()) {
+        // Cleared ONCE per page load, not once per useAuth() mount. localStorage is
+        // shared across tabs, and useAuth() is called by many components: without the
+        // latch, a signed-out tab left open re-ran this clear whenever a new instance
+        // mounted and wiped the cs_token a DIFFERENT tab had just written — opening
+        // ?dev=1 beside a ?signedout=1 tab silently signed both of them out. One clear
+        // at boot is all the branch needs; the flag below keeps this window a visitor.
+        if (!devSignedOutCleared) {
+          devSignedOutCleared = true
+          try {
+            localStorage.removeItem('cs_token')
+          } catch {
+            /* storage blocked — nothing to clear */
+          }
+        }
+        setAuthState({ userId: null, isAuthenticated: false, isLoading: false })
+        return
+      }
+
       // 1. Check hash fragment for token from accounts redirect
       if (window.location.hash.includes('access_token')) {
         const hash = new URLSearchParams(window.location.hash.slice(1))
@@ -239,6 +331,12 @@ export function useAuth(): AuthState & { loginUrl: string } {
 
   useEffect(() => {
     function handleStorageChange(event: StorageEvent) {
+      // Dev-only: a window that asked to be a visitor (?signedout=1) stays one.
+      // Another tab signing in writes cs_token, and without this the cross-app
+      // login sync below would flip this window to signed-in mid-walk — which is
+      // both wrong for the developer who asked for it and, before the latch above,
+      // the thing that made the signed-out tab clear the other tab's token.
+      if (isDevSignedOut()) return
       if (event.key === 'cs_token') {
         const token = event.newValue
         if (token) {

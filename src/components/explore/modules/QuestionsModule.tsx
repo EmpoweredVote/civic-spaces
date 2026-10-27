@@ -82,7 +82,19 @@ export function QuestionsModule({ ctx }: { ctx: ExploreCtx }) {
 
   return (
     <section aria-labelledby="explore-questions" className="flex flex-col gap-5 pt-2">
-      <SectionHeader id="explore-questions" eyebrow="Start somewhere specific" title="Questions for your community" />
+      {/*
+        🔴 "your" only when it IS theirs — D-10, and `deferred-items.md` item 2.
+        One word, because the sentence does not need rebuilding to stop making a
+        claim about the reader: "this community" is true of every reader of this
+        page, and the heading stays warm for the member whose community it is.
+        Deliberately NOT `Questions for {placeName}`: on Federal that resolves to
+        "United States of America" and the heading reads like a form field.
+      */}
+      <SectionHeader
+        id="explore-questions"
+        eyebrow="Start somewhere specific"
+        title={ctx.isOwnPlace ? 'Questions for your community' : 'Questions for this community'}
+      />
       <div className="grid gap-4 @xl:grid-cols-2">
         {topics.map((topic) => (
           <button

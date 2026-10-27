@@ -13,8 +13,10 @@ import { toast } from 'sonner'
 import PostComposer, { type ComposeRequest } from './PostComposer'
 import ThreadView from './ThreadView'
 import InformUpgradePrompt from './InformUpgradePrompt'
+import { ReadOnlyNotice } from './ReadOnlyNotice'
 import type { SortMode } from './FeedTabs'
 import type { PostWithAuthor } from '../types/database'
+import type { NoWriteReason } from '../lib/writeAccess'
 
 function sortPosts(posts: PostWithAuthor[], sort: SortMode): PostWithAuthor[] {
   // 🔴 CLIENT-SIDE OVER LOADED PAGES ONLY. The feed is paginated, so this orders the
@@ -52,8 +54,13 @@ interface SliceFeedPanelProps {
   sort: SortMode
   searchQuery: string
   panelRef?: React.Ref<FeedPanelHandle>
-  /** True when showing a sibling slice the member does not belong to. */
+  /** True when the viewer may not write in the slice on screen, for any reason. */
   isViewOnly?: boolean
+  /**
+   * WHY they may not — the notice's wording comes from this, and a notice that
+   * cannot name a reason is a panel still computing its own boolean.
+   */
+  noWriteReason?: NoWriteReason | null
   /** Sibling index currently displayed, and the member's own, for the notice. */
   viewingSliceIndex?: number
   ownSliceIndex?: number
@@ -69,6 +76,7 @@ export default function SliceFeedPanel({
   searchQuery,
   panelRef,
   isViewOnly = false,
+  noWriteReason = null,
   viewingSliceIndex,
   ownSliceIndex,
   onReturnToOwnSlice,
@@ -168,35 +176,18 @@ export default function SliceFeedPanel({
           this panel: AppShell saves and restores window.scrollY around the thread. */}
       <div className={activePostId ? 'hidden' : 'flex flex-col'}>
 
-        {/* Informational, not an error: posting simply is not available here,
-            because this is not the slice the member was assigned to. */}
+        {/* Informational, not an error: writing simply is not available here.
+            🔴 Gated on isViewOnly, not on the reason: a panel that knows it is
+            gated must always say so, even if the reason did not reach it. The
+            notice names nothing in that case, which is the observable. */}
         {isViewOnly && (
-          <div className="flex items-start gap-2.5 mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
-            <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <p className="leading-snug">
-              You're browsing Slice {viewingSliceIndex ?? '—'} read-only.
-              {typeof ownSliceIndex === 'number' && (
-                <>
-                  {' '}Posting and replying stay in your own community, Slice {ownSliceIndex}.
-                  {onReturnToOwnSlice && (
-                    <>
-                      {' '}
-                      <button
-                        type="button"
-                        onClick={onReturnToOwnSlice}
-                        className="font-semibold underline hover:no-underline"
-                      >
-                        Switch back
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
-            </p>
-          </div>
+          <ReadOnlyNotice
+            reason={noWriteReason}
+            surface="feed"
+            viewingSliceIndex={viewingSliceIndex}
+            ownSliceIndex={ownSliceIndex}
+            onReturnToOwnSlice={onReturnToOwnSlice}
+          />
         )}
         {posts.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-center px-6 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900">
@@ -297,6 +288,7 @@ export default function SliceFeedPanel({
             onBack={() => onNavigateToThread(null)}
             scrollToLatest={scrollToLatest}
             isViewOnly={isViewOnly}
+            noWriteReason={noWriteReason}
             ownSliceIndex={ownSliceIndex}
           />
         </div>

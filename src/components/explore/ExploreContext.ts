@@ -20,6 +20,7 @@ import type { MemberRace } from '../../lib/races'
 import type { ExploreComposition, ExploreLevel, ExploreTopic, TopicId } from '../../types/explore'
 import type { ExploreDestination, FeaturedPhoto } from './ExploreView'
 import type { ExploreDraft, ExploreUiState } from './exploreStorage'
+import type { NoWriteReason } from '../../lib/writeAccess'
 
 export interface ExploreCtx {
   composition: ExploreComposition
@@ -63,6 +64,32 @@ export interface ExploreCtx {
   destination: ExploreDestination | null
   isAuthenticated: boolean
   /**
+   * 🔴 Is the place on screen the READER'S OWN? D-10: *never show someone a
+   * place as if it were already theirs.*
+   *
+   * This is the second person's switch and nothing else's. A module that writes
+   * "where you live", "your community" or "your ballot" is making a claim about
+   * the reader, and with a visited place on screen that claim is false — which
+   * is what `deferred-items.md` item 2 recorded against this phase. The DATA was
+   * already right (`racesAreaFor` follows `onScreenSlices` as of 17-04); only the
+   * pronoun was wrong.
+   *
+   * 🔴 Derived from `noWriteReason`, never computed beside it, for the same
+   * reason `isViewOnly` is: two values that each decide a version of the same
+   * question is how they come to disagree. TRUE when the reason is `null` (their
+   * own shard) and when it is `'sibling-shard'` — a sibling shares
+   * `(slice_type, geoid)` with a slice the member holds, so it IS their
+   * jurisdiction and only the shard differs. FALSE for `'signed-out'`,
+   * `'no-slice'` and `'other-place'`.
+   *
+   * 🔴 NOT a synonym for `!isViewOnly`. A member on a sibling shard may not
+   * WRITE there and the place is still theirs; conflating the two would make
+   * Phase 16's sibling-shard presentation go cold for no reason. The two
+   * questions are *may I speak here* and *is this mine*, and this phase is the
+   * one that separated them.
+   */
+  isOwnPlace: boolean
+  /**
    * True on a sibling shard of the member's own jurisdiction: readable, and every
    * write path closed by RLS. One value, computed once in AppShell and shared with
    * the feed, so the gate lands in ONE place and every module inherits it rather
@@ -73,6 +100,18 @@ export interface ExploreCtx {
    * being enough.
    */
   isViewOnly: boolean
+  /**
+   * WHY the viewer may not write — 'signed-out', 'no-slice', 'other-place' or
+   * 'sibling-shard' — or null when they may. Derived from `isViewOnly`'s own
+   * source (whyNoWrite, in AppShell) and never computed beside it: two values
+   * that each decide the same thing is how they come to disagree.
+   */
+  noWriteReason: NoWriteReason | null
+  /**
+   * The real sign-in, for the signed-out notice's control. Undefined for a
+   * member, who has one already.
+   */
+  loginUrl?: string
   /** Which shard is on screen, for the notice's wording. Undefined when not view-only. */
   viewingSliceIndex?: number
   /** The member's OWN shard, the one posting and drafting stay in. */

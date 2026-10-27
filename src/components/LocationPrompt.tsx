@@ -3,12 +3,25 @@ const LOCATION_SETTINGS_URL = 'https://app.empowered.vote/settings/location'
 /**
  * What a member sees when their account has no jurisdiction yet.
  *
- * 🔴 There is deliberately no address field here. Civic Spaces never geocodes
- * and never stores a location — identity and location live in ev-accounts, and
- * this app only reads the slices that come back. An input here would either
- * have to geocode (which this repo does not do) or forward the text to the
- * accounts app, which already asks for it properly, with validation and the
- * privacy controls that belong beside it.
+ * 🔴 There is deliberately no address field here, and that conclusion is
+ * unchanged — but since Phase 17 the reason is narrower, so read it rather than
+ * assuming it.
+ *
+ * The person on this screen is a MEMBER. Their address belongs in their
+ * ev-accounts profile, where it is validated, encrypted and sits beside its
+ * privacy controls. A field here would either duplicate that badly or forward
+ * the text to the app that already asks for it properly. Civic Spaces still
+ * never stores a location, and still never geocodes for a member.
+ *
+ * Phase 17 geocodes for OBSERVERS — someone with no account, and therefore no
+ * profile to put an address in. That is a different person in a different
+ * state, and it lives in `src/lib/placeResolve.ts` and
+ * `src/hooks/usePlaceResolve.ts`, never here. Finding that code is not licence
+ * to add an input to this component; the member path is exactly as closed as it
+ * was.
+ *
+ * The copy below is unchanged and stays true of this component and of the
+ * member path, including "Civic Spaces never sees or stores your address".
  *
  * It replaces the older dismissible banner, which could be dismissed down to a
  * completely blank page — the one state in which a member has no way forward.

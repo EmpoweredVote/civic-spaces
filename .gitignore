@@ -44,3 +44,6 @@ app-shots/
 
 # local four-way Explore check output (scripts/shoot-explore.mjs)
 explore-shots*/
+
+# local four-way signed-out arrival output (scripts/shoot-welcome.mjs)
+welcome-shots*/

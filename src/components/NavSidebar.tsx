@@ -25,6 +25,22 @@ interface NavSidebarProps {
   slices: Partial<Record<SliceType, SliceInfo>>
   showVolunteerTab: boolean
   isModerator?: boolean
+  /**
+   * 🔴 False for an observer, and the Community group's entries do not render.
+   * Friends and the Member Directory both read member data — the directory reads
+   * `civic_spaces.slice_members`, which is "which person lives in which
+   * jurisdiction". The header already gates its copies of these inside
+   * `{isAuthenticated && …}`; this rail was NOT gated, which is the half that
+   * was missing.
+   */
+  isAuthenticated?: boolean
+  /**
+   * True while the viewer is looking at a place they named rather than at their
+   * own spaces. 🔴 Only the section's heading changes: D-10 — nothing addresses
+   * a viewer's place as theirs until it is. Which tabs exist is already decided
+   * by `slices`, which AppShell hands over as `onScreenSlices`.
+   */
+  isVisitingPlace?: boolean
   activePanel: 'friends' | 'directory' | null
   onTogglePanel: (panel: 'friends' | 'directory') => void
   onOpenModQueue: () => void
@@ -271,6 +287,7 @@ function NavItem({
   isActive,
   onClick,
   accent = false,
+  tabKey,
 }: {
   icon: string
   label: string
@@ -278,12 +295,24 @@ function NavItem({
   onClick: () => void
   /** Yellow highlight for the selected civic space, vs. the default brand highlight elsewhere */
   accent?: boolean
+  /**
+   * 🔴 The civic-space rows only, and it is there so a CHECK can find a tab
+   * without knowing its name. City and County render their RESOLVED names
+   * ("Asheville", "Buncombe County"), which is right on screen and useless to a
+   * script: a check that matched them would be asserting about the fixture's
+   * city rather than about the City tab, and would go red the day the fixture
+   * moves. `check-place-entry.mjs` walks City and Federal on both views, so it
+   * needs a handle that does not depend on where the place is. Rows that are not
+   * a civic space pass nothing and carry no attribute.
+   */
+  tabKey?: string
 }) {
   const collapsed = useContext(RailCollapsedContext)
   return (
     <button
       type="button"
       onClick={onClick}
+      data-nav-tab={tabKey}
       aria-current={isActive ? 'true' : undefined}
       title={collapsed ? label : undefined}
       className={[
@@ -335,6 +364,7 @@ function GeoNavItem({
       isActive={isActive}
       onClick={onClick}
       accent
+      tabKey={tab.key}
     />
   )
 }
@@ -498,6 +528,8 @@ function NavSidebarContent({
   slices,
   showVolunteerTab,
   isModerator,
+  isAuthenticated = true,
+  isVisitingPlace = false,
   activePanel,
   onTogglePanel,
   onOpenModQueue,
@@ -506,11 +538,17 @@ function NavSidebarContent({
   const [informOpen, setInformOpen] = useState(true)
   const [connectOpen, setConnectOpen] = useState(true)
   const visibleGeoTabs = GEO_TABS.filter((tab) => !!slices[tab.key as SliceType])
+  // Friends and the Member Directory both need a session; Moderation already
+  // needed one by way of isModerator. With none of the three and no Volunteer
+  // space, the group has nothing in it and its divider would be a rule under
+  // nothing.
+  const showCommunity = showVolunteerTab || isAuthenticated
 
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        <SectionLabel>Your Civic Spaces</SectionLabel>
+        {/* 🔴 D-10: never show someone a place as if it were already theirs. */}
+        <SectionLabel>{isVisitingPlace ? 'Civic Spaces Here' : 'Your Civic Spaces'}</SectionLabel>
         {visibleGeoTabs.map((tab) => (
           <GeoNavItem
             key={tab.key}
@@ -522,6 +560,7 @@ function NavSidebarContent({
         ))}
       </div>
 
+      {showCommunity && (
       <div className="flex flex-col gap-1.5 border-t border-gray-100 dark:border-gray-800 pt-5">
         <SectionLabel>Community</SectionLabel>
         {showVolunteerTab && (
@@ -531,20 +570,29 @@ function NavSidebarContent({
             isActive={activeTab === 'volunteer'}
             onClick={() => onTabChange('volunteer')}
             accent
+            /* It is a civic space, and it lives in this group only because it is
+               not a PLACE — which is also why `placeSlices` never carries one and
+               why its absence while visiting, and its return on leaving, are the
+               same fact seen twice. check:place-entry 8 reads exactly that. */
+            tabKey="volunteer"
           />
         )}
-        <NavItem
-          icon="friends"
-          label="Friends"
-          isActive={activePanel === 'friends'}
-          onClick={() => onTogglePanel('friends')}
-        />
-        <NavItem
-          icon="directory"
-          label="Member Directory"
-          isActive={activePanel === 'directory'}
-          onClick={() => onTogglePanel('directory')}
-        />
+        {isAuthenticated && (
+          <>
+            <NavItem
+              icon="friends"
+              label="Friends"
+              isActive={activePanel === 'friends'}
+              onClick={() => onTogglePanel('friends')}
+            />
+            <NavItem
+              icon="directory"
+              label="Member Directory"
+              isActive={activePanel === 'directory'}
+              onClick={() => onTogglePanel('directory')}
+            />
+          </>
+        )}
         {isModerator && (
           <NavItem
             icon="shield"
@@ -554,6 +602,7 @@ function NavSidebarContent({
           />
         )}
       </div>
+      )}
 
       <ToolGroup label="Inform Tools" accent="yellow" isOpen={informOpen} onToggle={() => setInformOpen((v) => !v)}>
         {INFORM_TOOLS.map((item) => (

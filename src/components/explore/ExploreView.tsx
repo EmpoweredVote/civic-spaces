@@ -14,12 +14,13 @@ import {
 import { CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton } from './exploreUi'
 import { ProvenanceTag, SourceNote } from './provenance'
 import { MODULE_REGISTRY, ReservedRoom, ReservedRoomGroup, reservedRoomsIn } from './registry'
-import { ViewOnlyNotice } from './ViewOnlyNotice'
+import { ReadOnlyNotice } from '../ReadOnlyNotice'
 import type { ExploreCtx } from './ExploreContext'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
 import type { UpcomingElection } from '../../hooks/useNextElection'
 import type { RaceRecording } from '../../lib/raceMedia'
 import type { MemberRace } from '../../lib/races'
+import type { NoWriteReason } from '../../lib/writeAccess'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useExploreComposition } from '../../lib/exploreData'
 import {
@@ -80,20 +81,47 @@ interface ExploreViewProps {
    * answering with its fallback. See ExploreCtx.placeName.
    */
   placeName?: string | null
-  /** null when signed out, or when the member has no local community. */
+  /**
+   * Where a conversation started on this tab would land.
+   *
+   * null when signed out, when the member has no local community, and — since
+   * 17-04 — when the community ON SCREEN IS NOT THEIRS. A visited place's slice
+   * carries a `place:<type>:<geoid>` sentinel rather than a real `slices.id`, so
+   * a destination built from it names something nobody can write to. Every write
+   * affordance is gated already; this is what stops the sentinel being handed to
+   * one at all. `AppShell`'s `ActiveExplore` takes `destinationEnabled` for it.
+   */
   destination: ExploreDestination | null
   isAuthenticated: boolean
   /**
-   * True when the tab is pointed at a SIBLING shard of the member's own
-   * jurisdiction: readable by RLS, and every write path closed by it.
+   * True when the viewer may NOT write here, for any of four reasons: they are
+   * signed out, they hold no slice at this level, this is somebody else's place,
+   * or it is a sibling shard of their own jurisdiction. RLS refuses the insert in
+   * all four.
+   *
+   * It used to mean the last of those alone — "pointed at a SIBLING shard of the
+   * member's own jurisdiction" — and that sentence is why this doc is rewritten
+   * rather than left: research Q3.6 is explicit that a stale comment here would
+   * send the next reader off to re-derive the sibling rule at a call site, which
+   * is exactly where the rule must not live. `whyNoWrite()` is the only place it
+   * is decided (src/lib/writeAccess.ts); `noWriteReason` below says which.
    *
    * 🔴 Required, not optional. An optional boolean defaulting to "not gated" is
    * the wrong default for this field — a new call site that forgets it would
-   * silently offer writes RLS can only reject. The two call sites that are never
-   * on anyone's sibling shard (signed out, no slice for this tab) pass `false`
-   * explicitly.
+   * silently offer writes RLS can only reject. That argument is unchanged, and
+   * the two call sites that used to pass a hard-coded `false` (signed out, no
+   * slice for this tab) are precisely the two the old default got wrong: both
+   * are gated now, and both pass the real answer.
    */
   isViewOnly: boolean
+  /**
+   * WHY the viewer may not write here, or null when they may. Required for the
+   * same reason `isViewOnly` is: a call site that forgot it would render a notice
+   * that cannot say which of the four states it is in.
+   */
+  noWriteReason: NoWriteReason | null
+  /** The real sign-in, for the signed-out notice's control. Absent for a member. */
+  loginUrl?: string
   /** The shard on screen and the member's own, for the notice. Only meaningful while view-only. */
   viewingSliceIndex?: number
   ownSliceIndex?: number
@@ -173,6 +201,8 @@ export function ExploreView({
   destination,
   isAuthenticated,
   isViewOnly,
+  noWriteReason,
+  loginUrl,
   viewingSliceIndex,
   ownSliceIndex,
   onReturnToOwnSlice,
@@ -418,6 +448,14 @@ export function ExploreView({
     destination,
     isAuthenticated,
     isViewOnly,
+    noWriteReason,
+    /**
+     * 🔴 Derived from the SAME value `isViewOnly` is, one line above, so the two
+     * cannot drift. `'sibling-shard'` is own-place-but-not-writable, which is why
+     * this is not `!isViewOnly` — see ExploreCtx.isOwnPlace for the whole rule.
+     */
+    isOwnPlace: noWriteReason === null || noWriteReason === 'sibling-shard',
+    loginUrl,
     viewingSliceIndex,
     ownSliceIndex,
     onReturnToOwnSlice,
@@ -459,10 +497,13 @@ export function ExploreView({
       // whole view, exactly as it was.
       return ctx.isViewOnly ? (
         <div className="flex flex-col gap-4">
-          <ViewOnlyNotice
+          <ReadOnlyNotice
+            reason={ctx.noWriteReason}
+            surface="explore"
             viewingSliceIndex={viewingSliceIndex}
             ownSliceIndex={ownSliceIndex}
             onReturnToOwnSlice={onReturnToOwnSlice}
+            loginUrl={ctx.loginUrl}
           />
           {detail}
         </div>
@@ -486,10 +527,13 @@ export function ExploreView({
           form used to be. Rendering it in only one of the two is how half a gate
           ships — see the feed-but-not-the-thread note in CLAUDE.md. */}
       {ctx.isViewOnly && (
-        <ViewOnlyNotice
+        <ReadOnlyNotice
+          reason={ctx.noWriteReason}
+          surface="explore"
           viewingSliceIndex={viewingSliceIndex}
           ownSliceIndex={ownSliceIndex}
           onReturnToOwnSlice={onReturnToOwnSlice}
+          loginUrl={ctx.loginUrl}
         />
       )}
       {composition.modules.map((id) => {
@@ -638,7 +682,9 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
                 </ul>
               ) : (
                 <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
-                  No published meeting agendas were found for your area right now.
+                  {/* 🔴 "here", not "for your area" — D-10. The reader may be looking at
+                      a place that is not theirs, and the sentence is just as true. */}
+                  No published meeting agendas were found here right now.
                 </p>
               )
             )}
@@ -660,19 +706,28 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
           Everything above stays. Reading another shard's Explore is the point of the
           sibling-read policy; over-gating this page into a dead end would fail goal 6
           from the other direction. What replaces the form is a signpost: where this
-          topic's conversation CAN be started, named — and ViewOnlyNotice's switch-back
+          topic's conversation CAN be started, named — and ReadOnlyNotice's own
           control is directly above it.
         */}
         {ctx.isViewOnly ? (
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {destination ? (
-              <>
-                Conversations about this topic start in{' '}
-                <span className="font-semibold text-gray-700 dark:text-gray-300">{destination.name}</span>, your own
-                community. Switch back above to begin one.
-              </>
+            {/* 🔴 "Switch back above" only when there IS something to switch back
+                from. A signed-out visitor and a member with no slice at this level
+                have no own shard and no control above, so telling them to switch
+                back points at nothing — the signpost has to match the reason the
+                notice gave, and the notice is the one carrying the real way on. */}
+            {ctx.noWriteReason === 'sibling-shard' ? (
+              destination ? (
+                <>
+                  Conversations about this topic start in{' '}
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">{destination.name}</span>, your own
+                  community. Switch back above to begin one.
+                </>
+              ) : (
+                'Conversations about this topic start in your own community. Switch back above to begin one.'
+              )
             ) : (
-              'Conversations about this topic start in your own community. Switch back above to begin one.'
+              'Conversations about this topic start in the civic spaces of the people who live there — see the note at the top of this page.'
             )}
           </p>
         ) : (
