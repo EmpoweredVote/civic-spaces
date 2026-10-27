@@ -346,7 +346,28 @@ export function PlacePicker({
             id={listId}
             role="listbox"
             aria-label="Places"
-            className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-y-auto rounded-2xl border border-gray-200 bg-white py-1 shadow-lg dark:border-white/10 dark:bg-gray-900"
+            /*
+             * 🔴 z-[35], and the exact value is load-bearing. This list must sit
+             * ABOVE the sticky Explore/Conversations bar and BELOW the app header.
+             *
+             * The repo's scale is 10 content · 20 · 30 sticky section bar
+             * (`AppShell.tsx:1575`, `sticky top-16 md:top-20 z-30`) · 40 header ·
+             * 50 modals. At the z-20 this shipped with, the switcher bar painted
+             * over the dropdown and SWALLOWED THE CLICK on whatever row fell
+             * under it — the middle row at 1440 and at 390. It rendered
+             * perfectly, because the bar is `bg-gray-50/95` with a backdrop blur,
+             * so the row beneath stayed legible and no screenshot could show it.
+             * PR #92's photo-credit bug exactly, in a control this phase shipped.
+             *
+             * Not z-40: that ties with the header, and a tie is broken by DOM
+             * order, so a long list would paint over the top bar when the strip
+             * scrolls up under it. 35 is the only free step between the two.
+             *
+             * `check:place-entry` 10 hit-tests EVERY option row, not just the
+             * first — the first was reachable throughout, which is why the
+             * original assertion passed over a broken control.
+             */
+            className="absolute left-0 right-0 top-full z-[35] mt-2 max-h-80 overflow-y-auto rounded-2xl border border-gray-200 bg-white py-1 shadow-lg dark:border-white/10 dark:bg-gray-900"
           >
             {searching && rows.length === 0 ? (
               // 🔴 FeedSkeleton's vocabulary, not a third loading style — and the

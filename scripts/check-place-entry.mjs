@@ -286,6 +286,43 @@ function hitTest({ selector }) {
   }
 }
 
+/**
+ * The same test, over EVERY element the selector matches.
+ *
+ * 🔴 `hitTest` reads `querySelector` — the FIRST match — and for a listbox that
+ * is the one row least likely to be covered. The picker's dropdown shipped at
+ * `z-20` under a `z-30` sticky bar, which swallowed clicks on the MIDDLE row at
+ * both viewports while row 0 stayed reachable, so the single-element assertion
+ * passed over a control that silently ignored clicks. A list is only usable if
+ * every row in it is.
+ *
+ * Returns the per-row results plus the first failure, so the message names the
+ * row and its blocker rather than just saying the list is wrong.
+ */
+function hitTestAll({ selector }) {
+  const els = [...document.querySelectorAll(selector)]
+  if (els.length === 0) return { found: false, n: 0 }
+  const rows = els.map((el, i) => {
+    const r = el.getBoundingClientRect()
+    const label = (el.textContent || '').trim().slice(0, 28)
+    if (r.width === 0 || r.height === 0) return { i, label, ok: false, why: 'zero-size box' }
+    const cx = r.left + r.width / 2
+    const cy = r.top + r.height / 2
+    if (cy < 0 || cy > window.innerHeight) {
+      return { i, label, ok: false, why: `off-screen (top ${Math.round(r.top)})` }
+    }
+    const at = document.elementFromPoint(cx, cy)
+    return {
+      i,
+      label,
+      ok: !!at && (at === el || el.contains(at)),
+      blockedBy: at ? `${at.tagName.toLowerCase()}.${String(at.className || '').split(' ')[0]}` : 'nothing',
+    }
+  })
+  const bad = rows.filter((r) => !r.ok)
+  return { found: true, n: rows.length, ok: bad.length === 0, bad, rows }
+}
+
 // ── Fixtures and the stubs that serve them ───────────────────────────────────
 
 async function readFixtures() {
@@ -775,7 +812,9 @@ async function runSignedOutWalk() {
         await typeInto(page, STRIP, PLACE_NAME.toLowerCase())
         await page.evaluate((s) => document.querySelector(`${s} [role="option"]`)?.scrollIntoView({ block: 'center' }), STRIP)
         await page.waitForTimeout(250)
-        const optionHit = await page.evaluate(hitTest, { selector: `${STRIP} [role="option"]` })
+        // 🔴 EVERY row, not just the first — see hitTestAll. The first row was
+        // reachable the whole time the middle one was not.
+        const optionHit = await page.evaluate(hitTestAll, { selector: `${STRIP} [role="option"]` })
         // 🔴 Escape, never a click: choosing a row would resolve a second place
         // and the coordinate-lookup-exactly-once assertion above would be a lie.
         await page.keyboard.press('Escape')
@@ -789,11 +828,20 @@ async function runSignedOutWalk() {
     const ok = (h) => h.found && h.ok
     check(
       run, 10,
-      'the picker input, the first option row and the leave control all hit-test to themselves — 2 themes x 2 viewports',
-      results.every((r) => r.classOk && ok(r.leave) && ok(r.input) && ok(r.option)),
+      'the picker input, EVERY option row and the leave control all hit-test to themselves — 2 themes x 2 viewports',
+      results.every((r) => r.classOk && ok(r.leave) && ok(r.input) && r.option.found && r.option.ok),
       results
-        .map((r) => `${r.theme}/${r.w}px themeApplied=${r.classOk} leave=${JSON.stringify(r.leave)} input=${JSON.stringify(r.input)} option=${JSON.stringify(r.option)}`)
+        .map((r) => {
+          const o = r.option.found
+            ? `${r.option.n} row(s), ${r.option.ok ? 'all reachable' : 'UNREACHABLE: ' + JSON.stringify(r.option.bad)}`
+            : 'no rows found'
+          return `${r.theme}/${r.w}px themeApplied=${r.classOk} leave=${JSON.stringify(r.leave)} input=${JSON.stringify(r.input)} options=${o}`
+        })
         .join('\n              ') +
+        '\n              🔴 A row that renders and cannot be clicked is invisible to every PNG and' +
+        '\n              to tsc -b. The dropdown is z-[35] so it clears the z-30 sticky section bar;' +
+        '\n              drop it back to z-20 and the MIDDLE row goes unreachable at both widths' +
+        '\n              while the first stays fine — which is how this shipped.' +
         '\n              Fix the layering, then 🔴 toggle the suspect class off mid-run and re-test. A' +
         '\n              fix that is load-bearing puts the bug straight back; if removing it changes' +
         '\n              nothing, the real bug is still there.',
