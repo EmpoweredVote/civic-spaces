@@ -81,7 +81,16 @@ interface ExploreViewProps {
    * answering with its fallback. See ExploreCtx.placeName.
    */
   placeName?: string | null
-  /** null when signed out, or when the member has no local community. */
+  /**
+   * Where a conversation started on this tab would land.
+   *
+   * null when signed out, when the member has no local community, and — since
+   * 17-04 — when the community ON SCREEN IS NOT THEIRS. A visited place's slice
+   * carries a `place:<type>:<geoid>` sentinel rather than a real `slices.id`, so
+   * a destination built from it names something nobody can write to. Every write
+   * affordance is gated already; this is what stops the sentinel being handed to
+   * one at all. `AppShell`'s `ActiveExplore` takes `destinationEnabled` for it.
+   */
   destination: ExploreDestination | null
   isAuthenticated: boolean
   /**
@@ -440,6 +449,12 @@ export function ExploreView({
     isAuthenticated,
     isViewOnly,
     noWriteReason,
+    /**
+     * 🔴 Derived from the SAME value `isViewOnly` is, one line above, so the two
+     * cannot drift. `'sibling-shard'` is own-place-but-not-writable, which is why
+     * this is not `!isViewOnly` — see ExploreCtx.isOwnPlace for the whole rule.
+     */
+    isOwnPlace: noWriteReason === null || noWriteReason === 'sibling-shard',
     loginUrl,
     viewingSliceIndex,
     ownSliceIndex,
@@ -667,7 +682,9 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
                 </ul>
               ) : (
                 <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
-                  No published meeting agendas were found for your area right now.
+                  {/* 🔴 "here", not "for your area" — D-10. The reader may be looking at
+                      a place that is not theirs, and the sentence is just as true. */}
+                  No published meeting agendas were found here right now.
                 </p>
               )
             )}

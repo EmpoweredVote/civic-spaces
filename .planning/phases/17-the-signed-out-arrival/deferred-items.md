@@ -106,3 +106,69 @@ rewriting its sentences mid-phase is how a hunk gets dropped.
 A cheap shape for it: the modules already receive `ctx.placeName`; a `ctx.isOwnPlace`
 (or reusing `noWriteReason === null`) lets each heading pick between *"where you live"* and
 *"in Asheville"* without new state.
+
+✅ **Resolved in 17-06**, as an added step in Task 2 — the plan's own task list did not
+mention it, and both this file and `17-VALIDATION.md` name 17-06 as its owner. What changed,
+what did not, and why, is in the commit body of
+`fix(explore): the page stops addressing a visitor as a resident` and summarised here:
+
+| | |
+|---|---|
+| **Fixed by branching on a new `ctx.isOwnPlace`** | `IntroModule` (eyebrow + heading name the place; City/County/State only — Federal and Unified claim no place), `QuestionsModule` ("Questions for **this** community"), `RacesModule` (eyebrow, both titles and the lead) |
+| **Fixed by rewriting the sentence true of both readers** | six static `emptyState` / `reserved()` strings in `registry.tsx` — `coming-up`, `races`, `debates`, `agenda`, `legislator-votes`, `ballot-measures` — because an `emptyState` has no `ctx` to branch on; plus `ExploreView`'s "No published meeting agendas were found **here** right now" |
+| **Also fixed, same sweep, different rule** | every subhead in `IntroModule` ended in "and share your perspective", an invitation a view-only reader cannot take up. Keyed on `isViewOnly`, not `isOwnPlace`, so it covers a member on a sibling shard too |
+| **Now watched** | `check:explore-rooms` **21** (new) over every rendered room, and `check:explore-gate` viewers 5 and 6 over the rendered Explore panel. Both were made to fail before being believed |
+
+🔴 **`ctx.isOwnPlace` is NOT `!ctx.isViewOnly`.** It is true for `noWriteReason === null`
+**and** for `'sibling-shard'` — a sibling shares `(slice_type, geoid)` with a slice the
+member holds, so the place IS theirs and only the shard differs. Conflating the two would
+have made Phase 16's sibling-shard presentation go cold for no reason.
+
+---
+
+## 3. The second person survives in the topic catalogue, the activities and one sidebar nudge
+
+**Found during:** 17-06 Task 2 Step 2, doing item 2 above. Item 2 was scoped to Explore's
+**chrome** — the headings, leads and room copy the page says in its own voice. Three other
+surfaces say "your" about the place and were deliberately left whole rather than half-done,
+because a file fixed in part reads as a file that was checked.
+
+**1. 🔴 The generic topic catalogue — `src/mocks/civicSpacesExplore.ts`, ~40 strings.**
+This is the most VISIBLE one left: the featured topic is the second-largest text on the
+page, and on Asheville's City tab it reads *"What should get built in **your** city, and
+where?"* to a visitor from anywhere. Also "What would make your neighborhood feel better?",
+"Where should your county spend first?", "What should your state do about the cost of
+housing?", "What does feeling safe look like where you live?" and ~35 more.
+
+⚠️ **Not a mechanical fix, and that is why it is not done here.** These are the
+conversation-starter QUESTIONS, and the second person is what makes them an invitation
+rather than a survey item. Rewriting them is a decision about the product's voice, not a
+pronoun swap — and `check-composition.mjs` imports this module and keys fixtures off it, so
+the titles are not free to move. 🔴 There is also no `ctx` at the point they are authored:
+they are data, so a branch would have to be applied where they are RENDERED, which means
+`FeaturedModule`, `QuestionsModule` and `TopicDetail` would each need a rule for picking
+between two phrasings — i.e. the catalogue needs a second field, not a rewrite.
+
+**2. `src/components/explore/ExploreActivities.tsx` — the Imagine heading and the election
+activity.** "What would make your neighborhood feel better?" (`:64`); and `fromElection`
+(`:270-298`) writes *"An evening with **your** ballot"*, *"From **your area's** election
+calendar"*, *"Look up what will be on **your** ballot"* and *"the public calendar for **your
+area**"*. Plus `:406` and `:602`. 🔴 **This file receives no `ctx` at all** — grep it: there
+is not one `ctx.` read in it — so unlike the three modules fixed above it cannot branch
+without a prop being threaded from `ExploreView`. That is a real change to the module
+boundary and wants its own look.
+
+**3. `Sidebar.tsx` / `SidebarMobile.tsx` — the empty-roster nudge.** When `repsData.data` is
+an empty array the sidebar offers *"**Set your location** to see representatives for **your
+area**"*, linking to the accounts app's address settings. Beside another city's feed that is
+the same mistake `ActiveLocationCard` was hidden for in 17-04: an invitation to change the
+wrong thing. Reachable from 17-06 onward, because `usePlaceRepresentatives` can legitimately
+answer `[]` for a small place. 🔴 **17-06 could not fix it:** its own plan makes "`Sidebar.tsx`
+and `SidebarMobile.tsx` must not need editing" the test of whether Task 1 was done right, so
+touching either for a copy reason would have destroyed that signal. It needs the same
+`isVisitingPlace` the location card already gets, passed as a prop.
+
+**Who should own it:** 🔴 **not a phase plan — its own PR, with a human reading the result.**
+All three are prose, all three want a judgement about voice, and none of them is a gate. The
+mechanical half is already in place for whoever takes it: `ctx.isOwnPlace` exists, and
+`check:explore-rooms` 21's `CLAIMS_THE_PLACE` regex is the list of shapes to look for.

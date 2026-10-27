@@ -118,18 +118,34 @@ export function RacesModule({ ctx }: { ctx: ExploreCtx }) {
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-5 pt-2">
+      {/*
+        🔴 "where you live" is load-bearing and it is also a CLAIM ABOUT THE
+        READER. These races come from the most local area ON SCREEN, so a member
+        in Bloomington sees US House District 9 — the one they vote in — and not
+        Indiana's other eight; and a visitor looking at Asheville sees NC-11,
+        which is nobody's but Asheville's. The narrowness is the point in both
+        cases, so the sentence keeps saying it and stops saying whose
+        (D-10, `deferred-items.md` item 2).
+
+        "this ballot" / "this area" is the same promise without the possessive:
+        one ballot, one area, not a state's worth of them.
+      */}
       <SectionHeader
         id={headingId}
-        eyebrow="On your ballot"
-        title={federal ? 'Federal races where you live' : 'State races where you live'}
+        eyebrow={ctx.isOwnPlace ? 'On your ballot' : 'On the ballot here'}
+        title={
+          ctx.isOwnPlace
+            ? federal
+              ? 'Federal races where you live'
+              : 'State races where you live'
+            : federal
+              ? 'Federal races on this ballot'
+              : 'State races on this ballot'
+        }
       />
-      {/*
-        🔴 "where you live", and it is load-bearing. These come from the member's
-        most local area, so a member in Bloomington sees US House District 9 —
-        the one they vote in — and not Indiana's other eight.
-      */}
       <p className="px-1 -mt-2 text-sm text-gray-600 dark:text-gray-400">
-        The {federal ? 'federal' : 'state'} contests for your own area, with the candidates as they filed.
+        The {federal ? 'federal' : 'state'} contests for {ctx.isOwnPlace ? 'your own area' : 'this area'}, with the
+        candidates as they filed.
       </p>
       <div className="grid gap-4 @xl:grid-cols-2">
         {races.map((race) => (

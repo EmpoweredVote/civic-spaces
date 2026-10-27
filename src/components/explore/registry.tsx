@@ -185,6 +185,13 @@ export function ReservedRoomGroup({ rooms }: { rooms: readonly ReservedRoomCopy[
  *   everyone, and telling a member their place is the poorly-served one is both
  *   untrue and dispiriting. (`agenda` is the one room allowed to be per-place,
  *   because agenda coverage genuinely is. It is not a `reserved()` room.)
+ * - 🔴 **Never "your" about the place at all** — D-10, added by 17-06. Since
+ *   Phase 17 the reader may be looking at a place they do not live in, so "your
+ *   ballot", "your legislators", "your races" and "none of yours" are all claims
+ *   that can be false on screen. An `emptyState` is a static string with no
+ *   `ctx` to branch on, so these are written to be true of BOTH readers —
+ *   "this ballot", "these legislators", "here". A module that CAN branch uses
+ *   `ctx.isOwnPlace`, which is what `intro`, `questions` and `races` do.
  * - **What a member would get, not what we would build.** "What a yes and a no
  *   would each do" is a benefit; "measure ingestion" is a ticket.
  * - **No date, no "soon", no roadmap, no apology, no control.** Saying what
@@ -238,9 +245,12 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     Component: ComingUpModule,
     // An empty calendar is a real answer and worth saying, so this one does NOT
     // hide. Absent from the Unified composition entirely: it is not a place.
+    // 🔴 "here", not "for your area" — D-10. An emptyState is a static string
+    // with no ctx, so a place that is not the reader's cannot be branched on;
+    // the sentence is rewritten to be true of both instead, which it is.
     emptyState: {
       title: 'Coming up',
-      body: 'Nothing is on the public calendar for your area right now. Meetings and election dates appear here as they are published.',
+      body: 'Nothing is on the public calendar here right now. Meetings and election dates appear here as they are published.',
     },
   },
 
@@ -255,7 +265,7 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     // rather than an apology (goal 6). It says what the space becomes and
     // states nothing about this place that is not true of it.
     emptyState: {
-      title: 'What your local government is working on',
+      title: 'What the local government here is working on',
       // 🔴 Not "your city" — this module is City AND County, and Buncombe County
       // has no city. The body names the governing body generically and lets the
       // AgendaModule name the real one from the record when there is one.
@@ -277,8 +287,8 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
      * nothing about this place that is not true of it.
      */
     emptyState: {
-      title: 'The races on your ballot',
-      body: 'Nothing is on your ballot right now. The races for your own area, and who is running in each of them, open here once an election is scheduled.',
+      title: 'The races on this ballot',
+      body: 'Nothing is on the ballot here right now. The races for this area, and who is running in each of them, open here once an election is scheduled.',
     },
   },
   debates: {
@@ -289,7 +299,7 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
     // reserved room for one, and these two rooms must not blur into each other.
     emptyState: {
       title: 'Candidate debates and forums',
-      body: 'When a debate or a candidate forum is recorded for one of your races, it opens here to watch. None of yours has one published yet.',
+      body: 'When a debate or a candidate forum is recorded for one of the races on this ballot, it opens here to watch. None of them has one published yet.',
     },
   },
   /**
@@ -316,7 +326,33 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
    * forgotten: it ships with the vote, in the vote's own plan.
    */
   'seed-invitation': {
-    available: (ctx) => ctx.composition.isUnseeded && !!ctx.placeName,
+    /**
+     * 🔴 Four terms, and the last two are Phase 17's.
+     *
+     * This module INVITES A VOTE. `16-CONTEXT.md` locked decision 6 made seeding
+     * a vote, and 16-08 shipped the invitation *without* it — so it is already
+     * an invitation to something that does not yet count. Opening it for someone
+     * who could not cast one even when it does is D-11's failure one step
+     * further out: an observer is never offered an action they cannot take.
+     *
+     * `isAuthenticated && !isViewOnly` is the whole addition. Both are false for
+     * a signed-out visitor; `isViewOnly` alone is true for a member looking at
+     * another place and on a sibling shard, which is the same answer RLS gives.
+     *
+     * 🔴 The gate belongs HERE and not inside the module. `SeedInvitationModule`'s
+     * own header explains why it deliberately does not read `ctx.isViewOnly` in
+     * its body — its single control is navigation, and gating navigation makes
+     * another shard's Explore a dead page. That comment is still correct and must
+     * stay. The question this predicate answers is whether the room opens at all,
+     * which is a different question from what the room renders.
+     *
+     * Checked by `check:explore-gate` viewers 5 (`member-other-place`) and 6
+     * (`observer-with-a-place`), which assert this module is ABSENT on a place
+     * that is genuinely unseeded. `check:explore-rooms` 1 covers the other half —
+     * that it is PRESENT for the authenticated dev guest on their own shard.
+     */
+    available: (ctx) =>
+      ctx.composition.isUnseeded && !!ctx.placeName && ctx.isAuthenticated && !ctx.isViewOnly,
     Component: SeedInvitationModule,
     emptyState: 'hide',
   },
@@ -331,8 +367,11 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
    * build, and the sentence says why in the member's terms rather than ours.
    */
   'legislator-votes': reserved(
-    'How your legislators voted',
-    'Roll-call records exist for some of the people who represent you and not for others, and a page that answers for half of them answers for nobody — so this space waits until the record is even.',
+    // 🔴 "these legislators" — the ones this space is about, which the reader may
+    // or may not be represented by (D-10). The BODY stays universal, as the copy
+    // rules above require: the gap is everyone's, not this place's.
+    'How these legislators voted',
+    'Roll-call records exist for some elected officials and not for others, and a page that answers for half of them answers for nobody — so this space waits until the record is even.',
   ),
 
   /**
@@ -345,7 +384,7 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
    * city. The evidence for each is in `EXPLORE-HANDOFF.md`.
    */
   'ballot-measures': reserved(
-    'Measures on your ballot',
+    'Measures on this ballot',
     'No ballot measures are published anywhere in Empowered Vote yet; when they are, each one opens here with what a yes and a no would actually do.',
   ),
   'federal-votes': reserved(
