@@ -276,21 +276,21 @@ function fromElection(e: UpcomingElection): RealEvent {
     soonLabel: `Coming up · ${short}`,
     icon: 'election',
     cardTitle: `Get ready for the ${e.name}`,
-    cardLine: `${local.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · An evening with your ballot makes election day easier.`,
-    eyebrow: 'Upcoming election · From your area\'s election calendar',
+    cardLine: `${local.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · An evening with this ballot makes election day easier.`,
+    eyebrow: 'Upcoming election · From this area\'s election calendar',
     title: e.name,
     month: local.toLocaleDateString(undefined, { month: 'short' }),
     day: String(d),
     timeChip: local.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }),
     placeChip: type,
     aboutHeading: 'About this election',
-    about: 'An upcoming election on your ballot. Spending one evening with what is on it makes the day itself calmer — and gives you better questions to ask neighbors.',
+    about: 'An upcoming election on this area\'s ballot. Spending one evening with what is on it makes the day itself calmer — and gives you better questions to ask neighbors.',
     steps: [
-      'Look up what will be on your ballot.',
+      'Look up what will be on this ballot.',
       'Pick the race you know least about and read up on it.',
       'Write down one question to talk through with neighbors.',
     ],
-    source: 'This date comes from Empowered\'s election calendar for your area. Check your local election office for polling places, hours and deadlines.',
+    source: 'This date comes from Empowered\'s election calendar for this area. Check the local election office for polling places, hours and deadlines.',
     url: null,
     urlLabel: '',
   }
@@ -403,7 +403,7 @@ function AdventureDetail({
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">A suggestion, not an event</p>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             There is nothing to sign up for and no set time — go whenever suits you. Real public
-            meetings and elections appear here when they are published for your area.
+            meetings and elections appear here when they are published for this place.
           </p>
         </div>
 
@@ -599,7 +599,7 @@ export function ComingUpCard({
             {event.cardTitle}
           </h3>
           <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
-            A real date from the public calendar for your area.
+            A real date from this place’s public calendar.
           </p>
         </div>
 

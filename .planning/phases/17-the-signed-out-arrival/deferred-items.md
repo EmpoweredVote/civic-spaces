@@ -126,14 +126,32 @@ have made Phase 16's sibling-shard presentation go cold for no reason.
 
 ---
 
-## 3. The second person survives in the topic catalogue, the activities and one sidebar nudge
+## 3. The second person survives in the topic catalogue's QUESTIONS, and in one sidebar nudge
 
-**Found during:** 17-06 Task 2 Step 2, doing item 2 above. Item 2 was scoped to Explore's
-**chrome** — the headings, leads and room copy the page says in its own voice. Three other
-surfaces say "your" about the place and were deliberately left whole rather than half-done,
-because a file fixed in part reads as a file that was checked.
+**Found during:** 17-06 Task 2 Step 2, doing item 2 above.
 
-**1. 🔴 The generic topic catalogue — `src/mocks/civicSpacesExplore.ts`, ~40 strings.**
+🔴 **The boundary that was finally drawn, after a first attempt at a worse one.** The first
+pass scoped item 2 to Explore's *chrome* and deferred whole FILES — "a file fixed in part
+reads as a file that was checked". Then the new `check:explore-gate` D-10 assertion went red
+on its first run against `"calendar for your area"`, from one of the deferred files. The
+file boundary was the wrong one, and the check said so before a human did.
+
+The line that replaced it, and it is the one to keep:
+
+- **A STATEMENT the page makes about the place is fixed.** "A real date from the public
+  calendar for your area", "From your area's election calendar", "An evening with your
+  ballot". None of these needs a `ctx` to branch on — the sentence is simply rewritten so it
+  is true of both readers. All of `ExploreActivities.tsx`'s statements were fixed in 17-06
+  on that basis, and `CLAIMS_THE_PLACE` in `check-explore-gate.mjs` now covers them.
+- **A QUESTION put to the reader is deferred**, because the second person is what makes it
+  an invitation rather than a survey item, and changing that is a decision about the
+  product's voice rather than a pronoun swap.
+
+What is left is therefore two things, not three.
+
+**1. 🔴 The generic topic catalogue — `src/mocks/civicSpacesExplore.ts`, ~40 strings — and
+the one question in `ExploreActivities.tsx:64`** ("What would make your neighborhood feel
+better?", the Imagine module's heading, which is the same class of string).
 This is the most VISIBLE one left: the featured topic is the second-largest text on the
 page, and on Asheville's City tab it reads *"What should get built in **your** city, and
 where?"* to a visitor from anywhere. Also "What would make your neighborhood feel better?",
@@ -149,16 +167,15 @@ they are data, so a branch would have to be applied where they are RENDERED, whi
 `FeaturedModule`, `QuestionsModule` and `TopicDetail` would each need a rule for picking
 between two phrasings — i.e. the catalogue needs a second field, not a rewrite.
 
-**2. `src/components/explore/ExploreActivities.tsx` — the Imagine heading and the election
-activity.** "What would make your neighborhood feel better?" (`:64`); and `fromElection`
-(`:270-298`) writes *"An evening with **your** ballot"*, *"From **your area's** election
-calendar"*, *"Look up what will be on **your** ballot"* and *"the public calendar for **your
-area**"*. Plus `:406` and `:602`. 🔴 **This file receives no `ctx` at all** — grep it: there
-is not one `ctx.` read in it — so unlike the three modules fixed above it cannot branch
-without a prop being threaded from `ExploreView`. That is a real change to the module
-boundary and wants its own look.
+⚠️ **`check-composition.mjs` imports this module and keys fixtures off it**, so the titles
+are not free to move. 🔴 And there is no `ctx` where they are authored — they are DATA — so
+a branch would have to live where they are RENDERED, which means `FeaturedModule`,
+`QuestionsModule` and `TopicDetail` each needing a rule for picking between two phrasings.
+The catalogue needs a second field, not a rewrite. 🔴 `ExploreActivities.tsx` receives no
+`ctx` at all either (grep it: not one `ctx.` read), which is why its statements were
+rewritten rather than branched, and why its one question cannot be branched at all today.
 
-**3. `Sidebar.tsx` / `SidebarMobile.tsx` — the empty-roster nudge.** When `repsData.data` is
+**2. `Sidebar.tsx` / `SidebarMobile.tsx` — the empty-roster nudge.** When `repsData.data` is
 an empty array the sidebar offers *"**Set your location** to see representatives for **your
 area**"*, linking to the accounts app's address settings. Beside another city's feed that is
 the same mistake `ActiveLocationCard` was hidden for in 17-04: an invitation to change the
@@ -169,6 +186,9 @@ touching either for a copy reason would have destroyed that signal. It needs the
 `isVisitingPlace` the location card already gets, passed as a prop.
 
 **Who should own it:** 🔴 **not a phase plan — its own PR, with a human reading the result.**
-All three are prose, all three want a judgement about voice, and none of them is a gate. The
-mechanical half is already in place for whoever takes it: `ctx.isOwnPlace` exists, and
-`check:explore-rooms` 21's `CLAIMS_THE_PLACE` regex is the list of shapes to look for.
+Both are prose, both want a judgement about voice, and neither is a gate. The mechanical
+half is already in place for whoever takes it: `ctx.isOwnPlace` exists, `check:explore-gate`
+viewers `signed-out` and `member-other-place` have a `CLAIMS_THE_PLACE` regex that is the
+list of shapes to look for, and `check:explore-rooms` 21 is the same rule over the static
+room copy. 🔴 **Widen `CLAIMS_THE_PLACE` in the SAME commit that fixes these**, never
+before: a check that is red on purpose is a check nobody reads.
