@@ -493,6 +493,28 @@ async function typeInto(page, scope, text) {
  * (16-CONTEXT locked decision 4's companion).
  */
 async function readNotOverGated(page) {
+  try {
+    return await readNotOverGatedOrThrow(page)
+  } catch (err) {
+    // 🔴 GUARDED, and the revert matrix is why. Hiding "Save on this device" —
+    // the over-gating this assertion exists to catch — makes every locator below
+    // time out, and an unguarded throw took the WHOLE RUN with it: no FAIL line,
+    // no summary, no sign of which of the four viewers had got that far. A
+    // crashed run tells you less than a failed one (17-02's own lesson, already
+    // written into assertion 9 above and not into this block until now).
+    // 🔴 And close the dialog on the way out. Without this the <dialog> it opened
+    // stays open and intercepts pointer events for the REST of the viewer, so the
+    // next unrelated click times out and the run dies several assertions later,
+    // pointing at the wrong thing entirely. That is how this was found.
+    try {
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(400)
+    } catch { /* nothing open, or the page is already gone */ }
+    return { ok: false, crashed: String(err).split('\n')[0] }
+  }
+}
+
+async function readNotOverGatedOrThrow(page) {
   await page.locator(`${PANEL} [data-explore-module="nearby"]`).getByRole('button', { name: /See the details/ }).click()
   await page.waitForTimeout(500)
   const saveHit = await page.evaluate(hitTest, { sel: PANEL, selector: 'dialog button[aria-pressed]' })
