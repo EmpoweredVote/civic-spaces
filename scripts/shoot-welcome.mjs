@@ -78,7 +78,13 @@ const arg = (flag, fallback) => {
 const PORT = arg('--port', '5173')
 const OUT = arg('--out', 'welcome-shots')
 const ORIGIN = `http://localhost:${PORT}`
-const WANT_SHOTS = true
+/**
+ * `--audit` adds the contrast, hit-test and reduced-motion pass to the same run.
+ * `--audit-only` skips the 24 cells, which is the flag to use while iterating on
+ * a colour: the images take about three minutes and the audit about one.
+ */
+const WANT_AUDIT = process.argv.includes('--audit') || process.argv.includes('--audit-only')
+const WANT_SHOTS = !process.argv.includes('--audit-only')
 
 // ── Selectors, shared with check-place-entry.mjs ─────────────────────────────
 
@@ -470,20 +476,567 @@ async function walkMember(theme, vp, tag) {
   await ctx.close()
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// AUDIT — contrast through a canvas, hit-tests at both viewports, reduced motion
+// ═════════════════════════════════════════════════════════════════════════════
+
+const RAIL_SEL = 'nav[aria-label="Civic space navigation"]'
+const TABBAR_SEL = 'nav[aria-label="Slice tabs"]'
+const rosters = []
+
+let auditPass = 0
+let auditFail = 0
+const auditSkips = []
+
+function aCheck(label, ok, detail) {
+  if (ok) {
+    auditPass += 1
+    console.log(`  PASS  ${label}`)
+  } else {
+    auditFail += 1
+    console.log(`  FAIL  ${label}${detail === undefined ? '' : `\n            ${detail}`}`)
+    notes.push(`🔴 audit: ${label}`)
+  }
+}
+
+function aSkip(label, why) {
+  auditSkips.push(`${label} — ${why}`)
+  console.log(`  SKIP  ${label}\n            ${why}`)
+}
+
+/**
+ * 🔴 A GROUP THAT CANNOT RUN MUST FAIL, NOT CRASH.
+ *
+ * 17-06 paid for this one: hiding the control `readNotOverGated` exists to
+ * catch made every locator in it time out, and the unguarded throw killed the
+ * whole process — no FAIL line, no summary, no sign of which viewer had got
+ * that far. 17-VALIDATION.md records it as a finding in its own right.
+ *
+ * This audit reproduced it exactly. The hit-test revert — `pointer-events-none`
+ * on the picker input, which is the PR #92 failure in miniature — made
+ * `typeInto`'s click time out, and the run died with a Playwright stack trace
+ * BEFORE the hit-test assertion the revert was aimed at. A crashed run tells
+ * you less than a failed one.
+ */
+async function guarded(label, fn) {
+  try {
+    await fn()
+  } catch (e) {
+    aCheck(label, false, `the group could not run: ${String(e).split('\n')[0].slice(0, 180)}`)
+  }
+}
+
+/**
+ * 🔴 THE CONTRAST PROBE, AND THE ONE WAY IT WORKS.
+ *
+ * Tailwind v4 emits `oklch()`. Two probes that look right and are not:
+ *
+ *   1. parse `getComputedStyle(el).color` as `rgb()` — Chromium hands back the
+ *      `oklch()` string and the parse produces confident nonsense.
+ *   2. set `ctx.fillStyle = colour` and READ IT BACK — Chromium ACCEPTS the
+ *      oklch string and returns it verbatim, so `0.446 0.03 256.802` gets parsed
+ *      as if it were RGB and a perfectly legible body colour reports ~1:1.
+ *
+ * 🔴 The only thing that resolves a colour is making the GPU paint it:
+ * `fillRect`, then `getImageData` one pixel. That is what `px()` below does.
+ *
+ * A ratio near 1:1, or a whole page "failing", is bug 2 and not a finding. If
+ * you ever see that again, fix the probe before you touch a colour.
+ *
+ * ── And the second half, which a naive probe also gets wrong ────────────────
+ *
+ * Half this app's surfaces are TRANSLUCENT — `dark:bg-amber-400/10`,
+ * `dark:border-white/15`, `bg-brand/20`. Compositing one pixel of an `rgba()`
+ * over an assumed white would report the light-mode answer for a dark-mode
+ * surface. So every colour is resolved for its ALPHA too, by painting it over
+ * black and over white and solving the two equations:
+ *
+ *     over white: Cw = a·C + (1-a)·255
+ *     over black: Cb = a·C
+ *       ⇒  a = 1 - (Cw - Cb)/255,  C = Cb/a
+ *
+ * and the element's effective background is built by compositing every ancestor
+ * background from the document down, which is what a browser actually does.
+ */
+function auditProbe({ items, big }) {
+  // One canvas, reused. willReadFrequently keeps getImageData off the GPU path.
+  const cv = document.createElement('canvas')
+  cv.width = 2
+  cv.height = 1
+  const ctx = cv.getContext('2d', { willReadFrequently: true })
+
+  /** Paint `colour` over `under` and read the one pixel back. */
+  function px(colour, under) {
+    ctx.clearRect(0, 0, 2, 1)
+    ctx.fillStyle = under
+    ctx.fillRect(0, 0, 2, 1)
+    ctx.fillStyle = colour
+    // 🔴 fillRect, then getImageData. Reading ctx.fillStyle back is NOT this.
+    ctx.fillRect(0, 0, 2, 1)
+    const d = ctx.getImageData(0, 0, 1, 1).data
+    return [d[0], d[1], d[2]]
+  }
+
+  /** Resolve any CSS colour string to straight {r,g,b,a}, alpha included. */
+  function resolve(colour) {
+    if (!colour || colour === 'transparent') return { r: 0, g: 0, b: 0, a: 0 }
+    const w = px(colour, '#ffffff')
+    const b = px(colour, '#000000')
+    const a = 1 - (w[0] - b[0]) / 255
+    if (a <= 0.004) return { r: 0, g: 0, b: 0, a: 0 }
+    return { r: b[0] / a, g: b[1] / a, b: b[2] / a, a }
+  }
+
+  const over = (fg, bg) => ({
+    r: fg.r * fg.a + bg.r * (1 - fg.a),
+    g: fg.g * fg.a + bg.g * (1 - fg.a),
+    b: fg.b * fg.a + bg.b * (1 - fg.a),
+    a: 1,
+  })
+
+  const lum = ({ r, g, b }) => {
+    const f = (v) => {
+      const s = v / 255
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+    }
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+  }
+
+  const ratio = (x, y) => {
+    const a = lum(x)
+    const b = lum(y)
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+  }
+
+  /** The background a browser would actually paint behind this element. */
+  function backdrop(el) {
+    const stack = []
+    for (let n = el; n; n = n.parentElement) stack.push(n)
+    // The document's own canvas colour is the floor.
+    let base = resolve(getComputedStyle(document.documentElement).backgroundColor)
+    if (base.a === 0) base = resolve(getComputedStyle(document.body).backgroundColor)
+    let acc = base.a === 0 ? { r: 255, g: 255, b: 255, a: 1 } : { ...base, a: 1 }
+    for (const n of stack.reverse()) {
+      const bg = resolve(getComputedStyle(n).backgroundColor)
+      if (bg.a > 0) acc = over(bg, acc)
+    }
+    return acc
+  }
+
+  const out = []
+  for (const item of items) {
+    const el = document.querySelector(item.sel)
+    if (!el || el.offsetParent === null) {
+      out.push({ ...item, found: false })
+      continue
+    }
+    const cs = getComputedStyle(el)
+    const fgRaw = item.icon ? (cs.stroke !== 'none' && cs.stroke ? cs.stroke : cs.color) : cs.color
+    const fg = resolve(fgRaw)
+    const bg = backdrop(el)
+    const composited = over(fg, bg)
+    const size = parseFloat(cs.fontSize) || 16
+    const weight = parseInt(cs.fontWeight, 10) || 400
+    const isBig = !item.icon && (size >= 24 || (size >= 18.66 && weight >= 700))
+    out.push({
+      ...item,
+      found: true,
+      ratio: Math.round(ratio(composited, bg) * 100) / 100,
+      need: item.icon ? 3 : isBig && big ? 3 : 4.5,
+      big: isBig,
+      size: Math.round(size),
+      raw: String(fgRaw).slice(0, 40),
+      text: (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 48),
+    })
+  }
+  return out
+}
+
+/** elementFromPoint at a control's centre: does a click actually land on it? */
+function auditHit({ sels }) {
+  return sels.map(({ sel, label }) => {
+    const el = document.querySelector(sel)
+    if (!el) return { label, found: false }
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 || r.height === 0) return { label, found: true, ok: false, why: 'zero-size box' }
+    if (r.bottom < 0 || r.top > window.innerHeight) {
+      el.scrollIntoView({ block: 'center' })
+    }
+    const r2 = el.getBoundingClientRect()
+    const cx = r2.left + r2.width / 2
+    const cy = r2.top + r2.height / 2
+    if (cy < 0 || cy > window.innerHeight) return { label, found: true, ok: false, why: `off-screen (top ${Math.round(r2.top)})` }
+    const at = document.elementFromPoint(cx, cy)
+    return {
+      label,
+      found: true,
+      /**
+       * 🔴 `at === el || el.contains(at)` — and NOT `at.contains(el)`, which a
+       * first draft of this function also allowed and which quietly made the
+       * whole assertion vacuous. An element covered by a transparent ANCESTOR
+       * — which is the PR #92 shape, a padded content layer at `z-10` over a
+       * credit link — returns that ancestor from elementFromPoint, and an
+       * ancestor contains its own descendant by definition. The permissive
+       * clause therefore reports a blocked control as reachable. Proved by
+       * setting `pointer-events: none` on the picker input mid-run: with the
+       * third clause the assertion stayed green; without it, it goes red.
+       */
+      ok: !!at && (at === el || el.contains(at)),
+      size: `${Math.round(r2.width)}x${Math.round(r2.height)}`,
+      blockedBy: at ? `${at.tagName.toLowerCase()}.${String(at.className || '').split(' ')[0]}` : 'nothing',
+    }
+  })
+}
+
+/** Is anything on this screen animating, and does the app see the preference? */
+function auditMotion() {
+  const running = document
+    .getAnimations()
+    .filter((a) => a.playState === 'running')
+    .map((a) => `${a.effect?.target?.tagName?.toLowerCase() ?? '?'}.${String(a.effect?.target?.className || '').split(' ')[0]}`)
+  const moving = [...document.querySelectorAll('[data-welcome-screen] *, [data-place-picker] *')]
+    .filter((el) => {
+      const cs = getComputedStyle(el)
+      const dur = (s) => s.split(',').some((v) => parseFloat(v) > 0)
+      return dur(cs.transitionDuration) || dur(cs.animationDuration)
+    })
+    .map((el) => `${el.tagName.toLowerCase()}.${String(el.className || '').split(' ')[0]}`)
+  return {
+    // 🔴 Asserted. `prefers-reduced-motion` IS consumed by CSS here (unlike the
+    // colour scheme, which the cookie bootstrap owns), so Playwright's
+    // reducedMotion emulation does work — but a run that does not confirm the
+    // media query matched is the same vacuous shape as an unasserted theme.
+    matched: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    running,
+    moving: [...new Set(moving)],
+  }
+}
+
+/** The roster the sidebar is RENDERING, for the one read no script can do. */
+function auditRoster() {
+  const body = document.body.innerText || ''
+  const i = body.search(/Representing This Community/i)
+  if (i < 0) return { present: false }
+  return {
+    present: true,
+    text: body.slice(i, i + 700).replace(/\s+/g, ' ').trim(),
+  }
+}
+
+/** The welcome screen's probe list. Every line the plan names, by selector. */
+const WELCOME_ITEMS = [
+  { sel: '[data-welcome-screen] h2', what: 'the headline' },
+  { sel: '[data-welcome-screen] header p:last-of-type', what: 'the strapline under the mark' },
+  { sel: '[data-welcome-screen] h2 + p', what: 'the lead body copy' },
+  { sel: '[data-place-picker="hero"] label', what: "the picker's visible label" },
+  { sel: '[data-place-picker="hero"] input[role="combobox"]', what: "the picker's input text" },
+  { sel: '[data-place-picker="hero"] p[id]', what: "the picker's help line" },
+  { sel: '[data-welcome-screen] blockquote p', what: "Chris's line" },
+  { sel: '[data-welcome-screen] blockquote footer', what: 'its attribution' },
+  { sel: '[data-welcome-screen] section:last-of-type h3', what: 'the privacy block heading' },
+  { sel: '[data-welcome-screen] section:last-of-type p', what: 'the privacy block body' },
+  { sel: '[data-welcome-screen] section:last-of-type span svg', what: 'the privacy block icon', icon: true },
+  { sel: '[data-welcome-screen] > div > p:last-of-type', what: 'the EV strapline footer' },
+]
+
+async function auditWelcome(theme, vp, tag) {
+  const { ctx, page } = await freshContext(theme, vp)
+  await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector(WELCOME, { timeout: 25000 })
+  await page.waitForTimeout(2200)
+  await assertTheme(page, theme, `audit ${tag}`)
+
+  // ── Contrast, the welcome screen ──
+  const items = await page.evaluate(auditProbe, { items: WELCOME_ITEMS, big: true })
+  for (const r of items) {
+    if (!r.found) {
+      aSkip(`contrast ${tag} · ${r.what}`, `no visible element matched ${r.sel}`)
+      continue
+    }
+    aCheck(
+      `contrast ${tag} · ${r.what} — ${r.ratio}:1 (needs ${r.need}) ${r.size}px${r.big ? ' large' : ''}`,
+      r.ratio >= r.need,
+      `computed "${r.raw}" over its composited backdrop · "${r.text}"`,
+    )
+  }
+
+  // ── Hit-test the PRIMARY action FIRST, before anything has to click it ──
+  // 🔴 Order matters and this is the second lesson the revert matrix taught.
+  // The hit-test used to sit after `typeInto`, so making the input unclickable
+  // — the one bug this assertion exists for — stopped the run at the typing
+  // instead of failing at the assertion.
+  const firstHits = await page.evaluate(auditHit, {
+    sels: [
+      { sel: `${HERO_PICKER} input[role="combobox"]`, label: 'the picker input' },
+      { sel: '[data-welcome-screen] a[href]', label: "the welcome screen's sign-in link" },
+    ],
+  })
+  for (const h of firstHits) {
+    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, 'not in the DOM'); continue }
+    aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
+  }
+
+  // ── Contrast, the picker with a list open, plus the option row's hit-test ──
+  await guarded(`the open-list group ${tag}`, async () => {
+    await typeInto(page, HERO_PICKER, PLACE_QUERY)
+    const open = await page.evaluate(auditProbe, {
+      items: [
+        { sel: `${HERO_PICKER} [role="option"]`, what: "an option row's label" },
+        { sel: `${HERO_PICKER} [role="option"] svg`, what: "an option row's pin", icon: true },
+      ],
+      big: true,
+    })
+    for (const r of open) {
+      if (!r.found) { aSkip(`contrast ${tag} · ${r.what}`, `no visible element matched ${r.sel}`); continue }
+      aCheck(`contrast ${tag} · ${r.what} — ${r.ratio}:1 (needs ${r.need})`, r.ratio >= r.need, `"${r.raw}"`)
+    }
+    const rowHit = await page.evaluate(auditHit, {
+      sels: [{ sel: `${HERO_PICKER} [role="option"]`, label: 'the first option row' }],
+    })
+    for (const h of rowHit) {
+      if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, 'not in the DOM'); continue }
+      aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
+    }
+  })
+
+  // ── The honest line ──
+  await guarded(`the no-results group ${tag}`, async () => {
+    await typeInto(page, HERO_PICKER, NO_MATCH, { expectOptions: false })
+    await page.waitForSelector(PROBLEM, { timeout: 15000 })
+    const honest = await page.evaluate(auditProbe, { items: [{ sel: PROBLEM, what: 'the "nothing matched" line' }], big: true })
+    for (const r of honest) {
+      if (!r.found) { aSkip(`contrast ${tag} · ${r.what}`, 'not rendered'); continue }
+      aCheck(`contrast ${tag} · ${r.what} — ${r.ratio}:1 (needs ${r.need})`, r.ratio >= r.need, `"${r.raw}" · "${r.text}"`)
+    }
+  })
+
+  await ctx.close()
+}
+
+/**
+ * The place on screen: the strip, the notice on each surface, and the honest
+ * conversations state. Signed out, so the notice reason is `signed-out`.
+ */
+async function auditPlace(theme, vp, tag) {
+  const { ctx, page } = await freshContext(theme, vp)
+  await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector(WELCOME, { timeout: 25000 })
+  await page.waitForTimeout(2000)
+  await typeInto(page, HERO_PICKER, PLACE_QUERY)
+  await page.locator(`${HERO_PICKER} [role="option"]`).first().click()
+  if ((await settle(page)) !== 'shell') throw new Error(`audit ${tag}: the place never resolved`)
+  await page.waitForTimeout(2500)
+  await assertTheme(page, theme, `audit place ${tag}`)
+
+  await goToView(page, 'explore')
+  const explore = await page.evaluate(auditProbe, {
+    items: [
+      { sel: `${STRIP} [aria-live] strong`, what: "the strip's place name" },
+      { sel: LEAVE, what: "the strip's leave control" },
+      { sel: `${STRIP} button[aria-expanded]`, what: "the strip's change control" },
+      { sel: `${STRIP} svg`, what: "the strip's pin", icon: true },
+      { sel: '[data-read-only-notice] p', what: 'the read-only notice (explore)' },
+      { sel: '[data-read-only-notice] svg', what: "the notice's eye icon", icon: true },
+    ],
+    big: true,
+  })
+  for (const r of explore) {
+    if (!r.found) { aSkip(`contrast ${tag} · ${r.what}`, `no visible element matched ${r.sel}`); continue }
+    aCheck(`contrast ${tag} · ${r.what} — ${r.ratio}:1 (needs ${r.need})`, r.ratio >= r.need, `"${r.raw}" · "${r.text}"`)
+  }
+
+  const hits = await page.evaluate(auditHit, {
+    sels: [
+      { sel: `${STRIP} button[aria-expanded]`, label: "the strip's Change control" },
+      { sel: LEAVE, label: "the strip's leave control" },
+      { sel: '[data-read-only-notice] a, [data-read-only-notice] button', label: "the notice's own control (signed-out)" },
+    ],
+  })
+  for (const h of hits) {
+    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, 'not in the DOM'); continue }
+    aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
+  }
+
+  // The compact picker, which only exists once the strip is expanded — and is
+  // the SAME component as the hero one, so a layering bug here is its own.
+  await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+  await page.waitForTimeout(600)
+  const compactHit = await page.evaluate(auditHit, {
+    sels: [{ sel: '[data-place-picker="compact"] input[role="combobox"]', label: "the strip's compact picker input" }],
+  })
+  for (const h of compactHit) {
+    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, 'not in the DOM'); continue }
+    aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
+  }
+  await page.keyboard.press('Escape')
+  await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+  await page.waitForTimeout(400)
+
+  // The honest conversations state.
+  await goToView(page, 'conversations')
+  const convo = await page.evaluate(auditProbe, {
+    items: [
+      { sel: `${FEED_PANEL} h3`, what: 'the honest conversations heading' },
+      { sel: `${FEED_PANEL} h3 + p`, what: 'the honest conversations body' },
+    ],
+    big: true,
+  })
+  for (const r of convo) {
+    if (!r.found) { aSkip(`contrast ${tag} · ${r.what}`, `no visible element matched ${r.sel}`); continue }
+    aCheck(`contrast ${tag} · ${r.what} — ${r.ratio}:1 (needs ${r.need})`, r.ratio >= r.need, `"${r.raw}" · "${r.text}"`)
+  }
+
+  await ctx.close()
+}
+
+/**
+ * 🔴 The notice renders a DIFFERENT control per reason, so the hit-test has to
+ * run per reason and not once. `other-place` and `no-slice` are only reachable
+ * with a session, so they get their own walk.
+ */
+async function auditMemberNotices(theme, vp, tag) {
+  const { ctx, page } = await freshContext(theme, vp)
+  await page.addInitScript(() => { try { localStorage.setItem('cs_active_tab', 'city') } catch { /* guarded */ } })
+  await page.goto(`${ORIGIN}/?dev=1&place=bloomington`, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector(STRIP, { timeout: 25000 })
+  await page.waitForTimeout(3000)
+  await assertTheme(page, theme, `audit member ${tag}`)
+
+  // 🔴 The officials read line 2 of the verification bar needs a HUMAN for.
+  // Printed, never asserted: no script can tell one real person's name from
+  // another's, so this is here to put the three rosters side by side.
+  const own = await page.evaluate(auditRoster)
+
+  await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+  await page.waitForTimeout(500)
+  await typeInto(page, '[data-place-picker="compact"]', PLACE_QUERY)
+  await page.locator('[data-place-picker="compact"] [role="option"]').first().click()
+  await page.waitForTimeout(3000)
+  await goToView(page, 'explore')
+
+  const visitedCity = await page.evaluate(auditRoster)
+  const notice = await page.evaluate(auditProbe, {
+    items: [{ sel: '[data-read-only-notice] p', what: 'the other-place notice' }],
+    big: true,
+  })
+  for (const r of notice) {
+    if (!r.found) { aSkip(`contrast ${tag} · ${r.what}`, 'not rendered'); continue }
+    aCheck(`contrast ${tag} · ${r.what} — ${r.ratio}:1 (needs ${r.need})`, r.ratio >= r.need, `"${r.raw}" · "${r.text}"`)
+  }
+  const hit = await page.evaluate(auditHit, {
+    sels: [{ sel: '[data-read-only-notice] button, [data-read-only-notice] a', label: "the other-place notice's way out" }],
+  })
+  for (const h of hit) {
+    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, 'not in the DOM'); continue }
+    aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
+  }
+
+  /**
+   * 🔴 The roster read is DESKTOP ONLY, and says so rather than reporting an
+   * absence. Below `md` the right column is hidden and `SidebarMobile` takes
+   * over as a COLLAPSED disclosure, so the officials are on the page and not in
+   * `innerText` — printing "(no roster widget)" for that would read as a
+   * finding about the officials when it is a fact about a closed `<details>`.
+   */
+  if (vp.width < 768) {
+    aSkip(`officials ${tag}`, 'below md the roster lives inside the COLLAPSED SidebarMobile disclosure — read it at 1440')
+  }
+
+  // Federal, at the same place, then back to the member's own spaces.
+  const fedSel = vp.width >= 1024 ? `${RAIL_SEL} [data-nav-tab="federal"]` : `${TABBAR_SEL} [data-slice-tab="federal"]`
+  await page.locator(fedSel).first().click()
+  await page.waitForTimeout(2500)
+  const visitedFederal = await page.evaluate(auditRoster)
+  await page.locator(LEAVE).first().click()
+  await page.waitForTimeout(3000)
+  const backHome = await page.evaluate(auditRoster)
+
+  if (vp.width >= 768) rosters.push({ tag, own, visitedCity, visitedFederal, backHome })
+
+  await ctx.close()
+}
+
+/**
+ * 🔴 Step 3: nothing on the welcome screen or in the picker may animate under
+ * `prefers-reduced-motion: reduce`.
+ *
+ * `motion` at this version does not DECLARE `useReducedMotion` in its types, so
+ * a guarded entrance would not typecheck — `SeedInvitationModule` records that
+ * finding and chose no animation at all, and `PlacePicker` made the same call.
+ * So the guard here is CSS: everything that moves is behind Tailwind's
+ * `motion-safe:`, which compiles to `@media (prefers-reduced-motion: no-preference)`.
+ */
+async function auditReducedMotion(theme, vp, tag) {
+  const { ctx, page } = await freshContext(theme, vp, { reducedMotion: true })
+  await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector(WELCOME, { timeout: 25000 })
+  await page.waitForTimeout(2200)
+  await typeInto(page, HERO_PICKER, PLACE_QUERY)
+  const m = await page.evaluate(auditMotion)
+  aCheck(`reduced-motion ${tag} · the page SEES the preference`, m.matched,
+    'matchMedia did not match — the rest of this group would be vacuous')
+  if (!m.matched) {
+    aSkip(`reduced-motion ${tag} · nothing animates`, 'the preference never reached the page')
+  } else {
+    aCheck(`reduced-motion ${tag} · no running animation on the welcome screen or the picker`,
+      m.running.length === 0, `running: ${m.running.join(', ')}`)
+    aCheck(`reduced-motion ${tag} · no element under them declares a non-zero transition or animation`,
+      m.moving.length === 0, `still moving: ${m.moving.join(', ')}`)
+  }
+  await ctx.close()
+}
+
+async function runAudit() {
+  console.log('── AUDIT: CONTRAST THROUGH A CANVAS, HIT-TESTS, REDUCED MOTION ──\n')
+  for (const theme of THEMES) {
+    for (const vp of VIEWPORTS) {
+      const tag = `${theme}-${vp.width}`
+      console.log(`── ${theme.toUpperCase()} · ${vp.width} ${'─'.repeat(40)}`)
+      // Every walk is guarded for the reason on `guarded`: a group that cannot
+      // run has to produce a FAIL line naming itself, not a stack trace that
+      // takes the other three walks with it.
+      await guarded(`the welcome walk ${tag}`, () => auditWelcome(theme, vp, tag))
+      await guarded(`the visited-place walk ${tag}`, () => auditPlace(theme, vp, tag))
+      await guarded(`the member walk ${tag}`, () => auditMemberNotices(theme, vp, tag))
+      await guarded(`the reduced-motion walk ${tag}`, () => auditReducedMotion(theme, vp, tag))
+      console.log('')
+    }
+  }
+
+  console.log('── THE OFFICIALS READ — PRINTED FOR A HUMAN, NEVER ASSERTED ─────')
+  console.log('   No script can tell one real person\'s name from another\'s. Read these.\n')
+  for (const r of rosters) {
+    console.log(`  ${r.tag}`)
+    console.log(`    own spaces (Bloomington, IN)  ${r.own.present ? r.own.text.slice(0, 300) : '(no roster widget)'}`)
+    console.log(`    visiting Asheville · City     ${r.visitedCity.present ? r.visitedCity.text.slice(0, 300) : '(no roster widget)'}`)
+    console.log(`    visiting Asheville · Federal  ${r.visitedFederal.present ? r.visitedFederal.text.slice(0, 300) : '(no roster widget)'}`)
+    console.log(`    back on own spaces            ${r.backHome.present ? r.backHome.text.slice(0, 300) : '(no roster widget)'}`)
+    console.log('')
+  }
+
+  console.log(`  ${auditPass} PASS, ${auditFail} FAIL, ${auditSkips.length} SKIP`)
+  for (const s of auditSkips) console.log(`    SKIP ${s}`)
+  console.log('')
+}
+
 // ── Run ──────────────────────────────────────────────────────────────────────
 
 console.log(`\nshoot-welcome — ${ORIGIN} → ${OUT}/`)
-console.log(`six presentations x ${THEMES.length} themes x ${VIEWPORTS.length} viewports = ${6 * THEMES.length * VIEWPORTS.length} cells\n`)
+if (WANT_SHOTS) {
+  console.log(`six presentations x ${THEMES.length} themes x ${VIEWPORTS.length} viewports = ${6 * THEMES.length * VIEWPORTS.length} cells\n`)
 
-for (const theme of THEMES) {
-  for (const vp of VIEWPORTS) {
-    const tag = `${theme}-${vp.width}`
-    console.log(`── ${theme.toUpperCase()} · ${vp.width}x${vp.height} ${'─'.repeat(34)}`)
-    await walkSignedOut(theme, vp, tag)
-    await walkMember(theme, vp, tag)
-    console.log('')
+  for (const theme of THEMES) {
+    for (const vp of VIEWPORTS) {
+      const tag = `${theme}-${vp.width}`
+      console.log(`── ${theme.toUpperCase()} · ${vp.width}x${vp.height} ${'─'.repeat(34)}`)
+      await walkSignedOut(theme, vp, tag)
+      await walkMember(theme, vp, tag)
+      console.log('')
+    }
   }
 }
+
+if (WANT_AUDIT) await runAudit()
 
 await browser.close()
 
@@ -512,4 +1065,4 @@ console.log('\n🔴 THAT IS NOT A PASS. These measurements cannot see a colour t
 console.log('   exists in one mode, copy that overclaims, or a layout that is merely ugly.')
 console.log(`   OPEN ${OUT}/ AND LOOK AT THE IMAGES — that is the task; this was its setup.\n`)
 
-if (errors.page.length || errors.console.length) process.exit(1)
+if (errors.page.length || errors.console.length || auditFail > 0) process.exit(1)
