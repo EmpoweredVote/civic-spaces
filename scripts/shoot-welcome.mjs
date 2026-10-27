@@ -723,10 +723,36 @@ function auditRoster() {
   }
 }
 
-/** The welcome screen's probe list. Every line the plan names, by selector. */
+/**
+ * The welcome screen's probe list. Every line the plan names, by selector.
+ *
+ * 🔴 EACH SELECTOR MUST RESOLVE TO THE ELEMENT ITS LABEL NAMES, and the probe
+ * reads `querySelector` — the FIRST match, not all of them. A descendant
+ * selector plus `:last-of-type` is the trap, because `:last-of-type` is scoped
+ * to each element's own SIBLINGS rather than to the match set: `header
+ * p:last-of-type` matched two nodes here, and the first was the 18px "Civic
+ * Spaces" wordmark nested in a div, not the 14px strapline beneath it. So the
+ * assertion printed "the strapline under the mark — N:1" while measuring
+ * something else, at a size that scored it against the 3:1 large-text floor
+ * instead of 4.5:1.
+ *
+ * That is worse than a missing assertion. A missing one is silent; this one
+ * reports a PASS on a line it never looked at, and a reader believes it. Proved
+ * by breaking the real strapline to 2.6:1 light / 2.35:1 dark — all 140
+ * assertions stayed green. `header > p` is the child combinator, which excludes
+ * the nested wordmark and leaves exactly one match.
+ *
+ * The sign-in sentence was simply absent, and it is the one that carries BOTH
+ * WALLS for a returning member ("an account without one opens none yet"). It
+ * shares a parent with the EV footer, so `:last-of-type` claimed the footer and
+ * nothing claimed it. Added as `:first-of-type`, the symmetric half.
+ *
+ * When you add a line here, confirm what it resolves to on the live page before
+ * trusting the PASS — `document.querySelectorAll(sel).length` must be 1.
+ */
 const WELCOME_ITEMS = [
   { sel: '[data-welcome-screen] h2', what: 'the headline' },
-  { sel: '[data-welcome-screen] header p:last-of-type', what: 'the strapline under the mark' },
+  { sel: '[data-welcome-screen] header > p:last-of-type', what: 'the strapline under the mark' },
   { sel: '[data-welcome-screen] h2 + p', what: 'the lead body copy' },
   { sel: '[data-place-picker="hero"] label', what: "the picker's visible label" },
   { sel: '[data-place-picker="hero"] input[role="combobox"]', what: "the picker's input text" },
@@ -736,6 +762,7 @@ const WELCOME_ITEMS = [
   { sel: '[data-welcome-screen] section:last-of-type h3', what: 'the privacy block heading' },
   { sel: '[data-welcome-screen] section:last-of-type p', what: 'the privacy block body' },
   { sel: '[data-welcome-screen] section:last-of-type span svg', what: 'the privacy block icon', icon: true },
+  { sel: '[data-welcome-screen] > div > p:first-of-type', what: 'the sign-in sentence, which carries both walls' },
   { sel: '[data-welcome-screen] > div > p:last-of-type', what: 'the EV strapline footer' },
 ]
 

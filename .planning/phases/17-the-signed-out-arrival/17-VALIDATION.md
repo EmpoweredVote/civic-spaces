@@ -140,7 +140,7 @@ Two more things the matrix turned up that are not pairings at all:
 | `npm run check:explore-rooms` | existing; **its failure text** touched and **assertion 21 added** by 17-06 | `npm run dev` running | ~90 s |
 | `npm run check:agenda-topics` | existing | committed fixture | < 1 s |
 | `npm run shoot:welcome` | 17-07 — **24 cells, 106 images** (one full-page strip per cell plus viewport frames, `shoot-explore`'s convention) | `npm run dev` running | ~3 min |
-| `npm run shoot:welcome -- --audit` | 17-07 — the same run plus **140** contrast, hit-test and reduced-motion assertions. `--audit-only` skips the images | `npm run dev` running | ~1 min on its own |
+| `npm run shoot:welcome -- --audit` | 17-07 — the same run plus **144** contrast, hit-test and reduced-motion assertions. `--audit-only` skips the images | `npm run dev` running | ~1 min on its own |
 | `npm run check:banners` | existing | **network** | ~2 min |
 
 🔴 **Every one of these takes `-- --port <n>`, and 17-07 needed it.** Port 5173 was already
@@ -275,7 +275,7 @@ npm run check:explore-gate     -- --port    56 PASS, 0 FAIL, 2 SKIP (both named 
 npm run check:explore-rooms    -- --port    21 PASS, 0 FAIL
 check-place-resolve.mjs --live --origin     42 PASS, 0 FAIL, 0 LIVE DRIFT
 npm run check:banners                       all 232 banners match (not 227 — the library grew)
-npm run shoot:welcome -- --audit            24 cells, 106 images; 140 PASS, 0 FAIL, 2 SKIP
+npm run shoot:welcome -- --audit            24 cells, 106 images; 144 PASS, 0 FAIL, 2 SKIP
 ```
 
 **🔴 Every SKIP, by name, with what it does not cover** — `16-VALIDATION.md`'s rule, which
@@ -346,7 +346,7 @@ Spaces and never grows into *"never leaves your browser"*.
 screen, the picker open and the picker empty-handed, the visited place on Explore and on
 Conversations, and a member visiting. Zero horizontal overflow at 390 in any cell, zero
 uncaught page errors, and the theme asserted on `documentElement.classList` before every
-one of the 106 images. Contrast through a canvas: **140 PASS**, lowest reading 6.16:1
+one of the 106 images. Contrast through a canvas: **144 PASS**, lowest reading 6.16:1
 against a 3:1 floor for an icon and 6.82:1 against 4.5:1 for text. Every primary control
 hit-tested at 1440 and 390 in both themes. Nothing animates under
 `prefers-reduced-motion`, with the media query itself asserted first.
@@ -410,6 +410,7 @@ Stated rather than hidden. Each is a judgement, not an oversight.
 | ✅ **The D-10 read could not see the What's New card at all — CLOSED by 17-07, and it is the reason one violation shipped through 17-06's whole sweep.** | `WhatsNewModule` renders its card `md:hidden` when the sidebar is carrying it; `check-explore-gate` drives a DESKTOP viewport; and `innerText` on a rendered panel skips a `display:none` subtree. The sidebar's copy of the same card is outside `#forum-view-explore`. Invisible from both directions at once. | A third haystack, `WHATS_NEW_TEXT`, read by **`textContent`** — which does not care whether the node is rendered, and that is the point. Bounded: the card's `<dialog>` body is behind `{view && …}` and contributes nothing while closed. 🔴 **The lesson is wider than the string:** widening `CLAIMS_THE_PLACE` alone did **not** turn the assertion red. The regex was never the binding constraint; the **scope** was. Before trusting any "no bad copy anywhere" assertion, ask what it can actually read. |
 | ✅ **The hit-test accepted a control covered by a transparent ANCESTOR — CLOSED by 17-07 before it was ever believed.** | A first draft of `shoot-welcome`'s probe allowed `at.contains(el)` beside `at === el || el.contains(at)`. An ancestor contains its own descendant by definition, so the clause reported every blocked control as reachable — which is **exactly** the PR #92 shape it exists to catch. | Found by running the revert, not by reasoning: with `pointer-events-none` on the picker input, the permissive clause reported **PASS** and the strict clause **FAIL**. `check-place-entry.mjs`'s own hit-test was already strict and is unaffected. |
 | ✅ **A broken gate killed the audit instead of failing it — CLOSED by 17-07, and it is 17-06's `readNotOverGated` finding reproduced exactly.** | The `pointer-events-none` revert made `typeInto`'s click time out BEFORE the hit-test assertion it was aimed at, and the stack trace took the other three walks with it. A crashed run tells you less than a failed one. | The primary control is now hit-tested **first**, before anything has to click it, and every walk runs inside a `guarded()` that turns a thrown group into a FAIL line naming itself. 🔴 **This failure mode has now been found twice in two phases, in two different scripts.** It is worth assuming of any new browser check. |
+| 🔴 **A contrast assertion MEASURED THE WRONG ELEMENT and reported a PASS under the right element’s name.** Found by the independent verification of 17-07, not by 17-07. | `WELCOME_ITEMS` probed the strapline as `header p:last-of-type`. `:last-of-type` is scoped to each element’s own SIBLINGS, not to the match set, so a *descendant* selector plus `:last-of-type` matched two nodes — and `querySelector` returns the first, which was the 18px “Civic Spaces” wordmark nested in a div, not the 14px strapline beneath it. It was therefore also scored against the 3:1 large-text floor instead of 4.5:1. In the same pass the **sign-in sentence** — the one carrying BOTH WALLS for a returning member, *“an account without one opens none yet”* — turned out to be probed by nothing at all: it shares a parent with the EV footer, so `:last-of-type` claimed the footer and no entry claimed it. | Proved, not reasoned: breaking the real strapline and the real sign-in sentence to **2.49:1 light / 2.66:1 dark** left all **140** assertions green. Fixed to `header > p:last-of-type` (the child combinator excludes the nested wordmark) and a new `> div > p:first-of-type` entry; the same break now produces **12 FAIL** across three items × four cells, at the correct 14px, and the clean suite is **144 PASS**. 🔴 **This is the vacuous pass in a new costume** — not a check that tests nothing, but one whose NAME does not match what it tests, which is worse, because the report reads as coverage. The rule now written at `WELCOME_ITEMS`: before trusting a PASS, confirm `document.querySelectorAll(sel).length === 1`. |
 
 ---
 

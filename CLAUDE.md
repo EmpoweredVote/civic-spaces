@@ -226,7 +226,7 @@ Essentials replaces one by swapping the bytes behind a stable URL. No path chang
 it becomes the wrong person's name — and attribution on a CC BY / CC BY-SA image is a
 licence condition. Treasury Tracker published a wrong photographer for three weeks this
 way. Run `npm run check:banners` (network, not in `npm run build`) when you touch banner
-code and periodically regardless; it diffs the live bytes of all 227 assets against
+code and periodically regardless; it diffs the live bytes of all 232 assets against
 `src/lib/banners.manifest.json` (`--rebuild` re-derives that from source).
 All credits and paths live in `src/lib/banners.generated.ts` — **generated**, via
 `npm run gen:banners`. It reads Essentials' `/banners.json` (credits, joined on bucket

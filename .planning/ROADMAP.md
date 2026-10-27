@@ -294,7 +294,7 @@ survives whole, "never geocodes" is narrowed to observers only.
 Four new or extended checks, all committed and all made to fail before they were believed:
 `check:write-access` (19), `check:place-resolve` (42, plus a `--live` contract-drift mode),
 `check:place-entry` (20) and `check:explore-gate` grown to **four viewers / 56 assertions**.
-`shoot:welcome` adds 24 looked-at cells and a 140-assertion audit — contrast resolved
+`shoot:welcome` adds 24 looked-at cells and a 144-assertion audit — contrast resolved
 through `fillRect` + `getImageData`, hit-tests at 1440 and 390 in both themes, and
 `prefers-reduced-motion`.
 

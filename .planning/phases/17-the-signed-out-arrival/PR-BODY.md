@@ -202,7 +202,7 @@ npm run check:explore-gate     -- --port    56 PASS, 0 FAIL      browser, four v
 npm run check:explore-rooms    -- --port    21 PASS, 0 FAIL      browser
 check-place-resolve.mjs --live --origin     42 PASS, 0 LIVE DRIFT  network: ev-accounts contract
 npm run check:banners                       232/232 match        network: licence attribution
-npm run shoot:welcome -- --audit            24 cells, 106 images; 140 PASS, 0 FAIL
+npm run shoot:welcome -- --audit            24 cells, 106 images; 144 PASS, 0 FAIL
 ```
 
 🔴 **Three SKIPs, named, because a SKIP is not a pass.** `check:explore-gate` FEDERAL #8
@@ -226,6 +226,16 @@ covered by a transparent **ancestor** (which is precisely the PR #92 shape it ex
 catch — proved both ways: with the permissive clause, PASS; without it, FAIL), and a revert
 that **killed** the run instead of failing it, which is 17-06's `readNotOverGated` finding
 reproduced exactly. Both closed.
+
+🔴 **A third hole was found by the independent verification of 17-07, after it reported.**
+A contrast assertion labelled *“the strapline under the mark”* was measuring the 18px
+“Civic Spaces” wordmark instead — `:last-of-type` is scoped to an element’s own siblings,
+not to the match set, so the descendant selector matched two nodes and `querySelector`
+took the first. The real strapline had no assertion, and neither did the **sign-in
+sentence** that carries both walls for a returning member. Breaking both to 2.49:1 left
+all 140 assertions green; after the fix the same break is **12 FAIL** and the clean suite
+is **144 PASS**. A check whose NAME does not match what it measures is worse than a
+missing one — it reads as coverage.
 
 ### The four-way pass
 
