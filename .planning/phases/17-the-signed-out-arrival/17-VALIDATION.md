@@ -131,7 +131,7 @@ Two more things the matrix turned up that are not pairings at all:
 | Command | Added by | Needs | Runtime |
 |---|---|---|---|
 | `npm run build` | existing | — | ~20 s |
-| `npm run check:write-access` | 17-01 (18) | — | < 1 s |
+| `npm run check:write-access` | 17-01 (**19**, not the 18 the plans predicted) | — | < 1 s |
 | `npm run check:place-resolve` | 17-03 | committed fixtures, no network | < 1 s |
 | `node scripts/check-place-resolve.mjs --live` | 17-03 | **network** | ~5 s |
 | `npm run check:place-entry` | 17-05 (20) | `npm run dev` running | ~2 min |
@@ -139,8 +139,16 @@ Two more things the matrix turned up that are not pairings at all:
 | `npm run check:composition` | existing (62) | — | < 1 s |
 | `npm run check:explore-rooms` | existing; **its failure text** touched and **assertion 21 added** by 17-06 | `npm run dev` running | ~90 s |
 | `npm run check:agenda-topics` | existing | committed fixture | < 1 s |
-| `npm run shoot:welcome` | 17-07 (24 shots) | `npm run dev` running | ~60 s |
+| `npm run shoot:welcome` | 17-07 — **24 cells, 106 images** (one full-page strip per cell plus viewport frames, `shoot-explore`'s convention) | `npm run dev` running | ~3 min |
+| `npm run shoot:welcome -- --audit` | 17-07 — the same run plus **140** contrast, hit-test and reduced-motion assertions. `--audit-only` skips the images | `npm run dev` running | ~1 min on its own |
 | `npm run check:banners` | existing | **network** | ~2 min |
+
+🔴 **Every one of these takes `-- --port <n>`, and 17-07 needed it.** Port 5173 was already
+occupied by another dev server when the gate ran, Vite moved to 5174 without being asked,
+and `check-place-resolve.mjs --live` defaults to **5173** — so it reported `LIVE ERROR fetch
+failed` against a server that was not this checkout. `--origin http://localhost:<n>` for
+that one, `--port <n>` for the rest. A live check pointed at the wrong port looks exactly
+like contract drift.
 
 Playwright is a **global install, not a dependency** — `node_modules` is the wrong place to
 look. Every script resolves it the way `scripts/check-explore-gate.mjs:98-118` does:
@@ -248,6 +256,103 @@ once already.
 
 ---
 
+## The gate, walked — 17-07's answers, 2026-10-26
+
+Written **after** the walk, from what was on screen, not from what the plans predicted.
+Where an answer is qualified, the qualification is the finding.
+
+**The suite, in one run, against a dev server on port 5174** (5173 was occupied by another
+process; see the note under Commands):
+
+```
+npm run build                               ✓ tsc -b + vite build
+npm run check:write-access                  19 PASS, 0 FAIL
+npm run check:place-resolve                 42 PASS, 0 FAIL
+npm run check:composition                   62 PASS, 0 FAIL
+npm run check:agenda-topics                 13 PASS, 0 FAIL
+npm run check:place-entry      -- --port    20 PASS, 0 FAIL
+npm run check:explore-gate     -- --port    56 PASS, 0 FAIL, 2 SKIP (both named below)
+npm run check:explore-rooms    -- --port    21 PASS, 0 FAIL
+check-place-resolve.mjs --live --origin     42 PASS, 0 FAIL, 0 LIVE DRIFT
+npm run check:banners                       all 232 banners match (not 227 — the library grew)
+npm run shoot:welcome -- --audit            24 cells, 106 images; 140 PASS, 0 FAIL, 2 SKIP
+```
+
+**🔴 Every SKIP, by name, with what it does not cover** — `16-VALIDATION.md`'s rule, which
+this phase inherits:
+
+| SKIP | What is not covered | Is that all right? |
+|---|---|---|
+| `check:explore-gate` **FEDERAL #8** — *"Save on this device / Imagine radios — City/County only, by composition"* | the not-over-gated assertion on the Federal tab | Yes, and it is structural: `imagine` and `nearby` are not in Federal's composition, so there is no device-local control there to be over-gated. The same assertion runs green on City. |
+| `check:explore-gate` **MEMBER-NO-SLICE #3** — *"assertions 2–5 on a tab with no slice"* | the no-composer assertions on a tab the member holds no slice for | Yes, and the script says why in place: `cs_active_tab` is planted as `city` and AppShell's "keep the active tab on a slice the member actually has" effect moves it to `county`, so the branch cannot be HELD on screen. The reason itself is covered in layer 1 by `check:write-access` 4 and 5. ⚠️ The plan's brief expected **one** SKIP in this script; there are **two**, and the Federal one is the older of them. |
+| `shoot:welcome --audit` **officials light-390 / dark-390** | the officials roster read at mobile width | Yes — below `md` the roster lives inside the **collapsed** `SidebarMobile` disclosure, so its absence from `innerText` is a fact about a closed `<details>` and not about the officials. Read at 1440, where it is open. |
+
+### 1. A signed-out visitor gets the welcome screen, and never a placeless Explore — **yes**
+
+`?signedout=1` lands on `[data-welcome-screen]` in all four presentations;
+`check:place-entry` 2 pins that the welcome screen is REPLACED by the real shell with no
+`geoid: null` Explore in between, and 5 pins that a fresh window with no stored place lands
+back on it. The picker is above the fold at **390×844** with the whole card and its help
+line visible — measured, not eyeballed: input top 512, bottom 568, viewport 844.
+
+### 2. Anyone can name a place and see its Explore, banner, officials and calendar — **yes, including a place with no slice row** — and the officials are **the visited place's**
+
+Asheville has no `slices` row and renders the full place view: banner, five tabs, seven
+Explore modules, upcoming elections, officials. 🔴 **The banner states no member count** —
+confirmed ABSENT, not zero, in presentations 4 and 6: the stats read *Pop. 94.6K · 8 days ·
+49°F*, and nothing about members.
+
+🔴 **The officials half, read by a human on City and on Federal, which is the one line no
+script covers:**
+
+| | roster |
+|---|---|
+| the member's own spaces, Bloomington IN | Kerry Thomson *City Mayor*, Efrat Rosser *Bloomington Township Trustee*, Dorothy Granger *Township Board*, Sydney Zulich *City Common Council* |
+| visiting Asheville · **City** | Esther E. Manheimer *Mayor*, Bo Hess, Maggie Ullman, Kim Roney, Sheneika Smith, Sage Turner, S. Antanette Mosley — *Council Members* |
+| visiting Asheville · **Federal** | Donald J. Trump, J.D. Vance, **Ted Budd** *Senator*, **Thom Tillis** *Senator*, **Chuck Edwards** *U.S. Representative* |
+| back on own spaces | Kerry Thomson *City Mayor*, … — the Bloomington roster again |
+
+Those are Asheville's mayor and council, **North Carolina's** two senators and NC-11's
+representative — the district Asheville sits in — and not Indiana's. The roster changes on
+entry and changes back on leaving. ✅ **17-06 Task 4 named this gap; this is where it is
+closed.**
+
+### 3. No write is offered where a write cannot land — **yes for the four reasons the phase names; one state is over-gated instead**
+
+`check:explore-gate`'s four viewers cover `signed-out`, `no-slice`, `other-place` and
+`sibling-shard` across feed, thread and Explore, each with its control case, and
+`check:place-entry` 3 and 14 add the conversations surface and the two slice-scoped
+controls at a visited place. Read by eye in all 24 cells: no composer, no FAB, no Post
+button, no reply box, and a notice naming the reason with a way out on every one.
+
+🔴 **The qualification is the opposite failure, and it is new**: a member who enters **their
+own** place from the strip is gated as a sibling shard. Item 4 of `deferred-items.md` and a
+Known-gaps row above. Nothing unsafe is offered — it fails closed — but a resident is told
+the conversations are not theirs.
+
+### 4. The address is never stored, never echoed, never logged by us — **yes**
+
+`check:place-resolve` 37–42 (the five-key `Object.keys` assertion, every parser, the round
+trip, the corrupt value) and `check:place-entry` D13-1 and D13-2 with a tracer token typed
+**second**, so it is the string in the box at the moment of choice. Read by eye: the picker
+clears on success and every place name on screen is resolved from a geoid. 🔴 The honest
+caveat holds in the copy — "geocoded **once**… and then it is gone: not stored, not shown
+back to you, and not in any profile Civic Spaces holds", which scopes every clause to Civic
+Spaces and never grows into *"never leaves your browser"*.
+
+### 5. Light + dark, desktop + mobile all check out — **yes**
+
+24 cells **opened and looked at**, not just written: all four presentations of the welcome
+screen, the picker open and the picker empty-handed, the visited place on Explore and on
+Conversations, and a member visiting. Zero horizontal overflow at 390 in any cell, zero
+uncaught page errors, and the theme asserted on `documentElement.classList` before every
+one of the 106 images. Contrast through a canvas: **140 PASS**, lowest reading 6.16:1
+against a 3:1 floor for an icon and 6.82:1 against 4.5:1 for text. Every primary control
+hit-tested at 1440 and 390 in both themes. Nothing animates under
+`prefers-reduced-motion`, with the media query itself asserted first.
+
+---
+
 ## The anti-goals, and what stops each
 
 These make the work a failure even if it ships and functions.
@@ -288,19 +393,23 @@ Stated rather than hidden. Each is a judgement, not an oversight.
 
 | Gap | Why | Mitigation |
 |---|---|---|
-| 🔴 **Conversations for a visited place are not readable, so there is nothing to check.** The welcome screen's conversations paragraph and the visited-place conversations state are **Phase 18's to revise.** | Every `civic_spaces` grant is `TO authenticated` and `posts_select_sibling_slice` joins on `geoid`. D-22 put the one-way door in Phase 18. | Both are marked in source with a Phase 18 comment so that phase can grep rather than re-read. 17-07 Task 5 Step 1 confirms the markers are still there. |
+| 🔴 **Conversations for a visited place are not readable, so there is nothing to check.** The welcome screen's conversations paragraph and the visited-place conversations state are **Phase 18's to revise.** | Every `civic_spaces` grant is `TO authenticated` and `posts_select_sibling_slice` joins on `geoid`. D-22 put the one-way door in Phase 18. | ✅ **Confirmed present by 17-07, with the grep token and the line numbers, so Phase 18 opens three files and reads nothing else.** `grep -rn "PHASE 18" src/` returns exactly four hits in three files: **`WelcomeScreen.tsx:200`** (*"Conversations are for members right now, and reading them needs an account too"* — TRUE today and false the day the migration lands); **`AppShell.tsx:1803`** (the visited-place conversations card, *"For most places nobody has joined yet"*, deliberately worded so it is true whether or not a `slices` row exists, **because Phase 17 cannot tell the two apart and Phase 18 can**); and **`writeAccess.ts:168`**, which is not copy at all but the seam — `canReadConversationsIn`'s body becomes `true` and nothing else changes. |
 | **Whether the officials are the *right people* is human-verified.** Their **source** is not a gap. | A script can prove the request carried the visited geoid and that `/representatives/me` was not consulted; it cannot know who represents Asheville. | Source: 17-06 Task 3b assertions 1–3, deterministic. Change-on-entry: assertion 4, which needs the live endpoint and **SKIPs loudly** rather than passing when a set is empty. Correctness: the human read in 17-07 Task 4, on City and on Federal. |
 | **The address path is unverifiable end to end.** | `POST /api/civic-spaces/resolve` does not exist. | The client is written, typed, and covered by pure checks over a fixture response; `PLACE_RESOLVE_ENABLED` is false so no dead control ships; `ACCOUNTS-HANDOFF.md` is the ask. When it lands it is one env var and a re-run of `check:place-resolve --live`. |
-| **The signed-in production pass** — real `photoUrl` / credit precedence, real sibling shards, a real Compass token. | Needs a pasted `cs_token`; localhost has no login. | `scripts/shoot-app.mjs` after merge (17-07 Task 5 Step 4). The same place Phases 15 and 16 left theirs. |
-| 🔴 **The six-panel hoisting rule is pinned NOWHERE, and this row's earlier claim is WITHDRAWN.** | A lint rule would be the right tool and this phase adds no tooling. | ⚠️ **This row used to say 17-06's "exactly one by-area request" assertion pinned it — "moving `usePlaceRepresentatives` into `SliceFeedPanel` shows six and goes red … the first assertion in the repo to pin this rule at all".** 17-06 ran that revert and it is not true, for two independent reasons: **TanStack Query dedupes by `queryKey`**, so six components calling one hook with one key make ONE fetch; and since 17-04 **no feed panel mounts at a visited place at all**, so the hook fires ZERO times there. The revert does go red (`member-other-place` 10 and 13) but on a *caching* consequence — the panel's copy warms the cache at boot — not on a count of six. The assertion is kept for what it does catch: an unstable query key, and a refetch loop. For a shared hook with a stable key the rule is **genuinely unobservable in the network**, and it stays enforced by the pattern and by review. |
+| **The signed-in production pass** — real `photoUrl` / credit precedence, real sibling shards, a real Compass token. | Needs a pasted `cs_token`; localhost has no login, because `useAuth.ts` hardcodes the accounts-hub redirect to `civicspaces.empowered.vote`. | `scripts/shoot-app.mjs` after merge (17-07 Task 5 Step 4). The same place Phases 15 and 16 left theirs. ⏳ **STILL OPEN at the end of 17-07, and it cannot be closed before the merge** — `main` deploys to production in ~3 minutes and that deployment is the only place the real precedence and real sibling shards exist. 🔴 **`?signedout=1` does not exist there either**, which is fine: signing out on production is simply signing out. |
+| 🔴 **The six-panel hoisting rule is pinned NOWHERE, and this row's earlier claim is WITHDRAWN.** | A lint rule would be the right tool and this phase adds no tooling. | ⚠️ **This row used to say 17-06's "exactly one by-area request" assertion pinned it — "moving `usePlaceRepresentatives` into `SliceFeedPanel` shows six and goes red … the first assertion in the repo to pin this rule at all".** 17-06 ran that revert and it is not true, for two independent reasons: **TanStack Query dedupes by `queryKey`**, so six components calling one hook with one key make ONE fetch; and since 17-04 **no feed panel mounts at a visited place at all**, so the hook fires ZERO times there. The revert does go red (`member-other-place` 10 and 13) but on a *caching* consequence — the panel's copy warms the cache at boot — not on a count of six. The assertion is kept for what it does catch: an unstable query key, and a refetch loop. For a shared hook with a stable key the rule is **genuinely unobservable in the network**, and it stays enforced by the pattern and by review. ✅ **17-07 re-read this row and leaves it exactly as 17-06 rewrote it.** The withdrawal stands; nothing in this phase pins the rule, and `useToolCoverage` is still defined with no caller, which is the standing reminder of what the pattern asks for. |
 | **Place-name search quality is not checked.** | It is ev-accounts' ranking, not ours. The fixtures pin the *shape*, not the ordering. | `--live` catches shape drift. Ordering changes are ev-accounts' to own, and the picker shows the area type so two Portlands are told apart regardless. |
 | **The welcome screen's copy is not checked by a machine.** | Prose quality is not mechanisable. | Read out loud, in all four presentations, against a named list of six things it must not say (17-07 Task 2 Step 2). The literals that would violate the phase boundary are enumerated there rather than left to judgement. |
 | **`cursor: default` on 196 of 416 controls.** | App-wide, Tailwind v4 Preflight, unowned. | Item 6 of `16-explore-by-slice/deferred-items.md`. Not made worse here; new controls get `cursor-pointer`. |
 | **`useAuth.ts` reads and removes `cs_token` from `localStorage` unguarded.** | Offered in `17-CONTEXT.md` and not chosen. | Item 9 of the same file. 🔴 This phase adds **no second instance** — every new access is guarded, and `check:place-entry` 12 proves that for every key the phase added. ⚠️ It is also why that assertion stops at `sessionStorage`: **17-05 demonstrated the bug by accident.** `Storage.prototype` is shared between the two storages, so the first draft's `cs_`-prefix throw hit `cs_token` as well, and the page died on an uncaught `SecurityError` with nothing rendered — item 9, reproduced exactly, by a check that meant to test something else. The receiver test in `BLOCK_OUR_SESSION_KEYS` is what keeps the two apart. |
 | 🔴 **A storage-blocked boot dies before any of our code runs — in `@supabase/supabase-js`.** Found by 17-04 doing its own Task 3 Step 7 hand-check. | `src/lib/supabase.ts` calls `createClient` at module scope, which constructs a `RealtimeClient` whose `Socket` touches `sessionStorage` unguarded. Every route, every environment, signed in or out; reproduced on `?dev=1` too. It is **not** something this phase introduced and it is not this phase's to fix. | Item 1 of this phase's `deferred-items.md`, with the captured stack. ✅ **17-05 adjusted `check:place-entry` 12, and this row now records what that assertion DOES rather than what it was first asked to do.** It overrides `Storage.prototype`'s three methods for real — not a mock — and throws a `SecurityError` for **`sessionStorage` keys beginning `cs_`**: `cs_viewed_place` (17-03), `cs_signed_out` (17-01) and `cs_dev_place`, which is the complete set of storage this phase touches. Every other key passes through, so the dependency boots and our guards are the only thing under test, and the assertion carries its own positive half (`probe.threw`, `probe.passthrough`, `probe.localUntouched`) so a block that failed to install cannot read as a pass. Our own guard is proved twice over: `check:place-resolve` 39–42 cover the round trip in Node. 🔴 **What it does NOT prove, and no browser assertion in this phase can: that the app survives storage blocked WHOLESALE. It does not, and the reason is in a dependency.** |
 | ✅ **Explore's module copy addressed a visitor as a resident** — "Federal races where you live", "Questions for your community". **CLOSED by 17-06**, and now watched. | The DATA was right (`racesAreaFor` follows `onScreenSlices` as of 17-04); only the second person was wrong. | `ctx.isOwnPlace` (true for `null` **and** `'sibling-shard'` — a sibling IS the member's jurisdiction) branches `intro`, `questions` and `races`; six static `emptyState` strings are rewritten true of both readers, since an `emptyState` has no `ctx`. 🔴 **Checked, not remembered:** `check:explore-gate` assertions 9/10 on the two place viewers (`CLAIMS_THE_PLACE` over the rendered panel, list and topic page) and `check:explore-rooms` **21** over every rendered room. Forcing `isOwnPlace: true` turns both gate assertions red; restoring one room's "None of yours" turns 21 red. |
-| **The second person survives in the topic CATALOGUE's questions**, and in `Sidebar`'s empty-roster nudge. | The catalogue's ~40 strings are conversation-starter QUESTIONS, where the second person is what makes them an invitation; changing that is a decision about voice. `Sidebar.tsx` is the one file 17-06 is forbidden to edit, because "it must not need editing" is the test of whether `usePlaceRepresentatives`' signature was right. | Item 3 of `deferred-items.md`, with file and line for each, and the boundary that was finally drawn: **a STATEMENT the page makes about the place is fixed; a QUESTION put to the reader is deferred.** 🔴 The most visible one left is the featured topic — "What should get built in **your** city, and where?" — the second-largest text on a visitor's screen. It is deliberately NOT in `CLAIMS_THE_PLACE`: widen that regex in the same commit that fixes it, never before. |
+| **The second person survives in the topic CATALOGUE's questions**, and in `Sidebar`'s empty-roster nudge. | The catalogue's ~40 strings are conversation-starter QUESTIONS, where the second person is what makes them an invitation; changing that is a decision about voice. `Sidebar.tsx` is the one file 17-06 is forbidden to edit, because "it must not need editing" is the test of whether `usePlaceRepresentatives`' signature was right. | Item 3 of `deferred-items.md`, with file and line for each, and the boundary that was finally drawn: **a STATEMENT the page makes about the place is fixed; a QUESTION put to the reader is deferred.** 🔴 The most visible one left is the featured topic — "What should get built in **your** city, and where?" — the second-largest text on a visitor's screen. It is deliberately NOT in `CLAIMS_THE_PLACE`: widen that regex in the same commit that fixes it, never before. ✅ **17-07's four-way pass re-confirmed all ~40 on screen and left them deferred**, and found and fixed **one that was on the wrong side of that boundary**: the featured product update read *"A better way to discover **your** community"*, a STATEMENT, deferred only because it shares a FILE with the questions — the file boundary this item records itself correcting. Now "any community", with `discover your community` added to `CLAIMS_THE_PLACE` in the same commit. |
 | **The shared-link arrival.** | Deferred; only D-08 changes the answer, and D-08 is Phase 18. | `cs_pending_post` keeps working unchanged, and 17-04 Task 3 Step 4 says so explicitly so it is not deleted by accident. |
+| 🔴 **NOTHING CHECKS WHAT HAPPENS WHEN A MEMBER ENTERS THEIR OWN PLACE, and it is wrong today.** Added by 17-07. | `check:explore-gate`'s `member-other-place` viewer boots on `&place=bloomington` and visits Asheville, so it is genuinely somewhere else. There is no viewer for "the member visits a place they already hold", and before 17-05 shipped `PlaceStrip` there was no control that could produce one. | Item **4** of `deferred-items.md`, with the probe output. The sentinel id is not in `ownedSliceIds` while its `placeKey` IS in `ownedPlaceKeys`, so `whyNoWrite` takes branch 4 and answers `sibling-shard`: the notice renders *"You're exploring Slice **—** read-only"*, and the conversations surface tells a resident *"Conversations here belong to the people who live here"*. Fail-closed, so nothing unsafe is offered — but it is **over-gating**, the anti-goal two rows up. 🔴 Whichever fix Chris picks, that phase adds a **seventh** viewer for it. `scripts/shoot-welcome.mjs` fails its presentation-6 cell if the notice ever reads `sibling-shard` again. |
+| ✅ **The D-10 read could not see the What's New card at all — CLOSED by 17-07, and it is the reason one violation shipped through 17-06's whole sweep.** | `WhatsNewModule` renders its card `md:hidden` when the sidebar is carrying it; `check-explore-gate` drives a DESKTOP viewport; and `innerText` on a rendered panel skips a `display:none` subtree. The sidebar's copy of the same card is outside `#forum-view-explore`. Invisible from both directions at once. | A third haystack, `WHATS_NEW_TEXT`, read by **`textContent`** — which does not care whether the node is rendered, and that is the point. Bounded: the card's `<dialog>` body is behind `{view && …}` and contributes nothing while closed. 🔴 **The lesson is wider than the string:** widening `CLAIMS_THE_PLACE` alone did **not** turn the assertion red. The regex was never the binding constraint; the **scope** was. Before trusting any "no bad copy anywhere" assertion, ask what it can actually read. |
+| ✅ **The hit-test accepted a control covered by a transparent ANCESTOR — CLOSED by 17-07 before it was ever believed.** | A first draft of `shoot-welcome`'s probe allowed `at.contains(el)` beside `at === el || el.contains(at)`. An ancestor contains its own descendant by definition, so the clause reported every blocked control as reachable — which is **exactly** the PR #92 shape it exists to catch. | Found by running the revert, not by reasoning: with `pointer-events-none` on the picker input, the permissive clause reported **PASS** and the strict clause **FAIL**. `check-place-entry.mjs`'s own hit-test was already strict and is unaffected. |
+| ✅ **A broken gate killed the audit instead of failing it — CLOSED by 17-07, and it is 17-06's `readNotOverGated` finding reproduced exactly.** | The `pointer-events-none` revert made `typeInto`'s click time out BEFORE the hit-test assertion it was aimed at, and the stack trace took the other three walks with it. A crashed run tells you less than a failed one. | The primary control is now hit-tested **first**, before anything has to click it, and every walk runs inside a `guarded()` that turns a thrown group into a FAIL line naming itself. 🔴 **This failure mode has now been found twice in two phases, in two different scripts.** It is worth assuming of any new browser check. |
 
 ---
 

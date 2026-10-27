@@ -252,13 +252,13 @@ elections, compass topics — and the committed gazetteer. **It must not touch
 serial. See the plan-set table in `17-SHARED.md`.
 
 Plans:
-- [ ] `17-01-PLAN.md` — Reaching the signed-out app, and the write predicate (`canWriteIn`)
-- [ ] `17-02-PLAN.md` — The gate fails closed; the notices learn which of four reasons
-- [ ] `17-03-PLAN.md` — Resolving a place with no account, and the rule D-14 narrows
-- [ ] `17-04-PLAN.md` — The welcome screen, and a named place on screen
-- [ ] `17-05-PLAN.md` — The second entry point, the way back, and the place-entry check
-- [ ] `17-06-PLAN.md` — Officials, the sidebar and Explore for a visited place
-- [ ] `17-07-PLAN.md` — The four-way visual pass and the phase gate
+- [x] `17-01-PLAN.md` — Reaching the signed-out app, and the write predicate (`canWriteIn`)
+- [x] `17-02-PLAN.md` — The gate fails closed; the notices learn which of four reasons
+- [x] `17-03-PLAN.md` — Resolving a place with no account, and the rule D-14 narrows
+- [x] `17-04-PLAN.md` — The welcome screen, and a named place on screen
+- [x] `17-05-PLAN.md` — The second entry point, the way back, and the place-entry check
+- [x] `17-06-PLAN.md` — Officials, the sidebar and Explore for a visited place
+- [x] `17-07-PLAN.md` — The four-way visual pass and the phase gate
 
 Shared context: `17-SHARED.md` — the phase boundary, the execution order, the three viewer
 states, the coverage matrix and the constraints every plan inherits. Read it before `17-01`.
@@ -267,6 +267,69 @@ Validation: `17-VALIDATION.md` — how every claim in the phase is checked, whic
 run it, and the gaps it knowingly leaves.
 
 Research: `17-RESEARCH.md` (`4991a00`). Context and locked decisions: `17-CONTEXT.md`.
+
+**The phase in one line:** *anyone may look anywhere; only your own slices accept your
+voice.*
+
+Shipped on `feat/signed-out-arrival`, 2026-10-26. 🔴 **`supabase/migrations/` is untouched —
+not a policy, not a grant, not a function** — which is what makes this half reversible: it
+ships entirely against endpoints that were already anonymous (`location-search`,
+`coordinate-lookup`, `browse/by-area`, meetings, elections, compass topics) plus the
+committed gazetteer in `public/geo/`.
+
+**Shipped.** A welcome screen that names both walls and the word *yet*, quoting the primer's
+own line — *"each person has exactly one voice — and lives where they claim"* — with the
+privacy pitch beside it. Place entry by name, through **one** `PlacePicker` mounted at two
+entry points (the welcome screen and a `PlaceStrip` under the banner), so a member can look
+at another city and get back. A visited place gets its Explore, its hero banner, its
+calendar and **its own** officials through the public by-area endpoint. The fail-open
+`isViewOnly` expression at `AppShell.tsx:840` is replaced by `canWriteIn()` / `whyNoWrite()`
+in an import-free `src/lib/writeAccess.ts` — four reasons, failing closed, with no tier term
+because an Inform account lands in the guest branch by construction. The address string is
+never stored, never echoed and never rendered back: `ResolvedPlace` has **no name field at
+all**, so a call site could not echo the input if it tried, and only geoids reach
+`sessionStorage`. `CLAUDE.md` and `LocationPrompt.tsx` are updated per D-14 — "never stores"
+survives whole, "never geocodes" is narrowed to observers only.
+
+Four new or extended checks, all committed and all made to fail before they were believed:
+`check:write-access` (19), `check:place-resolve` (42, plus a `--live` contract-drift mode),
+`check:place-entry` (20) and `check:explore-gate` grown to **four viewers / 56 assertions**.
+`shoot:welcome` adds 24 looked-at cells and a 140-assertion audit — contrast resolved
+through `fillRect` + `getImageData`, hit-tests at 1440 and 390 in both themes, and
+`prefers-reduced-motion`.
+
+**Not shipped**, and recorded in `phases/17-the-signed-out-arrival/deferred-items.md`:
+
+- 🔴 **The address path is written, typed and switched off.** It is gated behind
+  **`VITE_PLACE_RESOLVE_URL`** — deliberately *not* `VITE_SLICE_ASSIGNMENT_URL`, because the
+  two point at the same ev-accounts base and one switch would turn the address path on for
+  every deployment that had configured assignment. Unset, **no address input renders at
+  all** — not a disabled one, not a "coming soon". It waits on
+  `POST /api/civic-spaces/resolve`, specified in `phases/17-the-signed-out-arrival/ACCOUNTS-HANDOFF.md`.
+  ⚠️ `.env.example` is missing the variable and could not be edited from the agent session
+  that found it.
+- 🔴 **Conversations stay members-only.** Every `civic_spaces` grant is `TO authenticated`,
+  so an observer reads zero forum rows — and so does a signed-in member looking at another
+  city. A visited place therefore gets an honest *"Conversations here belong to the people
+  who live here"* state rather than an empty feed, because an empty feed returned by RLS
+  reads as "nobody has said anything here", which is a lie told silently. **Phase 18 opens
+  it**; the one paragraph and one empty state it revises are marked in source — `grep -rn
+  "PHASE 18" src/` finds them in `WelcomeScreen.tsx`, `AppShell.tsx` and `writeAccess.ts`.
+- A member who enters **their own** place from the strip is gated as a sibling shard, with
+  an em-dash where the shard number should be. Fail-closed, so nothing unsafe is offered,
+  but over-gated — item 4, needing a product decision before a fix.
+- The ~40 conversation-starter **questions** in the topic catalogue still use the second
+  person at a visited place ("What should get built in *your* city, and where?"). Item 3:
+  they are data with no `ctx` where they are authored, `check-composition` keys fixtures off
+  their titles, and the second person is what makes a starter an invitation — a call about
+  the product's voice, not a pronoun swap. The one **statement** on the wrong side of that
+  boundary was fixed in 17-07.
+- Still outstanding, as in Phases 15 and 16: the signed-in production pass. Real
+  `photoUrl`/credit precedence and real sibling shards exist only in production, and
+  localhost has no login.
+- App-wide and unowned: `cursor: default` on 196 of 416 controls, and a storage-blocked boot
+  that now has **two** causes — `useAuth.ts:100`, and `@supabase/supabase-js` constructing a
+  `RealtimeClient` at module scope, which dies before any of our code runs.
 
 ### Phase 18: The Public Square
 **Goal**: Civic Spaces' conversations are readable by anyone, as a public town square — and
@@ -332,5 +395,5 @@ validation in ev-accounts so the next real name cannot arrive silently.
 | 14. Slice Taxonomy | — | 1/1 | Complete | 2026-09-02 |
 | 15. Tool Deep Links | — | 1/1 | Complete | 2026-09-08 |
 | 16. Explore by Slice | — | 10/10 | Complete | 2026-10-25 |
-| 17. The Signed-Out Arrival | — | 0/7 | Planned | — |
+| 17. The Signed-Out Arrival | — | 7/7 | Complete | 2026-10-26 |
 | 18. The Public Square | — | 0/? | Not planned | — |
