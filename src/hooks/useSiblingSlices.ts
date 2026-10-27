@@ -20,7 +20,7 @@ interface UseSiblingSlicesResult {
 /**
  * Lists every "sibling" slice at a location (same slice_type + geoid, split
  * apart by member-cap sharding — see findOrCreateSiblingSlice in the
- * ev-accounts engine; the local services/slice-assignment copy is FROZEN). Used to
+ * ev-accounts engine). Used to
  * populate the slice selector so a member of Slice 1 can browse Slice 2, 3,
  * etc. read-only.
  *
