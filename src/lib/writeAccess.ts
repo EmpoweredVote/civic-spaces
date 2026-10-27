@@ -78,6 +78,41 @@ export function placeKey(sliceType: string, geoid: string | null): string {
   return `${sliceType}|${geoid ?? ''}`
 }
 
+/**
+ * Is the viewer's own row at this level the SAME JURISDICTION as the one a
+ * visited place presents there?
+ *
+ * 🔴 This is the test that decides whether a visited place shows the viewer's
+ * REAL row or a `place:` sentinel, and getting it wrong is what made a member
+ * looking at their own county read "You're exploring Slice — read-only".
+ *
+ * Both halves are compared. `sliceType` alone is not enough — every member holds
+ * SOME county — and `geoid` alone is not either, because geoids are only unique
+ * within a level.
+ *
+ * 🔴 It is deliberately NOT `placeKey`-based, even though that looks equivalent.
+ * `ownedPlaceKeys` answers "does the viewer hold this jurisdiction at all",
+ * which is the SIBLING-SHARD question and is true for a different shard of the
+ * same place. This asks something narrower: is THIS row the one to render. The
+ * two differ precisely where the bug lived, so they stay separate functions.
+ *
+ * 🔴 Placeless levels are real matches, not special cases. In production a
+ * member's federal row is `('federal', 'US')` and every visited place's federal
+ * level is `('federal', 'US')` too — so the national space is the viewer's own
+ * on every visit, which is true: there is one of it. `devMockData.ts` gives the
+ * dev id `federal.geoid = '3711'` ON PURPOSE, to keep `compositionKey`'s
+ * normalisation honest, so this match is the one case the browser checks CANNOT
+ * reach. That is why it is a pure function with its own assertions.
+ */
+export function isSameJurisdiction(
+  own: { sliceType: string; geoid: string } | null | undefined,
+  sliceType: string,
+  geoid: string,
+): boolean {
+  if (!own) return false
+  return own.sliceType === sliceType && own.geoid === geoid
+}
+
 /** Does the viewer hold any slice of this LEVEL, anywhere? */
 function holdsLevel(ownedPlaceKeys: ReadonlySet<string>, sliceType: string): boolean {
   const prefix = `${sliceType}|`

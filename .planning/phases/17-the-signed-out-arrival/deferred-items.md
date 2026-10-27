@@ -195,7 +195,7 @@ before: a check that is red on purpose is a check nobody reads.
 
 ---
 
-## 4. 🔴 A member who enters THEIR OWN place from the strip is told they are on a sibling shard
+## 4. ✅ CLOSED — A member who enters a place they HOLD was told they were on a sibling shard
 
 **Found during:** 17-07 Task 1, building `scripts/shoot-welcome.mjs`. The first draft of
 presentation 6 — "a visited place, signed in" — booted on a bare `?dev=1` and resolved
@@ -255,7 +255,41 @@ the phase gate is the wrong place to guess it. Two shapes, both small:
 `scripts/shoot-welcome.mjs` carries a note that fails the cell if presentation 6 ever shoots
 `sibling-shard` again.
 
-**Who should own it:** its own small PR, with Chris deciding (a) or (b) first.
+**CLOSED 2026-10-27, shape (b), and (a) was ruled out on evidence.**
+
+🔴 **It was never the self-visit edge case this item described.** The overlap is per
+LEVEL, so it fired on the common path: a member in Asheville looking at **Buncombe
+County** got `sibling-shard` and the `Slice —` hole on the County tab AND the State tab,
+and the state level overlaps on **every in-state visit**. Worse, in production the
+federal level overlaps on *every visit anywhere* — `(federal, US)` on both sides — so the
+Federal tab of every trip carried it. (a), refusing to enter a place you fully hold,
+would not have touched any of that.
+
+**What shipped:** `placeSlices` now takes the viewer’s own slices and returns their REAL
+row for any level where `isSameJurisdiction` holds, a sentinel otherwise. `whyNoWrite`
+reaches branch 3 and answers null; the dash disappears because a real row has a
+`siblingIndex`; `memberCount` becomes the true count. No new branch in `whyNoWrite`.
+
+The conversations surface stopped gating on `isVisitingPlace` — a NAVIGATION state — and
+now decides per slice: a level carrying the viewer’s real row gets its feed and composer,
+a level still carrying a sentinel gets the honest card.
+
+**The seventh viewer exists:** `check:explore-gate` → `member-own-place`, 8 assertions,
+with its own control case and a control for the opposite failure (a level the viewer does
+NOT hold must still be gated — otherwise 5 and 6 are satisfied by ungating everything).
+`check:write-access` 19–24 cover `isSameJurisdiction` as a pure function, including the
+**production federal case no browser run can reach**, because `devMockData.ts` gives the
+dev id `federal.geoid = ‘3711’` on purpose.
+
+**Falsified:** removing the substitution turns `member-own-place` 3, 4, 5 and 6 red, with
+assertion 4 printing the original symptom verbatim — *“You’re exploring Slice —
+read-only.”*
+
+⚠️ **One consequence, deliberate:** the strip still reads “Looking at Asheville — Back to
+my spaces” while the member is on a tab that is their own. That is the navigation state
+and it is honest — they did travel there — but it is the thing (a) would have removed.
+If it reads oddly in use, the fix is in `PlaceStrip`’s copy, not in the gate.
+
 
 ---
 
