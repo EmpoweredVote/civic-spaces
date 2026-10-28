@@ -12,8 +12,8 @@ import {
   type ExploreDraft,
 } from './exploreStorage'
 import { ArrowIcon, CARD, CategoryLabel, FOCUS, PrimaryButton, TEXT_FIELD } from './exploreUi'
-import { WritingGuidance } from '../WritingGuidance'
-import { guidanceFor } from '../../lib/writingGuidance'
+import { QuestionPicker } from '../QuestionPicker'
+import { questionsFor } from '../../lib/writingGuidance'
 import { focusAtEnd } from '../../lib/focusAtEnd'
 import { ProvenanceTag, SourceNote } from './provenance'
 import { MODULE_REGISTRY, ReservedRoom, ReservedRoomGroup, reservedRoomsIn } from './registry'
@@ -633,7 +633,7 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
   const draft = ctx.draftFor(topic.id)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
-  const guidance = useMemo(() => guidanceFor(topic), [topic])
+  const questions = useMemo(() => questionsFor(topic), [topic])
   // Move focus to the new view's heading, as opening a thread changes the whole column.
   useEffect(() => headingRef.current?.focus({ preventScroll: true }), [topic.id])
 
@@ -768,38 +768,37 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
             </p>
           </div>
         ) : (
-        /* 2. The one thing to do: answer the question. The question IS the field's label,
-           the suggestions sit right under it, and there is one button. The draft is saved
-           on every keystroke, on this device; its title (topic.suggestedTitle) travels to
-           the composer, where it can be edited before posting. */
+        /* 2. The one thing to do: pick a question (optional), write, share. The draft is
+           saved on every keystroke, on this device; its title (topic.suggestedTitle)
+           travels to the composer, where it can be edited before posting. */
         <form
-          className="flex flex-col gap-3 border-t border-gray-200/70 dark:border-white/[0.08] pt-5"
+          className="flex flex-col gap-4 border-t border-gray-200/70 dark:border-white/[0.08] pt-5"
           onSubmit={(e) => {
             e.preventDefault()
             ctx.startConversation(topic.id)
           }}
         >
-          <label htmlFor={`${id}-body`} className="text-base font-bold text-gray-900 dark:text-gray-100">
-            {topic.question}
-          </label>
-          <textarea
-            id={`${id}-body`}
-            ref={bodyRef}
-            rows={4}
-            value={draft.body}
-            maxLength={10000}
-            onChange={(e) => ctx.saveDraft(topic.id, { body: e.target.value })}
-            placeholder="Write your thoughts here…"
-            className={`${TEXT_FIELD} resize-y`}
-          />
+          <div className="flex flex-col gap-1">
+            <label htmlFor={`${id}-body`} className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Your thoughts
+            </label>
+            <textarea
+              id={`${id}-body`}
+              ref={bodyRef}
+              rows={5}
+              value={draft.body}
+              maxLength={10000}
+              onChange={(e) => ctx.saveDraft(topic.id, { body: e.target.value })}
+              placeholder="Write your thoughts, or pick a question below…"
+              className={`${TEXT_FIELD} resize-y`}
+            />
+          </div>
 
-          <WritingGuidance
-            variant="inline"
-            guidance={guidance}
+          <QuestionPicker
+            questions={questions}
             value={draft.body}
-            maxLength={10000}
             onChange={(body) => ctx.saveDraft(topic.id, { body })}
-            onApplied={() => focusAtEnd(bodyRef.current)}
+            onPicked={() => focusAtEnd(bodyRef.current)}
           />
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">

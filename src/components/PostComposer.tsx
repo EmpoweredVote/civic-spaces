@@ -6,9 +6,9 @@ import { createPostSchema, editPostSchema, POST_BODY_MAX, POST_TITLE_MAX } from 
 import type { CreatePostInput, EditPostInput } from '../lib/validators'
 import { useCreatePost } from '../hooks/useCreatePost'
 import { useEditPost } from '../hooks/useEditPost'
-import { WritingGuidance } from './WritingGuidance'
+import { QuestionPicker } from './QuestionPicker'
 import { FOCUS, PrimaryButton, TEXT_FIELD, TEXT_FIELD_INVALID } from './explore/exploreUi'
-import { guidanceFor } from '../lib/writingGuidance'
+import { questionsFor } from '../lib/writingGuidance'
 import { focusAtEnd } from '../lib/focusAtEnd'
 import { writeErrorMessage } from '../lib/writeErrors'
 import type { PostWithAuthor } from '../types/database'
@@ -93,7 +93,7 @@ export default function PostComposer({
   }, [request?.topic, topicOptions])
   const [topicId, setTopicId] = useState('')
   const topic = topics.find((t) => t.id === topicId) ?? null
-  const guidance = useMemo(() => (topic ? guidanceFor(topic) : null), [topic])
+  const questions = useMemo(() => (topic ? questionsFor(topic) : null), [topic])
 
   // On open: a request (from Explore) or an edit always loads fresh. A plain new post
   // keeps whatever was typed last time — closing the sheet by accident loses nothing;
@@ -239,7 +239,7 @@ export default function PostComposer({
                         column, so the choice shapes the writing help and an empty title —
                         it is not stored with the post, and must not claim to be. */}
                     <span id={`${id}-topic-hint`} className="text-xs text-gray-500 dark:text-gray-400">
-                      Shows writing prompts for the topic. Topics aren’t saved with posts yet.
+                      Shows questions about the topic to start from. Topics aren’t saved with posts yet.
                     </span>
                   </label>
                 )}
@@ -257,6 +257,17 @@ export default function PostComposer({
                   />
                 </Field>
 
+                {/* Under the title, as asked: the topic's questions, one selectable. */}
+                {questions && (
+                  <QuestionPicker
+                    key={topicId}
+                    questions={questions}
+                    value={body}
+                    onChange={(next) => createForm.setValue('body', next.slice(0, POST_BODY_MAX), { shouldDirty: true, shouldValidate: !!bodyError })}
+                    onPicked={() => focusAtEnd(bodyRef.current)}
+                  />
+                )}
+
                 <Field id={`${id}-body`} label="Your thoughts" count={body.length} max={POST_BODY_MAX} error={bodyError}>
                   <textarea
                     id={`${id}-body`}
@@ -273,17 +284,6 @@ export default function PostComposer({
                     {...bodyField}
                   />
                 </Field>
-
-                {guidance && (
-                  <WritingGuidance
-                    key={topicId}
-                    guidance={guidance}
-                    value={body}
-                    maxLength={POST_BODY_MAX}
-                    onChange={(next) => createForm.setValue('body', next, { shouldDirty: true, shouldValidate: !!bodyError })}
-                    onApplied={() => focusAtEnd(bodyRef.current)}
-                  />
-                )}
 
                 <div className="flex items-center gap-3 pt-1">
                   <PrimaryButton type="submit" size="card" disabled={pending}>
