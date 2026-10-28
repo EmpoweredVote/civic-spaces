@@ -29,7 +29,6 @@ import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
 import { WelcomeScreen } from './WelcomeScreen'
-import { PlaceStrip } from './PlaceStrip'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
 import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId } from '../lib/viewedPlace'
 import type { ResolvedPlace } from '../lib/placeResolve'
@@ -40,7 +39,6 @@ import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
 import { canPostDraft, parseDraftKey, racesAreaFor, type CompassLevelFlags } from '../lib/exploreComposition'
 import { whyNoWrite, placeKey, isSameJurisdiction, type ViewedSlice, type NoWriteReason } from '../lib/writeAccess'
-import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
@@ -237,38 +235,6 @@ function ActiveEventsWidget({
       isLoading={electionsLoading || meetingsLoading}
     />
   )
-}
-
-/**
- * "About {place}" — only facts with a real source: 2020 Census population, and the
- * member's own county and state slices for the parent jurisdictions. No founding year
- * or elevation: nothing in the platform carries them.
- */
-function ActiveAboutWidget({
-  slice,
-  fallbackName,
-  countySlice,
-}: {
-  slice: SliceInfo
-  fallbackName: string
-  countySlice: SliceInfo | undefined
-}) {
-  const name = useJurisdictionName(slice, fallbackName)
-  const population = usePopulation(slice.sliceType, slice.geoid)
-  // Called unconditionally (rules of hooks); only used on a city tab.
-  const countyName = useJurisdictionName(countySlice ?? slice, 'County')
-  if (slice.sliceType === 'unified' || slice.sliceType === 'volunteer') return null
-
-  const facts: AboutFact[] = []
-  if (population !== undefined) facts.push({ label: 'Population', value: population.toLocaleString() })
-  if (slice.sliceType === 'city' && countySlice && countyName !== 'County') {
-    facts.push({ label: 'County', value: countyName.replace(/ County$/, '') })
-  }
-  if (slice.sliceType === 'city' || slice.sliceType === 'county') {
-    const stateName = geoidToDisplayName('state', slice.geoid.slice(0, 2))
-    if (stateName) facts.push({ label: 'State', value: stateName })
-  }
-  return <AboutWidget placeName={name} facts={facts} />
 }
 
 /**
@@ -1348,18 +1314,6 @@ export default function AppShell() {
    * who visits a place, which is 17-05's doing.)
    */
   const homeSlice = isVisitingPlace ? undefined : (slices['city'] ?? slices['county'] ?? slices['state'])
-  /**
-   * The slice `PlaceStrip` names — the VISITED place's most local one, the
-   * mirror of `homeSlice` above.
-   *
-   * 🔴 Most local, not the active tab. Somebody who named "Asheville" and then
-   * pressed Federal is still looking at Asheville; a strip that followed the tab
-   * would read "Looking at United States of America" and answer a question
-   * nobody asked. The banner above it is the thing that follows the tab.
-   */
-  const visitedPlaceSlice = isVisitingPlace
-    ? (onScreenSlices['city'] ?? onScreenSlices['county'] ?? onScreenSlices['state'])
-    : undefined
   // Volunteer is its own space, not a place — it keeps the forum alone, no Explore.
   const hasExplore = activeTab !== 'volunteer'
   const effectiveView: ForumView = hasExplore ? forumView : 'conversations'
@@ -1585,21 +1539,6 @@ export default function AppShell() {
                   </div>
                 )}
 
-                {/* 🔴 The place control, UNDER the banner rather than inside it.
-                    The banner names where you are; this changes it; SliceSelector
-                    nests below as "which shard of it". It is absent on Volunteer,
-                    which is correct — Volunteer is not a place. See
-                    PlaceStrip.tsx for the three positions this is not in. */}
-                {hasExplore && (
-                  <PlaceStrip
-                    visitedSlice={visitedPlaceSlice}
-                    visitedFallback={visitedPlaceSlice ? TAB_LABELS[visitedPlaceSlice.sliceType] : ''}
-                    isAuthenticated={isAuthenticated}
-                    onResolved={enterPlace}
-                    onLeave={leavePlace}
-                  />
-                )}
-
                 {/* The negative margin cancels the column gap: the marker is only a position. */}
                 <div ref={contentTopRef} className="-mt-3 md:-mt-4" aria-hidden="true" />
 
@@ -1707,9 +1646,6 @@ export default function AppShell() {
                       )}
                       events={activeSlice && (
                         <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={onScreenSlices['state']} userId={userId} />
-                      )}
-                      about={activeSlice && (
-                        <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={onScreenSlices['county']} />
                       )}
                     />
 
@@ -1953,9 +1889,6 @@ export default function AppShell() {
                       )}
                       events={activeSlice && (
                         <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={onScreenSlices['state']} userId={userId} />
-                      )}
-                      about={activeSlice && (
-                        <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={onScreenSlices['county']} />
                       )}
                       whatsNew={effectiveView === 'explore' && <WhatsNewCard onGoTo={handleForumViewChange} />}
                     />
