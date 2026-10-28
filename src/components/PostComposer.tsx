@@ -92,6 +92,9 @@ export default function PostComposer({
     return t && !topicOptions.some((o) => o.id === t.id) ? [t, ...topicOptions] : topicOptions
   }, [request?.topic, topicOptions])
   const [topicId, setTopicId] = useState('')
+  // The question being answered: the box's label and placeholder, never written into the post.
+  const [question, setQuestion] = useState<string | null>(null)
+  useEffect(() => setQuestion(null), [topicId])
   const topic = topics.find((t) => t.id === topicId) ?? null
   const questions = useMemo(() => (topic ? questionsFor(topic) : null), [topic])
 
@@ -262,17 +265,19 @@ export default function PostComposer({
                   <QuestionPicker
                     key={topicId}
                     questions={questions}
-                    value={body}
-                    onChange={(next) => createForm.setValue('body', next.slice(0, POST_BODY_MAX), { shouldDirty: true, shouldValidate: !!bodyError })}
-                    onPicked={() => focusAtEnd(bodyRef.current)}
+                    selected={question}
+                    onSelect={(q) => {
+                      setQuestion(q)
+                      focusAtEnd(bodyRef.current)
+                    }}
                   />
                 )}
 
-                <Field id={`${id}-body`} label="Your thoughts" count={body.length} max={POST_BODY_MAX} error={bodyError}>
+                <Field id={`${id}-body`} label={question ?? 'Your thoughts'} count={body.length} max={POST_BODY_MAX} error={bodyError}>
                   <textarea
                     id={`${id}-body`}
                     rows={5}
-                    placeholder={topic?.question ?? 'Share your thoughts…'}
+                    placeholder={question ? 'Write your answer…' : 'Share your thoughts…'}
                     maxLength={POST_BODY_MAX}
                     aria-invalid={!!bodyError}
                     aria-describedby={bodyError ? `${id}-body-err` : undefined}

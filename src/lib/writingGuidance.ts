@@ -25,27 +25,6 @@ function fallbackQuestions(subject: string): string[] {
   ]
 }
 
-/**
- * Which question the text currently starts with, if any. The selection is READ FROM THE
- * TEXT rather than kept beside it, so it can never disagree with what will be posted —
- * edit the question line and it simply stops being selected.
- */
-export function selectedQuestion(body: string, questions: string[]): string | null {
-  return questions.find((q) => body === q || body.startsWith(`${q}\n`)) ?? null
-}
-
-/**
- * Select, switch or clear the opening question. Never loses the writer's own words:
- * selecting puts the question on the first line and keeps everything else below it,
- * switching swaps only that line, and clearing removes only that line.
- */
-export function toggleQuestion(body: string, questions: string[], question: string): string {
-  const current = selectedQuestion(body, questions)
-  const rest = current ? body.slice(current.length).replace(/^\n+/, '') : body.replace(/^\s+/, '')
-  if (current === question) return rest
-  return `${question}\n\n${rest}`
-}
-
 function unique(items: string[]): string[] {
   return items.filter((item, i) => items.indexOf(item) === i)
 }

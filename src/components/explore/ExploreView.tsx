@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 import {
@@ -634,6 +634,10 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const questions = useMemo(() => questionsFor(topic), [topic])
+  // The question being answered: shown as the box's label and placeholder, never written
+  // into the draft. Cleared when another topic opens.
+  const [question, setQuestion] = useState<string | null>(null)
+  useEffect(() => setQuestion(null), [topic.id])
   // Move focus to the new view's heading, as opening a thread changes the whole column.
   useEffect(() => headingRef.current?.focus({ preventScroll: true }), [topic.id])
 
@@ -780,7 +784,7 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
         >
           <div className="flex flex-col gap-1">
             <label htmlFor={`${id}-body`} className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Your thoughts
+              {question ?? 'Your thoughts'}
             </label>
             <textarea
               id={`${id}-body`}
@@ -789,16 +793,18 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
               value={draft.body}
               maxLength={10000}
               onChange={(e) => ctx.saveDraft(topic.id, { body: e.target.value })}
-              placeholder="Write your thoughts, or pick a question below…"
+              placeholder={question ? 'Write your answer…' : 'Write your thoughts, or pick a question below…'}
               className={`${TEXT_FIELD} resize-y`}
             />
           </div>
 
           <QuestionPicker
             questions={questions}
-            value={draft.body}
-            onChange={(body) => ctx.saveDraft(topic.id, { body })}
-            onPicked={() => focusAtEnd(bodyRef.current)}
+            selected={question}
+            onSelect={(q) => {
+              setQuestion(q)
+              focusAtEnd(bodyRef.current)
+            }}
           />
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
