@@ -232,7 +232,7 @@ export default function PostComposer({
                     >
                       <option value="">No particular topic</option>
                       {topics.map((t) => (
-                        <option key={t.id} value={t.id}>{t.category} — {t.title}</option>
+                        <option key={t.id} value={t.id}>{topics.filter((o) => o.category === t.category).length > 1 ? `${t.category} — ${t.title}` : t.category}</option>
                       ))}
                     </select>
                     {/* 🔴 Says what the picker does and does not do. A post has no topic
