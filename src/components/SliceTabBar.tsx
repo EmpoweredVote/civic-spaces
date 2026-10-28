@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react'
 import type { SliceType, TabKey, SliceInfo } from '../types/database'
+import { useSliceNavLabel } from '../hooks/useJurisdictionName'
 
 interface SliceTabBarProps {
   activeTab: TabKey
@@ -18,6 +20,23 @@ const LEFT_TABS: { key: TabKey; label: string }[] = [
 const RIGHT_TABS: { key: TabKey; label: string }[] = [
   { key: 'volunteer', label: 'Volunteer' },
 ]
+
+/**
+ * The tab's name: the place, not the level — the same label the nav rail shows
+ * (`useSliceNavLabel`). Its own component so the hook runs once per tab.
+ *
+ * The bar scrolls sideways, so a long place name is capped rather than allowed to
+ * push every other tab off screen. The cap is visual only: the full name stays in
+ * the text (and so in the accessible name) and in the tooltip.
+ */
+function SliceTabLabel({ slice, levelLabel }: { slice: SliceInfo; levelLabel: string }) {
+  const label = useSliceNavLabel(slice, levelLabel)
+  return (
+    <span className="block max-w-[11rem] truncate" title={label}>
+      {label}
+    </span>
+  )
+}
 
 export default function SliceTabBar({ activeTab, onTabChange, slices, showVolunteerTab = false }: SliceTabBarProps) {
   const renderTab = (tab: { key: TabKey; label: string }) => {
@@ -43,7 +62,7 @@ export default function SliceTabBar({ activeTab, onTabChange, slices, showVolunt
         aria-selected={isActive}
         aria-current={isActive ? 'true' : undefined}
       >
-        <span>{tab.label}</span>
+        {sliceInfo ? <SliceTabLabel slice={sliceInfo} levelLabel={tab.label} /> : <span>{tab.label}</span>}
         {/* 🔴 Omitted, never zero. A VISITED place has no slices row and so no
             count (SliceInfo.memberCount is null there), and this subtitle would
             otherwise have said "0 members" about a real jurisdiction — on
@@ -62,13 +81,39 @@ export default function SliceTabBar({ activeTab, onTabChange, slices, showVolunt
   // Only show tabs the user actually belongs to
   const visibleLeftTabs = LEFT_TABS.filter(tab => !!slices[tab.key as SliceType])
 
+  // Place names are longer than "State" / "Federal", so on a phone the active tab can
+  // start off the edge of this scroller. Bring it into view — horizontally only, by
+  // moving the bar's own scrollLeft, so the page itself never jumps. Re-checked when
+  // the row resizes too: City and County resolve their names after first paint, and
+  // the wider tabs would otherwise push the active one back out.
+  const navRef = useRef<HTMLElement>(null)
+  const rowRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const nav = navRef.current
+    const row = rowRef.current
+    if (!nav || !row) return
+    const reveal = () => {
+      const tab = nav.querySelector<HTMLElement>(`[data-slice-tab="${activeTab}"]`)
+      if (!tab) return
+      const navBox = nav.getBoundingClientRect()
+      const tabBox = tab.getBoundingClientRect()
+      if (tabBox.left < navBox.left) nav.scrollLeft -= navBox.left - tabBox.left + 8
+      else if (tabBox.right > navBox.right) nav.scrollLeft += tabBox.right - navBox.right + 8
+    }
+    reveal()
+    const observer = new ResizeObserver(reveal)
+    observer.observe(row)
+    return () => observer.disconnect()
+  }, [activeTab])
+
   return (
     <nav
+      ref={navRef}
       className="flex flex-row flex-nowrap overflow-x-auto border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5"
       aria-label="Slice tabs"
     >
       {/* Left group: geo tabs + Unified (only tabs the user has) */}
-      <div className="flex flex-row flex-nowrap gap-1">
+      <div ref={rowRef} className="flex flex-row flex-nowrap gap-1">
         {visibleLeftTabs.map(renderTab)}
       </div>
 

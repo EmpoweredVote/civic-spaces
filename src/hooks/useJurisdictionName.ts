@@ -29,41 +29,51 @@ const cache = new Map<string, string>()
 export function useJurisdictionName(slice: SliceInfo, fallback: string): string {
   const immediate = geoidToDisplayName(slice.sliceType, slice.geoid)
 
-  const [name, setName] = useState<string>(() => {
-    if (immediate) return immediate
-    return cache.get(slice.geoid) ?? fallback
-  })
+  // 🔴 The answer is stored WITH the geoid it answers. A bare string would survive a
+  // location change: for the render between the new slice arriving and the effect
+  // below running — and for the whole of an async lookup — it still held the OLD
+  // place's name, so the nav read "Asheville / Los Angeles County" mid-switch.
+  const [resolved, setResolved] = useState<{ geoid: string; name: string } | null>(null)
 
   useEffect(() => {
-    if (immediate) {
-      setName(immediate)
-      return
-    }
-
-    const cacheKey = slice.geoid
-    const hit = cache.get(cacheKey)
-    if (hit !== undefined) {
-      setName(hit)
-      return
-    }
+    if (immediate || cache.has(slice.geoid)) return
 
     // A slice switch while a lookup is in flight must not let the stale answer
     // land on the new slice's banner.
     let cancelled = false
+    const geoid = slice.geoid
 
-    lookupGeoName(slice.geoid).then((result) => {
-      const resolved = result?.name ?? fallback
+    lookupGeoName(geoid).then((result) => {
       // Only cache a real hit. Caching the fallback would pin "City" for the
       // rest of the session if the shard request lost a race with a flaky
       // network, which is the failure this whole change exists to remove.
-      if (result) cache.set(cacheKey, resolved)
-      if (!cancelled) setName(resolved)
+      if (result) cache.set(geoid, result.name)
+      if (!cancelled) setResolved({ geoid, name: result?.name ?? fallback })
     })
 
     return () => {
       cancelled = true
     }
-  }, [slice.sliceType, slice.geoid, immediate, fallback])
+  }, [slice.geoid, immediate, fallback])
 
-  return name
+  if (immediate) return immediate
+  const hit = cache.get(slice.geoid)
+  if (hit !== undefined) return hit
+  return resolved?.geoid === slice.geoid ? resolved.name : fallback
+}
+
+/**
+ * The label a civic-space tab carries in navigation (the nav rail and, below lg,
+ * the tab bar): the place itself, never the level. "North Carolina", not "State";
+ * "United States", not "Federal" — the short form, because a nav row is narrower
+ * than the banner's "United States of America". Unified keeps its own name.
+ *
+ * Every name comes from the slice's geoid, so it follows the location on screen
+ * and nobody is shown a state that is not theirs. Where a geoid has no name
+ * (an unknown state FIPS, a place missing from the offline table) it falls back
+ * to the generic level label rather than guessing.
+ */
+export function useSliceNavLabel(slice: SliceInfo, levelLabel: string): string {
+  const name = useJurisdictionName(slice, levelLabel)
+  return slice.sliceType === 'federal' ? 'United States' : name
 }
