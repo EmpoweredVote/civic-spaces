@@ -156,6 +156,11 @@ export interface ProductUpdate {
   whereToTry: string
   /** The detail page's button: back to Explore, or over to Conversations. */
   cta: { label: string; goTo: 'explore' | 'conversations' }
+  /**
+   * Optional artwork. With it, the sidebar preview is the image with the title over it;
+   * without it, a text row. No update has one yet — add a real screenshot, never stock art.
+   */
+  image?: { src: string; alt: string }
 }
 
 export const PRODUCT_UPDATES: ProductUpdate[] = getProductUpdates().updates
