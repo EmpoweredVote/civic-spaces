@@ -19,7 +19,11 @@
       // Dark is the default: only an explicit 'light' opts out. The cookie is
       // read first because it is shared across *.empowered.vote, so a choice
       // made in another EV product carries here. See src/lib/colorScheme.ts.
-      (function(){var m=document.cookie.match(/(?:^|;\s*)ev_color_scheme=(light|dark)(?:;|$)/);var s=m?m[1]:null;if(!s){try{s=localStorage.getItem('ev:color-scheme')}catch(e){}}if(s!=='light')document.documentElement.classList.add('dark')})();
+      //
+      // ev_theme is the estate-wide name (essentials shipped it 2026-05-05). ev_color_scheme
+      // is this repo's own pre-2026-10-27 name, still read so a member who chose light here
+      // keeps it. Nothing writes the old name any more.
+      (function(){var m=document.cookie.match(/(?:^|;\s*)ev_theme=(light|dark)(?:;|$)/)||document.cookie.match(/(?:^|;\s*)ev_color_scheme=(light|dark)(?:;|$)/);var s=m?m[1]:null;if(!s){try{s=localStorage.getItem('ev:color-scheme')}catch(e){}}if(s!=='light')document.documentElement.classList.add('dark')})();
     </script>
   </head>
   <body>

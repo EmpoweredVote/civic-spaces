@@ -1,7 +1,19 @@
 # Cross-product colour scheme contract
 
-**Status:** implemented in Civic Spaces, not yet adopted elsewhere
-**Date:** 2026-09-21
+**Status:** adopted estate-wide — but under the name `ev_theme`, not the one first written here
+**Date:** 2026-09-21, revised 2026-10-27
+
+> 🔴 **This document originally named the cookie `ev_color_scheme`, and that was the one thing
+> it got wrong.** essentials had shipped a `.empowered.vote` cookie called **`ev_theme`** on
+> **2026-05-05**, four months earlier. Neither side knew about the other, so two correct
+> implementations shipped under two names and interoperated with nobody. By 2026-10-27 the
+> landing page, essentials, Profile, Admin and Compass all used `ev_theme`; this repo was alone
+> on the other name. Civic Spaces moved — not because `ev_theme` is the better name, only
+> because it was first and outnumbered this one. Everything else below stood up unchanged.
+>
+> ▶ **Before writing a cross-product contract, go and read what the other products already do.**
+> The rest of this document is careful about cookie attributes, domains and the dev fallback,
+> and none of that mattered while the name did not match.
 
 ## The problem
 
@@ -22,7 +34,7 @@ cross-product source of truth.
 
 | | |
 |---|---|
-| Cookie name | `ev_color_scheme` |
+| Cookie name | `ev_theme` (was `ev_color_scheme` here until 2026-10-27; still read, never written) |
 | Values | `light` \| `dark` — nothing else |
 | Domain | `.empowered.vote` |
 | Path | `/` |
@@ -50,7 +62,7 @@ The class must be on `<html>` before paint or the page flashes. Inline in
 
 ```html
 <script>
-  (function(){var m=document.cookie.match(/(?:^|;\s*)ev_color_scheme=(light|dark)(?:;|$)/);var s=m?m[1]:null;if(!s){try{s=localStorage.getItem('ev:color-scheme')}catch(e){}}if(s!=='light')document.documentElement.classList.add('dark')})();
+  (function(){var m=document.cookie.match(/(?:^|;\s*)ev_theme=(light|dark)(?:;|$)/)||document.cookie.match(/(?:^|;\s*)ev_color_scheme=(light|dark)(?:;|$)/);var s=m?m[1]:null;if(!s){try{s=localStorage.getItem('ev:color-scheme')}catch(e){}}if(s!=='light')document.documentElement.classList.add('dark')})();
 </script>
 ```
 
@@ -70,20 +82,24 @@ there it falls back to a host-only cookie.
 
 ## What adoption requires
 
-This repo alone does not fix the member's experience — it only stops Civic
-Spaces from being part of the problem. Each other product needs to read and
-write the same cookie under the same name:
+Measured live on 2026-10-27, against `ev_theme`:
 
-- Compass (`compass.empowered.vote`)
-- Essentials (`essentials.empowered.vote`)
-- Read & Rank (`readrank.empowered.vote`)
-- Treasury Tracker (`treasurytracker.empowered.vote`)
-- Civic Trivia Championship (`ctc.empowered.vote`)
-- Focused Communities (`fc.empowered.vote`)
-- the accounts app (`app.empowered.vote` / `accounts.empowered.vote`)
+| Product | reads | writes | dark default | OS ignored |
+|---|---|---|---|---|
+| empowered.vote (landing) | yes | yes | yes | yes |
+| Essentials | yes | yes | yes | yes |
+| the accounts app (Profile) | yes | yes | yes | yes |
+| the accounts app (Admin) | yes | yes | yes | yes |
+| **Civic Spaces** | yes (this change) | yes | yes | yes |
+| Compass | yes | yes | **no** | **no** |
+| Treasury Tracker / financials | second, after storage | **no** | **no** | **no** |
+| Read & Rank | after first paint | **no** | **no** | **no** |
+| Civic Trivia Championship | **no** | **no** | yes | yes |
+| Empowered Badges | no dark mode at all | | | |
+| Validation Quests | own `vq-theme` key, `data-theme` | | | |
 
-Until at least two adopt it, the behaviour is unchanged from a member's point of
-view.
+Compass, Treasury Tracker, Read & Rank and Civic Trivia are being brought onto the
+contract now. Badges has no dark mode to connect.
 
 ## Deliberately out of scope
 

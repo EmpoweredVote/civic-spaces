@@ -41,7 +41,7 @@
  *
  * 🔴 Playwright's `colorScheme` context option does NOTHING in this app. The
  * bootstrap in index.html ignores prefers-color-scheme on purpose and reads the
- * `ev_color_scheme` cookie (src/lib/colorScheme.ts). A context asking for light
+ * `ev_theme` cookie (src/lib/colorScheme.ts). A context asking for light
  * still renders dark, and a "four-way" run silently becomes two. So the theme is
  * set by cookie-and-class and `documentElement.classList` is ASSERTED to match
  * before every single shot. A mismatch aborts rather than shooting.
@@ -282,7 +282,7 @@ function attachErrorSinks(page) {
 /** One context, one page load, booted on `tab` with `theme` already chosen. */
 async function openGroup(group, firstTab, theme) {
   const ctx = await browser.newContext({ viewport: DESKTOP, deviceScaleFactor: 1 })
-  await ctx.addCookies([{ name: 'ev_color_scheme', value: theme, domain: 'localhost', path: '/' }])
+  await ctx.addCookies([{ name: 'ev_theme', value: theme, domain: 'localhost', path: '/' }])
   const page = await ctx.newPage()
   attachErrorSinks(page)
   await page.addInitScript((t) => {
@@ -310,7 +310,7 @@ async function openGroup(group, firstTab, theme) {
  */
 async function setTheme(page, theme) {
   await page.evaluate((t) => {
-    document.cookie = `ev_color_scheme=${t}; path=/; max-age=31536000; SameSite=Lax`
+    document.cookie = `ev_theme=${t}; path=/; max-age=31536000; SameSite=Lax`
     document.documentElement.classList.toggle('dark', t === 'dark')
   }, theme)
   await page.waitForTimeout(350)
@@ -507,7 +507,7 @@ if (!envFile) {
   console.log(`\n── Signed out — VITE_SUPABASE_URL found in ${envFile} ${'─'.repeat(14)}`)
   for (const theme of THEMES) {
     const ctx = await browser.newContext({ viewport: DESKTOP, deviceScaleFactor: 1 })
-    await ctx.addCookies([{ name: 'ev_color_scheme', value: theme, domain: 'localhost', path: '/' }])
+    await ctx.addCookies([{ name: 'ev_theme', value: theme, domain: 'localhost', path: '/' }])
     const page = await ctx.newPage()
     attachErrorSinks(page)
     // No cs_token, no ?dev=1 — the two conditions together are what reaches

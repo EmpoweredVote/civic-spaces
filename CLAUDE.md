@@ -289,8 +289,11 @@ both light and dark mode and on both desktop and mobile. A change that looks rig
 of those four is not done.
 
 - **Dark mode is class-based, and dark is the default.** `index.html` sets the `dark` class
-  before first paint, reading the `ev_color_scheme` cookie first and `localStorage['ev:color-scheme']`
-  second. `prefers-color-scheme` is deliberately not consulted: only an explicit `light` opts out,
+  before first paint, reading the `ev_theme` cookie first and `localStorage['ev:color-scheme']`
+  second. 🔴 **The cookie is `ev_theme`. It was `ev_color_scheme` here until 2026-10-27**, a name
+  this repo alone used — essentials shipped `ev_theme` on 2026-05-05 and five other EV sites
+  follow it, so a correctly built contract under the wrong name interoperated with nobody. The
+  old name is still **read** for members who chose light before the rename, and never written. `prefers-color-scheme` is deliberately not consulted: only an explicit `light` opts out,
   which is why the bootstrap tests `s !== 'light'` rather than `s === 'dark'`. The cookie is
   scoped to `.empowered.vote` so the choice carries across EV subdomains — localStorage cannot,
   which is the whole reason it exists. See `src/lib/colorScheme.ts` and
@@ -308,7 +311,7 @@ of those four is not done.
   finding.
 - 🔴 **Driving the app headless? Playwright's `colorScheme` option does nothing here.** The
   bootstrap in `index.html` ignores `prefers-color-scheme` on purpose and reads the
-  `ev_color_scheme` cookie, so a context asking for `light` still renders dark and a "four-way"
+  `ev_theme` cookie, so a context asking for `light` still renders dark and a "four-way"
   run silently becomes two. Set the cookie on the browser context, and assert
   `documentElement.classList.contains('dark')` matches what you asked for before you shoot.
 - Use the **EV brand tokens** (teal `#00657C`, coral `#FF5740`, yellow `#FED12E`) and the

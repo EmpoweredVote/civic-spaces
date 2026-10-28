@@ -53,7 +53,7 @@
  * shape differs between its CJS and ESM entry points.
  *
  * 🔴 Playwright's `colorScheme` context option does NOTHING in this app. Dark is
- * class-based and is set before first paint from the `ev_color_scheme` cookie,
+ * class-based and is set before first paint from the `ev_theme` cookie,
  * never from `prefers-color-scheme`. The cookie is set on the CONTEXT and
  * `documentElement.classList` is ASSERTED to match, every time — asking for
  * light and silently rendering dark is how a four-way run becomes a two-way one.
@@ -374,7 +374,7 @@ const browser = await chromium.launch()
 /** Everything one context needs: the theme cookie, the stubs, the error traps, the request log. */
 async function freshContext(theme, viewport, init) {
   const ctx = await browser.newContext({ viewport })
-  await ctx.addCookies([{ name: 'ev_color_scheme', value: theme, domain: 'localhost', path: '/' }])
+  await ctx.addCookies([{ name: 'ev_theme', value: theme, domain: 'localhost', path: '/' }])
   const page = await ctx.newPage()
   const errors = { page: [], console: [], noise: [] }
   page.on('pageerror', (e) => errors.page.push(String(e)))
@@ -790,7 +790,7 @@ async function runSignedOutWalk() {
     const results = []
     for (const theme of ['dark', 'light']) {
       await page.evaluate((t) => {
-        document.cookie = `ev_color_scheme=${t}; path=/; max-age=31536000; SameSite=Lax`
+        document.cookie = `ev_theme=${t}; path=/; max-age=31536000; SameSite=Lax`
         document.documentElement.classList.toggle('dark', t === 'dark')
       }, theme)
       // 🔴 Asserted, not assumed. Playwright's colorScheme would have changed nothing.
