@@ -1,15 +1,21 @@
-import { useMutation, useQueryClient, InfiniteData } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import type { ReplyWithAuthor } from '../types/database'
 
 interface CreateReplyInput {
   body: string
   parentReplyId?: string
 }
 
+/**
+ * Post a reply, and show it only once the database has it.
+ *
+ * 🔴 Not optimistic. A temporary "You" reply used to appear before the request returned
+ * and disappear if it failed, taking the typed text with it. Now the reply list is
+ * re-fetched after the insert succeeds — `mutateAsync` resolves only once that refetch
+ * has landed, so the composer closes on a list that already shows the saved reply.
+ */
 export function useCreateReply(postId: string, userId: string) {
   const queryClient = useQueryClient()
-  const repliesKey = ['replies', postId]
 
   return useMutation({
     mutationFn: async ({ body, parentReplyId }: CreateReplyInput) => {
@@ -22,66 +28,17 @@ export function useCreateReply(postId: string, userId: string) {
           body,
           parent_reply_id: parentReplyId ?? null,
         })
-        .select()
+        .select('id')
         .single()
 
       if (error) throw error
-      return data
+      return data as { id: string }
     },
 
-    onMutate: async ({ body, parentReplyId }: CreateReplyInput) => {
-      // Cancel in-flight queries so they don't overwrite optimistic update
-      await queryClient.cancelQueries({ queryKey: repliesKey })
-
-      // Snapshot current data
-      const snapshot = queryClient.getQueryData<InfiniteData<ReplyWithAuthor[]>>(repliesKey)
-
-      // Build temp optimistic reply
-      const tempReply: ReplyWithAuthor = {
-        id: crypto.randomUUID(),
-        post_id: postId,
-        user_id: userId,
-        body,
-        parent_reply_id: parentReplyId ?? null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_deleted: false,
-        author: { display_name: 'You', avatar_url: null, tier: 'connected' as const },
-      }
-
-      // Append to last page of InfiniteData
-      if (snapshot) {
-        const pages = snapshot.pages
-        const lastPage = pages[pages.length - 1] ?? []
-        const newLastPage = [...lastPage, tempReply]
-        const newPages = [...pages.slice(0, pages.length - 1), newLastPage]
-
-        queryClient.setQueryData<InfiniteData<ReplyWithAuthor[]>>(repliesKey, {
-          ...snapshot,
-          pages: newPages,
-        })
-      } else {
-        // No existing data — create initial structure
-        queryClient.setQueryData<InfiniteData<ReplyWithAuthor[]>>(repliesKey, {
-          pages: [[tempReply]],
-          pageParams: [undefined],
-        })
-      }
-
-      return { snapshot }
-    },
-
-    onError: (_err, _vars, context) => {
-      // Restore snapshot on error
-      if (context?.snapshot) {
-        queryClient.setQueryData(repliesKey, context.snapshot)
-      }
-    },
-
-    onSettled: () => {
-      // Invalidate replies and feed (reply_count changes)
-      queryClient.invalidateQueries({ queryKey: repliesKey })
+    onSuccess: async () => {
+      // reply_count on the post changes too, so the feed's count is refreshed as well.
       queryClient.invalidateQueries({ queryKey: ['boosted-feed'] })
+      await queryClient.invalidateQueries({ queryKey: ['replies', postId] })
     },
   })
 }

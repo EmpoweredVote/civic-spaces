@@ -221,7 +221,7 @@ const WHATS_NEW_TEXT = () =>
     .join(' \n ')
 
 /** Text that can only come from a write affordance. Affordances #1, #2, #7 and #8. */
-const WRITE_WORDS = 'Join the conversation|Share an idea|Discard draft|Sign in to (join|share)|Post it in .* instead'
+const WRITE_WORDS = 'Join the conversation|Share your thoughts|Write a reply|Start a conversation|Share an idea|Discard draft|Sign in to (join|share)|Post it in .* instead'
 
 /**
  * One short, stable phrase per reason — the thing the notice must SAY when

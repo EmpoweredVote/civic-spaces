@@ -7,7 +7,7 @@
  * 🔴 ILLUSTRATIVE, NOT CIVIC RECORD. Nothing here is an official proposal, a vote, or a
  * description of what any one city is doing. The UI labels it as a conversation starter
  * wherever it appears. There is no topics table in civic_spaces and posts carry no topic
- * id, so a topic is NOT linked to existing posts — "Join the conversation" always opens
+ * id, so a topic is NOT linked to existing posts — "Share your thoughts" always opens
  * the create-post composer with an editable draft. Do not "find the related post" by
  * matching titles: two posts that share words are not the same conversation.
  *

@@ -11,7 +11,10 @@ import {
   writeResume,
   type ExploreDraft,
 } from './exploreStorage'
-import { CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton } from './exploreUi'
+import { ArrowIcon, CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton, TEXT_FIELD } from './exploreUi'
+import { WritingGuidance } from '../WritingGuidance'
+import { guidanceFor } from '../../lib/writingGuidance'
+import { focusAtEnd } from '../../lib/focusAtEnd'
 import { ProvenanceTag, SourceNote } from './provenance'
 import { MODULE_REGISTRY, ReservedRoom, ReservedRoomGroup, reservedRoomsIn } from './registry'
 import { ReadOnlyNotice } from '../ReadOnlyNotice'
@@ -173,7 +176,7 @@ interface ExploreViewProps {
    * is the resolved place name for that key's slice — ExploreView only ever
    * builds a key from the composition it is rendering, so the two always agree.
    */
-  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null) => void
+  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null, topic?: ExploreTopic) => void
   /** Brings the column back to its top when the view inside it changes. */
   onScrollTop?: () => void
   /** True when the right sidebar shows What's new (md+), so the column keeps it only below md. */
@@ -184,7 +187,6 @@ interface ExploreViewProps {
   onGoToView?: (view: 'explore' | 'conversations') => void
 }
 
-const TEXT_FIELD = `w-full rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-brand dark:focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand/30`
 
 /**
  * Explore is now a RENDERER: it resolves the composition for this slice, builds the
@@ -338,18 +340,29 @@ export function ExploreView({
       if (isViewOnly) return
       // Persist first: the draft is what survives sign-in. Hand the same object over
       // rather than making AppShell read it back — storage may have refused the write.
-      onStartConversation(keyFor(topicId), saveDraft(topicId, {}), destination?.name ?? null)
+      onStartConversation(keyFor(topicId), saveDraft(topicId, {}), destination?.name ?? null, topicsById.get(topicId))
     },
-    [saveDraft, keyFor, destination, onStartConversation, isViewOnly],
+    [saveDraft, keyFor, destination, onStartConversation, isViewOnly, topicsById],
   )
 
   // An open topic is stored with the composition it was opened in, so switching tab
   // cannot carry it onto a slice whose Join button points somewhere else.
   const compositionKey = composition?.key ?? null
+  // Where the list was scrolled when a topic opened, so Back returns to the same card
+  // rather than to the top of the page.
+  const listScrollRef = useRef<number | null>(null)
   const openTopic = useCallback(
     (topicId: TopicId | null) => {
       setUi({ openTopic: topicId && compositionKey ? { key: compositionKey, topicId } : null })
-      onScrollTop?.()
+      if (topicId) {
+        listScrollRef.current = window.scrollY
+        onScrollTop?.()
+        return
+      }
+      const y = listScrollRef.current
+      listScrollRef.current = null
+      if (y === null) onScrollTop?.()
+      else requestAnimationFrame(() => window.scrollTo({ top: y }))
     },
     [setUi, onScrollTop, compositionKey],
   )
@@ -429,12 +442,12 @@ export function ExploreView({
      * the key; otherwise the note says "your City community" rather than naming the
      * wrong place.
      */
-    onStartConversation(key, draft, key === keyFor(marker.topicId) ? destination?.name ?? null : null)
+    onStartConversation(key, draft, key === keyFor(marker.topicId) ? destination?.name ?? null : null, topicsById.get(marker.topicId))
     // 🔴 isViewOnly is a DEPENDENCY, and it is the only thing that changes when the
     // member presses Switch back: `destination` and `isAuthenticated` are identical
     // either side of that transition. Without it React never re-runs this effect and a
     // deferred marker sits there until the next mount.
-  }, [isAuthenticated, destination, slices, keyFor, onStartConversation, isViewOnly])
+  }, [isAuthenticated, destination, slices, keyFor, onStartConversation, isViewOnly, topicsById])
 
   if (isLoading) return <ExploreSkeleton />
   // Volunteer has no Explore and never has — levelFor() returns null and so does this.
@@ -619,6 +632,8 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
   const { destination, isAuthenticated, meetings } = ctx
   const draft = ctx.draftFor(topic.id)
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const guidance = useMemo(() => guidanceFor(topic), [topic])
   // Move focus to the new view's heading, as opening a thread changes the whole column.
   useEffect(() => headingRef.current?.focus({ preventScroll: true }), [topic.id])
 
@@ -696,6 +711,26 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
           <p className="mt-0.5 text-base font-bold text-gray-900 dark:text-gray-100">{topic.question}</p>
         </div>
 
+        {/* 🔴 Related conversations: an honest empty state, not a search. A post has no
+            topic — civic_spaces.posts is (slice_id, title, body) — so nothing ties a
+            conversation to this topic, and matching on words would be a guess presented
+            as a link. Data this needs from the API: a topic reference on each post. */}
+        <div className="rounded-xl bg-gray-50 dark:bg-gray-800/60 p-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Conversations about this topic</h3>
+          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+            Conversations aren’t linked to topics yet, so we can’t show related ones here. Sharing your thoughts starts a new conversation.
+          </p>
+          {ctx.onGoToView && (
+            <button
+              type="button"
+              onClick={() => ctx.onGoToView?.('conversations')}
+              className={`mt-1.5 inline-flex items-center gap-1.5 rounded text-sm font-semibold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
+            >
+              Browse all conversations{ctx.placeName ? ` in ${ctx.placeName}` : ''} <ArrowIcon />
+            </button>
+          )}
+        </div>
+
         {/*
           🔴 While view-only there is NO form here. Not a disabled one: no <form>, no
           <input>, no <textarea>, no submit, no Discard — affordances #1, #4, #5 and #7
@@ -752,7 +787,8 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
           <label className="flex flex-col gap-1">
             <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Your thoughts</span>
             <textarea
-              rows={3}
+              ref={bodyRef}
+              rows={4}
               value={draft.body}
               maxLength={10000}
               onChange={(e) => ctx.saveDraft(topic.id, { body: e.target.value })}
@@ -760,6 +796,14 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
               className={`${TEXT_FIELD} resize-y`}
             />
           </label>
+
+          <WritingGuidance
+            guidance={guidance}
+            value={draft.body}
+            maxLength={10000}
+            onChange={(body) => ctx.saveDraft(topic.id, { body })}
+            onApplied={() => focusAtEnd(bodyRef.current)}
+          />
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {isAuthenticated && destination
@@ -769,13 +813,9 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
                 : 'Saved on this device and kept through sign-in. Nothing is published until you press Post.'}
           </p>
 
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            No conversation is linked to this topic yet, so joining starts one with your draft.
-          </p>
-
           <div className="flex flex-wrap items-center gap-2">
             <PrimaryButton type="submit" disabled={isAuthenticated && !destination}>
-              {isAuthenticated ? 'Join the conversation' : 'Sign in to join the conversation'}
+              {isAuthenticated ? 'Share your thoughts' : 'Sign in to share your thoughts'}
             </PrimaryButton>
             {hasDraft && (
               <SecondaryButton onClick={() => ctx.discardDraft(topic.id)}>Discard draft</SecondaryButton>

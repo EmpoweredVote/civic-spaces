@@ -9,7 +9,7 @@ import { useEnsureSlices } from '../hooks/useEnsureSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
 import { useHeroBanner } from '../hooks/useHeroBanner'
-import { useJurisdictionName } from '../hooks/useJurisdictionName'
+import { useJurisdictionName, useSliceNavLabel } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import { usePlaceRepresentatives } from '../hooks/usePlaceRepresentatives'
@@ -53,6 +53,8 @@ import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
 import { CivicSpacesMark } from './CivicSpacesMark'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
+import type { ExploreTopic } from '../types/explore'
+import type { ComponentProps } from 'react'
 
 /**
  * The location banner for the active slice: hero image, name, member counts, and the
@@ -210,6 +212,18 @@ function ActiveLocationCard({ slice, fallbackName }: { slice: SliceInfo; fallbac
  * the city's scheduled public meetings. Both queries are shared with (or as cheap as)
  * the banner's, and this renders once, for the active tab only.
  */
+/**
+ * A forum panel with its place named, for the composer ("Posting to Asheville") and the
+ * thread ("Conversation in Asheville"). The lookup runs once per tab here, the same
+ * per-row shape NavSidebar's GeoNavItem uses — never inside the panel, which is
+ * mounted six times. null while the name is still the generic tab label.
+ */
+function NamedFeedPanel({ slice, ...props }: { slice: SliceInfo } & ComponentProps<typeof SliceFeedPanel>) {
+  const fallback = TAB_LABELS[slice.sliceType]
+  const name = useSliceNavLabel(slice, fallback)
+  return <SliceFeedPanel {...props} sliceType={slice.sliceType} placeName={name !== fallback ? name : null} />
+}
+
 function ActiveEventsWidget({
   slice,
   fallbackName,
@@ -373,7 +387,7 @@ function ActiveExplore({
   viewingSliceIndex: number | undefined
   /** Absent while visiting a place: there is no own shard to return to. 17-05 adds "Back to my spaces". */
   onReturnToOwnSlice?: () => void
-  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null) => void
+  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null, topic?: ExploreTopic) => void
   onScrollTop: () => void
   onGoToView: (view: ForumView) => void
   /** False while the right sidebar is collapsed, so "What's new" shows inline instead. */
@@ -1204,7 +1218,7 @@ export default function AppShell() {
    * A signed-out visitor is sent through the real sign-in; ExploreView replays this
    * after they return, from a resume marker carrying the whole key.
    */
-  const handleStartConversation = useCallback((key: string, draft: ExploreDraft, destinationName: string | null) => {
+  const handleStartConversation = useCallback((key: string, draft: ExploreDraft, destinationName: string | null, topic?: ExploreTopic) => {
     /**
      * 🔴 Defence in depth, at the far end of all three composer paths. Explore must
      * not OFFER this while view-only (16-CONTEXT locked decision 4) and RLS would
@@ -1280,6 +1294,7 @@ export default function AppShell() {
       title: draft.title,
       body: draft.body,
       contextNote: `Posting to ${place ? `${place}, your` : 'your'} ${TAB_LABELS[tab]} community. Edit anything before you post.`,
+      topic,
       onPosted: () => writeDraft(key, null),
       onDraftChange: (values) => {
         const current = readDrafts()[key]
@@ -1839,7 +1854,9 @@ export default function AppShell() {
                       const mode = feedModes[tabKey]
                       return (
                         <div key={tabKey} className={isShown ? 'flex flex-col' : 'hidden'}>
-                          <SliceFeedPanel
+                          <NamedFeedPanel
+                            slice={slice}
+                            loginUrl={isAuthenticated ? undefined : loginUrl}
                             sliceId={viewing?.id ?? slice.id}
                             isViewOnly={isViewOnly}
                             noWriteReason={noWriteReason}

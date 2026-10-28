@@ -114,3 +114,10 @@ export function ArrowIcon() {
     </svg>
   )
 }
+
+/** A text input or textarea: Explore's draft fields, the post composer and the reply box. */
+export const TEXT_FIELD =
+  'w-full rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-brand dark:focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand/30'
+
+/** The same field marked invalid — a red edge, with the message tied to it by aria-describedby. */
+export const TEXT_FIELD_INVALID = '!border-red-500 dark:!border-red-400'
