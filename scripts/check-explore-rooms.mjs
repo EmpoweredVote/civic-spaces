@@ -69,7 +69,7 @@
  * namespace exposes chromium under `default`: read both.
  *
  * 🔴 Playwright's `colorScheme` context option does nothing in this app. Dark is
- * class-based and set before first paint from the `ev_color_scheme` cookie,
+ * class-based and set before first paint from the `ev_theme` cookie,
  * never from `prefers-color-scheme` (src/lib/colorScheme.ts). The cookie is set
  * and `documentElement.classList` is ASSERTED to match.
  *
@@ -450,7 +450,7 @@ const errors = { page: [], console: [], noise: [] }
  */
 async function open({ tab, place }) {
   const ctx = await browser.newContext({ viewport: DESKTOP })
-  await ctx.addCookies([{ name: 'ev_color_scheme', value: 'dark', domain: 'localhost', path: '/' }])
+  await ctx.addCookies([{ name: 'ev_theme', value: 'dark', domain: 'localhost', path: '/' }])
   const page = await ctx.newPage()
   page.on('pageerror', (e) => errors.page.push(String(e)))
   page.on('console', (m) => {

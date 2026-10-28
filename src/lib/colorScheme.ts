@@ -21,10 +21,22 @@ export type ColorScheme = 'light' | 'dark'
  * DARK: an EV visitor gets dark until they say otherwise, and `prefers-color-scheme`
  * is deliberately not consulted.
  *
- * Any other EV app can adopt this by reading and writing the same cookie under
- * the same name — see `.planning/research/ev-color-scheme-contract.md`.
+ * 🔴 THE COOKIE IS NAMED `ev_theme`, AND IT USED TO BE NAMED `ev_color_scheme` HERE.
+ * This repo designed its contract on 2026-09-21 without knowing that essentials had
+ * shipped a `.empowered.vote` cookie called `ev_theme` on 2026-05-05. Two correct
+ * implementations under two names interoperate with nobody, and this one was alone:
+ * by 2026-10-27 the landing page, essentials, Profile, Admin and Compass all read and
+ * write `ev_theme`. So this repo moved to the incumbent name — not because it was
+ * better, only because it was already there and outnumbered this one seven to one.
+ *
+ * `LEGACY_COOKIE_NAME` is still READ, so a member who set light here before the rename
+ * keeps it; the next write republishes under the new name. Nothing writes the old name.
+ *
+ * Contract: `.planning/research/ev-color-scheme-contract.md`.
  */
-export const COOKIE_NAME = 'ev_color_scheme'
+export const COOKIE_NAME = 'ev_theme'
+/** The name this repo used before 2026-10-27. Read for migration, never written. */
+export const LEGACY_COOKIE_NAME = 'ev_color_scheme'
 export const STORAGE_KEY = 'ev:color-scheme'
 export const DEFAULT_SCHEME: ColorScheme = 'dark'
 
@@ -35,12 +47,17 @@ function isScheme(value: unknown): value is ColorScheme {
   return value === 'light' || value === 'dark'
 }
 
-function readCookie(): ColorScheme | null {
+function readCookieNamed(name: string): ColorScheme | null {
   if (typeof document === 'undefined') return null
   const match = document.cookie.match(
-    new RegExp('(?:^|;\\s*)' + COOKIE_NAME + '=(light|dark)(?:;|$)'),
+    new RegExp('(?:^|;\\s*)' + name + '=(light|dark)(?:;|$)'),
   )
   return match ? (match[1] as ColorScheme) : null
+}
+
+/** The shared cookie, else this repo's pre-rename one. */
+function readCookie(): ColorScheme | null {
+  return readCookieNamed(COOKIE_NAME) ?? readCookieNamed(LEGACY_COOKIE_NAME)
 }
 
 function readStorage(): ColorScheme | null {

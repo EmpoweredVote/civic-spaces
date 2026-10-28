@@ -47,7 +47,7 @@
  * ── 🔴 The theme is ASSERTED, never assumed ──────────────────────────────────
  *
  * Playwright's `colorScheme` context option does NOTHING in this app. The
- * bootstrap in `index.html` reads the `ev_color_scheme` cookie before first
+ * bootstrap in `index.html` reads the `ev_theme` cookie before first
  * paint and deliberately ignores `prefers-color-scheme` — it tests
  * `s !== 'light'`, not `s === 'dark'`. A run that does not assert this silently
  * produces 24 dark images and reports a four-way pass, which is worse than no
@@ -254,7 +254,7 @@ async function freshContext(theme, viewport, { reducedMotion } = {}) {
     deviceScaleFactor: 2,
     ...(reducedMotion ? { reducedMotion: 'reduce' } : {}),
   })
-  await ctx.addCookies([{ name: 'ev_color_scheme', value: theme, domain: 'localhost', path: '/' }])
+  await ctx.addCookies([{ name: 'ev_theme', value: theme, domain: 'localhost', path: '/' }])
   const page = await ctx.newPage()
   attachErrorSinks(page)
   await stubPlaceLegs(page, fx)
@@ -273,7 +273,7 @@ async function assertTheme(page, theme, where) {
   if (dark !== (theme === 'dark')) {
     throw new Error(
       `theme ${theme} did not apply at ${where} — documentElement.dark=${dark}. ` +
-        'The ev_color_scheme cookie is the switch; Playwright colorScheme does nothing here.',
+        'The ev_theme cookie is the switch; Playwright colorScheme does nothing here.',
     )
   }
 }

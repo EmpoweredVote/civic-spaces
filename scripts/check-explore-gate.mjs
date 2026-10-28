@@ -75,7 +75,7 @@
  * shape this plan exists to prevent.
  *
  * 🔴 Playwright's `colorScheme` context option does nothing in this app. Dark is
- * class-based and is set before first paint from the `ev_color_scheme` cookie,
+ * class-based and is set before first paint from the `ev_theme` cookie,
  * never from `prefers-color-scheme` (src/lib/colorScheme.ts). So the theme here
  * is set by cookie-and-class and `documentElement.classList` is ASSERTED to
  * match — asking for light and silently rendering dark is the failure that
@@ -614,7 +614,7 @@ const browser = await chromium.launch()
  *  cookie before first paint and a later change needs a reload to take. */
 async function freshContext(theme, viewport, init) {
   const ctx = await browser.newContext({ viewport })
-  await ctx.addCookies([{ name: 'ev_color_scheme', value: theme, domain: 'localhost', path: '/' }])
+  await ctx.addCookies([{ name: 'ev_theme', value: theme, domain: 'localhost', path: '/' }])
   const page = await ctx.newPage()
   const errors = { page: [], console: [], noise: [] }
   page.on('pageerror', (e) => errors.page.push(String(e)))
@@ -779,7 +779,7 @@ for (const spec of TABS) {
 
   await page.goto(`${ORIGIN}/?dev=1`, { waitUntil: 'domcontentloaded' })
   if (!(await bootedWithTheme(page, 'dark'))) {
-    check(tab, 1, 'the page booted with the requested theme (ev_color_scheme cookie)', false,
+    check(tab, 1, 'the page booted with the requested theme (ev_theme cookie)', false,
       'documentElement.dark does not match the cookie — Playwright colorScheme does nothing here.')
     await ctx.close()
     continue
@@ -847,7 +847,7 @@ for (const spec of TABS) {
     const results = []
     for (const theme of ['dark', 'light']) {
       await page.evaluate((t) => {
-        document.cookie = `ev_color_scheme=${t}; path=/; max-age=31536000; SameSite=Lax`
+        document.cookie = `ev_theme=${t}; path=/; max-age=31536000; SameSite=Lax`
         document.documentElement.classList.toggle('dark', t === 'dark')
       }, theme)
       // 🔴 Asserted, not assumed. Playwright's colorScheme would have changed nothing.
@@ -863,7 +863,7 @@ for (const spec of TABS) {
     }
     await page.setViewportSize(DESKTOP)
     await page.evaluate(() => {
-      document.cookie = 'ev_color_scheme=dark; path=/; max-age=31536000; SameSite=Lax'
+      document.cookie = 'ev_theme=dark; path=/; max-age=31536000; SameSite=Lax'
       document.documentElement.classList.add('dark')
     })
     await page.waitForTimeout(300)
@@ -1122,7 +1122,7 @@ async function runSignedOut(fx) {
 
   await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
   if (!(await bootedWithTheme(page, 'dark', WELCOME))) {
-    check(tab, 1, 'the page booted with the requested theme (ev_color_scheme cookie)', false,
+    check(tab, 1, 'the page booted with the requested theme (ev_theme cookie)', false,
       'documentElement.dark does not match the cookie, or the welcome screen never mounted.')
     await ctx.close()
     return
@@ -1256,7 +1256,7 @@ async function runSignedOut(fx) {
     const results = []
     for (const theme of ['dark', 'light']) {
       await page.evaluate((t) => {
-        document.cookie = `ev_color_scheme=${t}; path=/; max-age=31536000; SameSite=Lax`
+        document.cookie = `ev_theme=${t}; path=/; max-age=31536000; SameSite=Lax`
         document.documentElement.classList.toggle('dark', t === 'dark')
       }, theme)
       const classOk = await page.evaluate((t) => document.documentElement.classList.contains('dark') === (t === 'dark'), theme)
@@ -1398,7 +1398,7 @@ async function runMemberNoSlice() {
 
   await page.goto(`${ORIGIN}/?dev=1&place=arden`, { waitUntil: 'domcontentloaded' })
   if (!(await bootedWithTheme(page, 'dark'))) {
-    check(tab, 1, 'the page booted with the requested theme (ev_color_scheme cookie)', false,
+    check(tab, 1, 'the page booted with the requested theme (ev_theme cookie)', false,
       'documentElement.dark does not match the cookie.')
     await ctx.close()
     return
@@ -1529,7 +1529,7 @@ async function runMemberOtherPlace(fx) {
 
   await page.goto(`${ORIGIN}/?dev=1&place=bloomington`, { waitUntil: 'domcontentloaded' })
   if (!(await bootedWithTheme(page, 'dark'))) {
-    check(tab, 1, 'the page booted with the requested theme (ev_color_scheme cookie)', false,
+    check(tab, 1, 'the page booted with the requested theme (ev_theme cookie)', false,
       'documentElement.dark does not match the cookie, or the member shell never mounted.')
     await ctx.close()
     return
@@ -1882,7 +1882,7 @@ async function runMemberOwnPlace(fx) {
 
   await page.goto(`${ORIGIN}/?dev=1`, { waitUntil: 'domcontentloaded' })
   if (!(await bootedWithTheme(page, 'dark'))) {
-    check(tab, 1, 'the page booted with the requested theme (ev_color_scheme cookie)', false,
+    check(tab, 1, 'the page booted with the requested theme (ev_theme cookie)', false,
       'documentElement.dark does not match the cookie, or the member shell never mounted.')
     await ctx.close()
     return
