@@ -21,8 +21,6 @@ import type { ExploreTopic } from '../types/explore'
 export interface ComposeRequest {
   title: string
   body: string
-  /** Shown above the form, e.g. "Posting to Bloomington" — names where this will land. */
-  contextNote?: string
   /** The topic this came from, preselected in the topic picker. */
   topic?: ExploreTopic
   /** Called once the post is created, so the source can drop its draft. */
@@ -38,8 +36,6 @@ interface PostComposerProps {
   userId: string
   editPost?: PostWithAuthor
   request?: ComposeRequest | null
-  /** Where this posts, named, for the line above the form. Absent while it resolves. */
-  placeName?: string | null
   /** The topics a conversation here can be about — the optional picker. */
   topicOptions?: ExploreTopic[]
   /** The post is saved: open it. Called only after the database confirms the insert. */
@@ -53,7 +49,6 @@ export default function PostComposer({
   userId,
   editPost,
   request,
-  placeName,
   topicOptions = [],
   onCreated,
 }: PostComposerProps) {
@@ -92,9 +87,8 @@ export default function PostComposer({
     return t && !topicOptions.some((o) => o.id === t.id) ? [t, ...topicOptions] : topicOptions
   }, [request?.topic, topicOptions])
   const [topicId, setTopicId] = useState('')
-  // The question being answered: the box's label and placeholder, never written into the post.
-  const [question, setQuestion] = useState<string | null>(null)
-  useEffect(() => setQuestion(null), [topicId])
+  // The title before a question replaced it, so un-picking gives the writer's title back.
+  const titleBeforeQuestion = useRef('')
   const topic = topics.find((t) => t.id === topicId) ?? null
   const questions = useMemo(() => (topic ? questionsFor(topic) : null), [topic])
 
@@ -124,6 +118,20 @@ export default function PostComposer({
   const title = createForm.watch('title') ?? ''
   const body = createForm.watch('body') ?? ''
   const editBody = editForm.watch('body') ?? ''
+
+  /**
+   * The selected question IS the title — read from it, so the two cannot disagree:
+   * edit the title and the chip simply stops being selected.
+   */
+  const question = questions?.includes(title) ? title : null
+
+  /** Pick a question as the title; pick it again to get the previous title back. */
+  const pickTitleQuestion = (q: string | null) => {
+    if (!question) titleBeforeQuestion.current = title
+    const next = q ?? titleBeforeQuestion.current
+    createForm.setValue('title', next.slice(0, POST_TITLE_MAX), { shouldDirty: true, shouldValidate: !!createForm.formState.errors.title })
+    focusAtEnd(bodyRef.current)
+  }
 
   const chooseTopic = (next: string) => {
     setTopicId(next)
@@ -167,7 +175,6 @@ export default function PostComposer({
   const titleError = createForm.formState.errors.title?.message
   const bodyError = createForm.formState.errors.body?.message
   const editError = editForm.formState.errors.body?.message
-  const where = request?.contextNote ?? (placeName ? `Posting to ${placeName}. Nothing is published until you press Post.` : null)
 
   const { ref: bodyFieldRef, ...bodyField } = createForm.register('body')
 
@@ -200,12 +207,6 @@ export default function PostComposer({
                 </svg>
               </button>
             </div>
-
-            {!isEditMode && where && (
-              <p className="mb-3 rounded-xl bg-brand-muted dark:bg-brand/15 px-3 py-2 text-sm text-brand dark:text-brand-light">
-                {where}
-              </p>
-            )}
 
             {/* The request failed. Nothing was saved, and the text is still in the form. */}
             {failed && (
@@ -266,20 +267,18 @@ export default function PostComposer({
                 {questions && !request && (
                   <QuestionPicker
                     key={topicId}
+                    label="Not sure what to call it? Pick a question from Empowered.vote as your title:"
                     questions={questions}
                     selected={question}
-                    onSelect={(q) => {
-                      setQuestion(q)
-                      focusAtEnd(bodyRef.current)
-                    }}
+                    onSelect={pickTitleQuestion}
                   />
                 )}
 
-                <Field id={`${id}-body`} label={question ?? 'Your thoughts'} count={body.length} max={POST_BODY_MAX} error={bodyError}>
+                <Field id={`${id}-body`} label="Your thoughts" count={body.length} max={POST_BODY_MAX} error={bodyError}>
                   <textarea
                     id={`${id}-body`}
                     rows={5}
-                    placeholder={question ? 'Write your answer…' : 'Share your thoughts…'}
+                    placeholder="Share your thoughts…"
                     maxLength={POST_BODY_MAX}
                     aria-invalid={!!bodyError}
                     aria-describedby={bodyError ? `${id}-body-err` : undefined}

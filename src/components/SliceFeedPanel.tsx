@@ -291,7 +291,6 @@ export default function SliceFeedPanel({
             userId={userId}
             editPost={editingPost ?? undefined}
             request={composeRequest}
-            placeName={placeName}
             topicOptions={topicOptions}
             onCreated={(postId) => onNavigateToThread(postId)}
           />

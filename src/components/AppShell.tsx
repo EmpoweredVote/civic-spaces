@@ -1218,7 +1218,7 @@ export default function AppShell() {
    * A signed-out visitor is sent through the real sign-in; ExploreView replays this
    * after they return, from a resume marker carrying the whole key.
    */
-  const handleStartConversation = useCallback((key: string, draft: ExploreDraft, destinationName: string | null, topic?: ExploreTopic) => {
+  const handleStartConversation = useCallback((key: string, draft: ExploreDraft, _destinationName: string | null, topic?: ExploreTopic) => {
     /**
      * 🔴 Defence in depth, at the far end of all three composer paths. Explore must
      * not OFFER this while view-only (16-CONTEXT locked decision 4) and RLS would
@@ -1287,13 +1287,9 @@ export default function AppShell() {
     }
     setForumView('conversations')
     scrollToContentTop()
-    // The name Explore already resolved for this key's slice, so the note says
-    // "Bloomington, your City community" rather than just "your City community".
-    const place = destinationName && destinationName !== TAB_LABELS[tab] ? destinationName : null
     panelRefs.current[tab]?.current?.compose({
       title: draft.title,
       body: draft.body,
-      contextNote: `Posting to ${place ? `${place}, your` : 'your'} ${TAB_LABELS[tab]} community. Edit anything before you post.`,
       topic,
       onPosted: () => writeDraft(key, null),
       onDraftChange: (values) => {

@@ -11,10 +11,9 @@ const MORE_MAX = 5
  * "Pick a question" — the one piece of writing help, shared by the topic page and the
  * post composer. Two question chips, and "More questions" for up to five more.
  *
- * 🔴 Picking a question NEVER writes into the post. It becomes the text box's placeholder
- * — the prompt the writer answers — and shows as selected. The writer's text is theirs
- * alone, so a question cannot end up repeated inside it. Tapping the selected chip again
- * clears it.
+ * The parent decides what a pick does. In the post pop-up it becomes the TITLE, and
+ * un-picking restores the title that was there before — see PostComposer. It never
+ * writes into the body, so a question cannot end up repeated inside the post.
  *
  * 🔴 Hand-written questions, the same for everyone — never presented as generated.
  */
@@ -22,11 +21,14 @@ export function QuestionPicker({
   questions,
   selected,
   onSelect,
+  label = 'Not sure where to start? Pick a question from Empowered.vote to answer:',
 }: {
   questions: string[]
   selected: string | null
   /** The chosen question, or null when the selected one is tapped again. */
   onSelect: (question: string | null) => void
+  /** The line above the chips — says what picking does where this picker lives. */
+  label?: string
 }) {
   const id = useId()
   const list = questions.slice(0, FIRST + MORE_MAX)
@@ -38,7 +40,7 @@ export function QuestionPicker({
   return (
     <div className="flex flex-col gap-2">
       <p id={`${id}-label`} className="text-xs text-gray-600 dark:text-gray-400">
-        Not sure where to start? Pick a question from Empowered.vote to answer:
+        {label}
       </p>
       <ul aria-labelledby={`${id}-label`} className="flex flex-wrap items-start gap-2">
         {shown.map((q) => {
