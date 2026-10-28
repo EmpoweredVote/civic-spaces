@@ -351,11 +351,8 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
      * that is genuinely unseeded. `check:explore-rooms` 1 covers the other half —
      * that it is PRESENT for the authenticated dev guest on their own shard.
      */
-    // Taken off the page on 2026-10-28: it repeated what the rest of Explore already
-    // says. The original gate is kept below so turning it back on is one line.
-    // available: (ctx) =>
-    //   ctx.composition.isUnseeded && !!ctx.placeName && ctx.isAuthenticated && !ctx.isViewOnly,
-    available: () => false,
+    available: (ctx) =>
+      ctx.composition.isUnseeded && !!ctx.placeName && ctx.isAuthenticated && !ctx.isViewOnly,
     Component: SeedInvitationModule,
     emptyState: 'hide',
   },
