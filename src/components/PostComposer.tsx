@@ -260,8 +260,10 @@ export default function PostComposer({
                   />
                 </Field>
 
-                {/* Under the title, as asked: the topic's questions, one selectable. */}
-                {questions && (
+                {/* Under the title: the topic's questions, one selectable — only for a post
+                    started from scratch. Arriving from an Explore topic, the topic itself is
+                    the prompt, so no questions are offered. */}
+                {questions && !request && (
                   <QuestionPicker
                     key={topicId}
                     questions={questions}

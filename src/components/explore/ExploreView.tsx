@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef } from 'react'
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 import {
@@ -12,9 +12,6 @@ import {
   type ExploreDraft,
 } from './exploreStorage'
 import { ArrowIcon, CARD, CategoryLabel, FOCUS, PrimaryButton, TEXT_FIELD } from './exploreUi'
-import { QuestionPicker } from '../QuestionPicker'
-import { questionsFor } from '../../lib/writingGuidance'
-import { focusAtEnd } from '../../lib/focusAtEnd'
 import { ProvenanceTag, SourceNote } from './provenance'
 import { MODULE_REGISTRY, ReservedRoom, ReservedRoomGroup, reservedRoomsIn } from './registry'
 import { ReadOnlyNotice } from '../ReadOnlyNotice'
@@ -633,11 +630,6 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
   const draft = ctx.draftFor(topic.id)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
-  const questions = useMemo(() => questionsFor(topic), [topic])
-  // The question being answered: shown as the box's label and placeholder, never written
-  // into the draft. Cleared when another topic opens.
-  const [question, setQuestion] = useState<string | null>(null)
-  useEffect(() => setQuestion(null), [topic.id])
   // Move focus to the new view's heading, as opening a thread changes the whole column.
   useEffect(() => headingRef.current?.focus({ preventScroll: true }), [topic.id])
 
@@ -772,7 +764,8 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
             </p>
           </div>
         ) : (
-        /* 2. The one thing to do: pick a question (optional), write, share. The draft is
+        /* 2. The one thing to do: write, share. The topic above is the prompt — no
+           question picker here; that is for a post started from scratch. The draft is
            saved on every keystroke, on this device; its title (topic.suggestedTitle)
            travels to the composer, where it can be edited before posting. */
         <form
@@ -784,7 +777,7 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
         >
           <div className="flex flex-col gap-1">
             <label htmlFor={`${id}-body`} className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {question ?? 'Your thoughts'}
+              Your thoughts
             </label>
             <textarea
               id={`${id}-body`}
@@ -793,19 +786,11 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
               value={draft.body}
               maxLength={10000}
               onChange={(e) => ctx.saveDraft(topic.id, { body: e.target.value })}
-              placeholder={question ? 'Write your answer…' : 'Write your thoughts, or pick a question below…'}
+              placeholder="Share what you think about this topic…"
               className={`${TEXT_FIELD} resize-y`}
             />
           </div>
 
-          <QuestionPicker
-            questions={questions}
-            selected={question}
-            onSelect={(q) => {
-              setQuestion(q)
-              focusAtEnd(bodyRef.current)
-            }}
-          />
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
             <PrimaryButton type="submit" size="card" disabled={isAuthenticated && !destination}>
