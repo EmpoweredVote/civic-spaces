@@ -12,8 +12,8 @@ import {
   type ExploreDraft,
 } from './exploreStorage'
 import { ArrowIcon, CARD, CategoryLabel, FOCUS, PrimaryButton, TEXT_FIELD } from './exploreUi'
-import { ProvenanceTag, SourceNote } from './provenance'
-import { MODULE_REGISTRY, ReservedRoom, ReservedRoomGroup, reservedRoomsIn } from './registry'
+import { SourceNote } from './provenance'
+import { MODULE_REGISTRY, ReservedRoom } from './registry'
 import { ReadOnlyNotice } from '../ReadOnlyNotice'
 import type { ExploreCtx } from './ExploreContext'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
@@ -523,13 +523,6 @@ export function ExploreView({
     }
   }
 
-  // Every reserved room this composition names, in its order, and the id the one
-  // grouped card is drawn at. Cheap — a walk of a dozen string ids — and outside
-  // the map so the list is built once rather than per module.
-  // (Indexed rather than `.at(-1)` — tsconfig's lib target predates it.)
-  const reservedRooms = reservedRoomsIn(composition.modules)
-  const lastReservedId = reservedRooms.length ? reservedRooms[reservedRooms.length - 1]?.id ?? null : null
-
   return (
     <div className="@container flex flex-col gap-6 @lg:gap-8 pb-2">
       {/* Above the module list AND above TopicDetail (below): the flag can be true
@@ -559,24 +552,12 @@ export function ExploreView({
           )
         }
         if (mod.emptyState === 'hide') return null
-        // 🔴 A reserved room renders inside ONE grouped card, drawn where the LAST
-        // of them sits — which in every composition is immediately before 'whats-new'.
-        //
-        // That keeps a real module as the page's final word ON MOBILE only.
-        // WhatsNewModule is `md:hidden` whenever the sidebar already carries the
-        // card (see WhatsNewModule.tsx), so from md up this grouped card IS the
-        // last block in the Explore column. Verified in the browser, both widths.
-        //
-        // Not where the FIRST sits: Federal lists 'federal-votes' third, and a
-        // nine-line "what this becomes" card above the races and the questions is
-        // the wall moved rather than removed.
-        //
-        // See ReservedRoomGroup for the measurement that put it here. Every room
-        // still renders and still carries data-explore-room; only the card count
-        // changes, and that is a rendering decision — DEFAULT_MODULES is untouched.
-        if (mod.reserved) {
-          return id === lastReservedId ? <ReservedRoomGroup key={id} rooms={reservedRooms} /> : null
-        }
+        // Reserved rooms — features with no source yet (ballot measures, symposiums,
+        // civic listening…) — are not shown. They used to render together as one
+        // "What this space becomes" card; it was taken off the page on 2026-10-28 as
+        // noise. ReservedRoomGroup is still in registry.tsx if it is wanted back, and
+        // DEFAULT_MODULES is untouched.
+        if (mod.reserved) return null
         return <ReservedRoom key={id} id={id} {...mod.emptyState} />
       })}
     </div>
@@ -655,7 +636,6 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
           </svg>
           Explore
         </button>
-        <span className="ml-auto"><ProvenanceTag topic={topic} /></span>
       </div>
 
       <div className="p-4 @lg:p-5 flex flex-col gap-5">
