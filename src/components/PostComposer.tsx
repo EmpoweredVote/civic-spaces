@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Sheet } from 'react-modal-sheet'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -61,6 +60,17 @@ export default function PostComposer({
   const id = useId()
   const isEditMode = !!editPost
   const bodyRef = useRef<HTMLTextAreaElement | null>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const isOpenRef = useRef(isOpen)
+  isOpenRef.current = isOpen
+
+  // The parent owns open/closed; the <dialog> follows it.
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (isOpen && !dialog.open) dialog.showModal()
+    else if (!isOpen && dialog.open) dialog.close()
+  }, [isOpen])
 
   const createMutation = useCreatePost(sliceId, userId)
   const editMutation = useEditPost()
@@ -117,7 +127,7 @@ export default function PostComposer({
     const picked = topics.find((t) => t.id === next)
     // Fill an EMPTY title only. Never replace something the member typed.
     if (picked && !createForm.getValues('title').trim()) {
-      createForm.setValue('title', picked.suggestedTitle, { shouldDirty: true })
+      createForm.setValue('title', picked.suggestedTitle, { shouldDirty: true, shouldValidate: !!createForm.formState.errors.title })
     }
   }
 
@@ -159,26 +169,30 @@ export default function PostComposer({
   const { ref: bodyFieldRef, ...bodyField } = createForm.register('body')
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} detent="content-height">
-      {/* react-modal-sheet paints the container and the drag handle white from its own
-          stylesheet, so the surface has to be set here as well as the text inside it. */}
-      <Sheet.Container className="bg-white dark:!bg-gray-900">
-        <Sheet.Header className="bg-white dark:!bg-gray-900" />
-        <Sheet.Content>
-          <Sheet.Scroller>
-          <div className="mx-auto w-full max-w-2xl px-4 pb-8" role="dialog" aria-modal="true" aria-labelledby={`${id}-h`}>
+    /* A centred modal, the same native <dialog> "What's new" opens: showModal() gives the
+       backdrop, focus trapping, Escape, and focus back on the Post button when it closes. */
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={`${id}-h`}
+      // Escape and close() both land here. Only report it while the parent still thinks
+      // the dialog is open, or a close the parent asked for would echo back to it.
+      onClose={() => isOpenRef.current && onClose()}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="m-auto w-[min(40rem,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200/60 dark:border-white/[0.08] bg-white dark:bg-gray-900 p-0 shadow-2xl backdrop:bg-black/50"
+    >
+          <div className="px-5 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
             {/* Title bar */}
-            <div className="flex items-center justify-between mb-3">
-              <h2 id={`${id}-h`} className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 id={`${id}-h`} className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
                 {isEditMode ? 'Edit post' : 'New conversation'}
               </h2>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className={`p-1 rounded-full text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${FOCUS}`}
+                className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 ${FOCUS}`}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -317,11 +331,7 @@ export default function PostComposer({
               </form>
             )}
           </div>
-          </Sheet.Scroller>
-        </Sheet.Content>
-      </Sheet.Container>
-      <Sheet.Backdrop onTap={onClose} />
-    </Sheet>
+    </dialog>
   )
 }
 
