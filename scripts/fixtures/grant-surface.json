@@ -14,15 +14,7 @@
         "created_at"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -43,15 +35,7 @@
         "created_at"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -81,15 +65,7 @@
         "updated_at"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -115,15 +91,7 @@
         "is_suspended"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -149,15 +117,7 @@
         "content_type"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -178,15 +138,7 @@
         "created_at"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -209,15 +161,7 @@
         "updated_at"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -304,15 +248,7 @@
         "granted_by"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -340,15 +276,7 @@
         "reply_count"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -374,15 +302,7 @@
         "is_deleted"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -404,15 +324,7 @@
         "joined_at"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
@@ -436,15 +348,7 @@
         "created_at"
       ],
       "grants": {
-        "anon": [
-          "DELETE",
-          "INSERT",
-          "REFERENCES",
-          "SELECT",
-          "TRIGGER",
-          "TRUNCATE",
-          "UPDATE"
-        ],
+        "anon": [],
         "authenticated": [
           "DELETE",
           "INSERT",
