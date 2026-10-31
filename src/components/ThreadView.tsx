@@ -11,9 +11,8 @@ import InformUpgradePrompt from './InformUpgradePrompt'
 import EmpoweredBadge from './EmpoweredBadge'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
 import { usePublicThread } from '../hooks/usePublicThread'
-import { authorPresentation } from '../lib/publicProjection'
+import { authorPresentation, threadTree } from '../lib/publicProjection'
 import { splitHeadline } from '../lib/postHeadline'
-import type { ReplyWithAuthor } from '../types/database'
 import type { NoWriteReason } from '../lib/writeAccess'
 
 /**
@@ -83,10 +82,12 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
   // Both called every render, exactly one enabled — the same rule SliceFeedPanel
   // follows for the two feeds, and for the same reason: the member path carries
   // author ids and block filtering, the public path carries neither.
-  const memberThread = useThread(isPublic ? null : postId)
-  const publicThread = usePublicThread(postId, isPublic)
-  const { post, replies, fetchMoreReplies, hasMoreReplies, isLoading } = isPublic ? publicThread : memberThread
+  // Hoisted above the thread hooks: the public queries are cached PER VIEWER
+  // (D-49), so the reader's id is part of their keys.
   const { userId } = useAuth()
+  const memberThread = useThread(isPublic ? null : postId)
+  const publicThread = usePublicThread(userId, postId, isPublic)
+  const { post, replies, fetchMoreReplies, hasMoreReplies, isLoading } = isPublic ? publicThread : memberThread
   const { profile } = useProfile(userId)
 
   const [activeReplyTarget, setActiveReplyTarget] = useState<ReplyTarget | null>(null)
@@ -171,16 +172,22 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
     }
   }
 
-  // Build nested reply tree
-  const rootReplies = replies.filter((r) => !r.parent_reply_id)
-  const childMap = new Map<string, ReplyWithAuthor[]>()
-  replies.forEach((r) => {
-    if (r.parent_reply_id) {
-      const children = childMap.get(r.parent_reply_id) ?? []
-      children.push(r)
-      childMap.set(r.parent_reply_id, children)
-    }
-  })
+  /**
+   * 🔴 One body, because the two paths disagree about what arrives.
+   *
+   * This was `replies.filter((r) => !r.parent_reply_id)`, which is correct for the
+   * MEMBER path: `useThread` selects every reply including deleted ones, so a deleted
+   * parent is present as a `[Reply deleted]` placeholder and every child has somewhere
+   * to nest. `get_public_replies` filters `is_deleted` on the row itself and leaves
+   * the children behind, so on the public path a child of a deleted reply pointed at
+   * a parent that is not on the page — and vanished, while the count above the list
+   * (`replies.length`) still included it. Three deleted roots out of six read as
+   * "3 replies" over an empty thread.
+   *
+   * `threadTree` promotes a reply with nowhere to nest to a root instead of dropping
+   * it, and is checked by check:composition 88–90.
+   */
+  const { roots: rootReplies, childMap } = threadTree(replies)
 
   const closeComposer = () => {
     setReplyComposerOpen(false)

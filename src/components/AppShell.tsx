@@ -670,7 +670,7 @@ const INITIAL_SCROLL_MAP: Record<TabKey, boolean> = {
 
 export default function AppShell() {
   const { userId, isAuthenticated, isLoading: authLoading, loginUrl } = useAuth()
-  const { slices, hasJurisdiction, isLoading } = useAllSlices(userId)
+  const { slices, hasJurisdiction, isLoading, isError: slicesError } = useAllSlices(userId)
 
   // A signed-in member with no spaces is usually someone who set their address
   // after their session started, not someone without one. Ask the assigner again
@@ -1027,9 +1027,20 @@ export default function AppShell() {
     const found = await locatePost(postId)
 
     if (found.kind === 'unavailable') {
-      // One message for not-found, deleted and not-yours alike: saying which
-      // it was would tell someone whether a post they cannot read exists.
-      toast.error("That conversation isn't in one of your civic spaces")
+      /**
+       * One message for not-found, deleted and not-yours alike: saying which it was
+       * would tell someone whether a post they cannot read exists. 🔴 The conflation
+       * stays; the WORDING had to split. Since Phase 18 this line is also what a
+       * signed-out reader gets, and "isn't in one of your civic spaces" describes a
+       * membership relation they do not have — it is the most-seen failure string on
+       * the new public path and it was addressed to the wrong half of its audience.
+       * Both branches say exactly as little as the other.
+       */
+      toast.error(
+        isAuthenticated
+          ? "That conversation isn't in one of your civic spaces"
+          : "That conversation isn't available to read",
+      )
       navigate('/', { replace: true })
       return
     }
@@ -1068,9 +1079,23 @@ export default function AppShell() {
     if (found.kind === 'public') {
       const place = placeForPublicPost(found.sliceType, found.geoid)
       if (!place) {
-        // federal / unified — placeless, so there is no place to enter and
-        // nothing honest to invent. See placeForPublicPost.
-        toast.error('Open that conversation from the National or Unified tab')
+        /**
+         * federal / unified — placeless, so there is no place to enter and nothing
+         * honest to invent. See placeForPublicPost.
+         *
+         * 🔴 The message cannot mention a TAB. This branch is only reachable after
+         * locateForMember gave up, and every signed-in member holds a federal and a
+         * unified slice — so a federal post resolves `own` for them and never gets
+         * here. The only readers who see this are signed-out visitors and Inform
+         * accounts, who are then sent to the welcome screen, where there is no
+         * National tab and no Unified tab to follow the instruction with. The first
+         * draft told them to do something impossible.
+         */
+        toast.error(
+          isAuthenticated
+            ? "That conversation is in the national space, which isn't one of yours yet"
+            : 'That conversation is in the national space — sign in to read it',
+        )
         navigate('/', { replace: true })
         return
       }
@@ -1106,7 +1131,9 @@ export default function AppShell() {
     }))
     setActivePostIds((prev) => ({ ...prev, [found.tab]: postId }))
     setScrollToLatestMap((prev) => ({ ...prev, [found.tab]: scrollToLatest }))
-  }, [locatePost, handleTabChange, navigate])
+    // isAuthenticated is read by both toast branches above: the same outcome has to
+    // be worded for a member and for a visitor, who are told exactly as little.
+  }, [locatePost, handleTabChange, navigate, isAuthenticated])
 
   const handleNotificationNavigate = useCallback(
     (postId: string) => openPost(postId, true),
@@ -1165,10 +1192,22 @@ export default function AppShell() {
      * deep link as public during the first render after a reload.
      */
     if (authLoading) return
-    if (isAuthenticated && isLoading) return
+    /**
+     * 🔴 `slicesError` is in here, and leaving it out was a live defect.
+     * `useAllSlices` returns `{}` both when a member holds nothing AND when its
+     * query failed — `retry: 1` gives up and `isLoading` goes false either way. A
+     * member whose slices failed to load would then resolve their OWN city's post
+     * through the public fallback: `placeForPublicPost` would seat them in their own
+     * city as a visitor, every tab a sentinel, reading their own neighbours through
+     * the narrow projection with no composer anywhere — and `handledRoutePostRef`
+     * would stop it re-resolving. Waiting is the right answer to a failed query; an
+     * Inform account, which genuinely holds nothing, is unaffected because its query
+     * SUCCEEDS with an empty result.
+     */
+    if (isAuthenticated && (isLoading || slicesError)) return
     handledRoutePostRef.current = routePostId
     void openPost(routePostId, false)
-  }, [routePostId, isAuthenticated, authLoading, isLoading, openPost])
+  }, [routePostId, isAuthenticated, authLoading, isLoading, slicesError, openPost])
 
   /**
    * A signed-out visitor following a link: remember the post across login.

@@ -748,22 +748,27 @@ async function runSignedOutWalk() {
     const conv = await page.evaluate(readConversations, { sel: FEED_PANEL })
     check(
       run, 3,
-      'the Conversations view for a visited place is READ-ONLY: it says so, and offers no composer',
+      'a visited place shows its real conversation AND no composer — the public square, read-only',
       conv.visible === true &&
+        conv.postCards > 0 &&
         conv.textareas === 0 &&
         conv.submits === 0 &&
         conv.fabs === 0 &&
         conv.postButtons === 0 &&
         conv.readOnly === true,
       JSON.stringify(conv) +
-        '\n              🔴 PHASE 18 CHANGED WHAT THIS ASSERTS, and deliberately. Phase 17 required' +
-        '\n              ZERO POST CARDS here, because RLS answered a visited place with zero rows and' +
-        '\n              zero rows renders as "nobody has said anything here" — a false statement' +
-        '\n              delivered silently. The public RPCs answer it for real now, so post cards are' +
-        '\n              EXPECTED and no longer counted. What did not change is the write gate: a' +
-        '\n              visitor may read and may not post, and every composer affordance stays at 0.' +
-        '\n              If this is red on textareas/submits/fabs/postButtons, a write control reached' +
-        '\n              a place the viewer does not live in — that is the real regression.',
+        '\n              🔴 PHASE 18 INVERTED THE FIRST TERM, and deliberately. Phase 17 required ZERO' +
+        '\n              POST CARDS here, because RLS answered a visited place with zero rows and zero' +
+        '\n              rows renders as "nobody has said anything here" — a false statement delivered' +
+        '\n              silently. The public RPCs answer it for real now, so post cards are REQUIRED.' +
+        '\n              🔴 `postCards > 0` is the POSITIVE half and it is the whole point of keeping' +
+        '\n              it. Every other term is an absence, and the panel\'s ERROR state ("Failed to' +
+        '\n              load posts") renders the read-only notice too — so without this term the' +
+        '\n              assertion is fully satisfied by a feed that failed to load, which is exactly' +
+        '\n              what it was satisfied by when the retirement was first written.' +
+        '\n              What did not change is the write gate: a visitor may read and may not post.' +
+        '\n              Red on textareas/submits/fabs/postButtons means a write control reached a' +
+        '\n              place the viewer does not live in — the real regression.',
     )
   }
 
@@ -811,9 +816,15 @@ async function runSignedOutWalk() {
     const sawRequests = requests.seen.length
     check(
       run, 'NET',
-      'only the four public RPCs carry the visited geoid — and the public path DID ask',
-      hits.length === 0 && publicHits.length > 0 && sawRequests > 0 && counters.search > 1 && counters.coordinate === 1,
+      'only the four public RPCs may carry the visited geoid — and the page WAS doing something',
+      hits.length === 0 && sawRequests > 0 && counters.search > 1 && counters.coordinate === 1,
       `offending=${JSON.stringify(hits.slice(0, 5))} publicRpcs=${JSON.stringify([...new Set(publicHits)])} requests=${sawRequests} ` +
+        '\n              🔴 publicRpcs is REPORTED, not asserted, and that is not an oversight.' +
+        '\n              CI runs this against `npm run dev` on a fresh checkout with no .env, where' +
+        '\n              usePublicFeed and usePublicSlice both return fixtures BEFORE touching' +
+        '\n              supabase — so zero PostgREST requests are issued and requiring one here' +
+        '\n              would be permanently red for everyone. The positive half of the public path' +
+        '\n              is assertion 3 (`postCards > 0`), which the fixtures DO satisfy.' +
         `location-search=${counters.search} coordinate-lookup=${counters.coordinate}` +
         '\n              🔴 The three numbers after the hits are the POSITIVE half, and without them' +
         '\n              "no PostgREST request" is also true of a page that never loaded.' +
@@ -1150,7 +1161,6 @@ async function runMemberVisit() {
     'entering a place FROM THE SHELL sends only the four public RPCs about it — both views, City and Federal',
     visiting.hero === PLACE_NAME &&
       hits.length === 0 &&
-      publicHits.length > 0 &&
       seen.every((s) => s.endsWith(':true')) &&
       counters.coordinate === 1,
     `hero=${JSON.stringify(visiting.hero)} traversed=${JSON.stringify(seen)} ` +

@@ -2018,19 +2018,23 @@ async function runMemberOwnPlace(fx) {
   const fed = await page.evaluate(readVisibleConversation)
   check(
     tab, 7,
-    'a level the viewer does NOT hold is still gated, and still says why — the control for 5 and 6',
-    fed.panel && fed.shown && fed.reason === 'other-place' && fed.writeAffordances === 0,
+    'a level the viewer does NOT hold shows its public feed and is still gated — the control for 5 and 6',
+    fed.panel && fed.shown && fed.hasPosts && fed.reason === 'other-place' && fed.writeAffordances === 0,
     `federal=${JSON.stringify(fed)}` +
       '\n            Without this, 5 and 6 are satisfied by simply ungating everything, which is the' +
       '\n            opposite failure and the one this phase was written to prevent.' +
       '\n            🔴 PHASE 18 CHANGED THE EVIDENCE, NOT THE CLAIM. This used to require the' +
       '\n            honest card ("Conversations here belong to the people who live here"), which was' +
       '\n            the only thing a level the viewer does not hold could show. That level now shows' +
-      '\n            its real public feed, so the card is gone and the GATE is what is asserted:' +
-      '\n            `data-read-only-notice="other-place"` is present and no write control is. If' +
-      '\n            `reason` is null here, the gate itself is gone and that is the regression this' +
-      '\n            assertion exists for; a red on writeAffordances means a composer reached a' +
-      '\n            jurisdiction the viewer does not live in.',
+      '\n            its real public feed, so the card is gone and three things are asserted instead:' +
+      '\n            `hasPosts` (the feed actually rendered), `data-read-only-notice="other-place"`' +
+      '\n            (the gate survived) and zero write controls.' +
+      '\n            🔴 `hasPosts` is the POSITIVE half and it is here because the first draft of' +
+      '\n            this retirement dropped it. Both remaining terms are absence/gate terms, and the' +
+      '\n            panel\'s ERROR state renders the read-only notice too — so without it the whole' +
+      '\n            read path this phase built is unasserted and a feed that failed to load passes.' +
+      '\n            Red on `reason` means the gate itself is gone; red on writeAffordances means a' +
+      '\n            composer reached a jurisdiction the viewer does not live in.',
   )
 
   await ctx.close()

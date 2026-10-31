@@ -120,11 +120,16 @@ export default function SliceFeedPanel({
   onReturnToOwnSlice,
   loginUrl,
 }: SliceFeedPanelProps) {
+  // Hoisted above the feed hooks: the public query is cached PER VIEWER (D-49), so
+  // the reader's id is part of its key and has to exist before the key is built.
+  const { userId } = useAuth()
+
   // 🔴 Both hooks are called on every render — React's rules of hooks require it —
   // and exactly one of them is ENABLED. `useBoostedFeed(null)` does not run; the
   // public query is off unless this panel is both public and on screen.
   const memberFeed = useBoostedFeed(publicPlace ? null : sliceId)
   const publicFeed = usePublicFeed(
+    userId,
     publicPlace?.sliceType ?? null,
     publicPlace?.geoid ?? null,
     !!publicPlace && isActive,
@@ -156,7 +161,6 @@ export default function SliceFeedPanel({
   // realtime runs over the same table grants the RPCs exist to avoid needing.
   useRealtimeInvalidation(publicPlace ? null : sliceId)
 
-  const { userId } = useAuth()
   const { profile } = useProfile(userId)
   const deletePost = useDeletePost()
 

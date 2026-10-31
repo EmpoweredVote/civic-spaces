@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { PostWithAuthor } from '../types/database'
 import type { FeedCursor } from '../lib/cursors'
 import type { PublicFeedRow } from '../lib/publicProjection'
-import { mapPublicPostRow } from '../lib/publicProjection'
+import { mapPublicPostRow, publicQueryKey } from '../lib/publicProjection'
 import { getMockPublicFeedPage } from '../lib/devMockData'
 
 const PAGE_SIZE = 20
@@ -48,17 +48,25 @@ async function fetchPublicFeedPage(
 }
 
 /**
+ * @param viewerId the reader this page is narrowed FOR — required, no default.
+ *   D-49 makes the result per-(slice, viewer), so it is part of the cache key.
  * @param enabled false keeps the query from running at all. The caller owns this:
  *   all six feed panels mount at once, every level of a visited place is public, and
  *   without it a single visit would fire six RPCs for five feeds nobody is looking at.
  */
-export function usePublicFeed(sliceType: string | null, geoid: string | null, enabled = true) {
+export function usePublicFeed(
+  viewerId: string | null,
+  sliceType: string | null,
+  geoid: string | null,
+  enabled = true,
+) {
   return useInfiniteQuery<PostWithAuthor[], Error, { pages: PostWithAuthor[][] }, string[], FeedCursor | undefined>({
-    // 🔴 A DIFFERENT KEY NAMESPACE from ['feed', sliceId]. The two hooks return the
-    // same shape over different projections — the member feed is block-filtered and
-    // carries author ids, this one is neither — so sharing a key would let a cached
-    // member page render for a public reader, which is a disclosure, not a glitch.
-    queryKey: ['public-feed', sliceType ?? '', geoid ?? ''],
+    // 🔴 A DIFFERENT KEY NAMESPACE from ['feed', sliceId], AND a viewer term. The two
+    // hooks return the same shape over different projections — the member feed is
+    // block-filtered and carries author ids, this one is narrowed per reader — so
+    // sharing a key across either axis is a disclosure, not a glitch. See
+    // publicQueryKey for why the viewer half is not optional.
+    queryKey: publicQueryKey('public-feed', viewerId, sliceType ?? '', geoid ?? ''),
     queryFn: ({ pageParam }) => fetchPublicFeedPage(sliceType!, geoid!, pageParam),
     getNextPageParam: (lastPage): FeedCursor | undefined => {
       if (lastPage.length < PAGE_SIZE) return undefined

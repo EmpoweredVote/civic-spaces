@@ -68,6 +68,8 @@ import {
   mapPublicPostRow,
   mapPublicReplyRow,
   publicLocationFrom,
+  publicQueryKey,
+  threadTree,
 } from '../src/lib/publicProjection.ts'
 
 // ── Harness ──────────────────────────────────────────────────────────────────
@@ -1059,6 +1061,94 @@ const narrowRow = { ...wideRow, id: 'p2', author_user_id: null, author_avatar_ur
       `          shell would render a place that does not exist. Null is the honest answer and the\n` +
       `          caller handles it.`,
   )
+}
+
+// ── 85–90  Phase 18-03 review fixes: the cache key, and orphaned replies ────
+
+{
+  /**
+   * 🔴 D-49: "its result is per-(slice, viewer), so it must not be cached per slice."
+   * The first draft keyed the public feed on ['public-feed', sliceType, geoid] and the
+   * thread on ['public-post', postId] — correct namespaces, no viewer. The author id
+   * and avatar in those rows are narrowed PER READER, so one cache entry shared across
+   * identities hands a signed-out reader whatever the last signed-in one was allowed
+   * to see. useAuth flips in place on a cross-tab logout (no reload), and staleTime is
+   * 60s, so the window is real rather than theoretical.
+   */
+  const anon = publicQueryKey('public-feed', null, 'city', '3702140')
+  const ada = publicQueryKey('public-feed', 'u-ada', 'city', '3702140')
+  const bob = publicQueryKey('public-feed', 'u-bob', 'city', '3702140')
+
+  check(
+    85,
+    '🔴 D-49: two viewers of the SAME place get different cache keys',
+    JSON.stringify(ada) !== JSON.stringify(bob) && JSON.stringify(anon) !== JSON.stringify(ada),
+    `anon=${JSON.stringify(anon)}\n          ada =${JSON.stringify(ada)}\n          bob =${JSON.stringify(bob)}\n` +
+      `          Equal keys here means one reader is served another reader's projection.`,
+  )
+
+  check(
+    86,
+    'the viewer term is present and distinguishes anon from a signed-in reader',
+    anon.includes('anon') && ada.includes('u-ada') && !anon.includes('u-ada'),
+    `${JSON.stringify(anon)} vs ${JSON.stringify(ada)} — null must map to a STABLE token, not to\n` +
+      `          undefined or '', either of which React Query would drop from the key.`,
+  )
+
+  check(
+    87,
+    'the key still separates the public namespace from the member one, and two places from each other',
+    publicQueryKey('public-feed', null, 'city', '3702140')[0] === 'public-feed' &&
+      JSON.stringify(publicQueryKey('public-feed', null, 'city', '3702140')) !==
+        JSON.stringify(publicQueryKey('public-feed', null, 'city', '1805860')),
+    'the viewer term must be ADDED to what was already there, not replace it.',
+  )
+
+  /**
+   * 🔴 get_public_replies filters is_deleted on the ROW ITSELF, so a child of a
+   * deleted reply still arrives with its parent_reply_id pointing at a row that is
+   * not in the page. The member path never sees this — useThread does select('*')
+   * with no filter, so deleted parents arrive as [Reply deleted] placeholders.
+   * Grouping on "no parent_reply_id" therefore drops those children silently, while
+   * the header still counts them.
+   */
+  const reply = (id, parent) => ({ id, post_id: 'p1', parent_reply_id: parent, user_id: null, body: id,
+    created_at: '2026-10-28T00:00:00Z', updated_at: '2026-10-28T00:00:00Z', is_deleted: false,
+    author: { display_name: 'X', avatar_url: null } })
+
+  {
+    const tree = threadTree([reply('b', 'a-deleted'), reply('c', null), reply('d', 'c')])
+    check(
+      88,
+      '🔴 a reply whose PARENT is missing from the page is still rendered, as a root',
+      tree.roots.map((r) => r.id).sort().join(',') === 'b,c',
+      `roots=${JSON.stringify(tree.roots.map((r) => r.id))} — 'b' is a child of a deleted reply.\n` +
+        `          Dropping it empties a thread that the header above it still counts: a reader\n` +
+        `          following a shared link to a thread whose first reply was removed sees\n` +
+        `          "3 replies" over an empty list.`,
+    )
+
+    check(
+      89,
+      'a real parent still owns its child — orphan promotion must not flatten the nesting',
+      (tree.childMap.get('c') ?? []).map((r) => r.id).join(',') === 'd' &&
+        !tree.roots.some((r) => r.id === 'd'),
+      `childMap(c)=${JSON.stringify((tree.childMap.get('c') ?? []).map((r) => r.id))}`,
+    )
+
+    check(
+      90,
+      'every reply appears exactly once — no reply is both a root and a child, and none is lost',
+      (() => {
+        const rows = [reply('b', 'a-deleted'), reply('c', null), reply('d', 'c')]
+        const t = threadTree(rows)
+        const seen = [...t.roots.map((r) => r.id), ...[...t.childMap.values()].flat().map((r) => r.id)]
+        return seen.length === rows.length && new Set(seen).size === rows.length
+      })(),
+      'the count under the post is replies.length; if the tree shows fewer, the two disagree\n' +
+        '          on screen and the number is the one the reader believes.',
+    )
+  }
 }
 
 // ── Result ───────────────────────────────────────────────────────────────────

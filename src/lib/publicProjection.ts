@@ -200,5 +200,75 @@ export function publicLocationFrom(
   return { kind: 'public', sliceType: row.slice_type, geoid: row.geoid, postId }
 }
 
+// ── Caching ──────────────────────────────────────────────────────────────────
+
+/**
+ * 🔴 D-49: "its result is per-`(slice, viewer)`, so it must not be cached per slice."
+ *
+ * The author id and avatar in every public row are narrowed PER READER — a member of
+ * that slice or a friend of that author gets them, nobody else does. So the viewer is
+ * part of the identity of the cached value, not context around it. One entry shared
+ * across identities hands whoever comes next whatever the last reader was allowed to
+ * see, and `useAuth` flips to signed-out IN PLACE on a cross-tab logout (no reload,
+ * `useAuth.ts` storage listener) while `staleTime` is 60s. The window is real.
+ *
+ * 🔴 `null` maps to the literal `'anon'` rather than to null or `''`. React Query
+ * hashes the key array; a nullish term is a term that can collide with a neighbouring
+ * shape, and `''` is indistinguishable from "the caller forgot". A visible token is
+ * also what makes a wrong key obvious in the devtools cache list.
+ *
+ * 🔴 Every caller passes `viewerId` as a REQUIRED first argument, with no default.
+ * That is deliberate: the compiler is the only thing that reliably stops the next
+ * public hook from being written without it, and this phase has already learned that
+ * a convention is not a guard (see `authorPresentation`).
+ */
+export function publicQueryKey(
+  kind: string,
+  viewerId: string | null | undefined,
+  ...rest: string[]
+): string[] {
+  return [kind, viewerId || 'anon', ...rest]
+}
+
+// ── Threading ────────────────────────────────────────────────────────────────
+
+/**
+ * Group a page of replies into roots and children.
+ *
+ * 🔴 A reply is a ROOT when its parent is not on the page — not merely when it has no
+ * parent. `get_public_replies` filters `is_deleted` on the row itself and leaves the
+ * children of a deleted reply in the result with their `parent_reply_id` intact, so
+ * "no parent_reply_id" and "nothing to nest under" are different questions and only
+ * the second one is about what to render.
+ *
+ * The member path never meets this: `useThread` selects every reply including deleted
+ * ones, which arrive as `[Reply deleted]` placeholders, so every parent is present.
+ * Grouping on the first question drops those children silently — while the count above
+ * the list, which is `replies.length`, still includes them. A reader following a link
+ * to a thread whose first reply was removed is told "3 replies" over an empty list.
+ */
+export function threadTree<T extends { id: string; parent_reply_id: string | null }>(
+  replies: readonly T[],
+): { roots: T[]; childMap: Map<string, T[]> } {
+  const present = new Set(replies.map((r) => r.id))
+  const roots: T[] = []
+  const childMap = new Map<string, T[]>()
+
+  for (const r of replies) {
+    const parent = r.parent_reply_id
+    if (parent !== null && present.has(parent)) {
+      const siblings = childMap.get(parent) ?? []
+      siblings.push(r)
+      childMap.set(parent, siblings)
+    } else {
+      // No parent, or a parent this reader cannot see. Either way it has nowhere to
+      // nest, and a reply with nowhere to nest is shown rather than dropped.
+      roots.push(r)
+    }
+  }
+
+  return { roots, childMap }
+}
+
 /** Unused at runtime; keeps the type import honest when edit_history is reintroduced. */
 export type { EditHistoryEntry }

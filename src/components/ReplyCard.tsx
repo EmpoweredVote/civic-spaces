@@ -63,8 +63,13 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, currentUser
         </button>
       ) : (
         <div className="flex items-center gap-2 text-left w-full">
-          <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-white/[0.06] flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{initial}</span>
+          {/* 🔴 aria-hidden and gray-600, not gray-500. The initial repeats a handle
+              that is already in the next span, so it is decoration to a screen
+              reader — and gray-500 on gray-100 is ~4.1:1, under the 4.5:1 AA wants
+              for text. The linkable branch above sits inside a labelled button, so
+              this is the one that had neither. */}
+          <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-white/[0.06] flex items-center justify-center flex-shrink-0" aria-hidden="true">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{initial}</span>
           </div>
           <div className="flex items-center gap-1 min-w-0">
             <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">

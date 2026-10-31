@@ -2,7 +2,7 @@ import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import type { PostWithAuthor, ReplyWithAuthor } from '../types/database'
 import type { PublicPostRow, PublicReplyRow } from '../lib/publicProjection'
-import { mapPublicPostRow, mapPublicReplyRow } from '../lib/publicProjection'
+import { mapPublicPostRow, mapPublicReplyRow, publicQueryKey } from '../lib/publicProjection'
 import { getMockPostById, getMockReplies } from '../lib/devMockData'
 
 interface ReplyCursor {
@@ -73,12 +73,13 @@ async function fetchPublicRepliesPage(
  * ancestors, so a child of a deleted reply still arrives — which is why
  * `parent_reply_id` survives the mapping and the nesting still renders.
  */
-export function usePublicThread(postId: string | null, enabled = true) {
+export function usePublicThread(viewerId: string | null, postId: string | null, enabled = true) {
   const postQuery = useQuery({
-    // 🔴 A different key namespace from ['post', id]: the two queries return the
-    // same shape over different projections, and sharing a key would let a member's
-    // cached post render for a public reader. That is a disclosure, not a glitch.
-    queryKey: ['public-post', postId ?? ''],
+    // 🔴 A different key namespace from ['post', id], AND a viewer term: the two
+    // queries return the same shape over different projections, and the public one
+    // is narrowed per reader (D-49). Sharing a key across either axis serves one
+    // reader another reader's projection. See publicQueryKey.
+    queryKey: publicQueryKey('public-post', viewerId, postId ?? ''),
     queryFn: () => fetchPublicPost(postId!),
     enabled: enabled && !!postId,
   })
@@ -90,7 +91,7 @@ export function usePublicThread(postId: string | null, enabled = true) {
     string[],
     ReplyCursor | undefined
   >({
-    queryKey: ['public-replies', postId ?? ''],
+    queryKey: publicQueryKey('public-replies', viewerId, postId ?? ''),
     queryFn: ({ pageParam }) => fetchPublicRepliesPage(postId!, pageParam),
     getNextPageParam: (lastPage): ReplyCursor | undefined => {
       if (lastPage.length < REPLY_PAGE_SIZE) return undefined
