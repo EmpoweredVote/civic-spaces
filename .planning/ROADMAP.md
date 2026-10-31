@@ -342,8 +342,12 @@ Guest observe, only Connect and Empowered post, vote or impact.
 permanently, scriptably public. Its failures are also silent: an over-wide grant publishes the
 member roster and nothing turns red.
 
-**The gate is not RLS.** `civic_spaces` has no `GRANT USAGE ON SCHEMA … TO anon`, so PostgREST
-cannot resolve the schema before a policy is ever consulted. Both feed RPCs fail independently
+**The gate is not RLS — on one route.** `civic_spaces` has no `GRANT USAGE ON SCHEMA … TO anon`,
+so PostgREST cannot resolve the schema before a policy is ever consulted. 🔴 That holds for the
+`civic_spaces` route **only**: `anon` already has `USAGE` on `public`, which carries views over
+the same tables and where `anon` holds every privilege, so a second route exists and today only
+RLS holds it shut (D-43, `18-CONTEXT.md`). 18-01 is the prerequisite that closes it; its
+migration is written but not yet applied. Both feed RPCs fail independently
 of policy: `get_feed_filtered` welds `AND p.slice_id IN (SELECT slice_id FROM slice_members
 WHERE user_id = current_user_id())` into its body, and `get_boosted_feed_filtered` is
 `SECURITY INVOKER` and reads `friendships` / `follows` / `blocks` as the caller. This is a

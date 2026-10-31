@@ -247,6 +247,18 @@ and verify each author on its Commons File: page — **never copy another app's 
 **Every Supabase call is `.schema('civic_spaces')`** — 49 of them. The default `public` schema
 is not this app's data.
 
+🔴 **But `public` carries twelve views over those same tables, and they are the other way in.**
+Five of them (`posts`, `replies`, `slices`, `slice_members`, `connected_profiles`) were in no
+migration until `20261030000000_reconcile_public_views.sql`, and `anon` held all seven
+privileges on every one — from Supabase's default privileges on `public`, not from any `GRANT`
+here. `anon` has `USAGE` on `public` and none on `civic_spaces`, so the schema gate covers only
+the second. Nothing was exposed (the views are `security_invoker`, every policy is `TO
+authenticated`), but `git grep` could never have said so. **The migrations are not the grant
+surface, the catalog is.** `npm run check:grants` reads the catalog; without `SUPABASE_DB_URL`
+and `psql` only its HTTP half runs, and it says so loudly. `public.users_public` is left alone
+on purpose — it reads a `users` table this app does not own. The migration is written but not
+yet applied.
+
 ## Talking to the rest of the platform
 
 | Need | Source |
