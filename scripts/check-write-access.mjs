@@ -40,8 +40,10 @@
 import {
   canReadConversationsIn,
   canWriteIn,
+  isPublicSliceType,
   isSameJurisdiction,
   placeKey,
+  PUBLIC_SLICE_TYPES,
   whyNoWrite,
 } from '../src/lib/writeAccess.ts'
 
@@ -340,6 +342,30 @@ check(
   `ownedPlaceKeys answers "does the viewer hold this jurisdiction at all", which is TRUE for a\n` +
     `          different shard of the same place — the sibling-shard question. This asks whether THIS\n` +
     `          row is the one to render. Collapsing them re-introduces the bug, so they stay apart.`,
+)
+
+// ── 26–29: the public slice-type allowlist ───────────────────────────────────
+//
+// 🔴 D-28: new private space types are landing in slices.slice_type, so public is an
+// ALLOWLIST. 29 is the demonstration: a type the DB constraint accepts and this list
+// has never heard of stays private, with no database fixture needed to show it.
+
+check(
+  26,
+  'the five public types are exactly city, county, state, federal, unified',
+  [...PUBLIC_SLICE_TYPES].sort().join(',') === 'city,county,federal,state,unified',
+  `got ${[...PUBLIC_SLICE_TYPES].sort().join(',')}`,
+)
+
+check(27, 'volunteer is not public', !isPublicSliceType('volunteer'))
+
+check(28, 'an unknown type is not public', !isPublicSliceType('neighborhood'))
+
+check(
+  29,
+  'a type added to the DB constraint but not to this list stays private',
+  !isPublicSliceType('school-board'),
+  'a denylist would publish this the day it is created; this must stay an allowlist',
 )
 
 // ── Result ───────────────────────────────────────────────────────────────────

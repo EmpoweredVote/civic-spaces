@@ -79,6 +79,27 @@ export function placeKey(sliceType: string, geoid: string | null): string {
 }
 
 /**
+ * The slice types anyone may READ without an account — Phase 18's public read path.
+ *
+ * 🔴 D-28: this is an ALLOWLIST, never a denylist. New private space types are
+ * landing in `slices.slice_type`, and a denylist ("everything except volunteer")
+ * would publish each one silently, on the day it is created, with nobody touching
+ * this file. Under an allowlist the new type stays private until someone adds it
+ * here ON PURPOSE. Volunteer, and whatever private types take that slot, are
+ * deliberately absent.
+ *
+ * 🔴 The SQL repeats this list as a literal array —
+ * supabase/migrations/20261030000100_public_read.sql — and the two must change
+ * together. Neither side can import the other; check-write-access.mjs pins this one.
+ */
+export const PUBLIC_SLICE_TYPES: readonly string[] = ['city', 'county', 'state', 'federal', 'unified']
+
+/** Is this slice type readable by a visitor with no account? Unknown types are not. */
+export function isPublicSliceType(t: string): boolean {
+  return PUBLIC_SLICE_TYPES.includes(t)
+}
+
+/**
  * Is the viewer's own row at this level the SAME JURISDICTION as the one a
  * visited place presents there?
  *
