@@ -222,6 +222,18 @@ const EXPECTED_DEFINER = ['get_public_feed', 'get_public_post', 'get_public_repl
 // blank for a pooler / non-owner role and a blank reads as "anon holds nothing".
 const CATALOG_SQL = `
 SELECT json_build_object(
+  -- 🔴 Why prosecdef, and not every anon-executable function in the schema. A SECURITY INVOKER
+  -- function called by anon RUNS AS anon: it hits the same table privileges and the same RLS
+  -- policies the caller would have hit directly, so it can return nothing anon could not already
+  -- read, and anon holds no table privilege in this schema at all. It fails closed on table
+  -- rights, and that is a property of the executor, not of our review. Every function that
+  -- pre-dates this phase in civic_spaces is SECURITY INVOKER (current_user_id() among them, whose
+  -- only grant is PUBLIC and which 21 RLS policies call). SECURITY DEFINER is the opposite: it
+  -- runs as the owner, bypasses RLS, and is anon-callable the moment it is created unless it
+  -- revokes PUBLIC itself. So prosecdef is exactly the set where EXECUTE is a disclosure
+  -- decision, and the assertion below requires it to EQUAL the four — never merely contain them.
+  -- If a SECURITY INVOKER function here ever gains a table GRANT behind it, this filter stops
+  -- being sufficient and this comment is the thing that was wrong.
   'definer_anon', (SELECT COALESCE(json_agg(p.proname ORDER BY p.proname), '[]'::json)
                      FROM pg_proc p
                     WHERE p.pronamespace = 'civic_spaces'::regnamespace

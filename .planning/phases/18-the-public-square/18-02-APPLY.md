@@ -75,9 +75,17 @@ psql "$SCRATCH_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f /tmp/apply/20261030000000_rec
 psql "$SCRATCH_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f /tmp/apply/20261030000100_public_read.sql
 ```
 
-`-1` runs each file as one transaction, so a failure leaves nothing half-applied. Run the
-verification in "Between the steps" below on the scratch database, then apply `...200` the same
-way and verify again.
+🔴 **`-1` is not a tidiness flag here, it is the security property.** Each `CREATE FUNCTION` in
+`...100` is followed by its own `REVOKE ALL ... FROM PUBLIC`, and between those two statements the
+function exists at Postgres's `EXECUTE TO PUBLIC` default — callable by `authenticated`, which
+already holds schema `USAGE` and already reaches `/rest/v1/rpc/*`. Without `-1`, psql autocommits
+each statement, so that window is real wall-clock time on a live database: an interrupted or failed
+run can leave `public_author_is_visible` created and un-revoked. `-1` makes each `CREATE` atomic
+with its own `REVOKE`, so the oracle never exists outside a transaction nobody else can see.
+"Nothing half-applied" is the second reason, not the first.
+
+Run the verification in "Between the steps" below on the scratch database, then apply `...200` the
+same way and verify again.
 
 ### 0c. Read back all five function bodies and diff them against the file
 
@@ -133,18 +141,44 @@ before judging the HTTP half.
 
 ### 2. `...100` second. The door is still shut
 
-Verify, as the `postgres` role (a member of `authenticated`), that a member **cannot** call the helper:
+Verify, as the `postgres` role (a member of `authenticated`), that a member **cannot** call any of
+them. 🔴 **Probe all five, not a sample.** The REVOKEs are five independent statements, and the one
+that matters most is per-function: a single `REVOKE` lost to a swallowed comment leaves exactly one
+door open, and a two-function spot check has a 60% chance of missing it. Each probe needs **its own
+transaction** — the `42501` aborts the one it is raised in, so a single `BEGIN` block reports the
+first refusal and then fails every later statement with `25P02`, which reads like a pass and is not:
 
 ```sql
-BEGIN;
-SET LOCAL ROLE authenticated;
-SELECT civic_spaces.public_author_is_visible('a', 'b', '00000000-0000-0000-0000-000000000000'::uuid);
--- expect: ERROR 42501 permission denied for function public_author_is_visible
+BEGIN; SET LOCAL ROLE authenticated;
+  SELECT civic_spaces.public_author_is_visible('a', 'b', '00000000-0000-0000-0000-000000000000'::uuid);
+ROLLBACK;
+
+BEGIN; SET LOCAL ROLE authenticated;
+  SELECT civic_spaces.get_public_slice('city', '3703000');
+ROLLBACK;
+
+BEGIN; SET LOCAL ROLE authenticated;
+  SELECT civic_spaces.get_public_feed('city', '3703000', 1, NULL::timestamptz, NULL::uuid);
+ROLLBACK;
+
+BEGIN; SET LOCAL ROLE authenticated;
+  SELECT civic_spaces.get_public_post('00000000-0000-0000-0000-000000000000'::uuid);
+ROLLBACK;
+
+BEGIN; SET LOCAL ROLE authenticated;
+  SELECT civic_spaces.get_public_replies('00000000-0000-0000-0000-000000000000'::uuid, 1, NULL::timestamptz, NULL::uuid);
 ROLLBACK;
 ```
 
-Repeat for `get_public_post`: also `42501`. (Rehearsed 2026-10-31 on a transaction aborted with
-`RAISE EXCEPTION`: both refused.) Then `npm run check:anon-read` must still **exit 1**: 3a reports
+**Expect all five:** `ERROR: 42501 permission denied for function <name>`. The arguments are
+deliberately meaningless — `EXECUTE` is checked before the body runs, so a refusal proves the
+privilege regardless of what the arguments would have matched. They only have to resolve to the
+right overload, which is why the `NULL`s carry casts. 🔴 **Any other error is a FAIL, including a
+successful empty result**: `0 rows` means the function was callable and simply found nothing.
+
+(Rehearsed 2026-10-31 on a transaction aborted with `RAISE EXCEPTION`: the helper and
+`get_public_post` both refused. The other three were not rehearsed and this is their first probe.)
+Then `npm run check:anon-read` must still **exit 1**: 3a reports
 the four RPCs "missing from the anon set" and section 2 reports "NOT APPLIED YET". That is the
 correct state: nothing is open. The new 3a arm for the helper must **PASS** here (exists, executable
 by neither role).
@@ -199,12 +233,54 @@ What does **not** roll back is disclosure: anything an anonymous reader (or a ca
 received. That is why the caution sits on what the RPCs project and on the cache check above, not on
 the grants file.
 
+## After applying: record the three files as applied
+
+🔴 **A raw `psql -f` does not tell Supabase anything.** The CLI tracks applied migrations in
+`supabase_migrations.schema_migrations`, and it is only written by `supabase db push` / `supabase
+migration up`. Apply these by hand and that table still says the three files have never run — so the
+next person to run `supabase db push`, from any machine, will try to apply them **again**. `...000`
+and `...100` are idempotent (`CREATE OR REPLACE`, `REVOKE`), so the second run is survivable; it is
+still a surprise re-run of DDL against production that nobody intended, and it re-opens the
+`CREATE`-to-`REVOKE` window in `...100` for as long as that push takes.
+
+Immediately after the production apply, in the same session:
+
+```sql
+-- Check the column list first: it differs across CLI versions (some have statements/name,
+-- older ones only version). Insert only columns that exist.
+SELECT column_name, is_nullable FROM information_schema.columns
+ WHERE table_schema = 'supabase_migrations' AND table_name = 'schema_migrations'
+ ORDER BY ordinal_position;
+
+INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
+  ('20261030000000', 'reconcile_public_views'),
+  ('20261030000100', 'public_read'),
+  ('20261030000200', 'public_read_grants')
+ON CONFLICT (version) DO NOTHING;
+
+SELECT version FROM supabase_migrations.schema_migrations
+ WHERE version LIKE '202610300%' ORDER BY version;   -- expect the three, in order
+```
+
+`version` is the filename's timestamp prefix and nothing else — no `.sql`, no name. Get it wrong
+and the row is cosmetic: the CLI matches on that string, so a typo re-runs the file anyway.
+
+The rollback above does **not** change these rows, and should not: it revokes privileges, it does
+not drop the functions or restore the views, so all three files are still genuinely applied. Delete
+the `20261030000200` row only if you also `DROP` what that file granted — which the five-statement
+rollback deliberately does not.
+
 ## After applying
 
 - `check:grants` and `check:anon-read` run by hand, or from `.github/workflows/db-surface.yml`
   (manual dispatch now; uncomment its `schedule:` once `SUPABASE_DB_URL`, `VITE_SUPABASE_URL` and
   `VITE_SUPABASE_ANON_KEY` exist as secrets).
 - Delete the two "until applied" ⚠️ lines named in `18-01-APPLY.md` step 8.
+- `check:anon-read`'s assertion 3a watches only **SECURITY DEFINER** functions, and requires that
+  set to *equal* the four. The reason it can ignore the rest is written beside the `prosecdef`
+  filter in `scripts/check-anon-read.mjs`: a SECURITY INVOKER function called by `anon` runs as
+  `anon` and fails closed on table rights, and `anon` holds no table privilege in this schema. That
+  stops being true the day a SECURITY INVOKER function here gains a table `GRANT` behind it.
 - An open question for Chris is recorded in `18-02-PLAN.md` ("Open question for Chris"): whether a
   member of one shard counts as a member for a sibling shard's authors. 18-03 must not decide it by
   accident.
