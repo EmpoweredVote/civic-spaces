@@ -70,9 +70,14 @@ and are not re-opened here. Decisions continue the global numbering from D-25.
   the `slices_slice_type_check` constraint (`20260902000100_slice_taxonomy.sql:180`) is the
   place a planner should look to see what the list currently omits.
 
-- **D-29 — One policy serves `anon` and authenticated non-members alike.** D-18 already says
-  observation is the expected default for everyone; at the policy level that means
-  `TO anon, authenticated`, not `TO anon`. 🔴 A policy scoped to `anon` only would give a
+- **D-29 — One rule serves `anon` and authenticated non-members alike.** D-18 already says
+  observation is the expected default for everyone, so the two must receive byte-identical
+  results. ⚠️ **The mechanism in this decision was superseded by D-44.** It originally read
+  "one permissive policy, `TO anon, authenticated`"; D-44 removes RLS policies from the public
+  path entirely in favour of `SECURITY DEFINER` RPCs. The *principle* stands and is what
+  `check-anon-read`'s anon-vs-Inform assertion tests; the *policy* is not written. The
+  reasoning below is kept because it explains why the rule may never be scoped to `anon`
+  alone, in whatever mechanism implements it. 🔴 A rule scoped to `anon` only would give a
   signed-out stranger *more* than a signed-in Inform account — the exact inversion of D-04,
   which says an Inform account receives precisely what an anonymous visitor receives. It
   would also silently take the public feed away from a Connected member looking at another
