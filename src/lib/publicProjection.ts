@@ -172,5 +172,33 @@ export function authorPresentation(userId: string | null | undefined): AuthorPre
   return { profileHref: `/profile/${userId}`, linkable: true }
 }
 
+// ── Where a public post sends a reader ───────────────────────────────────────
+
+/** The two outcomes the public branch of `locatePost` can produce. */
+export type PublicPostLocation =
+  | { kind: 'public'; sliceType: string; geoid: string; postId: string }
+  | { kind: 'unavailable' }
+
+/**
+ * 🔴 It lives HERE, and not beside `locatePost`, for the reason this module's
+ * header gives: `useNotificationRouting.ts` imports `supabase` at runtime, so
+ * `node --experimental-strip-types` cannot load it and `check-composition` would
+ * have had to re-implement this decision to check it. A transcribed copy passes
+ * while the shipped code is wrong — which is the failure this whole file avoids.
+ *
+ * 🔴 A null row is `unavailable` and must stay that way. `get_public_post` already
+ * refuses a deleted post, a suspended author's post, and any slice type outside
+ * the allowlist. This side cannot tell those apart and must not try: splitting
+ * them would reveal whether a post the reader may not see exists, which is the
+ * conflation `locatePost`'s `unavailable` was built to protect.
+ */
+export function publicLocationFrom(
+  row: { slice_type: string; geoid: string } | null,
+  postId: string,
+): PublicPostLocation {
+  if (!row) return { kind: 'unavailable' }
+  return { kind: 'public', sliceType: row.slice_type, geoid: row.geoid, postId }
+}
+
 /** Unused at runtime; keeps the type import honest when edit_history is reintroduced. */
 export type { EditHistoryEntry }

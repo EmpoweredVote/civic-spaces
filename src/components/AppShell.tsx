@@ -31,7 +31,7 @@ import LocationPrompt from './LocationPrompt'
 import { WelcomeScreen } from './WelcomeScreen'
 import { PlaceStrip } from './PlaceStrip'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
-import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId } from '../lib/viewedPlace'
+import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId, placeForPublicPost } from '../lib/viewedPlace'
 import type { ResolvedPlace } from '../lib/placeResolve'
 import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
 import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
@@ -1050,6 +1050,49 @@ export default function AppShell() {
      * and clearing the place there would yank a visitor out of the city they
      * were reading because somebody sent them a dead link.
      */
+    /**
+     * 🔴 PHASE 18: a public post the viewer holds nothing in.
+     *
+     * This branch runs BEFORE the place is cleared below, because unlike every
+     * other outcome it is the one case where a place has to be SET. A signed-out
+     * visitor following a shared link has no slices to resolve against and no
+     * place in session, so the post's own slice is the only thing that can say
+     * where to go — which is exactly what `get_public_post` returns.
+     *
+     * 🔴 It must NOT stash to `cs_pending_post` and bounce through login. That
+     * stash exists because the accounts hub is sent a fixed redirect with no
+     * path, and it was the right answer while conversations were members-only.
+     * Sending someone to sign in to read something they may already read is now
+     * just a door in front of an open room.
+     */
+    if (found.kind === 'public') {
+      const place = placeForPublicPost(found.sliceType, found.geoid)
+      if (!place) {
+        // federal / unified — placeless, so there is no place to enter and
+        // nothing honest to invent. See placeForPublicPost.
+        toast.error('Open that conversation from the National or Unified tab')
+        navigate('/', { replace: true })
+        return
+      }
+      // The link worked without a session, so there is nothing to replay after
+      // one. Leaving the stash would re-open this post the next time they sign
+      // in, long after they have moved on.
+      try {
+        localStorage.removeItem(PENDING_POST_KEY)
+      } catch {
+        /* blocked — nothing was ever stashed */
+      }
+      setViewedPlace(place)
+      writeViewedPlace(place)
+      const tab = found.sliceType as TabKey
+      handleTabChange(tab)
+      setForumView('conversations')
+      setViewingSlices((prev) => ({ ...prev, [tab]: null }))
+      setActivePostIds((prev) => ({ ...prev, [tab]: postId }))
+      setScrollToLatestMap((prev) => ({ ...prev, [tab]: scrollToLatest }))
+      return
+    }
+
     setViewedPlace(null)
     writeViewedPlace(null)
 
@@ -1102,10 +1145,30 @@ export default function AppShell() {
       return
     }
     if (handledRoutePostRef.current === routePostId) return
-    if (!isAuthenticated || isLoading || !hasAnySlices) return
+    /**
+     * 🔴 PHASE 18 OPENED THIS GATE, and it was `!isAuthenticated || isLoading ||
+     * !hasAnySlices` — three conditions a signed-out visitor fails on all of.
+     * That was right while every post was members-only: resolving one meant
+     * matching its slice against the viewer's, and someone with no slices could
+     * match nothing, so the only thing left to do was stash the link and send
+     * them to sign in.
+     *
+     * `locatePost` can now answer for a reader with no slices at all: it runs the
+     * member lookup first and falls through to `get_public_post`. So the wait is
+     * only for the member half — do not resolve while a member's slices are still
+     * arriving, or a post in their OWN slice resolves as a public one and they
+     * get the narrow projection of their own neighbours.
+     *
+     * 🔴 `authLoading` is in here and `isAuthenticated` is not. Whether they have
+     * a session decides WHICH path answers; whether we have finished finding out
+     * decides whether to ask at all. Dropping authLoading would resolve every
+     * deep link as public during the first render after a reload.
+     */
+    if (authLoading) return
+    if (isAuthenticated && isLoading) return
     handledRoutePostRef.current = routePostId
     void openPost(routePostId, false)
-  }, [routePostId, isAuthenticated, isLoading, hasAnySlices, openPost])
+  }, [routePostId, isAuthenticated, authLoading, isLoading, openPost])
 
   /**
    * A signed-out visitor following a link: remember the post across login.

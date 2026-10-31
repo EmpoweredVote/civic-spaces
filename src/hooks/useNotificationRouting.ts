@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { isMockSliceId, getMockPostById, MOCK_SLICES } from '../lib/devMockData'
 import type { SliceType, SliceInfo, TabKey } from '../types/database'
 import type { SiblingSlice } from './useSiblingSlices'
+import { fetchPublicPost } from './usePublicThread'
+import { publicLocationFrom } from '../lib/publicProjection'
 
 /**
  * Where a post lives, relative to the member looking for it.
@@ -10,14 +12,27 @@ import type { SiblingSlice } from './useSiblingSlices'
  * - `own`       the post is in a slice they belong to
  * - `sibling`   it is in another shard of a jurisdiction they belong to, so RLS
  *               lets them read it but not write (see the sibling-slice policies)
- * - `unavailable` not found, deleted, or in a jurisdiction that is not theirs.
- *               Deliberately one outcome for all three: distinguishing them
- *               would tell the caller whether a post they cannot read exists.
+ * - `public`    it is in a PUBLIC place the viewer holds nothing in — Phase 18.
+ *               Carries where to go, because the viewer has no tab for it.
+ * - `unavailable` not found, deleted, or in a jurisdiction that is not theirs
+ *               and not public. Deliberately one outcome for all of them:
+ *               distinguishing them would tell the caller whether a post they
+ *               cannot read exists.
+ *
+ * 🔴 `public` narrows `unavailable`, it does not widen it. Everything that was
+ * unavailable before and is not publicly readable is still unavailable, and the
+ * conflation inside that outcome is untouched — a deleted post, a volunteer post
+ * and an id that never existed all still arrive at the same answer, because
+ * `get_public_post` returns no row for each of them and this cannot tell which.
  */
 export type PostLocation =
   | { kind: 'own'; tab: TabKey }
   | { kind: 'sibling'; tab: TabKey; sibling: SiblingSlice }
+  | { kind: 'public'; sliceType: string; geoid: string; postId: string }
   | { kind: 'unavailable' }
+
+// The public branch's decision lives in src/lib/publicProjection.ts, which has no
+// runtime imports — this module imports `supabase`, so a pure check cannot load it.
 
 /**
  * Resolves a post id to the tab that should open for it.
@@ -29,7 +44,15 @@ export type PostLocation =
 export function useNotificationRouting(
   slices: Partial<Record<SliceType, SliceInfo>>,
 ) {
-  const locatePost = useCallback(
+  /**
+   * The member-scoped lookup, exactly as it was before Phase 18.
+   *
+   * 🔴 Separated so the public fall-through happens in ONE place. It used to give
+   * up at four different `return { kind: 'unavailable' }` statements; adding the
+   * fallback to three of them and missing the fourth is the kind of omission that
+   * shows as "that link works for me" and nothing else.
+   */
+  const locateForMember = useCallback(
     async (postId: string): Promise<PostLocation> => {
       // Fixture posts never existed in Supabase; resolve them from the same
       // fixtures the feed reads so ?dev=1 can exercise deep links too.
@@ -100,6 +123,25 @@ export function useNotificationRouting(
       }
     },
     [slices],
+  )
+
+  const locatePost = useCallback(
+    async (postId: string): Promise<PostLocation> => {
+      const mine = await locateForMember(postId)
+      if (mine.kind !== 'unavailable') return mine
+
+      // 🔴 Only AFTER the member lookup has given up. A member reading their own
+      // slice must keep the member path: it is block-filtered and carries every
+      // author's id, and the public path is neither. Reaching for the public RPC
+      // first would silently un-block people they blocked.
+      try {
+        const row = await fetchPublicPost(postId)
+        return publicLocationFrom(row, postId)
+      } catch {
+        return { kind: 'unavailable' }
+      }
+    },
+    [locateForMember],
   )
 
   return { locatePost }

@@ -183,3 +183,39 @@ export function writeViewedPlace(place: ResolvedPlace | null): void {
 
 /** Exported for the check, so the key it asserts on cannot drift from this one. */
 export const VIEWED_PLACE_STORAGE_KEY = VIEWED_PLACE_KEY
+
+/**
+ * The place a PUBLIC post lives in, derived from its own slice — Phase 18-03.
+ *
+ * A `/post/:postId` deep link arrives with no place at all, and a signed-out
+ * visitor has no slices to resolve it against. `get_public_post` answers with the
+ * post's `slice_type` and `geoid`, and that is all there is to work from.
+ *
+ * 🔴 It returns NULL for federal and unified, and that is an honest answer rather
+ * than a gap papered over. Census geoids nest, so a city or county geoid carries
+ * its state in the first two characters and a state geoid IS the state — those
+ * three can each name a real place. `federal|US` and `unified|` name no state and
+ * never will, so there is nothing to put in `ResolvedPlace.state`, which is not
+ * nullable. Inventing one would seat a visitor in a state at random, which is the
+ * "a real answer for the wrong place" failure this module already warns about.
+ * The caller decides what to do with null; it must not fabricate.
+ *
+ * 🔴 `city` and `county` are left null where they are not known, which is the
+ * documented meaning of null here — an answer, not a failure. A link to a city
+ * post does not tell us the county, and guessing is how a visitor ends up reading
+ * the wrong county's agenda.
+ *
+ * Still geoids and nothing else (D-13): the display name comes from geoNames.ts.
+ */
+export function placeForPublicPost(sliceType: string, geoid: string): ResolvedPlace | null {
+  if (sliceType === 'city') {
+    return { city: geoid, county: null, state: geoid.slice(0, 2), nation: 'US', unified: 'UNIFIED' }
+  }
+  if (sliceType === 'county') {
+    return { city: null, county: geoid, state: geoid.slice(0, 2), nation: 'US', unified: 'UNIFIED' }
+  }
+  if (sliceType === 'state') {
+    return { city: null, county: null, state: geoid, nation: 'US', unified: 'UNIFIED' }
+  }
+  return null
+}

@@ -58,6 +58,7 @@ import {
   IMAGINE_TOPICS,
 } from '../src/mocks/civicSpacesExplore.ts'
 import { MOCK_COMPASS_ANSWERS, MOCK_COMPASS_TOPICS } from '../src/lib/devMockData.ts'
+import { placeForPublicPost } from '../src/lib/viewedPlace.ts'
 import { readFileSync } from 'node:fs'
 import {
   PUBLIC_FEED_COLUMNS,
@@ -66,6 +67,7 @@ import {
   authorPresentation,
   mapPublicPostRow,
   mapPublicReplyRow,
+  publicLocationFrom,
 } from '../src/lib/publicProjection.ts'
 
 // ── Harness ──────────────────────────────────────────────────────────────────
@@ -997,6 +999,65 @@ const narrowRow = { ...wideRow, id: 'p2', author_user_id: null, author_avatar_ur
     `${offenders.join('\n          ')}\n` +
       `          Each of these produces '/profile/null' for a narrow-projection row, which is a\n` +
       `          dead link offered to a reader the server deliberately did not identify the author to.`,
+  )
+}
+
+// ── 78–84  Phase 18-03: locatePost's fourth outcome ─────────────────────────
+
+{
+  check(
+    78,
+    "no public row resolves 'unavailable', never 'public'",
+    publicLocationFrom(null, 'p1').kind === 'unavailable',
+    `🔴 This is the assertion that keeps a DELETED post, a VOLUNTEER post and an id that\n` +
+      `          never existed all landing on the same answer. get_public_post returns no row for\n` +
+      `          each of them, and this side cannot tell which — splitting them would reveal\n` +
+      `          whether a post the reader may not see exists.`,
+  )
+
+  const loc = publicLocationFrom({ slice_type: 'city', geoid: '3702140' }, 'p1')
+  check(
+    79,
+    "a public row resolves 'public', carrying the place the RPC already returned",
+    loc.kind === 'public' && loc.sliceType === 'city' && loc.geoid === '3702140' && loc.postId === 'p1',
+    `${JSON.stringify(loc)} — no second query: get_public_post returns slice_type and geoid\n` +
+      `          precisely so the deep link does not need one.`,
+  )
+
+  check(
+    80,
+    "the 'public' outcome carries NO tab — the viewer has none for a place they hold nothing in",
+    !('tab' in loc),
+    'a tab would be a member concept leaking into the visitor path; AppShell derives the tab\n' +
+      '          from sliceType instead, which is the only thing true for a reader with no slices.',
+  )
+
+  for (const [num, type, geoid, want] of [
+    [81, 'city', '3702140', { city: '3702140', county: null, state: '37', nation: 'US', unified: 'UNIFIED' }],
+    [82, 'county', '37021', { city: null, county: '37021', state: '37', nation: 'US', unified: 'UNIFIED' }],
+    [83, 'state', '37', { city: null, county: null, state: '37', nation: 'US', unified: 'UNIFIED' }],
+  ]) {
+    const got = placeForPublicPost(type, geoid)
+    check(
+      num,
+      `a public ${type} post derives its place from its own geoid`,
+      JSON.stringify(got) === JSON.stringify(want),
+      `got ${JSON.stringify(got)}, want ${JSON.stringify(want)} — census geoids nest, so a city or\n` +
+        `          county geoid carries its state in the first two characters. city/county stay null\n` +
+        `          where unknown: that is the documented meaning of null, and guessing a county is how\n` +
+        `          a visitor ends up reading the wrong county's agenda.`,
+    )
+  }
+
+  check(
+    84,
+    '🔴 a placeless public post derives NO place, rather than inventing a state',
+    placeForPublicPost('federal', 'US') === null && placeForPublicPost('unified', '') === null,
+    `got ${JSON.stringify(placeForPublicPost('federal', 'US'))} / ${JSON.stringify(placeForPublicPost('unified', ''))}.\n` +
+      `          ResolvedPlace.state is not nullable and federal|US names no state. 'US'.slice(0,2)\n` +
+      `          is "US", which is not a state FIPS — it would seat a visitor nowhere real and the\n` +
+      `          shell would render a place that does not exist. Null is the honest answer and the\n` +
+      `          caller handles it.`,
   )
 }
 

@@ -217,14 +217,32 @@ export default function SliceFeedPanel({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400">
-        <p className="text-sm">Failed to load posts. Please try again.</p>
-        <button
-          onClick={() => refetch()}
-          className="text-sm text-brand hover:underline"
-        >
-          Try again
-        </button>
+      <div className="flex flex-col gap-3">
+        {/* 🔴 The notice renders in the ERROR state too, and that is not cosmetic.
+            Both early returns used to skip it, so a panel that was gated AND
+            failed to load dropped the only explanation of why there is no
+            composer — leaving a reader who cannot post, cannot read, and is told
+            neither. The gate does not depend on the fetch succeeding, so neither
+            should the sentence that explains it. */}
+        {isViewOnly && (
+          <ReadOnlyNotice
+            reason={noWriteReason}
+            surface="feed"
+            loginUrl={loginUrl}
+            viewingSliceIndex={viewingSliceIndex}
+            ownSliceIndex={ownSliceIndex}
+            onReturnToOwnSlice={onReturnToOwnSlice}
+          />
+        )}
+        <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400">
+          <p className="text-sm">Failed to load posts. Please try again.</p>
+          <button
+            onClick={() => refetch()}
+            className="text-sm text-brand hover:underline"
+          >
+            Try again
+          </button>
+        </div>
       </div>
     )
   }
