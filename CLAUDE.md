@@ -60,12 +60,13 @@ copy `cs_token` out of that tab's localStorage, and paste it into localhost's un
 Those panels fall back to fixtures for the dev id only; that is expected, not a bug.
 
 **The frontend has no test framework.** No test script, no test files. What it has instead is
-eight `check:*` guard scripts, and **seven of them now run in CI** —
+nine `check:*` guard scripts, and **seven of them now run in CI** —
 `.github/workflows/guards.yml`, two jobs: four pure Node checks that read the shipped modules,
 and three that drive the real app through Playwright against a `npm run dev` server.
 `check:banners` is the eighth and runs weekly on a schedule instead
 (`.github/workflows/banner-drift.yml`), because drift there arrives with no commit to hang a
-PR check off.
+PR check off. `check:grants` is the ninth and runs by hand only: it needs a privileged
+`SUPABASE_DB_URL` plus `psql`, which CI does not have.
 
 🔴 **Running in CI is not the same as being required.** "Required to merge" is a
 branch-protection setting on `main`, and until the `Guards (pure)` and `Guards (browser)` job
@@ -246,6 +247,19 @@ and verify each author on its Commons File: page — **never copy another app's 
 
 **Every Supabase call is `.schema('civic_spaces')`** — 49 of them. The default `public` schema
 is not this app's data.
+
+🔴 **The migrations are not the grant surface; the catalog is.** `public` also carries twelve views
+over these same tables (fifteen in all; the other three are `users_public` and two PostGIS
+views), a second route in that the `civic_spaces` schema gate does not cover: `anon` has `USAGE`
+on `public` and none on `civic_spaces`. Five of the views (`posts`, `replies`, `slices`,
+`slice_members`, `connected_profiles`) are in no applied migration, and `anon` holds all seven
+privileges on every one, from Supabase's default privileges rather than any `GRANT` here. Only
+`security_invoker` and RLS hold them shut. `npm run check:grants` reads the catalog.
+`public.users_public` is deliberately left alone: it reads a `users` table this app does not own.
+
+⚠️ Until `20261030000000_reconcile_public_views.sql` is applied: it is written, not applied, and
+production is exactly as described above. On apply, delete this line, change "are in no applied
+migration" and "holds" to the past tense, and drop the "Only `security_invoker`" sentence.
 
 ## Talking to the rest of the platform
 
