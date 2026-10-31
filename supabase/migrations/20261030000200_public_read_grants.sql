@@ -1,6 +1,6 @@
 -- Phase 18-02: the grants. The privilege delta, and nothing else.
 --
--- 20261030000100_public_read.sql defines five SECURITY DEFINER functions and REVOKEs
+-- 20261030000100_public_read.sql defines six SECURITY DEFINER functions and REVOKEs
 -- EXECUTE from PUBLIC on every one of them, each right after its own CREATE FUNCTION:
 -- after that file alone, nobody but the owner can call any of them, and anon still
 -- cannot resolve the schema. THIS file is the only thing that opens the door, and it is

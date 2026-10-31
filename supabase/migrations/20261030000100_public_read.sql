@@ -15,7 +15,7 @@
 -- and `authenticated` already holds USAGE on schema civic_spaces and already reaches
 -- /rest/v1/rpc/*. So a SECURITY DEFINER function left at the default is callable by
 -- any signed-in member the instant it exists, with an RLS-bypassing answer. This
--- file therefore leaves all five callable by nobody but the owner. The grants that
+-- file therefore leaves all six callable by nobody but the owner. The grants that
 -- open four of them to anon (and keep authenticated) are 20261030000200, which
 -- contains no REVOKE.
 --
@@ -103,6 +103,73 @@ REVOKE ALL ON FUNCTION civic_spaces.public_author_is_visible(text, text, uuid)
 
 COMMENT ON FUNCTION civic_spaces.public_author_is_visible(text, text, uuid) IS
   'D-48/D-49: true when the viewer is a member of the slice, or an accepted (FRIEND) friend of this author. The only implementation of the rule.';
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- public_author_is_blocked: should this row be shown to this viewer AT ALL?
+--
+-- 🔴 A DIFFERENT QUESTION FROM public_author_is_visible, and they must not be
+-- merged. That one answers "may the viewer know WHO wrote this" and nulls the
+-- author id when the answer is no. This one answers "should the row exist for
+-- this viewer", and the answer is to omit it. Fold the block check into the
+-- visibility helper and a blocked person's post appears with a blank byline
+-- instead of being gone — which is worse than not filtering at all, because the
+-- member asked for it to be gone and we showed it to them anonymised.
+--
+-- 🔴 Bidirectional, exactly as get_feed_filtered and get_boosted_feed_filtered
+-- are (20260328200000_phase5_moderation.sql). Blocking is mutual in this product:
+-- the blocker stops seeing the blocked, and the blocked stops seeing the blocker.
+-- A one-directional copy here would be a THIRD semantics for blocking in one
+-- schema, and the one most likely to surprise is the half nobody tested.
+--
+-- 🔴 NULL p_viewer short-circuits to FALSE before any table access, so this
+-- changes NOTHING for an anonymous reader. That is deliberate and is what makes
+-- it safe to add late: anon holds no blocks, the predicate is a no-op on that
+-- path, and the four RPCs' anon output is byte-identical to before this helper
+-- existed. The behaviour change is confined to a SIGNED-IN member reading a
+-- public place they do not belong to — which is the case that had no filter.
+--
+-- Added 2026-10-31, after the whole-branch review of 18-03 observed that a block
+-- held inside the member's own slices and evaporated one tab away: M blocks H in
+-- Asheville, opens Buncombe County, and H is there in full. The plan said the
+-- public RPCs "do not and must not" block-filter — that sentence was about
+-- routing members through the public path FOR THEIR OWN SLICE, where it would
+-- bypass the member feed's filtering. It was never an argument for publishing
+-- blocked authors in places the member is only visiting. Chris's call, taken
+-- while the migration is still unapplied.
+
+CREATE OR REPLACE FUNCTION civic_spaces.public_author_is_blocked(
+  p_viewer text,
+  p_author text
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT CASE
+    WHEN p_viewer IS NULL THEN false
+    ELSE EXISTS (
+      SELECT 1
+      FROM civic_spaces.blocks b
+      WHERE (b.blocker_id = p_viewer AND b.blocked_id = p_author)
+         OR (b.blocker_id = p_author AND b.blocked_id = p_viewer)
+    )
+  END;
+$$;
+
+-- 🔴 Revoked HERE, immediately, for the same reason the helper above is: an
+-- un-revoked SECURITY DEFINER function is callable by `authenticated` through
+-- PostgREST from the moment it exists, and this one would be a pairwise "has A
+-- blocked B?" oracle over a table whose RLS says only the blocker may read their
+-- own rows. That is strictly more sensitive than the friendship oracle, because
+-- a block is information the blocker specifically does not want known.
+REVOKE ALL ON FUNCTION civic_spaces.public_author_is_blocked(text, text)
+  FROM PUBLIC, anon, authenticated;
+
+COMMENT ON FUNCTION civic_spaces.public_author_is_blocked(text, text) IS
+  'True when viewer and author have blocked each other in either direction. Always false for an anonymous viewer. The only implementation of the rule on the public path.';
 
 
 -- ============================================================================
@@ -243,6 +310,12 @@ AS $$
       WHERE rc.post_id = p.id
         AND rc.is_deleted = false
         AND rcp.is_suspended IS NOT TRUE
+        -- 🔴 The count must apply EVERY predicate get_public_replies applies, or
+        -- the number and the list disagree on screen and the number is the one
+        -- the reader believes. This is the same bug the visible-count fix closed
+        -- for soft-deleted replies; the block filter reopens it if left out.
+        AND NOT civic_spaces.public_author_is_blocked(
+                  civic_spaces.current_user_id(), rc.user_id)
     ) AS reply_count,
     COALESCE(cp.display_name, 'Unknown'),
     CASE WHEN v.visible THEN p.user_id    END,
@@ -259,6 +332,11 @@ AS $$
   ) v
   WHERE p.is_deleted = false
     AND cp.is_suspended IS NOT TRUE
+    -- A no-op for anon (NULL viewer). For a signed-in member it is the same
+    -- bidirectional rule their own feed applies — a block that stopped at the
+    -- edge of their slices was not a block.
+    AND NOT civic_spaces.public_author_is_blocked(
+              civic_spaces.current_user_id(), p.user_id)
     AND (
       p_cursor_at IS NULL
       OR p.created_at < p_cursor_at
@@ -341,6 +419,9 @@ AS $$
       WHERE rc.post_id = p.id
         AND rc.is_deleted = false
         AND rcp.is_suspended IS NOT TRUE
+        -- Same predicate set as get_public_replies — see get_public_feed's note.
+        AND NOT civic_spaces.public_author_is_blocked(
+                  civic_spaces.current_user_id(), rc.user_id)
     ) AS reply_count,
     COALESCE(cp.display_name, 'Unknown'),
     CASE WHEN v.visible THEN p.user_id     END,
@@ -358,7 +439,15 @@ AS $$
   WHERE p.id = p_post_id
     AND s.slice_type = ANY (ARRAY['city', 'county', 'state', 'federal', 'unified']::text[])
     AND p.is_deleted = false
-    AND cp.is_suspended IS NOT TRUE;
+    AND cp.is_suspended IS NOT TRUE
+    -- 🔴 A blocked author's post returns NO ROW, which makes a deep link to it
+    -- resolve `unavailable` in locatePost — the same answer as deleted, private
+    -- and never-existed. That conflation is the point: a member who blocked
+    -- someone should not be able to tell, from a link, whether that person's
+    -- post exists. get_public_replies gates through this function, so blocking
+    -- the post's author closes the whole thread, not just its byline.
+    AND NOT civic_spaces.public_author_is_blocked(
+              civic_spaces.current_user_id(), p.user_id);
 $$;
 
 REVOKE ALL ON FUNCTION civic_spaces.get_public_post(uuid) FROM PUBLIC;
@@ -425,6 +514,11 @@ AS $$
   ) v
   WHERE r.is_deleted = false
     AND cp.is_suspended IS NOT TRUE
+    -- Per REPLY author, not just the post's: a blocked person replying in a
+    -- thread by someone else is the common case, and the post-level gate above
+    -- does not reach them.
+    AND NOT civic_spaces.public_author_is_blocked(
+              civic_spaces.current_user_id(), r.user_id)
     AND (
       p_cursor_at IS NULL
       OR r.created_at > p_cursor_at

@@ -4,7 +4,7 @@
 **Applies, in this fixed order:**
 
 1. `supabase/migrations/20261030000000_reconcile_public_views.sql` (18-01, the `public.*` reconcile)
-2. `supabase/migrations/20261030000100_public_read.sql` (five functions, every one revoked from PUBLIC)
+2. `supabase/migrations/20261030000100_public_read.sql` (six functions, every one revoked from PUBLIC)
 3. `supabase/migrations/20261030000200_public_read_grants.sql` (the privilege delta)
 
 **Status:** written, rehearsed, **not applied.** Applying is Chris's call and Chris's hands.
@@ -15,15 +15,22 @@ See `18-01-APPLY.md` for what step 1 does in detail; this file covers the whole 
 | After | `anon` | `authenticated` |
 |---|---|---|
 | `...000` | zero privileges on the twelve `public.*` views | unchanged (all seven privileges kept) |
-| `...100` | unchanged: no `USAGE` on `civic_spaces`, cannot resolve anything | **cannot execute any of the five functions.** Owner only. |
+| `...100` | unchanged: no `USAGE` on `civic_spaces`, cannot resolve anything | **cannot execute any of the six functions.** Owner only. |
 | `...200` | `USAGE` on `civic_spaces` plus `EXECUTE` on exactly four RPCs | `EXECUTE` on the same four (kept explicitly) |
 
 `...100` contains every `REVOKE`, each right after its own `CREATE FUNCTION`. 🔴 That is on purpose.
 `authenticated` already holds `USAGE` on `civic_spaces` and already reaches `/rest/v1/rpc/*`, so a
 `SECURITY DEFINER` function left at Postgres's `EXECUTE TO PUBLIC` default is callable by any
-signed-in member the moment it exists, bypassing RLS. `public_author_is_visible` at that default
-is a roster oracle (sweep `p_viewer` against a slice id) and an "are A and B friends?" probe.
+signed-in member the moment it exists, bypassing RLS. Both internal helpers are oracles at that
+default: `public_author_is_visible` is a roster sweep (`p_viewer` against a slice id) and an
+"are A and B friends?" probe, and `public_author_is_blocked` is a pairwise "has A blocked B?"
+probe over a table whose RLS says only the blocker may read their own rows.
 `...200` has no `REVOKE` in it: `GRANT USAGE`, four `GRANT EXECUTE`, `NOTIFY`.
+
+**Six functions, four of them granted.** The two helpers — `public_author_is_visible` and
+`public_author_is_blocked` — are internal and stay executable by nobody but the owner, forever.
+`check:anon-read` assertion 3a asserts both by name, with a CONTROL that both were enumerated,
+because a helper nobody listed passes a loop over an empty list.
 
 ## Step 0: byte-identity. Do this before anything else, and here is why
 
@@ -87,7 +94,7 @@ with its own `REVOKE`, so the oracle never exists outside a transaction nobody e
 Run the verification in "Between the steps" below on the scratch database, then apply `...200` the
 same way and verify again.
 
-### 0c. Read back all five function bodies and diff them against the file
+### 0c. Read back all six function bodies and diff them against the file
 
 `prosrc` is exactly the text between the `$$` delimiters, so it can be compared byte for byte:
 
@@ -96,7 +103,7 @@ node -e '
 const fs=require("fs"),cp=require("child_process");
 const sql=fs.readFileSync("/tmp/apply/20261030000100_public_read.sql","utf8");
 const blocks=[...sql.matchAll(/CREATE OR REPLACE FUNCTION civic_spaces\.(\w+)\([\s\S]*?AS \$\$([\s\S]*?)\$\$;/g)];
-if(blocks.length!==5) throw new Error("expected 5 function blocks, found "+blocks.length);
+if(blocks.length!==6) throw new Error("expected 6 function blocks, found "+blocks.length);
 let bad=0;
 for(const [,name,body] of blocks){
   const live=cp.execFileSync("psql",[process.env.SCRATCH_DB_URL,"-X","-At","-c",
@@ -142,7 +149,7 @@ before judging the HTTP half.
 ### 2. `...100` second. The door is still shut
 
 Verify, as the `postgres` role (a member of `authenticated`), that a member **cannot** call any of
-them. 🔴 **Probe all five, not a sample.** The REVOKEs are five independent statements, and the one
+them. 🔴 **Probe all six, not a sample.** The REVOKEs are six independent statements, and the one
 that matters most is per-function: a single `REVOKE` lost to a swallowed comment leaves exactly one
 door open, and a two-function spot check has a 60% chance of missing it. Each probe needs **its own
 transaction** — the `42501` aborts the one it is raised in, so a single `BEGIN` block reports the
@@ -151,6 +158,10 @@ first refusal and then fails every later statement with `25P02`, which reads lik
 ```sql
 BEGIN; SET LOCAL ROLE authenticated;
   SELECT civic_spaces.public_author_is_visible('a', 'b', '00000000-0000-0000-0000-000000000000'::uuid);
+ROLLBACK;
+
+BEGIN; SET LOCAL ROLE authenticated;
+  SELECT civic_spaces.public_author_is_blocked('a', 'b');
 ROLLBACK;
 
 BEGIN; SET LOCAL ROLE authenticated;
@@ -170,14 +181,17 @@ BEGIN; SET LOCAL ROLE authenticated;
 ROLLBACK;
 ```
 
-**Expect all five:** `ERROR: 42501 permission denied for function <name>`. The arguments are
+**Expect all six:** `ERROR: 42501 permission denied for function <name>`. The arguments are
 deliberately meaningless — `EXECUTE` is checked before the body runs, so a refusal proves the
 privilege regardless of what the arguments would have matched. They only have to resolve to the
 right overload, which is why the `NULL`s carry casts. 🔴 **Any other error is a FAIL, including a
 successful empty result**: `0 rows` means the function was callable and simply found nothing.
 
-(Rehearsed 2026-10-31 on a transaction aborted with `RAISE EXCEPTION`: the helper and
-`get_public_post` both refused. The other three were not rehearsed and this is their first probe.)
+(Rehearsed 2026-10-31 on a transaction aborted with `RAISE EXCEPTION`: `public_author_is_visible`
+and `get_public_post` both refused. The other four were not rehearsed and this is their first probe.
+🔴 `public_author_is_blocked` is the newest and the most sensitive of the six: un-revoked it is a
+pairwise "has A blocked B?" oracle over a table whose RLS says only the blocker may read their own
+rows. A block is information the blocker specifically does not want known.)
 Then `npm run check:anon-read` must still **exit 1**: 3a reports
 the four RPCs "missing from the anon set" and section 2 reports "NOT APPLIED YET". That is the
 correct state: nothing is open. The new 3a arm for the helper must **PASS** here (exists, executable

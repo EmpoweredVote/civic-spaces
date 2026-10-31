@@ -239,12 +239,21 @@ SELECT json_build_object(
                     WHERE p.pronamespace = 'civic_spaces'::regnamespace
                       AND p.prosecdef
                       AND has_function_privilege('anon', p.oid, 'EXECUTE')),
-  -- The internal helper must be executable by NOBODY but its owner: not anon, not authenticated (which
-  -- already holds schema USAGE and reaches /rest/v1/rpc/*). 'exists' guards against a vacuous false.
-  'helper',       (SELECT json_build_object('exists', h.oid IS NOT NULL,
-                          'anon',  COALESCE(has_function_privilege('anon', h.oid, 'EXECUTE'), false),
-                          'auth',  COALESCE(has_function_privilege('authenticated', h.oid, 'EXECUTE'), false))
-                     FROM (SELECT to_regprocedure('civic_spaces.public_author_is_visible(text,text,uuid)') AS oid) h),
+  -- 🔴 BOTH internal helpers must be executable by NOBODY but their owner: not anon, and not
+  -- authenticated, which already holds schema USAGE and reaches /rest/v1/rpc/*. 'exists' guards
+  -- against a vacuous false. Enumerated BY NAME rather than derived, so adding a third helper
+  -- without adding it here is a visible omission rather than a silent one — the anon-executable
+  -- set below (3a, first arm) would still pass, because these are executable by nobody at all.
+  'helpers',      (SELECT COALESCE(json_agg(json_build_object(
+                            'name',   h.name,
+                            'exists', h.oid IS NOT NULL,
+                            'anon',   COALESCE(has_function_privilege('anon', h.oid, 'EXECUTE'), false),
+                            'auth',   COALESCE(has_function_privilege('authenticated', h.oid, 'EXECUTE'), false))
+                          ORDER BY h.name), '[]'::json)
+                     FROM (VALUES
+                       ('public_author_is_visible', to_regprocedure('civic_spaces.public_author_is_visible(text,text,uuid)')),
+                       ('public_author_is_blocked', to_regprocedure('civic_spaces.public_author_is_blocked(text,text)'))
+                     ) AS h(name, oid)),
   'relations',    (SELECT COALESCE(json_agg(row_to_json(t) ORDER BY t.relname), '[]'::json) FROM (
                      SELECT c.relname, c.relkind::text AS relkind,
                             (SELECT COALESCE(array_agg(q ORDER BY q), ARRAY[]::text[])
@@ -460,13 +469,22 @@ if (catalog) {
       missing.length && `missing from the anon set: ${missing.join(', ')} (grants migration not applied?)`,
       dup && 'an overload of a public RPC is also anon-callable'].filter(Boolean).join('\n'))
 
-  // 3a, second arm: the helper is closed to authenticated too. This is what makes the closure of the
-  // member-visible friendship/membership oracle permanent rather than a one-time rehearsal.
-  const hp = catalog.helper
-  check('3a  public_author_is_visible exists and is executable by NEITHER anon NOR authenticated (owner only)',
-    hp.exists && !hp.anon && !hp.auth,
-    !hp.exists ? 'the helper is not defined (migration 20261030000100 not applied?)'
-      : `executable by: ${[hp.anon && 'anon', hp.auth && 'authenticated'].filter(Boolean).join(', ')} — a signed-in member can POST /rest/v1/rpc/public_author_is_visible and read an RLS-bypassing friendship / membership oracle`)
+  // 3a, second arm: BOTH internal helpers are closed to authenticated too. This is what makes the
+  // closure of the member-visible oracles permanent rather than a one-time rehearsal.
+  const ORACLE = {
+    public_author_is_visible: 'an RLS-bypassing friendship / slice-membership oracle',
+    public_author_is_blocked:
+      'a pairwise "has A blocked B?" oracle over a table whose RLS says only the blocker may read their own rows — strictly more sensitive than the friendship one, because a block is information the blocker specifically does not want known',
+  }
+  for (const hp of catalog.helpers ?? []) {
+    check(`3a  ${hp.name} exists and is executable by NEITHER anon NOR authenticated (owner only)`,
+      hp.exists && !hp.anon && !hp.auth,
+      !hp.exists ? `the helper is not defined (migration 20261030000100 not applied?)`
+        : `executable by: ${[hp.anon && 'anon', hp.auth && 'authenticated'].filter(Boolean).join(', ')} — a signed-in member can POST /rest/v1/rpc/${hp.name} and read ${ORACLE[hp.name] ?? 'an RLS-bypassing oracle'}`)
+  }
+  check('3a  CONTROL: both internal helpers were enumerated (an empty list would pass the loop above vacuously)',
+    (catalog.helpers ?? []).length === 2,
+    `saw ${(catalog.helpers ?? []).length}: ${JSON.stringify((catalog.helpers ?? []).map((h) => h.name))} — the loop asserts nothing about a helper nobody listed.`)
 
   const rels = catalog.relations
   const exposed = rels.filter((r) => r.anon_privs.length || r.anon_col_select || r.anon_seq)
