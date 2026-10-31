@@ -11,7 +11,7 @@
  * a check that re-implements it would be a second copy of the thing the module was
  * written to prevent. If you are tempted to paste a function in here, don't.
  *
- * What it covers (32 checks; numbers 1–18 and 19–32, with 19 used twice and 25 unused —
+ * What it covers (34 checks; numbers 1–24 and 26–34, with 19 used twice and 25 unused —
  * pre-existing, left unrenumbered; the count is the number of PASS lines the run prints):
  *
  *   1–11   whyNoWrite over every viewer × every slice on screen. 1 is the control
@@ -24,10 +24,15 @@
  *          goes red on its own if that predicate is keyed on a slice id instead of
  *          placeKey — the regression that would otherwise ship silently.
  *   26–29  the public slice-type allowlist (PUBLIC_SLICE_TYPES) as a TypeScript list.
- *   30–32  the SAME allowlist as a literal inside get_public_slice in the 18-02 migration:
- *          30 it equals PUBLIC_SLICE_TYPES, 31 no other slice-type array in the file differs,
- *          32 the extractor throws rather than passing when the array is missing. Reads the
- *          SQL file, so adding a type to one side only is a red run.
+ *   30–34  the SAME allowlist as a literal inside the 18-02 migration, PER FUNCTION:
+ *          30 get_public_slice and 33 get_public_post each contain exactly one allowlist
+ *          literal equal to PUBLIC_SLICE_TYPES (deleting either predicate is a red run;
+ *          get_public_replies inherits get_public_post's gate, get_public_feed
+ *          get_public_slice's), 31 no slice-type array anywhere in the file differs, 32 the
+ *          extractor throws rather than passing when the array is missing, 34 it throws when
+ *          the named function is missing. Reads the SQL file, so adding a type to one side
+ *          only is a red run.
+ *   20–24  isSameJurisdiction (23 is the production-federal case; 24 pins that it is not placeKey membership).
  *   16–18  placeKey. 18 pins the one place it and compositionKey() deliberately
  *          differ: this key KEEPS the geoid for a placeless type, because it
  *          compares places and compositionKey chooses content.
@@ -407,17 +412,21 @@ function stringArrayLiterals(sql) {
   return out
 }
 
-/** The allowlist literal inside get_public_slice. Throws, with a reason, if it cannot be found. */
-function allowlistFromFunctionBody(sql) {
+/**
+ * The allowlist literal inside ONE named function. Throws, with a reason, if the function is
+ * missing or does not contain exactly one slice-type array. Per function on purpose: a file-wide
+ * "every copy equals the list" check stays green when one function's predicate is deleted.
+ */
+function allowlistFromFunctionBody(sql, fnName) {
   const code = stripSqlComments(sql)
-  const start = code.search(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+civic_spaces\.get_public_slice\s*\(/i)
-  if (start < 0) throw new Error('get_public_slice is not defined in the migration')
+  const start = code.search(new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+civic_spaces\\.${fnName}\\s*\\(`, 'i'))
+  if (start < 0) throw new Error(`${fnName} is not defined in the migration`)
   const rest = code.slice(start)
   const next = rest.slice(1).search(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION/i)
   const body = next < 0 ? rest : rest.slice(0, next + 1)
   const arrays = stringArrayLiterals(body)
   if (arrays.length !== 1) {
-    throw new Error(`expected exactly one string-array literal in get_public_slice, found ${arrays.length}`)
+    throw new Error(`expected exactly one string-array literal in ${fnName}, found ${arrays.length}`)
   }
   return arrays[0]
 }
@@ -426,21 +435,25 @@ const sameSet = (a, b) => [...a].sort().join(',') === [...b].sort().join(',')
 
 {
   const sql = readFileSync(PUBLIC_READ_SQL, 'utf8')
-  let sqlList = null
-  let reason = ''
-  try {
-    sqlList = allowlistFromFunctionBody(sql)
-  } catch (e) {
-    reason = e.message
+  // One assertion per function that gates on the allowlist. get_public_replies gates through
+  // get_public_post, so it inherits that one; get_public_feed gates through get_public_slice.
+  for (const [num, fnName] of [[30, 'get_public_slice'], [33, 'get_public_post']]) {
+    let sqlList = null
+    let reason = ''
+    try {
+      sqlList = allowlistFromFunctionBody(sql, fnName)
+    } catch (e) {
+      reason = e.message
+    }
+    check(
+      num,
+      `${fnName} contains exactly one allowlist literal, equal to PUBLIC_SLICE_TYPES`,
+      sqlList !== null && sameSet(sqlList, PUBLIC_SLICE_TYPES),
+      sqlList === null
+        ? `could not extract the SQL allowlist: ${reason}`
+        : `SQL has [${sqlList.join(', ')}], writeAccess.ts has [${[...PUBLIC_SLICE_TYPES].join(', ')}]`,
+    )
   }
-  check(
-    30,
-    'get_public_slice allowlist in SQL equals PUBLIC_SLICE_TYPES',
-    sqlList !== null && sameSet(sqlList, PUBLIC_SLICE_TYPES),
-    sqlList === null
-      ? `could not extract the SQL allowlist: ${reason}`
-      : `SQL has [${sqlList.join(', ')}], writeAccess.ts has [${[...PUBLIC_SLICE_TYPES].join(', ')}]`,
-  )
 
   // Any OTHER literal in the file that lists slice types is a second copy of the rule.
   const known = new Set([...PUBLIC_SLICE_TYPES, 'volunteer'])
@@ -456,11 +469,19 @@ const sameSet = (a, b) => [...a].sort().join(',') === [...b].sort().join(',')
 {
   let threw = false
   try {
-    allowlistFromFunctionBody('CREATE OR REPLACE FUNCTION civic_spaces.get_public_slice(a text) AS $$ SELECT 1 $$;')
+    allowlistFromFunctionBody('CREATE OR REPLACE FUNCTION civic_spaces.get_public_slice(a text) AS $$ SELECT 1 $$;', 'get_public_slice')
   } catch {
     threw = true
   }
   check(32, 'the extractor throws, rather than returning nothing, when the array is missing', threw)
+
+  let threwMissingFn = false
+  try {
+    allowlistFromFunctionBody('CREATE OR REPLACE FUNCTION civic_spaces.get_public_slice(a text) AS $$ SELECT ARRAY[\'city\'] $$;', 'get_public_post')
+  } catch {
+    threwMissingFn = true
+  }
+  check(34, 'the extractor throws when the named function is not defined at all', threwMissingFn)
 }
 
 // ── Result ───────────────────────────────────────────────────────────────────

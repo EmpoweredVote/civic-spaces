@@ -55,7 +55,8 @@
  *        Set equality, not four memberships. 🔴 Once schema USAGE is granted, any future
  *        SECURITY DEFINER function added to this schema is anon-callable from the moment
  *        it is created, because Postgres grants EXECUTE to PUBLIC by default. That is the
- *        exact hole found in the plan's Task 5.
+ *        exact hole found in the plan's Task 5. A second arm asserts the internal helper
+ *        public_author_is_visible is executable by NEITHER anon NOR authenticated.
  *     b  anon holds no table privilege anywhere in civic_spaces. Tables are enumerated
  *        from pg_class, NEVER a hand-written list — a hand list is a denylist in disguise
  *        and misses the table added next year (the Task 5 rehearsal probed 7 of 12 and
@@ -67,8 +68,6 @@
  *        contrast `public` carries anon=arwdDxtm as a table default — how 18-01's 15
  *        views and 14 tables got their anon privileges. One ALTER DEFAULT PRIVILEGES IN
  *        SCHEMA civic_spaces and every new table is anon-readable, silently.
- *        (Not covered: a GLOBAL default — no IN SCHEMA — which also reaches this schema;
- *        3b would still catch the tables it created.)
  *
  *   4 AUTHENTICATED VIEWERS (optional)  The plan asks for five viewers: anon, Inform,
  *                        Connected non-member, Connected member, Connected friend. Four
@@ -228,6 +227,12 @@ SELECT json_build_object(
                     WHERE p.pronamespace = 'civic_spaces'::regnamespace
                       AND p.prosecdef
                       AND has_function_privilege('anon', p.oid, 'EXECUTE')),
+  -- The internal helper must be executable by NOBODY but its owner: not anon, not authenticated (which
+  -- already holds schema USAGE and reaches /rest/v1/rpc/*). 'exists' guards against a vacuous false.
+  'helper',       (SELECT json_build_object('exists', h.oid IS NOT NULL,
+                          'anon',  COALESCE(has_function_privilege('anon', h.oid, 'EXECUTE'), false),
+                          'auth',  COALESCE(has_function_privilege('authenticated', h.oid, 'EXECUTE'), false))
+                     FROM (SELECT to_regprocedure('civic_spaces.public_author_is_visible(text,text,uuid)') AS oid) h),
   'relations',    (SELECT COALESCE(json_agg(row_to_json(t) ORDER BY t.relname), '[]'::json) FROM (
                      SELECT c.relname, c.relkind::text AS relkind,
                             (SELECT COALESCE(array_agg(q ORDER BY q), ARRAY[]::text[])
@@ -442,6 +447,14 @@ if (catalog) {
     [extra.length && `EXTRA anon-callable SECURITY DEFINER function(s): ${extra.join(', ')}\n(Postgres grants EXECUTE to PUBLIC by default; revoke it in the function's own migration.)`,
       missing.length && `missing from the anon set: ${missing.join(', ')} (grants migration not applied?)`,
       dup && 'an overload of a public RPC is also anon-callable'].filter(Boolean).join('\n'))
+
+  // 3a, second arm: the helper is closed to authenticated too. This is what makes the closure of the
+  // member-visible friendship/membership oracle permanent rather than a one-time rehearsal.
+  const hp = catalog.helper
+  check('3a  public_author_is_visible exists and is executable by NEITHER anon NOR authenticated (owner only)',
+    hp.exists && !hp.anon && !hp.auth,
+    !hp.exists ? 'the helper is not defined (migration 20261030000100 not applied?)'
+      : `executable by: ${[hp.anon && 'anon', hp.auth && 'authenticated'].filter(Boolean).join(', ')} — a signed-in member can POST /rest/v1/rpc/public_author_is_visible and read an RLS-bypassing friendship / membership oracle`)
 
   const rels = catalog.relations
   const exposed = rels.filter((r) => r.anon_privs.length || r.anon_col_select || r.anon_seq)

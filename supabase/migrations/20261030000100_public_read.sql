@@ -9,6 +9,20 @@
 --   4. get_public_post, get_public_replies -- one thread, readable with no account
 --
 -- Do not reorder.
+--
+-- 🔴 EVERY FUNCTION HERE IS REVOKED FROM PUBLIC IN THIS FILE, right after its own
+-- CREATE FUNCTION. Postgres grants EXECUTE on a new function to PUBLIC by default,
+-- and `authenticated` already holds USAGE on schema civic_spaces and already reaches
+-- /rest/v1/rpc/*. So a SECURITY DEFINER function left at the default is callable by
+-- any signed-in member the instant it exists, with an RLS-bypassing answer. This
+-- file therefore leaves all five callable by nobody but the owner. The grants that
+-- open four of them to anon (and keep authenticated) are 20261030000200, which
+-- contains no REVOKE.
+--
+-- 🔴 Public RPC calls go over POST. PostgREST also serves STABLE functions over GET,
+-- and a GET is cacheable by any shared intermediary; these responses are viewer-
+-- specific (they differ only by the Authorization header). Cloudflare already fronts
+-- this product. Before 18-03 ships, confirm nothing shared caches /rest/v1/rpc/*.
 
 
 -- ============================================================================
@@ -42,6 +56,11 @@
 -- SECURITY DEFINER with search_path pinned to '' and every object schema-qualified:
 -- an unpinned search_path on a definer function is a privilege-escalation hole.
 -- An anon viewer (NULL) is always narrow.
+--
+-- p_viewer = p_author returns FALSE unless the viewer is a member of the slice: no
+-- self-friendship row can exist (CHECK (user_low < user_high)). So an author who has
+-- left a slice sees NULL on their own post. 18-03 must NOT test ownership through
+-- author_user_id; compare against the session's own id instead.
 
 CREATE OR REPLACE FUNCTION civic_spaces.public_author_is_visible(
   p_viewer   text,
@@ -74,6 +93,13 @@ AS $$
       )
   END;
 $$;
+
+-- The internal helper: no one but its owner (the RPCs run as the owner). Revoked HERE,
+-- not in the grants file: authenticated can reach an un-revoked SECURITY DEFINER
+-- function through PostgREST and would get an RLS-bypassing "are A and B friends?" /
+-- "is A a member of slice S?" oracle.
+REVOKE ALL ON FUNCTION civic_spaces.public_author_is_visible(text, text, uuid)
+  FROM PUBLIC, anon, authenticated;
 
 COMMENT ON FUNCTION civic_spaces.public_author_is_visible(text, text, uuid) IS
   'D-48/D-49: true when the viewer is a member of the slice, or an accepted (FRIEND) friend of this author. The only implementation of the rule.';
@@ -130,6 +156,8 @@ AS $$
   LIMIT 1;
 $$;
 
+REVOKE ALL ON FUNCTION civic_spaces.get_public_slice(text, text) FROM PUBLIC;
+
 COMMENT ON FUNCTION civic_spaces.get_public_slice(text, text) IS
   'D-27/D-28/D-46: the public slice for a place, or no row. Literal allowlist (kept equal to PUBLIC_SLICE_TYPES by check:write-access); lowest sibling_index wins.';
 
@@ -165,6 +193,16 @@ COMMENT ON FUNCTION civic_spaces.get_public_slice(text, text) IS
 -- (D-31, D-34), and nor may is_deleted, account_standing or tier.
 --
 -- The viewer is civic_spaces.current_user_id() (NULL for anon), never an argument.
+--
+-- reply_count is COMPUTED, not the posts.reply_count column. That column is kept by a
+-- trigger on INSERT/DELETE of replies only: it does not move when a reply is
+-- soft-deleted or its author is suspended, but get_public_replies withholds both. The
+-- raw column would exceed the rendered replies and publish how many were removed. The
+-- subquery uses the SAME predicates as get_public_replies (here and in get_public_post);
+-- keep them equal.
+--
+-- 🔴 p_cursor_id NULL with p_cursor_at set: the tie-break comparison is NULL, so rows
+-- sharing exactly p_cursor_at are DROPPED. Always pass both or neither.
 
 CREATE OR REPLACE FUNCTION civic_spaces.get_public_feed(
   p_slice_type text,
@@ -197,7 +235,15 @@ AS $$
     p.body,
     p.created_at,
     p.updated_at,
-    p.reply_count,
+    (
+      SELECT count(*)::integer
+      FROM civic_spaces.replies rc
+      LEFT JOIN civic_spaces.connected_profiles rcp
+        ON rcp.user_id = rc.user_id
+      WHERE rc.post_id = p.id
+        AND rc.is_deleted = false
+        AND rcp.is_suspended IS NOT TRUE
+    ) AS reply_count,
     COALESCE(cp.display_name, 'Unknown'),
     CASE WHEN v.visible THEN p.user_id    END,
     CASE WHEN v.visible THEN cp.avatar_url END
@@ -221,6 +267,8 @@ AS $$
   ORDER BY p.created_at DESC, p.id DESC
   LIMIT LEAST(GREATEST(COALESCE(p_limit, 20), 1), 100);
 $$;
+
+REVOKE ALL ON FUNCTION civic_spaces.get_public_feed(text, text, integer, timestamptz, uuid) FROM PUBLIC;
 
 COMMENT ON FUNCTION civic_spaces.get_public_feed(text, text, integer, timestamptz, uuid) IS
   'One page of a public place''s feed. Author id/avatar are NULL where public_author_is_visible is false (D-48/D-49). Never returns edit_history, is_deleted, account_standing, tier or current_member_count.';
@@ -285,7 +333,15 @@ AS $$
     p.body,
     p.created_at,
     p.updated_at,
-    p.reply_count,
+    (
+      SELECT count(*)::integer
+      FROM civic_spaces.replies rc
+      LEFT JOIN civic_spaces.connected_profiles rcp
+        ON rcp.user_id = rc.user_id
+      WHERE rc.post_id = p.id
+        AND rc.is_deleted = false
+        AND rcp.is_suspended IS NOT TRUE
+    ) AS reply_count,
     COALESCE(cp.display_name, 'Unknown'),
     CASE WHEN v.visible THEN p.user_id     END,
     CASE WHEN v.visible THEN cp.avatar_url END
@@ -305,6 +361,8 @@ AS $$
     AND cp.is_suspended IS NOT TRUE;
 $$;
 
+REVOKE ALL ON FUNCTION civic_spaces.get_public_post(uuid) FROM PUBLIC;
+
 COMMENT ON FUNCTION civic_spaces.get_public_post(uuid) IS
   'One public post, in its OWN shard (not get_public_slice''s lowest one). Allowlist-gated; absent if private, deleted, suspended-author or unknown. Author id/avatar NULL where public_author_is_visible is false.';
 
@@ -320,6 +378,8 @@ COMMENT ON FUNCTION civic_spaces.get_public_post(uuid) IS
 --     parent is gone.
 --   * Replies by suspended authors are excluded, as in the feed.
 --   * p_limit is clamped to 1..100 (default 50).
+--   * 🔴 p_cursor_id NULL with p_cursor_at set drops rows sharing exactly p_cursor_at
+--     (the tie-break is NULL). Always pass both or neither.
 
 CREATE OR REPLACE FUNCTION civic_spaces.get_public_replies(
   p_post_id   uuid,
@@ -376,3 +436,5 @@ $$;
 
 COMMENT ON FUNCTION civic_spaces.get_public_replies(uuid, integer, timestamptz, uuid) IS
   'One page of a public post''s replies, oldest first. Soft-deleted replies excluded, their children kept. Author id/avatar NULL where public_author_is_visible is false.';
+
+REVOKE ALL ON FUNCTION civic_spaces.get_public_replies(uuid, integer, timestamptz, uuid) FROM PUBLIC;
