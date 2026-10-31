@@ -6,9 +6,9 @@
 --   1. public_author_is_visible  -- the one author-visibility rule
 --   2. get_public_slice          -- the allowlist gate, and the one shard rule
 --   3. get_public_feed           -- paginated posts for one public place
---   4. (reserved)
+--   4. get_public_post, get_public_replies -- one thread, readable with no account
 --
--- Section 4 is appended by a later task. Do not reorder.
+-- Do not reorder.
 
 
 -- ============================================================================
@@ -224,3 +224,155 @@ $$;
 
 COMMENT ON FUNCTION civic_spaces.get_public_feed(text, text, integer, timestamptz, uuid) IS
   'One page of a public place''s feed. Author id/avatar are NULL where public_author_is_visible is false (D-48/D-49). Never returns edit_history, is_deleted, account_standing, tier or current_member_count.';
+
+
+-- ============================================================================
+-- SECTION 4 of 4: get_public_post, get_public_replies
+-- ============================================================================
+--
+-- One thread, readable with no account.
+--
+-- 🔴 get_public_post does NOT call get_public_slice. That function answers D-46,
+-- "which shard do I show when someone ARRIVES at a place", and returns the lowest
+-- sibling_index for a (slice_type, geoid). A post's shard is already known, and may
+-- be shard 2: routing through get_public_slice would drop it, or return it under
+-- shard 1's slice_id. So the post joins to ITS OWN slice and is gated on the
+-- allowlist directly, returning that slice's real slice_type, geoid and slice_id
+-- (18-03 places a deep-linked post from these, with no second query).
+--
+-- The allowlist literal below is the same five types as get_public_slice, and
+-- check:write-access compares every slice-type array in this file against
+-- PUBLIC_SLICE_TYPES. Edit all of them together, deliberately.
+--
+-- A post that is private, deleted, by a suspended author, or nonexistent is simply
+-- ABSENT: zero rows, never an error, and never distinguishable from one another.
+-- An author with no connected_profiles row still shows, as 'Unknown' (LEFT JOIN,
+-- so the suspension filter is `IS NOT TRUE`, as in get_public_feed).
+--
+-- Author projection is per row through public_author_is_visible (D-48, D-49): NULL
+-- author_user_id / author_avatar_url is the narrow projection, never a sentinel.
+-- Never SELECT *: edit_history, is_deleted, account_standing, tier and
+-- current_member_count stay in the database.
+
+CREATE OR REPLACE FUNCTION civic_spaces.get_public_post(
+  p_post_id uuid
+)
+RETURNS TABLE (
+  id                  uuid,
+  slice_id            uuid,
+  slice_type          text,
+  geoid               text,
+  title               text,
+  body                text,
+  created_at          timestamptz,
+  updated_at          timestamptz,
+  reply_count         integer,
+  author_display_name text,
+  author_user_id      text,
+  author_avatar_url   text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT
+    p.id,
+    p.slice_id,
+    s.slice_type,
+    s.geoid,
+    p.title,
+    p.body,
+    p.created_at,
+    p.updated_at,
+    p.reply_count,
+    COALESCE(cp.display_name, 'Unknown'),
+    CASE WHEN v.visible THEN p.user_id     END,
+    CASE WHEN v.visible THEN cp.avatar_url END
+  FROM civic_spaces.posts p
+  JOIN civic_spaces.slices s
+    ON s.id = p.slice_id
+  LEFT JOIN civic_spaces.connected_profiles cp
+    ON cp.user_id = p.user_id
+  CROSS JOIN LATERAL (
+    SELECT civic_spaces.public_author_is_visible(
+             civic_spaces.current_user_id(), p.user_id, p.slice_id
+           ) AS visible
+  ) v
+  WHERE p.id = p_post_id
+    AND s.slice_type = ANY (ARRAY['city', 'county', 'state', 'federal', 'unified']::text[])
+    AND p.is_deleted = false
+    AND cp.is_suspended IS NOT TRUE;
+$$;
+
+COMMENT ON FUNCTION civic_spaces.get_public_post(uuid) IS
+  'One public post, in its OWN shard (not get_public_slice''s lowest one). Allowlist-gated; absent if private, deleted, suspended-author or unknown. Author id/avatar NULL where public_author_is_visible is false.';
+
+
+-- get_public_replies: replies of one public post, oldest first (a thread reads
+-- downward, the opposite of the feed), (created_at, id) ascending with the
+-- composite cursor: pass the created_at and id of the LAST row of the previous page.
+--
+--   * The post is gated by get_public_post, so a reply under a private, deleted or
+--     unknown post is never returned and the allowlist is not repeated.
+--   * Soft-deleted replies are excluded, but their CHILDREN ARE KEPT: parent_reply_id
+--     is returned as stored and rows are never re-parented or hidden because a
+--     parent is gone.
+--   * Replies by suspended authors are excluded, as in the feed.
+--   * p_limit is clamped to 1..100 (default 50).
+
+CREATE OR REPLACE FUNCTION civic_spaces.get_public_replies(
+  p_post_id   uuid,
+  p_limit     integer     DEFAULT 50,
+  p_cursor_at timestamptz DEFAULT NULL,
+  p_cursor_id uuid        DEFAULT NULL
+)
+RETURNS TABLE (
+  id                  uuid,
+  post_id             uuid,
+  parent_reply_id     uuid,
+  body                text,
+  created_at          timestamptz,
+  updated_at          timestamptz,
+  author_display_name text,
+  author_user_id      text,
+  author_avatar_url   text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT
+    r.id,
+    r.post_id,
+    r.parent_reply_id,
+    r.body,
+    r.created_at,
+    r.updated_at,
+    COALESCE(cp.display_name, 'Unknown'),
+    CASE WHEN v.visible THEN r.user_id     END,
+    CASE WHEN v.visible THEN cp.avatar_url END
+  FROM civic_spaces.get_public_post(p_post_id) gp
+  JOIN civic_spaces.replies r
+    ON r.post_id = gp.id
+  LEFT JOIN civic_spaces.connected_profiles cp
+    ON cp.user_id = r.user_id
+  CROSS JOIN LATERAL (
+    SELECT civic_spaces.public_author_is_visible(
+             civic_spaces.current_user_id(), r.user_id, gp.slice_id
+           ) AS visible
+  ) v
+  WHERE r.is_deleted = false
+    AND cp.is_suspended IS NOT TRUE
+    AND (
+      p_cursor_at IS NULL
+      OR r.created_at > p_cursor_at
+      OR (r.created_at = p_cursor_at AND r.id > p_cursor_id)
+    )
+  ORDER BY r.created_at ASC, r.id ASC
+  LIMIT LEAST(GREATEST(COALESCE(p_limit, 50), 1), 100);
+$$;
+
+COMMENT ON FUNCTION civic_spaces.get_public_replies(uuid, integer, timestamptz, uuid) IS
+  'One page of a public post''s replies, oldest first. Soft-deleted replies excluded, their children kept. Author id/avatar NULL where public_author_is_visible is false.';
