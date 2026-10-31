@@ -156,6 +156,31 @@ and are not re-opened here. Decisions continue the global numbering from D-25.
   friends are. It does **not** relax D-33 — a non-friend still sees no trace that an author
   shares anything with anyone.
 
+- **D-50 — A block holds everywhere a member reads, not only inside their own slices.**
+  Added 2026-10-31, Chris's call, after the whole-branch review of 18-03. `get_feed_filtered`
+  and `get_boosted_feed_filtered` have always excluded blocked authors in both directions, so
+  a member's own feed is clean. The public RPCs had no such filter, and 18-03's own plan said
+  they "do not and must not" have one — a sentence written about not *replacing* the member
+  feed, and read as permission to publish blocked authors elsewhere. The effect: M blocks H,
+  both in Asheville; M opens Buncombe County one tab away and H is there in full. A block the
+  product offered as a block, undone by a tab.
+
+  🔴 **The rule is a row filter, not a projection narrowing, and the two must stay separate.**
+  D-48/D-49 answer "may this viewer know WHO wrote this" and null the author id. This answers
+  "should this row exist for this viewer" and omits it. Folding the block check into
+  `public_author_is_visible` would show a blocked person's post with a blank byline — worse
+  than no filter, because the member asked for it to be gone and we showed it to them
+  anonymised.
+
+  🔴 **It is a no-op for an anonymous reader, by construction.** `public_author_is_blocked`
+  short-circuits to false on a NULL viewer before touching `blocks`, so the anonymous
+  projection is byte-identical to the version without it. Nothing about this decision widens
+  what the public square discloses; it narrows what one signed-in member sees, which is the
+  direction that needs no further sign-off. The helper is `SECURITY DEFINER` and revoked from
+  everyone but its owner in the same statement block that creates it — un-revoked it would be
+  a pairwise "has A blocked B?" oracle, and a block is information the blocker specifically
+  does not want known.
+
 ### The closed door, and the explainer behind it
 
 - **D-35 — The reply affordance is a quiet outlined button, not a filled CTA.** Chris, on the

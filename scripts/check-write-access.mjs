@@ -484,6 +484,65 @@ const sameSet = (a, b) => [...a].sort().join(',') === [...b].sort().join(',')
   check(34, 'the extractor throws when the named function is not defined at all', threwMissingFn)
 }
 
+// ── 35–38: the block filter is in every body that returns authored content ──
+//
+// 🔴 Exactly the shape assertions 30 and 33 exist for, and written because that
+// lesson was learned the hard way in this same file: the allowlist literal lived in
+// two function bodies, the guard read one, and deleting the predicate from the other
+// left the run fully green while deep-linked posts resolved in any slice type.
+//
+// public_author_is_blocked is referenced from FIVE places in the migration — three
+// row filters (feed, post, replies) and two reply_count subqueries. Miss one and the
+// failure is silent and asymmetric: a blocked author's posts vanish from the list
+// while the count above it still includes their replies, or a thread the member
+// should never see opens from a deep link.
+
+/** The text of one CREATE FUNCTION body, comments stripped. Throws rather than returning ''. */
+function functionBody(sql, fnName) {
+  const code = stripSqlComments(sql)
+  const start = code.search(new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+civic_spaces\\.${fnName}\\s*\\(`, 'i'))
+  if (start < 0) throw new Error(`${fnName} is not defined in the migration`)
+  const rest = code.slice(start)
+  const next = rest.slice(1).search(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION/i)
+  return next < 0 ? rest : rest.slice(0, next + 1)
+}
+
+{
+  const sql = readFileSync(PUBLIC_READ_SQL, 'utf8')
+
+  // [number, function, how many NOT-blocked predicates its body must carry]
+  for (const [num, fnName, want] of [
+    [35, 'get_public_feed', 2], // the row filter, and the reply_count subquery
+    [36, 'get_public_post', 2], // the same two
+    [37, 'get_public_replies', 1], // per-reply; the post gate comes from get_public_post
+  ]) {
+    let body = null
+    let why = ''
+    try { body = functionBody(sql, fnName) } catch (e) { why = e.message }
+    const uses = body === null ? -1 : (body.match(/NOT\s+civic_spaces\.public_author_is_blocked\s*\(/gi) ?? []).length
+    check(
+      num,
+      `${fnName} applies the block filter ${want === 1 ? 'once' : `${want}×`} (rows${want === 2 ? ' and reply_count' : ''})`,
+      uses === want,
+      body === null
+        ? `could not read the body: ${why}`
+        : `found ${uses} \`NOT public_author_is_blocked(...)\` in ${fnName}, expected ${want}.\n` +
+          `          A missing one is SILENT: the list and the count disagree, or a blocked\n` +
+          `          author's thread opens from a deep link. Anon is unaffected either way,\n` +
+          `          which is exactly why no anon-facing check can catch this.`,
+    )
+  }
+
+  check(
+    38,
+    'the block helper short-circuits on a NULL viewer, so anon output is unchanged',
+    /WHEN\s+p_viewer\s+IS\s+NULL\s+THEN\s+false/i.test(functionBody(sql, 'public_author_is_blocked')),
+    'Without the guard clause the helper reads civic_spaces.blocks for every anonymous\n' +
+      '          row — comparing NULL to every blocker_id, which is never true but is a seq scan\n' +
+      '          per row, and makes the anon path depend on a table it has no business touching.',
+  )
+}
+
 // ── Result ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${passed} PASS, ${failed} FAIL`)
