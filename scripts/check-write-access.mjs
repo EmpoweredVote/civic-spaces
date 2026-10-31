@@ -11,7 +11,8 @@
  * a check that re-implements it would be a second copy of the thing the module was
  * written to prevent. If you are tempted to paste a function in here, don't.
  *
- * What it covers (19 assertions — 18 tabled, plus the derivation loop):
+ * What it covers (32 checks; numbers 1–18 and 19–32, with 19 used twice and 25 unused —
+ * pre-existing, left unrenumbered; the count is the number of PASS lines the run prints):
  *
  *   1–11   whyNoWrite over every viewer × every slice on screen. 1 is the control
  *          case (a member writing in their own shard) and the only `null` among
@@ -22,6 +23,11 @@
  *   12–15  canReadConversationsIn. 13 is the Phase 16 sibling-shard read, which
  *          goes red on its own if that predicate is keyed on a slice id instead of
  *          placeKey — the regression that would otherwise ship silently.
+ *   26–29  the public slice-type allowlist (PUBLIC_SLICE_TYPES) as a TypeScript list.
+ *   30–32  the SAME allowlist as a literal inside get_public_slice in the 18-02 migration:
+ *          30 it equals PUBLIC_SLICE_TYPES, 31 no other slice-type array in the file differs,
+ *          32 the extractor throws rather than passing when the array is missing. Reads the
+ *          SQL file, so adding a type to one side only is a red run.
  *   16–18  placeKey. 18 pins the one place it and compositionKey() deliberately
  *          differ: this key KEEPS the geoid for a placeless type, because it
  *          compares places and compositionKey chooses content.
@@ -37,6 +43,7 @@
  * A FAIL is a bug in the shipped module. There is nothing else here for it to be.
  */
 
+import { readFileSync } from 'node:fs'
 import {
   canReadConversationsIn,
   canWriteIn,
@@ -367,6 +374,94 @@ check(
   !isPublicSliceType('school-board'),
   'a denylist would publish this the day it is created; this must stay an allowlist',
 )
+
+// ── 30–32: the SQL allowlist cannot drift from PUBLIC_SLICE_TYPES ────────────
+//
+// 🔴 The same five types are a literal array inside get_public_slice, in the 18-02
+// migration. They are written twice because they have to be — one is the database's
+// gate, one is the client's — and a comment saying "keep them equal" is not a guard.
+// For a security allowlist across two languages that is exactly the shape that
+// silently publishes a private space type. So this READS the migration and compares.
+//
+// It fails LOUDLY rather than passing quietly: if the function, or its array, cannot be
+// found (a rename, a reformat, the file moved) that is a FAIL with the reason, never a
+// vacuous pass. 32 pins that behaviour on text with no array in it.
+
+
+const PUBLIC_READ_SQL = new URL(
+  '../supabase/migrations/20261030000100_public_read.sql',
+  import.meta.url,
+)
+
+/** SQL with `--` line comments removed, so a documented array cannot be mistaken for code. */
+function stripSqlComments(sql) {
+  return sql.replace(/--[^\n]*/g, '')
+}
+
+/** Every ARRAY['a', 'b', ...] literal made only of quoted strings, as arrays of strings. */
+function stringArrayLiterals(sql) {
+  const out = []
+  for (const m of sql.matchAll(/ARRAY\s*\[\s*((?:'[^']*'\s*,?\s*)+)\]/gi)) {
+    out.push([...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]))
+  }
+  return out
+}
+
+/** The allowlist literal inside get_public_slice. Throws, with a reason, if it cannot be found. */
+function allowlistFromFunctionBody(sql) {
+  const code = stripSqlComments(sql)
+  const start = code.search(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+civic_spaces\.get_public_slice\s*\(/i)
+  if (start < 0) throw new Error('get_public_slice is not defined in the migration')
+  const rest = code.slice(start)
+  const next = rest.slice(1).search(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION/i)
+  const body = next < 0 ? rest : rest.slice(0, next + 1)
+  const arrays = stringArrayLiterals(body)
+  if (arrays.length !== 1) {
+    throw new Error(`expected exactly one string-array literal in get_public_slice, found ${arrays.length}`)
+  }
+  return arrays[0]
+}
+
+const sameSet = (a, b) => [...a].sort().join(',') === [...b].sort().join(',')
+
+{
+  const sql = readFileSync(PUBLIC_READ_SQL, 'utf8')
+  let sqlList = null
+  let reason = ''
+  try {
+    sqlList = allowlistFromFunctionBody(sql)
+  } catch (e) {
+    reason = e.message
+  }
+  check(
+    30,
+    'get_public_slice allowlist in SQL equals PUBLIC_SLICE_TYPES',
+    sqlList !== null && sameSet(sqlList, PUBLIC_SLICE_TYPES),
+    sqlList === null
+      ? `could not extract the SQL allowlist: ${reason}`
+      : `SQL has [${sqlList.join(', ')}], writeAccess.ts has [${[...PUBLIC_SLICE_TYPES].join(', ')}]`,
+  )
+
+  // Any OTHER literal in the file that lists slice types is a second copy of the rule.
+  const known = new Set([...PUBLIC_SLICE_TYPES, 'volunteer'])
+  const copies = stringArrayLiterals(stripSqlComments(sql)).filter((arr) => arr.some((t) => known.has(t)))
+  check(
+    31,
+    'every slice-type array literal in the migration equals PUBLIC_SLICE_TYPES (and there is at least one)',
+    copies.length >= 1 && copies.every((arr) => sameSet(arr, PUBLIC_SLICE_TYPES)),
+    `found ${copies.length} slice-type literal(s): ${JSON.stringify(copies)}`,
+  )
+}
+
+{
+  let threw = false
+  try {
+    allowlistFromFunctionBody('CREATE OR REPLACE FUNCTION civic_spaces.get_public_slice(a text) AS $$ SELECT 1 $$;')
+  } catch {
+    threw = true
+  }
+  check(32, 'the extractor throws, rather than returning nothing, when the array is missing', threw)
+}
 
 // ── Result ───────────────────────────────────────────────────────────────────
 
