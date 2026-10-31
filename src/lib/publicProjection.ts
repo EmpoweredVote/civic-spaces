@@ -137,5 +137,40 @@ export function mapPublicReplyRow(row: PublicReplyRow): ReplyWithAuthor {
   }
 }
 
+// ── What a card may offer about an author ────────────────────────────────────
+
+/** The three affordances that depend on knowing who wrote something. */
+export interface AuthorPresentation {
+  /** The author's profile route, or null when this reader may not have it. */
+  profileHref: string | null
+  /** Avatar, initial bubble and the name as a control — all one decision. */
+  linkable: boolean
+}
+
+/**
+ * 🔴 ONE BODY for "may this reader be offered the author?", because the alternative
+ * is `user_id ? link : text` written at five call sites, and the fifth is eventually
+ * written the permissive way.
+ *
+ * It is not a privacy gate — the gate is in SQL, and a null id here means the server
+ * already declined to say. This is the rendering consequence, in one place, so that
+ * consequence is testable without a browser.
+ *
+ * 🔴 It exists because TypeScript does NOT catch the alternative. Widening
+ * `user_id` to `string | null` turned up three compile errors and none of them were
+ * the profile links: `navigate('/profile/' + post.user_id)` is legal string
+ * concatenation and happily produces `/profile/null`, and `post.user_id === userId`
+ * is a legal comparison that is simply always false. check-composition asserts that
+ * these components contain no raw `/profile/` concatenation, because the compiler
+ * will not.
+ *
+ * Member posts always carry an id and always come back linkable, so there is one
+ * rule rather than a public one and a member one.
+ */
+export function authorPresentation(userId: string | null | undefined): AuthorPresentation {
+  if (!userId) return { profileHref: null, linkable: false }
+  return { profileHref: `/profile/${userId}`, linkable: true }
+}
+
 /** Unused at runtime; keeps the type import honest when edit_history is reintroduced. */
 export type { EditHistoryEntry }

@@ -368,6 +368,7 @@ export default function SliceFeedPanel({
             onBack={() => onNavigateToThread(null)}
             scrollToLatest={scrollToLatest}
             isViewOnly={isViewOnly}
+            isPublic={!!publicPlace}
             noWriteReason={noWriteReason}
             ownSliceIndex={ownSliceIndex}
           />

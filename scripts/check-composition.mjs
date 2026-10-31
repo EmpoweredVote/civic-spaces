@@ -63,6 +63,7 @@ import {
   PUBLIC_FEED_COLUMNS,
   PUBLIC_POST_COLUMNS,
   PUBLIC_REPLY_COLUMNS,
+  authorPresentation,
   mapPublicPostRow,
   mapPublicReplyRow,
 } from '../src/lib/publicProjection.ts'
@@ -928,6 +929,74 @@ const narrowRow = { ...wideRow, id: 'p2', author_user_id: null, author_avatar_ur
     'parent_reply_id survives the public reply mapping (nesting is not flattened)',
     reply.parent_reply_id === 'r0' && reply.post_id === 'p1' && reply.user_id === null,
     JSON.stringify(reply),
+  )
+}
+
+// ── 73–77  Phase 18-03: what a card may offer about an author ───────────────
+
+{
+  const anon = authorPresentation(null)
+  const known = authorPresentation('u-ada')
+
+  check(
+    73,
+    'a null author id offers no profile href and nothing linkable',
+    anon.profileHref === null && anon.linkable === false,
+    `${JSON.stringify(anon)} — and 🔴 never the STRING "null": '/profile/' + null is legal\n` +
+      `          JavaScript and legal TypeScript, and it produces a link to /profile/null.`,
+  )
+
+  check(
+    74,
+    'a known author id offers /profile/:id and a linkable name',
+    known.profileHref === '/profile/u-ada' && known.linkable === true,
+    JSON.stringify(known),
+  )
+
+  check(
+    75,
+    '🔴 D-49: one response produces MIXED presentations, row by row',
+    (() => {
+      const rows = [wideRow, narrowRow, { ...wideRow, id: 'p3' }].map(mapPublicPostRow)
+      const p = rows.map((r) => authorPresentation(r.user_id))
+      return p[0].linkable && !p[1].linkable && p[2].linkable
+    })(),
+    'a friend of one author and a stranger to the next, in the same thread — the decision is\n' +
+      '          per row, never per response. A mapper that hoisted it would make the whole page\n' +
+      '          narrow or the whole page wide, and the wide one is a disclosure.',
+  )
+
+  check(
+    76,
+    'the presentation never yields an empty or whitespace href',
+    authorPresentation('').profileHref === null && authorPresentation(undefined).profileHref === null,
+    `'' is falsy and must take the same branch as null — a '' id would otherwise build '/profile/'.`,
+  )
+
+  /**
+   * 🔴 A SOURCE SCAN, and it is here because the type system cannot do this job.
+   * Widening user_id to `string | null` produced three compile errors and none of
+   * them were these: string concatenation with null is legal and yields
+   * '/profile/null'. So the guard is structural — the three components that render
+   * an author must route through authorPresentation and never build the path.
+   */
+  const AUTHOR_COMPONENTS = ['PostCard.tsx', 'ReplyCard.tsx', 'ThreadView.tsx']
+  const offenders = []
+  for (const name of AUTHOR_COMPONENTS) {
+    const src = readFileSync(new URL(`../src/components/${name}`, import.meta.url), 'utf8')
+    for (const [i, line] of src.split('\n').entries()) {
+      if (/['"`]\/profile\/['"`]\s*\+|\/profile\/\$\{/.test(line)) {
+        offenders.push(`${name}:${i + 1}  ${line.trim().slice(0, 80)}`)
+      }
+    }
+  }
+  check(
+    77,
+    'no author component builds a /profile/ path by hand — all route through authorPresentation',
+    offenders.length === 0,
+    `${offenders.join('\n          ')}\n` +
+      `          Each of these produces '/profile/null' for a narrow-projection row, which is a\n` +
+      `          dead link offered to a reader the server deliberately did not identify the author to.`,
   )
 }
 

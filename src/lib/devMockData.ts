@@ -569,6 +569,9 @@ export function getMockPostById(postId: string): PostWithAuthor | null {
     ...MOCK_COUNTY_POSTS,
     ...MOCK_CITY_POSTS,
     ...MOCK_CITY_SIBLING_POSTS,
+    // Registered here as well as in getMockPublicFeedPage, per the note above:
+    // a public post whose thread cannot open is a public feed you cannot read.
+    ...MOCK_PUBLIC_POSTS,
   ]
   return all.find((p) => p.id === postId) ?? null
 }
@@ -664,6 +667,41 @@ const MOCK_REPLIES: Record<string, ReplyWithAuthor[]> = {
       updated_at: '2026-04-06T12:30:00.000Z',
       is_deleted: false,
       author: author('MonroeNeighbor'),
+    },
+  ],
+
+  /**
+   * 🔴 A MIXED-VISIBILITY public thread — Review Focus 3, and the one arrangement
+   * that cannot be checked any other way. D-49 decides per AUTHOR, so a friend's
+   * reply arrives beside a stranger's in the SAME response: one with an avatar and
+   * a profile link, the next a plain handle. They have to line up.
+   *
+   * The nesting is deliberate too: the narrow reply is the PARENT of a wide one,
+   * which is the case that would break if the mapper ever dropped parent_reply_id
+   * for rows it could not identify the author of.
+   */
+  'mock-public-post-1': [
+    {
+      id: 'mock-public-reply-1',
+      post_id: 'mock-public-post-1',
+      parent_reply_id: null,
+      user_id: null,
+      body: 'Is the new date on the county calendar yet? I only see the old one.',
+      created_at: '2026-10-28T16:10:00.000Z',
+      updated_at: '2026-10-28T16:10:00.000Z',
+      is_deleted: false,
+      author: { display_name: 'PorchLight', avatar_url: null },
+    },
+    {
+      id: 'mock-public-reply-2',
+      post_id: 'mock-public-post-1',
+      parent_reply_id: 'mock-public-reply-1',
+      user_id: 'mock-user-visible1',
+      body: 'Updated this afternoon — the calendar entry now reads the 14th.',
+      created_at: '2026-10-28T17:45:00.000Z',
+      updated_at: '2026-10-28T17:45:00.000Z',
+      is_deleted: false,
+      author: author('RiverwardResident'),
     },
   ],
 }
