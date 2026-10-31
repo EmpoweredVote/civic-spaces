@@ -59,8 +59,25 @@ copy `cs_token` out of that tab's localStorage, and paste it into localhost's un
 **Member-only APIs still 401 for the dev id** (your own representatives, your compass answers).
 Those panels fall back to fixtures for the dev id only; that is expected, not a bug.
 
-**The frontend has no test framework.** No test script, no test files. `npm run build` is the
-whole safety net there — run it before you claim anything works.
+**The frontend has no test framework.** No test script, no test files. What it has instead is
+eight `check:*` guard scripts, and **seven of them now run in CI** —
+`.github/workflows/guards.yml`, two jobs: four pure Node checks that read the shipped modules,
+and three that drive the real app through Playwright against a `npm run dev` server.
+`check:banners` is the eighth and runs weekly on a schedule instead
+(`.github/workflows/banner-drift.yml`), because drift there arrives with no commit to hang a
+PR check off.
+
+🔴 **Running in CI is not the same as being required.** "Required to merge" is a
+branch-protection setting on `main`, and until the `Guards (pure)` and `Guards (browser)` job
+names are added there, a red run is advisory and a PR merges over it. `build` is still the
+only hard gate.
+
+🔴 **Still run them by hand before you claim anything works.** CI runs them on a pull request;
+it does not run them while you are working, and `npm run build` on its own has never been
+enough. It cannot see a deleted mount: PR #133 removed the `<PlaceStrip>` mount and left
+`enterPlace` with one call site that renders only when signed out, silently removing "look at
+another place" for every member while `tsc -b` stayed green. `check:place-entry` caught it,
+by hand, days later. That is what the guards are for and why they are worth the minute.
 
 🔴 **The type-check depends on `tsc -b`.** The root `tsconfig.json` is a solution file
 (`"files": []` plus `references`): plain `tsc` on it compiles zero files, and Vite transpiles
@@ -77,7 +94,8 @@ files, that is a behind-by-N branch, not lost work; check the counts
 *all* `.planning/**` or `*.md` is approved automatically by
 `.github/workflows/docs-auto-approve.yml`; one non-doc file and it is a normal review. The
 allowlist is the security boundary, so `.github/**` is excluded — a PR touching CI never
-auto-approves, including one that edits that workflow. `build` is required either way.
+auto-approves, including one that edits that workflow. `build` is required either way, and
+the `Guards` jobs run on every PR but are not yet required (see above).
 
 🔴 **Slice assignment lives in the ev-accounts engine, not in this repo.** It was folded in
 per ev-cto decision 0018 and is **canonical at `ev-accounts/backend/src/civic_spaces/`**,

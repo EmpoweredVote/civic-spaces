@@ -1,0 +1,129 @@
+name: Guards
+
+# Why this exists
+# ---------------
+# This repo has no test framework. Until now `npm run build` was the entire
+# automated safety net, and `tsc -b` cannot see a deleted mount: PR #133 removed
+# the `<PlaceStrip>` mount from AppShell, which left `enterPlace` with exactly one
+# call site — a welcome screen that renders only for signed-out visitors — and so
+# silently removed the whole "look at another place" capability for every member.
+# The build stayed green. `npm run check:place-entry` is what caught it, by hand,
+# days later.
+#
+# Seven guard scripts existed at that point and CI ran none of them. This runs them.
+#
+# 🔴 Adding a workflow does not make a check REQUIRED. "Required to merge" is a
+# branch-protection setting on `main` and has to be set in the repo's rules —
+# until these job names are added there, a red run here is advisory and a PR can
+# still merge over it.
+#
+# Two jobs, split by what they need
+# ---------------------------------
+# `pure` runs the four guards that are just Node reading shipped modules: no
+# browser, no network, no server. They finish in seconds, so they are the ones
+# worth making required first.
+#
+# `browser` runs the three that drive the real app through Playwright. They need
+# a dev server and a Chromium, which is most of this file's length.
+#
+# 🔴 They need `npm run dev`, NOT `vite preview`. The guards reach the signed-out
+# and dev-guest states through `?signedout=1` and `?dev=1`, both of which are
+# behind `import.meta.env.DEV` and do not exist in a production bundle.
+#
+# 🔴 Playwright is deliberately not a dependency of this repo (see CLAUDE.md) —
+# it is a global install locally. `npm i --no-save` keeps that true while giving
+# CI a copy the scripts' bare `playwright` specifier resolves first, before they
+# fall back to `npm root -g`. The version is pinned to the one in use locally;
+# bump both together or the two environments drift without saying so.
+#
+# Node 24, not the 20 in build-check.yml: four of these run through
+# `node --experimental-strip-types`, which needs 22 or newer. build-check is left
+# alone on purpose — `npm run build` does not use type stripping and changing a
+# working check is not this file's job.
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  PLAYWRIGHT_VERSION: '1.62.1'
+
+jobs:
+  pure:
+    name: Guards (pure)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+
+      # Each on its own line rather than a loop, so a failure names the guard
+      # in the step title and a reader of the run does not have to open the log.
+      # `check:place-resolve` is pure WITHOUT `--live`; the live variant hits
+      # ev-accounts to detect fixture drift and is deliberately not run here,
+      # because a ranking change at their end is not a reason to block a PR.
+      - name: check:write-access
+        run: npm run check:write-access
+      - name: check:composition
+        run: npm run check:composition
+      - name: check:place-resolve
+        run: npm run check:place-resolve
+      - name: check:agenda-topics
+        run: npm run check:agenda-topics
+
+  browser:
+    name: Guards (browser)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Install Playwright (not a repo dependency — see header)
+        run: |
+          npm i --no-save playwright@${{ env.PLAYWRIGHT_VERSION }}
+          npx playwright install --with-deps chromium
+
+      - name: Start the dev server
+        run: |
+          npm run dev > /tmp/vite.log 2>&1 &
+          echo $! > /tmp/vite.pid
+
+      # 🔴 Poll for the port rather than sleeping. A fixed sleep either wastes
+      # time or races, and a guard that runs against a server which is not up
+      # yet fails in a way that looks like a product bug.
+      - name: Wait for the dev server
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:5173 > /dev/null; then
+              echo "dev server up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::dev server never came up on :5173"
+          cat /tmp/vite.log
+          exit 1
+
+      - name: check:place-entry
+        run: npm run check:place-entry
+      - name: check:explore-gate
+        run: npm run check:explore-gate
+      - name: check:explore-rooms
+        run: npm run check:explore-rooms
+
+      # Only on failure, and only then: the Vite log is where a 500 on a route
+      # or a missing fixture actually shows up, and it is invisible otherwise.
+      - name: Dev server log
+        if: failure()
+        run: cat /tmp/vite.log
