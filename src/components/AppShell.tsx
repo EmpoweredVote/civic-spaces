@@ -29,6 +29,7 @@ import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
 import { WelcomeScreen } from './WelcomeScreen'
+import { PlaceStrip } from './PlaceStrip'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
 import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId } from '../lib/viewedPlace'
 import type { ResolvedPlace } from '../lib/placeResolve'
@@ -1325,6 +1326,18 @@ export default function AppShell() {
    * who visits a place, which is 17-05's doing.)
    */
   const homeSlice = isVisitingPlace ? undefined : (slices['city'] ?? slices['county'] ?? slices['state'])
+  /**
+   * The slice `PlaceStrip` names — the VISITED place's most local one, the
+   * mirror of `homeSlice` above.
+   *
+   * 🔴 Most local, not the active tab. Somebody who named "Asheville" and then
+   * pressed Federal is still looking at Asheville; a strip that followed the tab
+   * would read "Looking at United States of America" and answer a question
+   * nobody asked. The banner above it is the thing that follows the tab.
+   */
+  const visitedPlaceSlice = isVisitingPlace
+    ? (onScreenSlices['city'] ?? onScreenSlices['county'] ?? onScreenSlices['state'])
+    : undefined
   // Volunteer is its own space, not a place — it keeps the forum alone, no Explore.
   const hasExplore = activeTab !== 'volunteer'
   const effectiveView: ForumView = hasExplore ? forumView : 'conversations'
@@ -1548,6 +1561,31 @@ export default function AppShell() {
                       isSampleData={isSyntheticUserId(userId)}
                     />
                   </div>
+                )}
+
+                {/* 🔴 The place control, UNDER the banner rather than inside it.
+                    The banner names where you are; this changes it; SliceSelector
+                    nests below as "which shard of it". It is absent on Volunteer,
+                    which is correct — Volunteer is not a place. See
+                    PlaceStrip.tsx for the three positions this is not in.
+
+                    🔴 THIS MOUNT IS THE ONLY WAY A SIGNED-IN MEMBER REACHES
+                    `enterPlace`. The welcome screen's picker is the other entry
+                    point and it renders only for `!isAuthenticated`, so deleting
+                    this mount does not merely remove a control — it removes the
+                    whole "look at another place" capability for every member,
+                    silently, while `tsc -b` and the build stay green. That is
+                    exactly what happened once already (PR #133, 2026-10-28), and
+                    `npm run check:place-entry` is what caught it. Removing the
+                    strip means giving members another door, not no door. */}
+                {hasExplore && (
+                  <PlaceStrip
+                    visitedSlice={visitedPlaceSlice}
+                    visitedFallback={visitedPlaceSlice ? TAB_LABELS[visitedPlaceSlice.sliceType] : ''}
+                    isAuthenticated={isAuthenticated}
+                    onResolved={enterPlace}
+                    onLeave={leavePlace}
+                  />
                 )}
 
                 {/* The negative margin cancels the column gap: the marker is only a position. */}

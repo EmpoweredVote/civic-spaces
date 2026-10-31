@@ -127,31 +127,44 @@ const ROOMS = [
   },
 
   /**
-   * ── The nine reserved rooms ────────────────────────────────────────────────
+   * ── The nine reserved rooms — OFF THE PAGE since 2026-10-28 ────────────────
    *
-   * `requiredOn` is DETERMINISTIC for every one of these: each is listed in
+   * `requiredOn` WAS deterministic for every one of these: each is listed in
    * DEFAULT_MODULES for those levels and its registry entry is `available: () =>
-   * false`, so no API, no calendar and no election cycle can take it off the
-   * page. Assertion 18 may therefore demand it outright rather than skip.
+   * false`, so no API, no calendar and no election cycle could take it off the
+   * page, and assertion 18 demanded it outright rather than skipping.
+   *
+   * 🔴 The grouped "What this space becomes" card that DREW them was removed
+   * from `ExploreView` (`if (mod.reserved) return null`), so not one of them
+   * reaches the DOM on any level now. `DEFAULT_MODULES` and `ReservedRoomGroup`
+   * are both untouched, so the declarations below are still true of the
+   * composition — they are just no longer true of the page.
+   *
+   * 🔴 Their `requiredOn` is therefore emptied into `wouldRequireOn` rather than
+   * DELETED, and the run prints a SKIP naming all 33 pairs. Deleting them would
+   * have turned this into a 21-PASS green run that silently covers nine fewer
+   * rooms, which is precisely the vacuous shape assertion 18 exists to catch —
+   * a guard quietly measuring less is worse than one going red. Put the card
+   * back and these move back to `requiredOn` unchanged.
    */
   { id: 'ballot-measures', sel: roomSel('ballot-measures'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county', 'state'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state'] },
   { id: 'federal-votes', sel: roomSel('federal-votes'), controls: 0, consequence: null,
-    requiredOn: ['federal'] },
+    requiredOn: [], wouldRequireOn: ['federal'] },
   { id: 'debate-schedule', sel: roomSel('debate-schedule'), controls: 0, consequence: null,
-    requiredOn: ['federal'] },
+    requiredOn: [], wouldRequireOn: ['federal'] },
   { id: 'legislator-votes', sel: roomSel('legislator-votes'), controls: 0, consequence: null,
-    requiredOn: ['state'] },
+    requiredOn: [], wouldRequireOn: ['state'] },
   { id: 'symposiums', sel: roomSel('symposiums'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
   { id: 'civic-listening', sel: roomSel('civic-listening'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
   { id: 'common-grounds', sel: roomSel('common-grounds'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
   { id: 'focused-communities', sel: roomSel('focused-communities'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county'] },
   { id: 'slice-action-votes', sel: roomSel('slice-action-votes'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county', 'state', 'federal'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state', 'federal'] },
 
   /**
    * ── The four empty states of real modules ──────────────────────────────────
@@ -896,6 +909,28 @@ check(
       '\n            Asheville has zero meetings. If one is missing, the registry or the composition' +
       '\n            dropped it, and the rest of this run was a green light over nothing.',
   )
+
+  // 🔴 And the other half of 18: say out loud what it is no longer measuring.
+  // The nine reserved rooms left the page on 2026-10-28, so 33 of the 35 pairs
+  // this assertion used to demand are gone with them. Reported as a SKIP — which
+  // this script's own exit code ignores but its last line always names — because
+  // the alternative is a green run that covers nine fewer rooms than it did
+  // yesterday and says nothing about it.
+  const offPage = []
+  for (const spec of ROOMS) {
+    for (const want of spec.wouldRequireOn ?? []) offPage.push(`${want}/${spec.id}`)
+  }
+  if (offPage.length) {
+    skip(
+      18,
+      `${offPage.length} (level, room) pairs are no longer on the page to check`,
+      'The grouped "What this space becomes" card was removed from ExploreView, so no reserved\n' +
+        '              room renders on any level. DEFAULT_MODULES and ReservedRoomGroup are unchanged, so\n' +
+        '              this is a rendering decision, not a composition one. Assertions 12-17 are now\n' +
+        `              vacuous for all nine: ${[...RESERVED_IDS].join(', ')}.\n` +
+        '              Restore the card and move `wouldRequireOn` back to `requiredOn` in one edit.',
+    )
+  }
 }
 
 {

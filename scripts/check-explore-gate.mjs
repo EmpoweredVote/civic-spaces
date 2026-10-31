@@ -700,7 +700,6 @@ async function controlCase(page, spec) {
     imagineTextarea: false,
     shareIdea: false,
     saveOnDevice: false,
-    titleInput: false,
     thoughtsTextarea: false,
     submit: false,
   }
@@ -736,17 +735,26 @@ async function controlCase(page, spec) {
     await page.waitForTimeout(400)
   }
 
-  // Both tabs: a topic's title input, "Your thoughts" textarea and submit.
+  // Both tabs: a topic's "Your thoughts" textarea and its submit.
+  //
+  // 🔴 There is NO separate title input here any more, and its absence is not a
+  // gap in this control case. The topic page was reduced to the topic, a summary,
+  // a folded "About this topic", the thoughts box and "Share your thoughts"; the
+  // title now comes from the question picker inside the post dialog instead of a
+  // field on this page. Asserting a `form input[type="text"]` here therefore made
+  // every control case fail — and a failing control case marks every absence
+  // below it vacuous, which is the loudest possible way to report a field that
+  // was removed on purpose. The textarea and the submit still carry this
+  // assertion's whole job: write affordances ARE present on the member's own
+  // shard, so their absence elsewhere means something.
   await openTopic(page)
   const t = await page.evaluate((sel) => {
     const p = document.querySelector(sel)
     return {
-      title: !!p?.querySelector('form input[type="text"]'),
       thoughts: !!p?.querySelector('form textarea'),
       submit: !!p?.querySelector('form button[type="submit"]'),
     }
   }, PANEL)
-  found.titleInput = t.title
   found.thoughtsTextarea = t.thoughts
   found.submit = t.submit
   await closeTopic(page)
@@ -755,8 +763,8 @@ async function controlCase(page, spec) {
 
 function controlCaseOk(found, spec) {
   const required = spec.hasImagine
-    ? ['imagineTextarea', 'shareIdea', 'saveOnDevice', 'titleInput', 'thoughtsTextarea', 'submit']
-    : ['titleInput', 'thoughtsTextarea', 'submit']
+    ? ['imagineTextarea', 'shareIdea', 'saveOnDevice', 'thoughtsTextarea', 'submit']
+    : ['thoughtsTextarea', 'submit']
   return required.every((k) => found[k])
 }
 
@@ -1409,7 +1417,6 @@ async function runMemberNoSlice() {
   const form = await page.evaluate((sel) => {
     const p = document.querySelector(sel)
     return {
-      title: !!p?.querySelector('form input[type="text"]'),
       thoughts: !!p?.querySelector('form textarea'),
       submit: !!p?.querySelector('form button[type="submit"]'),
     }
@@ -1417,8 +1424,8 @@ async function runMemberNoSlice() {
   await closeTopic(page)
   check(
     tab, 1,
-    'CONTROL CASE — the County tab IS writable: title input, "Your thoughts" textarea and submit',
-    form.title && form.thoughts && form.submit,
+    'CONTROL CASE — the County tab IS writable: "Your thoughts" textarea and submit',
+    form.thoughts && form.submit,
     JSON.stringify(form) +
       '\n            Without this the absences below are vacuous, and worse: the fixture would be' +
       '\n            over-gated — four tabs with nothing writable is not what an unincorporated' +
@@ -1428,9 +1435,19 @@ async function runMemberNoSlice() {
   // ── 2  City is not in the navigation at all ───────────────────────────────
   //
   // Asserted as an exact list, not as "no City": a reader that returned [] would
-  // pass "no City" having found nothing at all. The rail labels City and County
-  // with their RESOLVED names (GeoNavItem -> useJurisdictionName), so the rail is
-  // checked by count and the mobile bar — which uses the generic labels — by name.
+  // pass "no City" having found nothing at all.
+  //
+  // 🔴 BOTH navigations now carry RESOLVED PLACE NAMES, so both are checked the
+  // same way. `SliceTabBar` used to render the generic level labels — "County,
+  // State, Federal, Unified" — and this assertion matched that string exactly.
+  // It now renders `useSliceNavLabel` like the rail does, so the bar reads
+  // "Buncombe County, North Carolina, United States, Unified" and the old
+  // comparison failed on the rename rather than on anything being wrong. Matching
+  // the resolved names keeps the "exact list" rigour AND pins the rename itself:
+  // a regression to the generic labels now goes red here instead of passing
+  // quietly. The member-count suffix ("United States6 members") is stripped
+  // rather than word-split — `split(/\d|\s/)[0]` turned "Buncombe County" into
+  // "Buncombe" and could never have matched a two-word place name.
   const nav = await page.evaluate(() => {
     const rail = document.querySelector('nav[aria-label="Civic space navigation"]')
     const label = rail && [...rail.querySelectorAll('*')].find((el) => (el.textContent || '').trim() === 'Your Civic Spaces')
@@ -1441,15 +1458,15 @@ async function runMemberNoSlice() {
       bar: bar ? [...bar.querySelectorAll('button')].map((b) => (b.innerText || '').replace(/\s+/g, ' ').trim()) : null,
     }
   })
-  const barGeo = (nav.bar ?? []).map((t) => t.split(/\d|\s/)[0])
+  const barGeo = (nav.bar ?? []).map((t) => t.replace(/\d+\s*members?$/i, '').trim())
   check(
     tab, 2,
     'City is absent from BOTH navigations — four civic spaces, not five',
     nav.rail?.length === 4 &&
       !nav.rail.some((t) => /Asheville/.test(t)) &&
       barGeo.length === 5 &&
-      barGeo.slice(0, 4).join(',') === 'County,State,Federal,Unified' &&
-      !barGeo.includes('City'),
+      barGeo.slice(0, 4).join(',') === 'Buncombe County,North Carolina,United States,Unified' &&
+      !barGeo.some((t) => /Asheville/.test(t)),
     JSON.stringify(nav) +
       '\n            This is the SHIPPED behaviour for an unincorporated member (NavSidebar and' +
       '\n            SliceTabBar both filter on !!slices[tab]) and it is what makes the no-slice' +
