@@ -39,7 +39,7 @@ import { ExploreView } from './explore/ExploreView'
 import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
 import { canPostDraft, parseDraftKey, racesAreaFor, type CompassLevelFlags } from '../lib/exploreComposition'
-import { whyNoWrite, placeKey, isSameJurisdiction, type ViewedSlice, type NoWriteReason } from '../lib/writeAccess'
+import { whyNoWrite, canReadConversationsIn, placeKey, isSameJurisdiction, type ViewedSlice, type NoWriteReason } from '../lib/writeAccess'
 import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
@@ -1832,12 +1832,62 @@ export default function AppShell() {
                       const isShown = activeTab === tabKey
 
                       if (isPlaceSentinelId(slice.id)) {
+                        const viewedHere = { id: slice.id, sliceType: slice.sliceType, geoid: slice.geoid }
                         const reason = whyNoWrite({
-                          viewed: { id: slice.id, sliceType: slice.sliceType, geoid: slice.geoid },
+                          viewed: viewedHere,
                           ownedSliceIds,
                           ownedPlaceKeys,
                           isAuthenticated,
                         })
+
+                        /* 🔴 PHASE 18. The same question the rest of the shell asks, asked
+                           by the same function: may this viewer READ here? For the five
+                           public types the answer is now yes for everyone, with or without
+                           an account, so the honest card below is replaced by the actual
+                           conversation. For volunteer — and for whatever private types
+                           follow it — nothing changed and the card still stands.
+
+                           🔴 It is canReadConversationsIn and NOT `reason === null`. Reading
+                           and writing are different questions and this is precisely where
+                           they diverge: every viewer here has a non-null `reason`, because
+                           nobody may WRITE in a place they do not live in. Keying the feed
+                           on the write gate would hide the public square from everybody. */
+                        const canRead = canReadConversationsIn({
+                          viewed: viewedHere,
+                          ownedSliceIds,
+                          ownedPlaceKeys,
+                          isAuthenticated,
+                        })
+
+                        if (canRead) {
+                          return (
+                            <div key={tabKey} className={isShown ? 'flex flex-col gap-3' : 'hidden'}>
+                              {/* 🔴 NO ReadOnlyNotice here. The panel renders one itself
+                                  whenever isViewOnly is set, and a second copy beside it
+                                  shipped two identical banners stacked — caught only by
+                                  looking at the four-way shoot, because a component that
+                                  renders correctly twice fails no assertion. The notice is
+                                  about WRITING, which this phase did not open; loginUrl and
+                                  the way out are passed down so it is rendered once, there. */}
+                              <SliceFeedPanel
+                                sliceId={slice.id}
+                                loginUrl={isAuthenticated ? undefined : loginUrl}
+                                onReturnToOwnSlice={leavePlace}
+                                publicPlace={{ sliceType: slice.sliceType, geoid: slice.geoid }}
+                                isActive={isShown}
+                                isViewOnly
+                                noWriteReason={reason}
+                                activePostId={activePostIds[tabKey]}
+                                onNavigateToThread={(postId) => handleNavigateToThread(tabKey, postId)}
+                                scrollToLatest={scrollToLatestMap[tabKey]}
+                                sort={feedModes[tabKey]}
+                                searchQuery={activeTab === tabKey ? searchQuery : ''}
+                                panelRef={panelRefs.current[tabKey]}
+                              />
+                            </div>
+                          )
+                        }
+
                         return (
                           <div key={tabKey} className={isShown ? 'flex flex-col gap-3' : 'hidden'}>
                             {/* The same way out as Explore's notice, on the surface a
@@ -1849,31 +1899,37 @@ export default function AppShell() {
                               loginUrl={isAuthenticated ? undefined : loginUrl}
                               onReturnToOwnSlice={leavePlace}
                             />
+                            {/*
+                              🔴 THE FAIL-CLOSED FALLBACK, and as of Phase 18 it is
+                              UNREACHABLE — deliberately kept, not dead weight.
+
+                              `FEED_TABS` is ['city','county','state','federal','unified'],
+                              which is exactly `PUBLIC_SLICE_TYPES`, so `canRead` above is
+                              true for every tab that can get here and the feed renders
+                              instead. This branch becomes live again the moment those two
+                              lists stop matching — a private space type added to FEED_TABS,
+                              or a type removed from the allowlist. Both are things someone
+                              will do, and on that day this is what they get: a sentence
+                              that is true, rather than an empty feed, which reads as
+                              "nobody has said anything here" and is a lie told silently.
+
+                              So the copy is written for a PRIVATE space, which is the only
+                              kind that can reach it. It no longer says "nobody has joined
+                              yet": that was Phase 17 being unable to read `slices` and
+                              refusing to pretend otherwise. The feed path can ask now, and
+                              does — see usePublicSlice.
+                            */}
                             <div className="rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 shadow-sm p-5 flex flex-col gap-3">
                               <h3 className="text-base font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                                Conversations here belong to the people who live here
+                                This space is for its members
                               </h3>
                               <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                Posting, replying and voting in a civic space belong to the people who
-                                live under that government.
+                                Most civic spaces are open to read — anyone can follow what a city,
+                                county, state or national community is discussing. This one is not:
+                                its conversations are visible to the people who belong to it.
                               </p>
-                              {/*
-                                🔴 PHASE 18 REVISES THIS PARAGRAPH, and it is worded so it is
-                                true whether or not a slices row exists — because Phase 17
-                                CANNOT TELL THE TWO APART and must not pretend to. An observer
-                                cannot read `slices` at all, and this phase makes no Supabase
-                                request for a visited place by design. Phase 18 can read the
-                                rows and can say which it is.
-
-                                🔴 And "nobody has joined yet" is the COMMON case, not an error
-                                branch: slice rows are created on demand by /assign, which only
-                                runs for a signed-in Connected member, and there are 15 `slices`
-                                rows in the entire product (research Q3.3). So the honest
-                                sentence is also the better half of the pitch.
-                              */}
                               <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                For most places nobody has joined yet — these spaces open as people
-                                arrive. An Empowered Vote account with an address set opens the ones
+                                An Empowered Vote account with an address set opens the civic spaces
                                 where you live, and you can be the first voice in them.
                               </p>
                             </div>

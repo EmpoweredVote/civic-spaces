@@ -2,6 +2,8 @@ import { useRef, useEffect, useState, useImperativeHandle } from 'react'
 import type React from 'react'
 // import { useFeed } from '../hooks/useFeed' // Fallback: chronological feed
 import { useBoostedFeed } from '../hooks/useBoostedFeed'
+import { usePublicFeed } from '../hooks/usePublicFeed'
+import { usePublicSlice } from '../hooks/usePublicSlice'
 import { useRealtimeInvalidation } from '../hooks/useRealtimeInvalidation'
 import { useAuth } from '../hooks/useAuth'
 import { useProfile } from '../hooks/useProfile'
@@ -45,8 +47,32 @@ export interface FeedPanelHandle {
   compose: (request?: ComposeRequest) => void
 }
 
+/** A place being read without membership — Phase 18's public path. */
+export interface PublicPlace {
+  sliceType: string
+  geoid: string
+}
+
 interface SliceFeedPanelProps {
   sliceId: string
+  /**
+   * Set when this panel is showing a PUBLIC place the viewer is not a member of.
+   *
+   * 🔴 The two feeds are not interchangeable and must never both be live. The member
+   * feed is block-filtered and carries every author's id; the public one applies the
+   * D-48/D-49 per-author projection and no block filter. Routing a member through the
+   * public path would silently un-block people they blocked, and routing a visitor
+   * through the member path 403s. So exactly one query is enabled, here, by this prop.
+   */
+  publicPlace?: PublicPlace | null
+  /**
+   * 🔴 Only used to gate the PUBLIC query. All six panels mount at once, and every
+   * level of a visited place is public, so without this one visit fires six RPCs for
+   * five feeds nobody is looking at — against a surface that is now open to the whole
+   * internet. The member feeds stay eager, as they were: that is what keeps the tab
+   * switch instant and the scroll position alive, and it costs a member nothing new.
+   */
+  isActive?: boolean
   activePostId: string | null
   onNavigateToThread: (postId: string | null) => void
   scrollToLatest?: boolean
@@ -65,10 +91,22 @@ interface SliceFeedPanelProps {
   viewingSliceIndex?: number
   ownSliceIndex?: number
   onReturnToOwnSlice?: () => void
+  /**
+   * The real sign-in, for a signed-out visitor.
+   *
+   * 🔴 Here so the notice is rendered ONCE, by the component that knows it is gated.
+   * The first draft of the public path rendered a second `ReadOnlyNotice` in AppShell
+   * to get this link, and shipped two identical banners stacked on top of each other —
+   * visible in the first four-way shoot and in nothing else, because no assertion
+   * counts a component that renders correctly twice.
+   */
+  loginUrl?: string
 }
 
 export default function SliceFeedPanel({
   sliceId,
+  publicPlace = null,
+  isActive = true,
   activePostId,
   onNavigateToThread,
   scrollToLatest,
@@ -80,7 +118,18 @@ export default function SliceFeedPanel({
   viewingSliceIndex,
   ownSliceIndex,
   onReturnToOwnSlice,
+  loginUrl,
 }: SliceFeedPanelProps) {
+  // 🔴 Both hooks are called on every render — React's rules of hooks require it —
+  // and exactly one of them is ENABLED. `useBoostedFeed(null)` does not run; the
+  // public query is off unless this panel is both public and on screen.
+  const memberFeed = useBoostedFeed(publicPlace ? null : sliceId)
+  const publicFeed = usePublicFeed(
+    publicPlace?.sliceType ?? null,
+    publicPlace?.geoid ?? null,
+    !!publicPlace && isActive,
+  )
+
   const {
     data,
     fetchNextPage,
@@ -89,9 +138,23 @@ export default function SliceFeedPanel({
     isLoading,
     error,
     refetch,
-  } = useBoostedFeed(sliceId)
+  } = publicPlace ? publicFeed : memberFeed
 
-  useRealtimeInvalidation(sliceId)
+  // 🔴 Only to tell "nobody has posted here" from "this space does not exist yet".
+  // Both render as an empty feed and they are opposite facts for a visitor deciding
+  // whether an account would get them anything. See usePublicSlice's header.
+  const publicSlice = usePublicSlice(
+    publicPlace?.sliceType ?? null,
+    publicPlace?.geoid ?? null,
+    !!publicPlace && isActive,
+  )
+  // Undefined while it loads — treated as "exists", so the harsher sentence is never
+  // shown on the strength of a pending query.
+  const publicSliceExists = publicSlice.data !== null
+
+  // A visited place has no slice id to watch, and nothing a visitor can subscribe to:
+  // realtime runs over the same table grants the RPCs exist to avoid needing.
+  useRealtimeInvalidation(publicPlace ? null : sliceId)
 
   const { userId } = useAuth()
   const { profile } = useProfile(userId)
@@ -184,18 +247,35 @@ export default function SliceFeedPanel({
           <ReadOnlyNotice
             reason={noWriteReason}
             surface="feed"
+            loginUrl={loginUrl}
             viewingSliceIndex={viewingSliceIndex}
             ownSliceIndex={ownSliceIndex}
             onReturnToOwnSlice={onReturnToOwnSlice}
           />
         )}
         {posts.length === 0 ? (
-          <div className="flex items-center justify-center py-16 text-center px-6 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900">
+          <div className="flex flex-col items-center justify-center py-16 text-center px-6 gap-2 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900">
+            {/* 🔴 THREE sentences, and which one is true is a fact this phase can
+                finally establish. Phase 17 could not read `slices` and so wrote one
+                paragraph true of both empty cases; `usePublicSlice` asks outright.
+                "Be the first to start a conversation" is addressed to someone who
+                CAN post — never show it to a reader the write path will refuse. */}
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {searchQuery.trim()
                 ? `No posts match "${searchQuery.trim()}".`
-                : 'No posts yet. Be the first to start a conversation!'}
+                : !publicPlace
+                  ? 'No posts yet. Be the first to start a conversation!'
+                  : publicSliceExists
+                    ? 'No conversations here yet.'
+                    : "This space hasn't opened yet."}
             </p>
+            {!searchQuery.trim() && publicPlace && (
+              <p className="max-w-sm text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                {publicSliceExists
+                  ? 'Anyone can read a civic space. Posting belongs to the people who live under that government.'
+                  : 'Civic spaces open as people arrive. An Empowered Vote account with an address set opens the ones where you live.'}
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
