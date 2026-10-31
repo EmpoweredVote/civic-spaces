@@ -60,13 +60,13 @@ copy `cs_token` out of that tab's localStorage, and paste it into localhost's un
 Those panels fall back to fixtures for the dev id only; that is expected, not a bug.
 
 **The frontend has no test framework.** No test script, no test files. What it has instead is
-nine `check:*` guard scripts, and **seven of them now run in CI** —
+ten `check:*` guard scripts, and **seven of them now run in CI** —
 `.github/workflows/guards.yml`, two jobs: four pure Node checks that read the shipped modules,
 and three that drive the real app through Playwright against a `npm run dev` server.
 `check:banners` is the eighth and runs weekly on a schedule instead
 (`.github/workflows/banner-drift.yml`), because drift there arrives with no commit to hang a
-PR check off. `check:grants` is the ninth and runs by hand only: it needs a privileged
-`SUPABASE_DB_URL` plus `psql`, which CI does not have.
+PR check off. `check:grants` and `check:anon-read` (ninth, tenth) run by hand only: each needs a privileged
+`SUPABASE_DB_URL` plus `psql`, which CI does not have (`db-surface.yml` is the manual-dispatch job ready for when it does).
 
 🔴 **Running in CI is not the same as being required.** "Required to merge" is a
 branch-protection setting on `main`, and until the `Guards (pure)` and `Guards (browser)` job

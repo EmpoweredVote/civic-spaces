@@ -136,8 +136,9 @@ GRANT ALL ON public.<view> TO anon;
 ```
 
 Run it per view. Nothing is published by this migration, so there is nothing to un-publish.
-**18-02's grants migration is the irreversible one.** Once the PostgREST endpoint is publicly
-queryable it stays that way. This one is not.
+**18-02's irreversibility is disclosure, not privileges.** Its grants are reversible in five
+statements (see `18-02-APPLY.md`), but whatever the public RPCs return once `anon` can call them,
+and anything read through a cache, cannot be taken back. This one publishes nothing.
 
 ## What this does not cover
 

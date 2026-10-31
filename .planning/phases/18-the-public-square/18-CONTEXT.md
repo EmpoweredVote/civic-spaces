@@ -133,6 +133,8 @@ and are not re-opened here. Decisions continue the global numbering from D-25.
   reach of an account proportional to the standing it actually has, and it means `user_id`
   never crosses the wire to a non-member except under D-49.
 
+- **OPEN QUESTION on D-48 (Chris's call, unresolved).** D-48 says "a member of the slice", and the implementation keys that on one shard's `slice_id`. The Phase 16 sibling-read policy and `placeKey` key on `(slice_type, geoid)`. So a member of shard 2 reading shard 1 sees `author_user_id = NULL` for authors they can already identify today. Faithful to D-48 as written; never knowingly decided. Widening is a disclosure change. 18-03 must not resolve it in either direction by accident. See `18-02-PLAN.md`, "Open question for Chris".
+
 - **D-49 — A friendship is the one exception, and it is per-author.** Chris: *"It may be
   possible to be friends with someone who is in or moves to another slice - in those
   instances, I see a compelling reason to let the Connected member 'see' their friend's
@@ -145,7 +147,7 @@ and are not re-opened here. Decisions continue the global numbering from D-25.
   per-response.** One public thread can legitimately render one author in full and the rest
   as bare handles. So `get_public_thread` cannot choose a single shape and return it; it
   resolves the viewer through `current_user_id()`, joins `civic_spaces.friendships` on
-  `(user_low, user_high)` with `status = 'accepted'`, and emits `author_user_id` and
+  `(user_low, user_high)` with `status = 'FRIEND'` (the `REQ_LOW` / `REQ_HIGH` values are pending), and emits `author_user_id` and
   `avatar_url` as NULL per row where neither D-48 nor D-49 applies. Two things follow:
   the function is `SECURITY DEFINER` and therefore owns this rule entirely — no caller may
   re-derive it — and its result is per-`(slice, viewer)`, so it must not be cached per slice.
@@ -353,6 +355,8 @@ first four are substantial enough to carry decision numbers.
 ## Canonical References
 
 ### The one-way door — read before writing any SQL
+
+🔴 Correction after final review: the one-way part is **disclosure** (what the RPCs project, and anything read through a cache), not the grants file. The grants migration is privilege-reversible in five statements and lands tighter than before, since the PUBLIC defaults stay revoked. Put the caution on the projection.
 
 - `.planning/ROADMAP.md` §Phase 18 — the irreversibility warning, the measured exposure
   (11 profiles, 0 real-name shapes, 0 avatars, 12 posts, 8 replies, 7 authors as of
