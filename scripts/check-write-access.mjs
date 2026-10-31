@@ -11,7 +11,7 @@
  * a check that re-implements it would be a second copy of the thing the module was
  * written to prevent. If you are tempted to paste a function in here, don't.
  *
- * What it covers (34 checks; numbers 1–24 and 26–34, with 19 used twice and 25 unused —
+ * What it covers (38 checks; numbers 1–24, 26–34 and 45–48, with 19 used twice and 25 unused —
  * pre-existing, left unrenumbered; the count is the number of PASS lines the run prints):
  *
  *   1–11   whyNoWrite over every viewer × every slice on screen. 1 is the control
@@ -484,7 +484,12 @@ const sameSet = (a, b) => [...a].sort().join(',') === [...b].sort().join(',')
   check(34, 'the extractor throws when the named function is not defined at all', threwMissingFn)
 }
 
-// ── 35–38: the block filter is in every body that returns authored content ──
+// ── 45–48: the block filter is in every body that returns authored content ──
+//
+// Numbered 45+ and not 35+ on purpose: 18-03 adds 35–44 to this same file, and two
+// branches both starting at 35 is a merge conflict that resolves by silently
+// renumbering somebody's assertion. The gap 39–44 is unused on this branch and fills
+// in when 18-03 lands — the file already carries an unused 25 for the same reason.
 //
 // 🔴 Exactly the shape assertions 30 and 33 exist for, and written because that
 // lesson was learned the hard way in this same file: the allowlist literal lived in
@@ -512,9 +517,9 @@ function functionBody(sql, fnName) {
 
   // [number, function, how many NOT-blocked predicates its body must carry]
   for (const [num, fnName, want] of [
-    [35, 'get_public_feed', 2], // the row filter, and the reply_count subquery
-    [36, 'get_public_post', 2], // the same two
-    [37, 'get_public_replies', 1], // per-reply; the post gate comes from get_public_post
+    [45, 'get_public_feed', 2], // the row filter, and the reply_count subquery
+    [46, 'get_public_post', 2], // the same two
+    [47, 'get_public_replies', 1], // per-reply; the post gate comes from get_public_post
   ]) {
     let body = null
     let why = ''
@@ -534,7 +539,7 @@ function functionBody(sql, fnName) {
   }
 
   check(
-    38,
+    48,
     'the block helper short-circuits on a NULL viewer, so anon output is unchanged',
     /WHEN\s+p_viewer\s+IS\s+NULL\s+THEN\s+false/i.test(functionBody(sql, 'public_author_is_blocked')),
     'Without the guard clause the helper reads civic_spaces.blocks for every anonymous\n' +
