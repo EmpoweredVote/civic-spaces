@@ -479,6 +479,79 @@ export function getMockFeedPage(sliceId: string): PostWithAuthor[] {
 }
 
 /**
+ * A visited public place's feed, for local dev — Phase 18's public read path.
+ *
+ * 🔴 The visibility is MIXED on purpose, and that is the entire reason this fixture
+ * exists rather than an empty array. D-48/D-49 give some authors a real id (a member
+ * of that slice, or a friend of the author) and leave the rest null, in the SAME
+ * response. A card with an avatar and a profile link sits directly beside one that is
+ * a plain handle, and they have to line up — Review Focus 3, and the one thing no
+ * screenshot of a single-visibility feed can show.
+ *
+ * There is no login on localhost (see CLAUDE.md), so this fixture is the only way the
+ * mixed rendering can be looked at before the migrations are applied.
+ *
+ * Synthetic throughout. Never copy a real member's post or profile in here.
+ */
+const MOCK_PUBLIC_POSTS: PostWithAuthor[] = [
+  {
+    id: 'mock-public-post-1',
+    slice_id: 'mock-public-slice',
+    // Wide projection: a member of this place, or a friend. Avatar + profile link.
+    user_id: 'mock-user-visible1',
+    title: 'The rezoning hearing moved to the 14th',
+    body: "Notice went up this morning. Same room, same agenda, one week later. Posting here so nobody turns up to an empty building.",
+    reply_count: 2,
+    edit_history: [],
+    created_at: '2026-10-28T15:30:00.000Z',
+    updated_at: '2026-10-28T15:30:00.000Z',
+    is_deleted: false,
+    author: author('RiverwardResident'),
+  },
+  {
+    id: 'mock-public-post-2',
+    // 🔴 Narrow projection. null, never '' and never a sentinel — this is what tells
+    // the card to render the handle as plain text with no avatar and no link.
+    slice_id: 'mock-public-slice',
+    user_id: null,
+    title: null,
+    body: "Does anyone know whether the library's Saturday hours are coming back? The sign still says temporary and it has been a year.",
+    reply_count: 0,
+    edit_history: undefined,
+    created_at: '2026-10-27T11:05:00.000Z',
+    updated_at: '2026-10-27T11:05:00.000Z',
+    is_deleted: false,
+    author: { display_name: 'QuietCorner', avatar_url: null },
+  },
+  {
+    id: 'mock-public-post-3',
+    slice_id: 'mock-public-slice',
+    user_id: null,
+    title: null,
+    body: 'Third post, also narrow, so the two kinds are not alternating neatly — a layout that only lines up when they alternate is not lined up.',
+    reply_count: 1,
+    edit_history: undefined,
+    created_at: '2026-10-26T08:40:00.000Z',
+    updated_at: '2026-10-26T08:40:00.000Z',
+    is_deleted: false,
+    author: { display_name: 'Unknown', avatar_url: null },
+  },
+]
+
+/**
+ * 🔴 Returns the SAME fixture for every visited place, which is honest about what it
+ * is: a rendering harness, not a simulation of the backend. Keying it by geoid would
+ * imply local dev knows which places have conversations, and it does not — `slices`
+ * is not readable without a login, and 15 rows exist in the whole product.
+ *
+ * The empty case is reachable and worth looking at: pass a volunteer type (or any
+ * private one) and the public path is never called at all.
+ */
+export function getMockPublicFeedPage(sliceType: string): PostWithAuthor[] {
+  return sliceType === 'volunteer' ? [] : MOCK_PUBLIC_POSTS
+}
+
+/**
  * Looks up a single fixture post by id — used when opening a mock post's thread.
  *
  * 🔴 THIS LIST IS HAND-MAINTAINED, and leaving a new array out of it is silent.

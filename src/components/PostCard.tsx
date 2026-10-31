@@ -84,7 +84,8 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
   }
 
   const timeAgo = formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
-  const wasEdited = post.edit_history.length > 0
+  // undefined means the public RPC did not tell us (D-31), not "never edited".
+  const wasEdited = (post.edit_history?.length ?? 0) > 0
   const canEdit = isWithinEditWindow(post.created_at)
 
   const { headline, excerpt } = splitHeadline(post.title, post.body)

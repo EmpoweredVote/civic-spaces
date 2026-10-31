@@ -224,7 +224,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
                 {post.author.tier === 'empowered' && <EmpoweredBadge />}
                 <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
                   · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                  {post.edit_history.length > 0 && ' · edited'}
+                  {(post.edit_history?.length ?? 0) > 0 && ' · edited'}
                 </span>
               </span>
             </button>

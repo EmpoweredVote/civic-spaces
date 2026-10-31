@@ -58,6 +58,14 @@ import {
   IMAGINE_TOPICS,
 } from '../src/mocks/civicSpacesExplore.ts'
 import { MOCK_COMPASS_ANSWERS, MOCK_COMPASS_TOPICS } from '../src/lib/devMockData.ts'
+import { readFileSync } from 'node:fs'
+import {
+  PUBLIC_FEED_COLUMNS,
+  PUBLIC_POST_COLUMNS,
+  PUBLIC_REPLY_COLUMNS,
+  mapPublicPostRow,
+  mapPublicReplyRow,
+} from '../src/lib/publicProjection.ts'
 
 // ── Harness ──────────────────────────────────────────────────────────────────
 
@@ -781,6 +789,145 @@ check(
       `          If this is red the mapping is wrong, not the check: every City topic was mapped to an\n` +
       `          answered Compass id, or none was, so the ranking is a no-op on real data while passing\n` +
       `          every synthetic check above. Fix src/mocks/civicSpacesExplore.ts.`,
+  )
+}
+
+// ── 63–72  Phase 18-03: the public RPC row → PostWithAuthor mapping ──────────
+//
+// 🔴 These run the SHIPPED src/lib/publicProjection.ts, for the same reason every
+// other section here does: a transcribed mapper passes while the real one is wrong.
+//
+// 🔴 63–66 are the DRIFT guards and they are the reason this section exists at all.
+// The RPCs these hooks call do not exist in any database yet — 18-02's migrations are
+// written and unapplied — so nothing in this repo can call one and see what comes back.
+// A column renamed on the SQL side would otherwise surface as a 400 to the first
+// signed-out visitor after apply. Instead the mapper declares the column list it
+// expects and these assertions diff it against the migration's own RETURNS TABLE.
+
+const PUBLIC_READ_SQL_PATH = new URL('../supabase/migrations/20261030000100_public_read.sql', import.meta.url)
+
+/**
+ * The column names in one function's `RETURNS TABLE (...)`, in order.
+ * 🔴 Throws rather than returning [] when the function is not found: an extractor
+ * that returns nothing makes every comparison against it vacuously true, which is
+ * the failure 18-02's allowlist guard was rebuilt to avoid.
+ */
+function returnsTableColumns(sql, fnName) {
+  const start = sql.indexOf(`CREATE OR REPLACE FUNCTION civic_spaces.${fnName}(`)
+  if (start === -1) throw new Error(`${fnName} is not defined in the migration`)
+  const rt = sql.indexOf('RETURNS TABLE (', start)
+  if (rt === -1) throw new Error(`${fnName} has no RETURNS TABLE`)
+  const open = rt + 'RETURNS TABLE '.length
+  let depth = 0
+  let end = -1
+  for (let i = open; i < sql.length; i++) {
+    if (sql[i] === '(') depth++
+    else if (sql[i] === ')') {
+      depth--
+      if (depth === 0) { end = i; break }
+    }
+  }
+  if (end === -1) throw new Error(`${fnName}'s RETURNS TABLE is unbalanced`)
+  return sql
+    .slice(open + 1, end)
+    .split(',')
+    .map((s) => s.trim().split(/\s+/)[0])
+    .filter(Boolean)
+}
+
+{
+  const sql = readFileSync(PUBLIC_READ_SQL_PATH, 'utf8')
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
+
+  for (const [num, fnName, declared] of [
+    [63, 'get_public_feed', PUBLIC_FEED_COLUMNS],
+    [64, 'get_public_post', PUBLIC_POST_COLUMNS],
+    [65, 'get_public_replies', PUBLIC_REPLY_COLUMNS],
+  ]) {
+    let sqlCols = null
+    let why = ''
+    try { sqlCols = returnsTableColumns(sql, fnName) } catch (e) { why = e.message }
+    check(
+      num,
+      `${fnName}: the mapper's column list matches the migration's RETURNS TABLE, in order`,
+      sqlCols !== null && same(sqlCols, [...declared]),
+      sqlCols === null
+        ? `could not read the SQL: ${why}`
+        : `SQL:    [${sqlCols.join(', ')}]\n          mapper: [${[...declared].join(', ')}]\n` +
+          `          🔴 These RPCs have never been called. This diff is the only thing standing between a\n` +
+          `          renamed column and a 400 shown to the first signed-out visitor after the migrations apply.`,
+    )
+  }
+
+  let threw = false
+  try { returnsTableColumns(sql, 'get_public_nothing') } catch { threw = true }
+  check(66, 'the RETURNS TABLE extractor throws when the function is missing, rather than returning []', threw)
+}
+
+const wideRow = {
+  id: 'p1', slice_id: 's1', title: 'A title', body: 'A body',
+  created_at: '2026-10-31T12:00:00Z', updated_at: '2026-10-31T12:00:00Z',
+  reply_count: 3,
+  author_display_name: 'Ada', author_user_id: 'u-ada', author_avatar_url: 'https://x/a.png',
+}
+const narrowRow = { ...wideRow, id: 'p2', author_user_id: null, author_avatar_url: null }
+
+{
+  const wide = mapPublicPostRow(wideRow)
+  const narrow = mapPublicPostRow(narrowRow)
+
+  check(
+    67,
+    'a row with author_user_id set maps to a LINKABLE author',
+    wide.user_id === 'u-ada' && wide.author.avatar_url === 'https://x/a.png' && wide.author.display_name === 'Ada',
+    JSON.stringify({ user_id: wide.user_id, author: wide.author }),
+  )
+
+  check(
+    68,
+    '🔴 a row with author_user_id null maps to user_id null and NO avatar',
+    narrow.user_id === null && narrow.author.avatar_url === null,
+    `${JSON.stringify({ user_id: narrow.user_id, author: narrow.author })}\n` +
+      `          Never a sentinel string and never ''. A null author id is what tells the card to render\n` +
+      `          the handle as plain text: no avatar, no /profile/ link, no friend affordance.`,
+  )
+
+  check(
+    69,
+    "author_display_name 'Unknown' survives the mapping unchanged",
+    mapPublicPostRow({ ...narrowRow, author_display_name: 'Unknown' }).author.display_name === 'Unknown',
+    'the SQL COALESCEs a missing profile to Unknown; the mapper must not re-handle it and must not blank it.',
+  )
+
+  check(
+    70,
+    'the mapper never invents a tier, and never claims a post was not edited',
+    wide.author.tier === undefined && narrow.author.tier === undefined &&
+      wide.edit_history === undefined && narrow.edit_history === undefined,
+    `tier: ${wide.author.tier}, edit_history: ${JSON.stringify(wide.edit_history)}\n` +
+      `          The public RPCs return neither (D-31 narrow projection, D-34 withholds tier).\n` +
+      `          Synthesising edit_history: [] would tell a reader "never edited" about a post we\n` +
+      `          simply were not told about. undefined is the honest value and renders the same.`,
+  )
+
+  check(
+    71,
+    'an empty result maps to an empty page, never to undefined',
+    Array.isArray([].map(mapPublicPostRow)) && [].map(mapPublicPostRow).length === 0 &&
+      Array.isArray([].map(mapPublicReplyRow)),
+    'a feed hook that returns undefined for an empty page breaks getNextPageParam, which reads .length.',
+  )
+
+  const reply = mapPublicReplyRow({
+    id: 'r1', post_id: 'p1', parent_reply_id: 'r0', body: 'A reply',
+    created_at: '2026-10-31T12:01:00Z', updated_at: '2026-10-31T12:01:00Z',
+    author_display_name: 'Grace', author_user_id: null, author_avatar_url: null,
+  })
+  check(
+    72,
+    'parent_reply_id survives the public reply mapping (nesting is not flattened)',
+    reply.parent_reply_id === 'r0' && reply.post_id === 'p1' && reply.user_id === null,
+    JSON.stringify(reply),
   )
 }
 
