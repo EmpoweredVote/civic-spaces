@@ -12,6 +12,7 @@
     "check:composition": "node --experimental-strip-types scripts/check-composition.mjs",
     "check:explore-gate": "node scripts/check-explore-gate.mjs",
     "check:grants": "node scripts/check-grant-surface.mjs",
+    "check:anon-read": "node scripts/check-anon-read.mjs",
     "check:write-access": "node --experimental-strip-types scripts/check-write-access.mjs",
     "check:place-resolve": "node --experimental-strip-types scripts/check-place-resolve.mjs",
     "check:place-entry": "node scripts/check-place-entry.mjs",
