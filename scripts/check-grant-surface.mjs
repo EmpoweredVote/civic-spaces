@@ -2,12 +2,15 @@
 /**
  * check-grant-surface.mjs — does the `public` schema still expose only what we meant?
  *
- * Run: SUPABASE_DB_URL=postgres://... npm run check:grants
+ * Run (PowerShell):  $env:SUPABASE_DB_URL = 'postgres://...' ; npm run check:grants
+ * Run (POSIX sh):    SUPABASE_DB_URL=postgres://... npm run check:grants
  *
  * 🔴 The migrations are not the grant surface, the catalog is. Twelve views in `public`
  * belong to this app and `anon` holds all seven privileges on every one of them — not
  * from any GRANT in this repo, but from Supabase's default privileges, which hand anon
- * everything on anything created in `public`. A repo that never says GRANT can still
+ * everything on anything created in `public`. That is true of tables, materialized
+ * views, partitioned and foreign tables too, so the catalog read covers every relation
+ * in `public` (relkind v, m, r, p, f), not just views. A repo that never says GRANT can still
  * have a wide-open surface, and nothing in git will ever show it. Read the catalog.
  *
  * Two halves, deliberately not redundant:
@@ -17,9 +20,9 @@
  *                  has_table_privilege() for all seven privileges, because
  *                  information_schema.table_privileges goes silently blank for a
  *                  pooler / non-owner role and a blank reads as "anon holds nothing".
- *     1  every public view is either ours or a known foreign one. An UNKNOWN view
- *        FAILS: this is an allowlist, never a denylist, because a view added tomorrow
- *        inherits anon's defaults and this guard exists to catch exactly that.
+ *     1  every public object (view, table, matview...) is either ours or a known foreign
+ *        one. An UNKNOWN object FAILS: this is an allowlist, never a denylist, because an
+ *        object added tomorrow inherits anon's defaults and this guard exists to catch exactly that.
  *     2  anon holds no privilege on any view we own. Reads the LIVE catalog — the
  *        fixture's own grants.anon is the pre-migration record, and comparing it to
  *        itself would be permanently green.
@@ -103,7 +106,7 @@ SELECT c.relname AS view_name,
           FROM unnest(ARRAY['DELETE','INSERT','REFERENCES','SELECT','TRIGGER','TRUNCATE','UPDATE']) p
          WHERE has_table_privilege('authenticated', c.oid, p)) AS auth_privs
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = 'public' AND c.relkind = 'v'
+WHERE n.nspname = 'public' AND c.relkind IN ('v','m','r','p','f')
 ) t;`
 
 /** Execution only. Returns psql's stdout; throws if psql is missing or the query fails. */
@@ -180,15 +183,15 @@ if (!dbUrl) {
     else skipReason = 'psql could not connect or the catalog query failed'
   }
   if (live && Object.keys(live).length === 0) {
-    skipReason = 'the catalog query returned zero views'
+    skipReason = 'the catalog query returned zero objects'
     live = null
   }
 }
 
 if (live) {
   const unknown = Object.keys(live).filter((n) => !known.has(n))
-  check(1, 'every public view is either ours or a known foreign one', unknown.length === 0,
-    `unrecognised: ${unknown.join(', ')}\n          A new view in public inherits anon's default privileges. Classify it in the fixture\n          (ownedByUs or foreign) only after deciding what anon may do with it.`)
+  check(1, 'every public object (view, table, matview) is either ours or a known foreign one', unknown.length === 0,
+    `unrecognised: ${unknown.join(', ')}\n          A new object in public inherits anon's default privileges. Classify it in the fixture\n          (ownedByUs or foreign) only after deciding what anon may do with it.`)
 
   const exposed = ours.filter((n) => (live[n]?.anon ?? []).length > 0)
   const missing = ours.filter((n) => !live[n])

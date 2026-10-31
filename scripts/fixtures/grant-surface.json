@@ -407,6 +407,39 @@
   "foreign": [
     "users_public",
     "geography_columns",
-    "geometry_columns"
-  ]
+    "geometry_columns",
+    "access_requests",
+    "admin_audit_log",
+    "admin_users",
+    "calibration_lapse_runs",
+    "cta_events",
+    "notification_events",
+    "notifications",
+    "politician_id_bridge",
+    "role_audit_log",
+    "roles",
+    "source_verifications",
+    "spatial_ref_sys",
+    "user_roles",
+    "users"
+  ],
+  "foreignNotes": {
+    "access_requests": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts), not verified from this repo",
+    "admin_audit_log": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts admin), not verified from this repo",
+    "admin_users": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts admin), not verified from this repo",
+    "calibration_lapse_runs": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (Compass / ev-accounts), not verified from this repo",
+    "cta_events": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts), not verified from this repo",
+    "notification_events": "table, postgres-owned; ev-accounts notifications, not civic_notifications",
+    "notifications": "table, postgres-owned; ev-accounts notifications, not civic_notifications",
+    "politician_id_bridge": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (essentials / politician data), not verified from this repo",
+    "role_audit_log": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts roles), not verified from this repo",
+    "roles": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts roles), not verified from this repo",
+    "source_verifications": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts / essentials), not verified from this repo",
+    "spatial_ref_sys": "PostGIS extension table, supabase_admin-owned; no RLS, ships with the extension",
+    "user_roles": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts roles), not verified from this repo",
+    "users": "table, postgres-owned; ev-accounts identity table, which users_public reads",
+    "users_public": "view over ev-accounts users; deliberately not narrowed by this app (see 18-01 migration header)",
+    "geography_columns": "PostGIS extension view, supabase_admin-owned",
+    "geometry_columns": "PostGIS extension view, supabase_admin-owned"
+  }
 }

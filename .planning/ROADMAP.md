@@ -345,8 +345,11 @@ member roster and nothing turns red.
 **The gate is not RLS — on one route.** `civic_spaces` has no `GRANT USAGE ON SCHEMA … TO anon`,
 so PostgREST cannot resolve the schema before a policy is ever consulted. 🔴 That holds for the
 `civic_spaces` route **only**: `anon` already has `USAGE` on `public`, which carries views over
-the same tables and where `anon` holds every privilege, so a second route exists and today only
-RLS holds it shut (D-43, `18-CONTEXT.md`). 18-01 is the prerequisite that closes it. Both feed RPCs fail independently
+the same tables and where `anon` holds every privilege, so a second route exists. Today it is held shut by `security_invoker` and a missing
+privilege, not by RLS: the views are `security_invoker = on` and `anon` has no `USAGE` on
+`civic_spaces`, so `anon` is refused `401 {"code":"42501","message":"permission denied for
+table posts"}` — a **privilege** refusal raised before any policy is consulted. RLS never runs
+(D-43, `18-CONTEXT.md`). 18-01 is the prerequisite that closes it. Both feed RPCs fail independently
 of policy: `get_feed_filtered` welds `AND p.slice_id IN (SELECT slice_id FROM slice_members
 WHERE user_id = current_user_id())` into its body, and `get_boosted_feed_filtered` is
 `SECURITY INVOKER` and reads `friendships` / `follows` / `blocks` as the caller. This is a
@@ -354,7 +357,13 @@ grants-and-a-new-RPC job.
 
 ⚠️ Until `20261030000000_reconcile_public_views.sql` is applied: it is written, not applied, and
 `anon` holds every privilege on those views in production today. On apply, delete this line and
-put "holds" and "today only RLS holds it shut" in the paragraph above in the past tense.
+put "holds" and "today it is held shut by `security_invoker` and a missing privilege" in the paragraph above in the past tense.
+
+**Narrowed from D-43:** D-43 asked for reconciliation on six views and a revoke on every
+`public.*` view; 18-01 ships reconciliation on five and a revoke on twelve. `public.users_public`
+is deliberately left alone: it reads a `users` table this app does not own and another EV app
+depends on its grants. `anon` keeps `SELECT`, `INSERT`, `UPDATE` and `DELETE` on it, and it is the
+one `public` view `anon` actually reaches today (it answers `200 []`).
 
 - Schema `USAGE`, **column-level** grants (`useThread` does `select('*')`, so a table grant
   publishes `edit_history`), a narrow `get_public_feed`, and an author-scoped

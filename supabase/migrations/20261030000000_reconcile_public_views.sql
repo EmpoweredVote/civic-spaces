@@ -22,7 +22,9 @@
 --      REPLACE VIEW cannot change a column list, so a mismatch errors rather
 --      than silently altering production; it also preserves existing grants.
 --      security_invoker is stated explicitly rather than inherited, so the
---      views keep evaluating RLS as the caller.
+--      views keep evaluating RLS as the caller. The same section also records
+--      security_invoker = on for the seven already-tracked views, which
+--      production has and no migration said.
 --   2. REVOKE ALL ... FROM anon on all twelve. ALL, not SELECT: a revoke that
 --      handles only SELECT leaves INSERT/UPDATE/DELETE/TRUNCATE waiting for
 --      any future permissive policy to switch them on.
@@ -37,7 +39,7 @@
 -- PostGIS views owned by supabase_admin and are likewise left alone.
 -- =============================================================================
 
--- 1. The five views that existed in production and in no migration ------------
+-- 1. Views: the five untracked ones, then security_invoker on the seven tracked -
 
 CREATE OR REPLACE VIEW public.connected_profiles
     WITH (security_invoker = on) AS
@@ -94,6 +96,24 @@ SELECT id,
        current_member_count,
        created_at
 FROM   civic_spaces.slices;
+
+-- The seven views that ARE tracked, but whose security_invoker setting is not.
+-- Their CREATE statements (phase3/4/5 migrations) are bare, so a database rebuilt
+-- from migrations (staging, a branch, a disaster restore) would bring them up as
+-- security-definer views owned by postgres, and `authenticated` could then read
+-- every friendship, flag, block and notification through public.* with RLS
+-- bypassed. Production already has security_invoker = on on all seven (verified
+-- 2026-10-31 via pg_class.reloptions), so this sets what is already there: a
+-- no-op in production, a fix everywhere else. The setting was untracked until
+-- now: the same class of drift as the five untracked views above.
+
+ALTER VIEW public.friendships         SET (security_invoker = on);
+ALTER VIEW public.follows             SET (security_invoker = on);
+ALTER VIEW public.civic_notifications SET (security_invoker = on);
+ALTER VIEW public.flags               SET (security_invoker = on);
+ALTER VIEW public.blocks              SET (security_invoker = on);
+ALTER VIEW public.moderators          SET (security_invoker = on);
+ALTER VIEW public.action_log          SET (security_invoker = on);
 
 -- 2. Take every privilege away from anon on all twelve ------------------------
 
