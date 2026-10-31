@@ -1,8 +1,15 @@
-import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import type { PostWithAuthor } from '../types/database'
 import type { CreatePostInput } from '../lib/validators'
 
+/**
+ * Create a post, and show it only once the database has it.
+ *
+ * 🔴 Not optimistic. This used to insert a temporary "You" post into the feed before
+ * the request returned and roll it back on failure — a post that looked saved, then
+ * vanished. Now the feed is refreshed from the server after the insert succeeds, and
+ * the composer opens the saved post by its real id. Nothing is shown that was not saved.
+ */
 export function useCreatePost(sliceId: string, userId: string) {
   const queryClient = useQueryClient()
 
@@ -12,53 +19,13 @@ export function useCreatePost(sliceId: string, userId: string) {
         .schema('civic_spaces')
         .from('posts')
         .insert({ slice_id: sliceId, user_id: userId, title, body })
-        .select()
+        .select('id')
         .single()
 
       if (error) throw error
-      return data as PostWithAuthor
+      return data as { id: string }
     },
 
-    onMutate: async ({ title, body }: CreatePostInput) => {
-      await queryClient.cancelQueries({ queryKey: ['boosted-feed', sliceId] })
-
-      const snapshot = queryClient.getQueryData<InfiniteData<PostWithAuthor[]>>(['boosted-feed', sliceId])
-
-      const tempPost: PostWithAuthor = {
-        id: crypto.randomUUID(),
-        slice_id: sliceId,
-        user_id: userId,
-        title,
-        body,
-        reply_count: 0,
-        edit_history: [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_deleted: false,
-        author: { display_name: 'You', avatar_url: null, tier: 'connected' as const },
-      }
-
-      if (snapshot) {
-        queryClient.setQueryData<InfiniteData<PostWithAuthor[]>>(['boosted-feed', sliceId], {
-          ...snapshot,
-          pages: [
-            [tempPost, ...(snapshot.pages[0] ?? [])],
-            ...snapshot.pages.slice(1),
-          ],
-        })
-      }
-
-      return { snapshot }
-    },
-
-    onError: (_err, _vars, context) => {
-      if (context?.snapshot) {
-        queryClient.setQueryData(['boosted-feed', sliceId], context.snapshot)
-      }
-    },
-
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['boosted-feed', sliceId] })
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['boosted-feed', sliceId] }),
   })
 }

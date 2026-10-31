@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useImperativeHandle } from 'react'
+import { useRef, useEffect, useMemo, useState, useImperativeHandle } from 'react'
 import type React from 'react'
 // import { useFeed } from '../hooks/useFeed' // Fallback: chronological feed
 import { useBoostedFeed } from '../hooks/useBoostedFeed'
@@ -17,6 +17,8 @@ import { ReadOnlyNotice } from './ReadOnlyNotice'
 import type { SortMode } from './FeedTabs'
 import type { PostWithAuthor } from '../types/database'
 import type { NoWriteReason } from '../lib/writeAccess'
+import { getTopicOptions } from '../lib/exploreData'
+import { PrimaryButton } from './explore/exploreUi'
 
 function sortPosts(posts: PostWithAuthor[], sort: SortMode): PostWithAuthor[] {
   // 🔴 CLIENT-SIDE OVER LOADED PAGES ONLY. The feed is paginated, so this orders the
@@ -65,6 +67,12 @@ interface SliceFeedPanelProps {
   viewingSliceIndex?: number
   ownSliceIndex?: number
   onReturnToOwnSlice?: () => void
+  /** Which level this feed is, for the composer's topic picker. */
+  sliceType?: string
+  /** The place this feed belongs to, named — null while it resolves. Never the tab label. */
+  placeName?: string | null
+  /** The real sign-in, for a signed-out visitor's "Sign in to reply". */
+  loginUrl?: string
 }
 
 export default function SliceFeedPanel({
@@ -80,7 +88,13 @@ export default function SliceFeedPanel({
   viewingSliceIndex,
   ownSliceIndex,
   onReturnToOwnSlice,
+  sliceType,
+  placeName = null,
+  loginUrl,
 }: SliceFeedPanelProps) {
+  // Static editorial content for this level: a pure lookup, no fetch, so it is safe in a
+  // panel that is mounted six times.
+  const topicOptions = useMemo(() => (sliceType ? getTopicOptions(sliceType) : []), [sliceType])
   const {
     data,
     fetchNextPage,
@@ -191,11 +205,19 @@ export default function SliceFeedPanel({
         )}
         {posts.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-center px-6 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {searchQuery.trim()
-                ? `No posts match "${searchQuery.trim()}".`
-                : 'No posts yet. Be the first to start a conversation!'}
-            </p>
+            {searchQuery.trim() ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">No posts match "{searchQuery.trim()}".</p>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No conversations{placeName ? ` in ${placeName}` : ''} yet.
+                  {!isViewOnly && userId ? ' Start the first one.' : ''}
+                </p>
+                {!isViewOnly && userId && (
+                  <PrimaryButton onClick={() => handleCompose()}>Start a conversation</PrimaryButton>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -269,6 +291,8 @@ export default function SliceFeedPanel({
             userId={userId}
             editPost={editingPost ?? undefined}
             request={composeRequest}
+            topicOptions={topicOptions}
+            onCreated={(postId) => onNavigateToThread(postId)}
           />
         )}
 
@@ -290,6 +314,8 @@ export default function SliceFeedPanel({
             isViewOnly={isViewOnly}
             noWriteReason={noWriteReason}
             ownSliceIndex={ownSliceIndex}
+            placeName={placeName}
+            loginUrl={loginUrl}
           />
         </div>
       )}

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState } from 'react'
 import type React from 'react'
 import type { SliceType, TabKey, SliceInfo } from '../types/database'
-import { useJurisdictionName } from '../hooks/useJurisdictionName'
+import { useSliceNavLabel } from '../hooks/useJurisdictionName'
 import { Emoji } from './Emoji'
 import { PanelToggle } from './PanelToggle'
 import civicSpacesLight from '../assets/tools/civic-spaces-symbol-light.svg'
@@ -325,20 +325,16 @@ function NavItem({
       ].join(' ')}
     >
       {NAV_EMOJI[icon] ? <Emoji symbol={NAV_EMOJI[icon]} className="w-5 text-[17px]" /> : <NavIcon type={icon} />}
-      <span className={collapsed ? 'sr-only' : undefined}>{label}</span>
+      <span className={collapsed ? 'sr-only' : 'min-w-0 [overflow-wrap:anywhere]'}>{label}</span>
     </button>
   )
 }
 
 /**
- * Local and County show the real resolved place/county name (e.g.
- * "Asheville", "Buncombe County") instead of the generic tab label — State/
- * Federal/Unified keep their short generic labels, since "North Carolina"
- * or "United States of America" reads worse as a compact nav item than it
- * does as the feed's hero pill. Extracted as its own component so
- * useJurisdictionName (which fetches from the Census API for these two
- * types) is called unconditionally per React's rules of hooks, even though
- * only two of the five tabs use its result.
+ * Each civic space is named for the place, not the level: "Asheville",
+ * "Buncombe County", "North Carolina", "United States", and "Unified" as is.
+ * See `useSliceNavLabel`. Extracted as its own component so the hook runs once
+ * per row, unconditionally, per React's rules of hooks.
  */
 function GeoNavItem({
   tab,
@@ -351,11 +347,7 @@ function GeoNavItem({
   isActive: boolean
   onClick: () => void
 }) {
-  // Called unconditionally per the rules of hooks, even though only City and
-  // County use its result.
-  const fetchedName = useJurisdictionName(slice, tab.label)
-
-  const label = tab.key === 'city' || tab.key === 'county' ? fetchedName : tab.label
+  const label = useSliceNavLabel(slice, tab.label)
 
   return (
     <NavItem

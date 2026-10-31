@@ -19,7 +19,7 @@ import type { NoWriteReason } from '../lib/writeAccess'
  * the author's first sentence), kept in view while they read replies or write one.
  * Sticks under AppShell's header and tab bar; --cs-sticky-offset is their combined height.
  */
-function TopicHeader({ headline, onBack, stuck }: { headline: string | null; onBack: () => void; stuck: boolean }) {
+function TopicHeader({ headline, placeName, onBack, stuck }: { headline: string | null; placeName?: string | null; onBack: () => void; stuck: boolean }) {
   return (
     <div
       className={`sticky top-[var(--cs-sticky-offset,8rem)] z-20 flex items-start gap-3 px-4 py-3 rounded-t-2xl border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 ${
@@ -27,15 +27,24 @@ function TopicHeader({ headline, onBack, stuck }: { headline: string | null; onB
       }`}
     >
       <button
+        type="button"
         onClick={onBack}
-        aria-label="Back to feed"
-        className="mt-0.5 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+        aria-label="Back to conversations"
+        title="Back to conversations"
+        className="mt-0.5 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
       </button>
       <div className="min-w-0 flex-1">
+        {/* Where this conversation lives. A post carries no topic (no topic column),
+            so the place is the context there is to keep in view. */}
+        {placeName && (
+          <p className="text-[11px] font-bold uppercase tracking-wider text-brand-coral-text dark:text-brand-coral">
+            Conversation in {placeName}
+          </p>
+        )}
         <h1
           className={`mt-0.5 text-lg md:text-xl font-bold leading-snug text-gray-900 dark:text-gray-50 [overflow-wrap:anywhere] ${
             stuck ? 'line-clamp-2' : ''
@@ -60,14 +69,19 @@ interface ThreadViewProps {
   noWriteReason?: NoWriteReason | null
   /** The user's own slice number for this location — used in the view-only explanation. */
   ownSliceIndex?: number
+  /** The place this conversation belongs to, named. Null while it resolves. */
+  placeName?: string | null
+  /** The real sign-in, for "Sign in to reply". */
+  loginUrl?: string
 }
+
 
 interface ReplyTarget {
   replyId: string
   authorName: string
 }
 
-export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly = false, noWriteReason = null, ownSliceIndex }: ThreadViewProps) {
+export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly = false, noWriteReason = null, ownSliceIndex, placeName = null, loginUrl }: ThreadViewProps) {
   const [, navigate] = useLocation()
   const { post, replies, fetchMoreReplies, hasMoreReplies, isLoading } = useThread(postId)
   const { userId } = useAuth()
@@ -174,7 +188,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
   if (isLoading) {
     return (
       <div className="flex flex-col h-full">
-        <TopicHeader headline={null} onBack={onBack} stuck={false} />
+        <TopicHeader headline={null} placeName={placeName} onBack={onBack} stuck={false} />
         <div className="flex-1 flex items-center justify-center py-10 text-sm text-gray-500 dark:text-gray-400">
           Loading discussion…
         </div>
@@ -196,7 +210,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
       {/* Sentinel for the header below: once it scrolls under the app's sticky bars the
           header is stuck, and a long title clamps so it cannot cover the replies. */}
       <div ref={stuckSentinelRef} aria-hidden="true" />
-      <TopicHeader headline={headline} onBack={onBack} stuck={isStuck} />
+      <TopicHeader headline={headline} placeName={placeName} onBack={onBack} stuck={isStuck} />
 
       <div className="flex-1 px-4 pb-8">
         {/* 1. The post — author, then the rest of what they wrote */}
@@ -264,17 +278,24 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
             this gate without the thread half once already. */}
         {isViewOnly ? (
           <div className="py-3">
-            <ReadOnlyNotice reason={noWriteReason} surface="thread" ownSliceIndex={ownSliceIndex} />
+            {/* A signed-out visitor gets the real sign-in here. The thread's /post/:id
+                URL is already stashed for after it (AppShell's PENDING_POST_KEY), so they
+                come back to this conversation. */}
+            <ReadOnlyNotice reason={noWriteReason} surface="thread" ownSliceIndex={ownSliceIndex} loginUrl={loginUrl} />
           </div>
         ) : (
-          (!userId || !profile?.is_suspended) && (
+          (!userId || !profile?.is_suspended) && post && (
             <div className="py-3">
               {(!replyComposerOpen || activeReplyTarget !== null) && (
                 <button
+                  type="button"
                   onClick={handleReplyToPost}
-                  className="w-full text-left px-3 py-2.5 rounded-full border border-gray-300 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-500 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+                  className="w-full flex items-center gap-2 text-left px-4 py-2.5 rounded-full border border-gray-300 dark:border-white/15 text-sm font-medium text-gray-600 dark:text-gray-400 hover:border-brand dark:hover:border-brand-light hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                 >
-                  Join the conversation
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  </svg>
+                  Write a reply
                 </button>
               )}
               {canWrite && replyComposerOpen && activeReplyTarget === null && (
@@ -286,6 +307,23 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
               )}
             </div>
           )
+        )}
+
+        {/* The post could not be loaded — deleted, not readable from here, or a network
+            failure. One message for all of them, like locatePost's `unavailable`. */}
+        {!post && (
+          <div className="py-10 text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">This conversation isn’t available.</p>
+            <button type="button" onClick={onBack} className="mt-2 text-sm font-semibold text-brand dark:text-brand-light hover:underline">
+              Back to conversations
+            </button>
+          </div>
+        )}
+
+        {post && replies.length === 0 && !replyComposerOpen && (
+          <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+            No replies yet.{!isViewOnly && canWrite ? ' Be the first to share a thought.' : ''}
+          </p>
         )}
 
         {/* 3. All other comments */}

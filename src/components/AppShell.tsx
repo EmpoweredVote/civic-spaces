@@ -9,7 +9,7 @@ import { useEnsureSlices } from '../hooks/useEnsureSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
 import { useHeroBanner } from '../hooks/useHeroBanner'
-import { useJurisdictionName } from '../hooks/useJurisdictionName'
+import { useJurisdictionName, useSliceNavLabel } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import { usePlaceRepresentatives } from '../hooks/usePlaceRepresentatives'
@@ -40,7 +40,6 @@ import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
 import { canPostDraft, parseDraftKey, racesAreaFor, type CompassLevelFlags } from '../lib/exploreComposition'
 import { whyNoWrite, placeKey, isSameJurisdiction, type ViewedSlice, type NoWriteReason } from '../lib/writeAccess'
-import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
@@ -55,6 +54,8 @@ import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
 import { CivicSpacesMark } from './CivicSpacesMark'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
+import type { ExploreTopic } from '../types/explore'
+import type { ComponentProps } from 'react'
 
 /**
  * The location banner for the active slice: hero image, name, member counts, and the
@@ -212,6 +213,18 @@ function ActiveLocationCard({ slice, fallbackName }: { slice: SliceInfo; fallbac
  * the city's scheduled public meetings. Both queries are shared with (or as cheap as)
  * the banner's, and this renders once, for the active tab only.
  */
+/**
+ * A forum panel with its place named, for the composer ("Posting to Asheville") and the
+ * thread ("Conversation in Asheville"). The lookup runs once per tab here, the same
+ * per-row shape NavSidebar's GeoNavItem uses — never inside the panel, which is
+ * mounted six times. null while the name is still the generic tab label.
+ */
+function NamedFeedPanel({ slice, ...props }: { slice: SliceInfo } & ComponentProps<typeof SliceFeedPanel>) {
+  const fallback = TAB_LABELS[slice.sliceType]
+  const name = useSliceNavLabel(slice, fallback)
+  return <SliceFeedPanel {...props} sliceType={slice.sliceType} placeName={name !== fallback ? name : null} />
+}
+
 function ActiveEventsWidget({
   slice,
   fallbackName,
@@ -237,38 +250,6 @@ function ActiveEventsWidget({
       isLoading={electionsLoading || meetingsLoading}
     />
   )
-}
-
-/**
- * "About {place}" — only facts with a real source: 2020 Census population, and the
- * member's own county and state slices for the parent jurisdictions. No founding year
- * or elevation: nothing in the platform carries them.
- */
-function ActiveAboutWidget({
-  slice,
-  fallbackName,
-  countySlice,
-}: {
-  slice: SliceInfo
-  fallbackName: string
-  countySlice: SliceInfo | undefined
-}) {
-  const name = useJurisdictionName(slice, fallbackName)
-  const population = usePopulation(slice.sliceType, slice.geoid)
-  // Called unconditionally (rules of hooks); only used on a city tab.
-  const countyName = useJurisdictionName(countySlice ?? slice, 'County')
-  if (slice.sliceType === 'unified' || slice.sliceType === 'volunteer') return null
-
-  const facts: AboutFact[] = []
-  if (population !== undefined) facts.push({ label: 'Population', value: population.toLocaleString() })
-  if (slice.sliceType === 'city' && countySlice && countyName !== 'County') {
-    facts.push({ label: 'County', value: countyName.replace(/ County$/, '') })
-  }
-  if (slice.sliceType === 'city' || slice.sliceType === 'county') {
-    const stateName = geoidToDisplayName('state', slice.geoid.slice(0, 2))
-    if (stateName) facts.push({ label: 'State', value: stateName })
-  }
-  return <AboutWidget placeName={name} facts={facts} />
 }
 
 /**
@@ -407,7 +388,7 @@ function ActiveExplore({
   viewingSliceIndex: number | undefined
   /** Absent while visiting a place: there is no own shard to return to. 17-05 adds "Back to my spaces". */
   onReturnToOwnSlice?: () => void
-  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null) => void
+  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null, topic?: ExploreTopic) => void
   onScrollTop: () => void
   onGoToView: (view: ForumView) => void
   /** False while the right sidebar is collapsed, so "What's new" shows inline instead. */
@@ -1238,7 +1219,7 @@ export default function AppShell() {
    * A signed-out visitor is sent through the real sign-in; ExploreView replays this
    * after they return, from a resume marker carrying the whole key.
    */
-  const handleStartConversation = useCallback((key: string, draft: ExploreDraft, destinationName: string | null) => {
+  const handleStartConversation = useCallback((key: string, draft: ExploreDraft, _destinationName: string | null, topic?: ExploreTopic) => {
     /**
      * 🔴 Defence in depth, at the far end of all three composer paths. Explore must
      * not OFFER this while view-only (16-CONTEXT locked decision 4) and RLS would
@@ -1307,13 +1288,10 @@ export default function AppShell() {
     }
     setForumView('conversations')
     scrollToContentTop()
-    // The name Explore already resolved for this key's slice, so the note says
-    // "Bloomington, your City community" rather than just "your City community".
-    const place = destinationName && destinationName !== TAB_LABELS[tab] ? destinationName : null
     panelRefs.current[tab]?.current?.compose({
       title: draft.title,
       body: draft.body,
-      contextNote: `Posting to ${place ? `${place}, your` : 'your'} ${TAB_LABELS[tab]} community. Edit anything before you post.`,
+      topic,
       onPosted: () => writeDraft(key, null),
       onDraftChange: (values) => {
         const current = readDrafts()[key]
@@ -1589,7 +1567,17 @@ export default function AppShell() {
                     The banner names where you are; this changes it; SliceSelector
                     nests below as "which shard of it". It is absent on Volunteer,
                     which is correct — Volunteer is not a place. See
-                    PlaceStrip.tsx for the three positions this is not in. */}
+                    PlaceStrip.tsx for the three positions this is not in.
+
+                    🔴 THIS MOUNT IS THE ONLY WAY A SIGNED-IN MEMBER REACHES
+                    `enterPlace`. The welcome screen's picker is the other entry
+                    point and it renders only for `!isAuthenticated`, so deleting
+                    this mount does not merely remove a control — it removes the
+                    whole "look at another place" capability for every member,
+                    silently, while `tsc -b` and the build stay green. That is
+                    exactly what happened once already (PR #133, 2026-10-28), and
+                    `npm run check:place-entry` is what caught it. Removing the
+                    strip means giving members another door, not no door. */}
                 {hasExplore && (
                   <PlaceStrip
                     visitedSlice={visitedPlaceSlice}
@@ -1707,9 +1695,6 @@ export default function AppShell() {
                       )}
                       events={activeSlice && (
                         <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={onScreenSlices['state']} userId={userId} />
-                      )}
-                      about={activeSlice && (
-                        <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={onScreenSlices['county']} />
                       )}
                     />
 
@@ -1903,7 +1888,9 @@ export default function AppShell() {
                       const mode = feedModes[tabKey]
                       return (
                         <div key={tabKey} className={isShown ? 'flex flex-col' : 'hidden'}>
-                          <SliceFeedPanel
+                          <NamedFeedPanel
+                            slice={slice}
+                            loginUrl={isAuthenticated ? undefined : loginUrl}
                             sliceId={viewing?.id ?? slice.id}
                             isViewOnly={isViewOnly}
                             noWriteReason={noWriteReason}
@@ -1953,9 +1940,6 @@ export default function AppShell() {
                       )}
                       events={activeSlice && (
                         <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={onScreenSlices['state']} userId={userId} />
-                      )}
-                      about={activeSlice && (
-                        <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={onScreenSlices['county']} />
                       )}
                       whatsNew={effectiveView === 'explore' && <WhatsNewCard onGoTo={handleForumViewChange} />}
                     />

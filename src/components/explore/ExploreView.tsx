@@ -11,9 +11,9 @@ import {
   writeResume,
   type ExploreDraft,
 } from './exploreStorage'
-import { CARD, CategoryLabel, FOCUS, PrimaryButton, SecondaryButton } from './exploreUi'
-import { ProvenanceTag, SourceNote } from './provenance'
-import { MODULE_REGISTRY, ReservedRoom, ReservedRoomGroup, reservedRoomsIn } from './registry'
+import { ArrowIcon, CARD, CategoryLabel, FOCUS, PrimaryButton, TEXT_FIELD } from './exploreUi'
+import { SourceNote } from './provenance'
+import { MODULE_REGISTRY, ReservedRoom } from './registry'
 import { ReadOnlyNotice } from '../ReadOnlyNotice'
 import type { ExploreCtx } from './ExploreContext'
 import type { UpcomingMeeting } from '../../hooks/useUpcomingMeetings'
@@ -173,7 +173,7 @@ interface ExploreViewProps {
    * is the resolved place name for that key's slice — ExploreView only ever
    * builds a key from the composition it is rendering, so the two always agree.
    */
-  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null) => void
+  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null, topic?: ExploreTopic) => void
   /** Brings the column back to its top when the view inside it changes. */
   onScrollTop?: () => void
   /** True when the right sidebar shows What's new (md+), so the column keeps it only below md. */
@@ -184,7 +184,6 @@ interface ExploreViewProps {
   onGoToView?: (view: 'explore' | 'conversations') => void
 }
 
-const TEXT_FIELD = `w-full rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-brand dark:focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand/30`
 
 /**
  * Explore is now a RENDERER: it resolves the composition for this slice, builds the
@@ -338,18 +337,29 @@ export function ExploreView({
       if (isViewOnly) return
       // Persist first: the draft is what survives sign-in. Hand the same object over
       // rather than making AppShell read it back — storage may have refused the write.
-      onStartConversation(keyFor(topicId), saveDraft(topicId, {}), destination?.name ?? null)
+      onStartConversation(keyFor(topicId), saveDraft(topicId, {}), destination?.name ?? null, topicsById.get(topicId))
     },
-    [saveDraft, keyFor, destination, onStartConversation, isViewOnly],
+    [saveDraft, keyFor, destination, onStartConversation, isViewOnly, topicsById],
   )
 
   // An open topic is stored with the composition it was opened in, so switching tab
   // cannot carry it onto a slice whose Join button points somewhere else.
   const compositionKey = composition?.key ?? null
+  // Where the list was scrolled when a topic opened, so Back returns to the same card
+  // rather than to the top of the page.
+  const listScrollRef = useRef<number | null>(null)
   const openTopic = useCallback(
     (topicId: TopicId | null) => {
       setUi({ openTopic: topicId && compositionKey ? { key: compositionKey, topicId } : null })
-      onScrollTop?.()
+      if (topicId) {
+        listScrollRef.current = window.scrollY
+        onScrollTop?.()
+        return
+      }
+      const y = listScrollRef.current
+      listScrollRef.current = null
+      if (y === null) onScrollTop?.()
+      else requestAnimationFrame(() => window.scrollTo({ top: y }))
     },
     [setUi, onScrollTop, compositionKey],
   )
@@ -429,12 +439,12 @@ export function ExploreView({
      * the key; otherwise the note says "your City community" rather than naming the
      * wrong place.
      */
-    onStartConversation(key, draft, key === keyFor(marker.topicId) ? destination?.name ?? null : null)
+    onStartConversation(key, draft, key === keyFor(marker.topicId) ? destination?.name ?? null : null, topicsById.get(marker.topicId))
     // 🔴 isViewOnly is a DEPENDENCY, and it is the only thing that changes when the
     // member presses Switch back: `destination` and `isAuthenticated` are identical
     // either side of that transition. Without it React never re-runs this effect and a
     // deferred marker sits there until the next mount.
-  }, [isAuthenticated, destination, slices, keyFor, onStartConversation, isViewOnly])
+  }, [isAuthenticated, destination, slices, keyFor, onStartConversation, isViewOnly, topicsById])
 
   if (isLoading) return <ExploreSkeleton />
   // Volunteer has no Explore and never has — levelFor() returns null and so does this.
@@ -513,13 +523,6 @@ export function ExploreView({
     }
   }
 
-  // Every reserved room this composition names, in its order, and the id the one
-  // grouped card is drawn at. Cheap — a walk of a dozen string ids — and outside
-  // the map so the list is built once rather than per module.
-  // (Indexed rather than `.at(-1)` — tsconfig's lib target predates it.)
-  const reservedRooms = reservedRoomsIn(composition.modules)
-  const lastReservedId = reservedRooms.length ? reservedRooms[reservedRooms.length - 1]?.id ?? null : null
-
   return (
     <div className="@container flex flex-col gap-6 @lg:gap-8 pb-2">
       {/* Above the module list AND above TopicDetail (below): the flag can be true
@@ -549,24 +552,12 @@ export function ExploreView({
           )
         }
         if (mod.emptyState === 'hide') return null
-        // 🔴 A reserved room renders inside ONE grouped card, drawn where the LAST
-        // of them sits — which in every composition is immediately before 'whats-new'.
-        //
-        // That keeps a real module as the page's final word ON MOBILE only.
-        // WhatsNewModule is `md:hidden` whenever the sidebar already carries the
-        // card (see WhatsNewModule.tsx), so from md up this grouped card IS the
-        // last block in the Explore column. Verified in the browser, both widths.
-        //
-        // Not where the FIRST sits: Federal lists 'federal-votes' third, and a
-        // nine-line "what this becomes" card above the races and the questions is
-        // the wall moved rather than removed.
-        //
-        // See ReservedRoomGroup for the measurement that put it here. Every room
-        // still renders and still carries data-explore-room; only the card count
-        // changes, and that is a rendering decision — DEFAULT_MODULES is untouched.
-        if (mod.reserved) {
-          return id === lastReservedId ? <ReservedRoomGroup key={id} rooms={reservedRooms} /> : null
-        }
+        // Reserved rooms — features with no source yet (ballot measures, symposiums,
+        // civic listening…) — are not shown. They used to render together as one
+        // "What this space becomes" card; it was taken off the page on 2026-10-28 as
+        // noise. ReservedRoomGroup is still in registry.tsx if it is wanted back, and
+        // DEFAULT_MODULES is untouched.
+        if (mod.reserved) return null
         return <ReservedRoom key={id} id={id} {...mod.emptyState} />
       })}
     </div>
@@ -619,6 +610,7 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
   const { destination, isAuthenticated, meetings } = ctx
   const draft = ctx.draftFor(topic.id)
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
   // Move focus to the new view's heading, as opening a thread changes the whole column.
   useEffect(() => headingRef.current?.focus({ preventScroll: true }), [topic.id])
 
@@ -644,56 +636,81 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
           </svg>
           Explore
         </button>
-        <span className="ml-auto"><ProvenanceTag topic={topic} /></span>
       </div>
 
-      <div className="p-4 @lg:p-5 flex flex-col gap-4">
+      <div className="p-4 @lg:p-5 flex flex-col gap-5">
+        {/* 1. The topic: what it is, in two lines. Everything else is one tap away. */}
         <div className="flex flex-col gap-1.5">
           <CategoryLabel>{topic.category}</CategoryLabel>
           <h2 id={`${id}-title`} ref={headingRef} tabIndex={-1} className="text-xl font-extrabold leading-snug tracking-tight text-gray-900 dark:text-gray-100 focus:outline-none">
             {topic.title}
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">{topic.summary}</p>
-        </div>
 
-        {/* whyItMatters is optional since 16-01: an agenda item does not carry a reason
-            it matters, and writing one for it would be inventing civic record. With no
-            reason to show, Sources takes the full width instead of half an empty grid. */}
-        <div className={`grid gap-3 ${topic.whyItMatters ? '@lg:grid-cols-2' : ''}`}>
-          {topic.whyItMatters && (
-            <div className="rounded-xl bg-gray-50 dark:bg-gray-800/60 p-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400 mb-1">Why it matters</h3>
-              <p className="text-sm text-gray-700 dark:text-gray-300">{topic.whyItMatters}</p>
-            </div>
-          )}
-          <div className="rounded-xl bg-gray-50 dark:bg-gray-800/60 p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400 mb-1">Sources</h3>
-            <SourceNote topic={topic} />
-            {topic.usesMeetingSources && (
-              sources.length > 0 ? (
-                <ul className="mt-1.5 flex flex-col gap-1">
-                  {sources.map((m) => (
-                    <li key={m.id}>
-                      <a href={m.url!} target="_blank" rel="noopener noreferrer" className={`rounded text-sm font-medium text-brand dark:text-brand-light hover:underline ${FOCUS}`}>
-                        {m.title} — agenda<span className="sr-only"> (opens in a new tab)</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
-                  {/* 🔴 "here", not "for your area" — D-10. The reader may be looking at
-                      a place that is not theirs, and the sentence is just as true. */}
-                  No published meeting agendas were found here right now.
+          {/* Background, folded away so the page leads with the question. Nothing is
+              removed — why it matters, the sources and the conversations note are all
+              here — they just stop competing with the one thing to do. */}
+          <details className="group mt-1">
+            <summary className={`inline-flex cursor-pointer list-none items-center gap-1 rounded text-sm font-semibold text-brand dark:text-brand-light hover:underline [&::-webkit-details-marker]:hidden ${FOCUS}`}>
+              About this topic
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 motion-safe:transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+              </svg>
+            </summary>
+            <div className="mt-2 flex flex-col gap-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 p-3 text-sm">
+              {/* whyItMatters is optional since 16-01: an agenda item does not carry a
+                  reason it matters, and writing one for it would be inventing civic record. */}
+              {topic.whyItMatters && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Why it matters</h3>
+                  <p className="mt-0.5 text-gray-700 dark:text-gray-300">{topic.whyItMatters}</p>
+                </div>
+              )}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Sources</h3>
+                <SourceNote topic={topic} />
+                {topic.usesMeetingSources && (
+                  sources.length > 0 ? (
+                    <ul className="mt-1 flex flex-col gap-1">
+                      {sources.map((m) => (
+                        <li key={m.id}>
+                          <a href={m.url!} target="_blank" rel="noopener noreferrer" className={`rounded font-medium text-brand dark:text-brand-light hover:underline ${FOCUS}`}>
+                            {m.title} — agenda<span className="sr-only"> (opens in a new tab)</span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-gray-600 dark:text-gray-400">
+                      {/* 🔴 "here", not "for your area" — D-10. The reader may be looking
+                          at a place that is not theirs, and the sentence is just as true. */}
+                      No published meeting agendas were found here right now.
+                    </p>
+                  )
+                )}
+              </div>
+              {/* 🔴 Related conversations: an honest empty state, not a search. A post has
+                  no topic — civic_spaces.posts is (slice_id, title, body) — so nothing ties
+                  a conversation to this topic, and matching on words would be a guess
+                  presented as a link. Data this needs from the API: a topic reference on
+                  each post. */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Conversations</h3>
+                <p className="mt-0.5 text-gray-700 dark:text-gray-300">
+                  Conversations aren’t linked to topics yet, so sharing your thoughts starts a new one.
                 </p>
-              )
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-xl border-l-4 border-brand-coral bg-brand-muted dark:bg-brand/10 px-3 py-2.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand dark:text-brand-light">Start with this question</p>
-          <p className="mt-0.5 text-base font-bold text-gray-900 dark:text-gray-100">{topic.question}</p>
+                {ctx.onGoToView && (
+                  <button
+                    type="button"
+                    onClick={() => ctx.onGoToView?.('conversations')}
+                    className={`mt-1 inline-flex items-center gap-1.5 rounded font-semibold text-brand dark:text-brand-light hover:underline ${FOCUS}`}
+                  >
+                    Browse conversations{ctx.placeName ? ` in ${ctx.placeName}` : ''} <ArrowIcon />
+                  </button>
+                )}
+              </div>
+            </div>
+          </details>
         </div>
 
         {/*
@@ -701,86 +718,81 @@ function TopicDetail({ topic, ctx }: { topic: ExploreTopic; ctx: ExploreCtx }) {
           <input>, no <textarea>, no submit, no Discard — affordances #1, #4, #5 and #7
           of research Finding 5. Hidden rather than disabled, matching the feed and the
           thread, because a disabled control still advertises something the database
-          will refuse.
-
-          Everything above stays. Reading another shard's Explore is the point of the
-          sibling-read policy; over-gating this page into a dead end would fail goal 6
-          from the other direction. What replaces the form is a signpost: where this
-          topic's conversation CAN be started, named — and ReadOnlyNotice's own
-          control is directly above it.
+          will refuse. What replaces it is a signpost to where this topic's conversation
+          CAN be started — and ReadOnlyNotice's own control is directly above.
         */}
         {ctx.isViewOnly ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {/* 🔴 "Switch back above" only when there IS something to switch back
-                from. A signed-out visitor and a member with no slice at this level
-                have no own shard and no control above, so telling them to switch
-                back points at nothing — the signpost has to match the reason the
-                notice gave, and the notice is the one carrying the real way on. */}
-            {ctx.noWriteReason === 'sibling-shard' ? (
-              destination ? (
-                <>
-                  Conversations about this topic start in{' '}
-                  <span className="font-semibold text-gray-700 dark:text-gray-300">{destination.name}</span>, your own
-                  community. Switch back above to begin one.
-                </>
+          <div className="rounded-xl border-l-4 border-brand-coral bg-brand-muted dark:bg-brand/10 px-3 py-2.5">
+            <p className="text-base font-bold text-gray-900 dark:text-gray-100">{topic.question}</p>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+              {/* 🔴 "Switch back above" only when there IS something to switch back
+                  from. A signed-out visitor and a member with no slice at this level
+                  have no own shard and no control above. */}
+              {ctx.noWriteReason === 'sibling-shard' ? (
+                destination ? (
+                  <>
+                    Conversations about this topic start in{' '}
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">{destination.name}</span>, your own
+                    community. Switch back above to begin one.
+                  </>
+                ) : (
+                  'Conversations about this topic start in your own community. Switch back above to begin one.'
+                )
               ) : (
-                'Conversations about this topic start in your own community. Switch back above to begin one.'
-              )
-            ) : (
-              'Conversations about this topic start in the civic spaces of the people who live there — see the note at the top of this page.'
-            )}
-          </p>
+                'Conversations about this topic start in the civic spaces of the people who live there — see the note at the top of this page.'
+              )}
+            </p>
+          </div>
         ) : (
-        /* The draft — saved on every keystroke, on this device, and bound to one community. */
+        /* 2. The one thing to do: write, share. The topic above is the prompt — no
+           question picker here; that is for a post started from scratch. The draft is
+           saved on every keystroke, on this device; its title (topic.suggestedTitle)
+           travels to the composer, where it can be edited before posting. */
         <form
-          className="flex flex-col gap-2.5"
+          className="flex flex-col gap-4 border-t border-gray-200/70 dark:border-white/[0.08] pt-5"
           onSubmit={(e) => {
             e.preventDefault()
             ctx.startConversation(topic.id)
           }}
         >
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Suggested title</span>
-            <input
-              type="text"
-              value={draft.title}
-              maxLength={200}
-              onChange={(e) => ctx.saveDraft(topic.id, { title: e.target.value })}
-              className={TEXT_FIELD}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Your thoughts</span>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={`${id}-body`} className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Your thoughts
+            </label>
             <textarea
-              rows={3}
+              id={`${id}-body`}
+              ref={bodyRef}
+              rows={5}
               value={draft.body}
               maxLength={10000}
               onChange={(e) => ctx.saveDraft(topic.id, { body: e.target.value })}
-              placeholder={topic.question}
+              placeholder="Share what you think about this topic…"
               className={`${TEXT_FIELD} resize-y`}
             />
-          </label>
+          </div>
 
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {isAuthenticated && destination
-              ? <>Saved on this device. Joining opens a new post in <span className="font-semibold text-gray-700 dark:text-gray-300">{destination.name}</span> — nothing is published until you press Post.</>
-              : isAuthenticated
-                ? 'Saved on this device. You need a local community to post — set your address in your Empowered account.'
-                : 'Saved on this device and kept through sign-in. Nothing is published until you press Post.'}
-          </p>
 
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            No conversation is linked to this topic yet, so joining starts one with your draft.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <PrimaryButton type="submit" disabled={isAuthenticated && !destination}>
-              {isAuthenticated ? 'Join the conversation' : 'Sign in to join the conversation'}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
+            <PrimaryButton type="submit" size="card" disabled={isAuthenticated && !destination}>
+              {isAuthenticated ? 'Share your thoughts' : 'Sign in to share your thoughts'}
             </PrimaryButton>
             {hasDraft && (
-              <SecondaryButton onClick={() => ctx.discardDraft(topic.id)}>Discard draft</SecondaryButton>
+              <button
+                type="button"
+                onClick={() => ctx.discardDraft(topic.id)}
+                className={`rounded text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:underline ${FOCUS}`}
+              >
+                Discard draft
+              </button>
             )}
           </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {isAuthenticated && destination
+              ? <>Saved as you type. You’ll check it before it’s posted to <span className="font-semibold text-gray-700 dark:text-gray-300">{destination.name}</span>.</>
+              : isAuthenticated
+                ? 'Saved as you type. To post, set your address in your Empowered account.'
+                : 'Saved as you type, and kept through sign-in.'}
+          </p>
         </form>
         )}
       </div>
