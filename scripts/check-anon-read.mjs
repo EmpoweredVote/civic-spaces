@@ -4,6 +4,9 @@
  *
  * Run (PowerShell):  $env:SUPABASE_DB_URL = 'postgres://...' ; npm run check:anon-read
  * Run (POSIX sh):    SUPABASE_DB_URL=postgres://... npm run check:anon-read
+ * Optional fixtures:  ANON_READ_PUBLIC_PLACE=<type>:<geoid>  (a place with posts; default city:1805860, a guess)
+ *                     ANON_READ_VOLUNTEER_GEOID is no longer read: with SUPABASE_DB_URL the volunteer geoid
+ *                     and post id come from the catalog. Test JWTs for section 4: see below.
  *
  * Phase 18-02 grants `anon` USAGE on schema civic_spaces plus EXECUTE on exactly four
  * SECURITY DEFINER RPCs (get_public_slice / _feed / _post / _replies). This guard is what
@@ -18,7 +21,9 @@
  *                        only if the body carries SQLSTATE 42501 (a privilege refusal),
  *                        exactly like check:grants — a dead or rotated key also answers 401
  *                        (PGRST301 / Invalid API key) and must not turn the guard green.
- *                        404 and `200 []` pass without a code.
+ *                        404 and `200 []` pass without a code, but 200 [] prints as REACHABLE BUT
+ *                        EMPTY, not REFUSED: it may hide a real SELECT grant (empty table, RLS, limit=1)
+ *                        and only section 3b settles it.
  *                        🔴 `public.notifications` is ANOTHER EV APP's table (18-01 found 14
  *                        of those). Ours is `civic_spaces.notifications`, viewed through
  *                        `public.civic_notifications`. The labels say which is which, so a
@@ -31,13 +36,19 @@
  *                        author_avatar_url NULL; no response carries edit_history,
  *                        current_member_count, account_standing or tier as a KEY anywhere.
  *                        Until the migrations are applied these FAIL with "NOT APPLIED YET"
- *                        (PGRST202 function-not-found, or 42501 on EXECUTE) — a different
- *                        message from "applied and broken", which prints what came back.
+ *                        (PGRST202 function-not-found, or 42501 on EXECUTE) as "not callable by
+ *                        anon" — a different message from "applied and broken", which prints what
+ *                        came back. PGRST202 can also mean a renamed RPC, a stale cache or a malformed place.
+ *                        The leak check is an ALLOWLIST: each row's keys must be a subset of that RPC's
+ *                        RETURNS TABLE columns, so a leak under any name fails; the four named keys are a
+ *                        second assertion. Both FAIL on zero rows rather than pass vacuously.
  *                        The places are not guessable (slices is not anon-readable and only
  *                        ~15 slice rows exist): override with ANON_READ_PUBLIC_PLACE
- *                        ("city:1805860") and ANON_READ_VOLUNTEER_GEOID. The volunteer
- *                        assertion is weaker than it looks — the type allowlist makes ANY
- *                        geoid return zero — so it proves the allowlist, not a particular row.
+ *                        ("city:1805860"). D-47 (volunteer withheld) needs a REAL volunteer geoid and post
+ *                        id, which only the catalog can supply (slices is not anon-readable): without
+ *                        SUPABASE_DB_URL it is NOT RUN, because the type allowlist makes ANY guessed
+ *                        geoid return zero. It runs get_public_post / _replies on a real volunteer post
+ *                        id too, and repeats for every configured JWT viewer.
  *
  *   3 CATALOG (psql)     Three standing guards, each first verified by hand once:
  *     a  The anon-executable SECURITY DEFINER set in civic_spaces EQUALS the four RPCs.
@@ -160,15 +171,15 @@ async function http(path, { method = 'GET', headers = {}, body, token = key } = 
 /** Pure verdict. Same rule as check-grant-surface.mjs judge(). */
 function judge(status, json) {
   if (status === 200) {
-    if (Array.isArray(json) && json.length === 0) return { ok: true, why: 'empty array' }
+    if (Array.isArray(json) && json.length === 0) return { ok: true, kind: 'empty', why: 'REACHABLE BUT EMPTY (200 [])' }
     return { ok: false, why: 'a ROW (or an unreadable body) came back' }
   }
   if (status === 401 || status === 403) {
     return json?.code === '42501'
-      ? { ok: true, why: 'privilege refusal 42501' }
+      ? { ok: true, kind: 'refused', why: 'REFUSED (42501)' }
       : { ok: false, why: `refused, but not as a privilege refusal (code ${json?.code ?? 'none'}) — dead or rotated anon key?` }
   }
-  if (status === 404) return { ok: true, why: 'not exposed' }
+  if (status === 404) return { ok: true, kind: 'absent', why: 'NOT EXPOSED (404)' }
   return { ok: false, why: `unexpected status ${status}` }
 }
 
@@ -176,6 +187,8 @@ const MUST_FAIL = ['slice_members', 'connected_profiles', 'friendships', 'follow
   'notifications', 'flags', 'blocks', 'moderators', 'action_log', 'posts', 'replies', 'slices']
 
 console.log('── 1  must-fail list, both routes ─────────────────────────────────────')
+const kinds = { refused: 0, empty: 0, absent: 0 }
+const emptyOnes = []
 for (const name of MUST_FAIL) {
   for (const route of ['public', 'civic_spaces']) {
     const label =
@@ -189,6 +202,7 @@ for (const name of MUST_FAIL) {
     const r = await http(`/rest/v1/${name}?select=*&limit=1`, route === 'civic_spaces' ? { headers: { 'Accept-Profile': 'civic_spaces' } } : {})
     const v = judge(r.status, r.json)
     const foreign = route === 'public' && name === 'notifications'
+    if (v.ok) { kinds[v.kind] += 1; if (v.kind === 'empty') emptyOnes.push(label.split(' — ')[0].split(' (')[0]) }
     check(`anon refused, no row: ${label} -> HTTP ${r.status} (${v.why})`, v.ok,
       v.ok ? undefined : foreign
         ? 'This is a FOREIGN table: report to the owning app and 18-01, it is not this plan\'s exposure.'
@@ -198,99 +212,9 @@ for (const name of MUST_FAIL) {
   }
 }
 
-// ── 2: the anon viewer ───────────────────────────────────────────────────────
-
-console.log('── 2  anon viewer, the four RPCs ──────────────────────────────────────')
-
-const [PUB_TYPE, PUB_GEOID] = (process.env.ANON_READ_PUBLIC_PLACE || 'city:1805860').split(':')
-const VOL_GEOID = process.env.ANON_READ_VOLUNTEER_GEOID ?? '1805860'
-const FORBIDDEN_KEYS = ['edit_history', 'current_member_count', 'account_standing', 'tier']
-
-function rpc(name, args, token) {
-  return http(`/rest/v1/rpc/${name}`, { method: 'POST', headers: { 'Content-Profile': 'civic_spaces' }, body: args, token })
-}
-
-/** 'ok' | 'not-applied' | 'no-execute' | 'broken' — so "not applied yet" never reads as "applied and broken". */
-function rpcState(r) {
-  if (r.status === 200 && Array.isArray(r.json)) return 'ok'
-  if (r.status === 404 && r.json?.code === 'PGRST202') return 'not-applied'
-  if ((r.status === 401 || r.status === 403) && r.json?.code === '42501') return 'no-execute'
-  return 'broken'
-}
-function stateDetail(r) {
-  const s = rpcState(r)
-  if (s === 'not-applied') return 'NOT APPLIED YET — PGRST202, the function is not in the schema cache (20261030000100_public_read.sql, then NOTIFY pgrst).'
-  if (s === 'no-execute') return 'NOT APPLIED YET — the function exists but anon has no EXECUTE (20261030000200_public_read_grants.sql).'
-  return `APPLIED AND BROKEN — HTTP ${r.status}: ${r.text.slice(0, 200)}`
-}
-
-function keysIn(v, acc = new Set()) {
-  if (Array.isArray(v)) v.forEach((x) => keysIn(x, acc))
-  else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { acc.add(k); keysIn(x, acc) }
-  return acc
-}
-
-const anonResponses = {}
-const calls = [
-  ['get_public_slice', 'public place', { p_slice_type: PUB_TYPE, p_geoid: PUB_GEOID }, true],
-  ['get_public_slice', 'volunteer place (D-47)', { p_slice_type: 'volunteer', p_geoid: VOL_GEOID }, false],
-  ['get_public_feed', 'public place', { p_slice_type: PUB_TYPE, p_geoid: PUB_GEOID, p_limit: 50 }, true],
-  ['get_public_feed', 'volunteer place (D-47)', { p_slice_type: 'volunteer', p_geoid: VOL_GEOID, p_limit: 50 }, false],
-]
-let postId = null
-for (const [name, what, args, wantRows] of calls) {
-  const r = await rpc(name, args)
-  anonResponses[`${name}:${what}`] = r
-  const ok = rpcState(r) === 'ok' && (wantRows ? r.json.length > 0 : r.json.length === 0)
-  const detail = rpcState(r) !== 'ok'
-    ? stateDetail(r)
-    : wantRows
-      ? `returned 0 rows for ${PUB_TYPE}:${PUB_GEOID}. Nothing seeded there, or the place is wrong: set ANON_READ_PUBLIC_PLACE=<type>:<geoid>.`
-      : `returned ${r.json.length} row(s) for a volunteer place — a private type is readable (D-47)`
-  check(`anon ${name}, ${what}: ${wantRows ? 'returns rows' : 'returns ZERO rows'}`, ok, ok ? undefined : detail)
-  if (name === 'get_public_feed' && wantRows && ok) postId = r.json[0].id
-}
-
-{
-  const askFor = postId ?? '00000000-0000-0000-0000-000000000000'
-  const r1 = await rpc('get_public_post', { p_post_id: askFor })
-  const r2 = await rpc('get_public_replies', { p_post_id: askFor, p_limit: 50 })
-  anonResponses.get_public_post = r1
-  anonResponses.get_public_replies = r2
-  check(`anon get_public_post, a post from the public feed: returns it${postId ? '' : ' (no feed row to ask for; callable only)'}`,
-    rpcState(r1) === 'ok' && (postId ? r1.json.length === 1 : true),
-    rpcState(r1) !== 'ok' ? stateDetail(r1) : `returned ${r1.json.length} rows, wanted exactly 1`)
-  check('anon get_public_replies: callable and returns an array', rpcState(r2) === 'ok', stateDetail(r2))
-}
-
-{
-  const leaks = []
-  let rowsSeen = 0
-  for (const [k, r] of Object.entries(anonResponses)) {
-    if (rpcState(r) !== 'ok') continue
-    for (const row of r.json) {
-      rowsSeen += 1
-      if (row.author_user_id != null) leaks.push(`${k}: author_user_id=${row.author_user_id}`)
-      if (row.author_avatar_url != null) leaks.push(`${k}: author_avatar_url non-NULL`)
-    }
-  }
-  const applied = Object.values(anonResponses).some((r) => rpcState(r) === 'ok')
-  const none = 'NOT APPLIED YET — no RPC answered, so nothing was checked.'
-  check(`anon: every returned row has author_user_id and author_avatar_url NULL (${rowsSeen} rows)`,
-    applied && rowsSeen > 0 && leaks.length === 0,
-    !applied ? none : rowsSeen === 0 ? 'no rows came back, so nothing was checked (see the place assertions above)' : leaks.join('\n'))
-
-  const found = []
-  for (const [k, r] of Object.entries(anonResponses)) {
-    for (const f of keysIn(r.json)) if (FORBIDDEN_KEYS.includes(f)) found.push(`${k}: ${f}`)
-  }
-  check(`anon: no response carries ${FORBIDDEN_KEYS.join(' / ')} (D-31, D-34)`, applied && found.length === 0,
-    !applied ? none : found.join('\n'))
-}
-
-// ── 3: the catalog ───────────────────────────────────────────────────────────
-
-console.log('── 3  catalog (psql) ──────────────────────────────────────────────────')
+// ── The catalog is FETCHED first (asserted in section 3) because it is also the only honest
+// source of a real volunteer fixture for section 2: slices is not anon-readable, so without it
+// the volunteer geoid and post id are guesses, and the allowlist makes a guess return zero.
 
 const EXPECTED_DEFINER = ['get_public_feed', 'get_public_post', 'get_public_replies', 'get_public_slice']
 
@@ -317,12 +241,19 @@ SELECT json_build_object(
                        FROM pg_class c
                       WHERE c.relnamespace = 'civic_spaces'::regnamespace
                         AND c.relkind IN ('r','p','v','m','f','S')) t),
+  -- 0 is the GLOBAL default (ALTER DEFAULT PRIVILEGES without IN SCHEMA), which reaches this schema too.
   'default_acl',  (SELECT COALESCE(json_agg(row_to_json(d)), '[]'::json) FROM (
                      SELECT a.defaclobjtype::text AS objtype, pg_get_userbyid(a.defaclrole) AS role, x.privilege_type,
+                            a.defaclnamespace = 0 AS is_global,
                             CASE x.grantee WHEN 0 THEN 'PUBLIC' ELSE pg_get_userbyid(x.grantee) END AS grantee
                        FROM pg_default_acl a, LATERAL aclexplode(a.defaclacl) x
-                      WHERE a.defaclnamespace = 'civic_spaces'::regnamespace
-                        AND (x.grantee = 0 OR pg_get_userbyid(x.grantee) = 'anon')) d)
+                      WHERE a.defaclnamespace IN (0, 'civic_spaces'::regnamespace::oid)
+                        AND (x.grantee = 0 OR pg_get_userbyid(x.grantee) = 'anon')) d),
+  -- A REAL volunteer fixture, from the catalog and never guessed. The post prefers one that has replies.
+  'volunteer_geoid', (SELECT s.geoid FROM civic_spaces.slices s WHERE s.slice_type = 'volunteer' ORDER BY s.geoid LIMIT 1),
+  'volunteer_post',  (SELECT p.id FROM civic_spaces.posts p JOIN civic_spaces.slices s ON s.id = p.slice_id
+                       WHERE s.slice_type = 'volunteer'
+                       ORDER BY (p.reply_count > 0) DESC, p.created_at LIMIT 1)
 );`
 
 function fetchCatalogText(dbUrl) {
@@ -344,6 +275,164 @@ else {
   }
 }
 
+console.log(`   section 1 settled: ${kinds.refused} REFUSED, ${kinds.absent} NOT EXPOSED, ${kinds.empty} REACHABLE BUT EMPTY.`)
+if (kinds.empty > 0) {
+  console.log(`   !! REACHABLE BUT EMPTY is not the same as refused: ${emptyOnes.join(', ')} answered 200 [] — the request was`)
+  console.log('   !! allowed and nothing came back (empty table, RLS filtering every row, or limit=1). That can hide a real anon')
+  console.log('   !! SELECT grant. Only the catalog section (3b) settles it for civic_spaces; a foreign public table is for 18-01 to settle.')
+}
+
+// ── The catalog is FETCHED ───────────────────────────────────────────────────────
+
+console.log('── 2  anon viewer, the four RPCs ──────────────────────────────────────')
+
+const [PUB_TYPE, PUB_GEOID] = (process.env.ANON_READ_PUBLIC_PLACE || 'city:1805860').split(':')
+const FORBIDDEN_KEYS = ['edit_history', 'current_member_count', 'account_standing', 'tier']
+
+// 🔴 The ALLOWLIST. Exactly the RETURNS TABLE column lists of
+// supabase/migrations/20261030000100_public_read.sql. A returned key outside its RPC's list is a
+// leak under ANY name (user_id, email, member_tier, a column added next year) — which a
+// denylist cannot see. FORBIDDEN_KEYS above is a second, more specific assertion, not the one
+// that carries the weight.
+const PROJECTION = {
+  get_public_slice: ['slice_id', 'slice_type', 'geoid', 'sibling_index'],
+  get_public_feed: ['id', 'slice_id', 'title', 'body', 'created_at', 'updated_at', 'reply_count',
+    'author_display_name', 'author_user_id', 'author_avatar_url'],
+  get_public_post: ['id', 'slice_id', 'slice_type', 'geoid', 'title', 'body', 'created_at', 'updated_at',
+    'reply_count', 'author_display_name', 'author_user_id', 'author_avatar_url'],
+  get_public_replies: ['id', 'post_id', 'parent_reply_id', 'body', 'created_at', 'updated_at',
+    'author_display_name', 'author_user_id', 'author_avatar_url'],
+}
+
+function rpc(name, args, token) {
+  return http(`/rest/v1/rpc/${name}`, { method: 'POST', headers: { 'Content-Profile': 'civic_spaces' }, body: args, token })
+}
+
+/** 'ok' | 'uncallable' | 'no-execute' | 'broken'. Uncallable is NOT proof of "not applied": see stateDetail. */
+function rpcState(r) {
+  if (r.status === 200 && Array.isArray(r.json)) return 'ok'
+  if (r.status === 404 && r.json?.code === 'PGRST202') return 'uncallable'
+  if ((r.status === 401 || r.status === 403) && r.json?.code === '42501') return 'no-execute'
+  return 'broken'
+}
+function stateDetail(r) {
+  const s = rpcState(r)
+  if (s === 'uncallable') return 'not callable by anon: PGRST202, the function is not in the schema cache. Usual cause: the migrations are not applied yet (20261030000100_public_read.sql, then NOTIFY pgrst). Also: a renamed RPC, a stale schema cache, a revoked grant, or a malformed ANON_READ_PUBLIC_PLACE (needs <type>:<geoid>).'
+  if (s === 'no-execute') return 'not callable by anon: the function exists but anon has no EXECUTE (usual cause: 20261030000200_public_read_grants.sql not applied, or a revoke).'
+  return `APPLIED AND BROKEN — HTTP ${r.status}: ${r.text.slice(0, 200)}`
+}
+
+function keysIn(v, acc = new Set()) {
+  if (Array.isArray(v)) v.forEach((x) => keysIn(x, acc))
+  else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { acc.add(k); keysIn(x, acc) }
+  return acc
+}
+
+/** Every ok response is scanned in one place at the end: { 'viewer rpc place': { rpc, r } }. */
+const scanned = {}
+function record(who, name, what, r) {
+  scanned[`${who} ${name} ${what}`] = { name, r }
+}
+
+/** The two leak assertions, over a set of recorded responses. Never vacuous: no rows = FAIL, not pass. */
+function leakChecks(who, entries, { allowAuthor }) {
+  const okEntries = entries.filter(([, e]) => rpcState(e.r) === 'ok')
+  const rows = okEntries.flatMap(([k, e]) => e.r.json.map((row) => ({ k, name: e.name, row })))
+  const none = okEntries.length === 0
+    ? 'not callable by anon — no RPC answered, so nothing was checked (see the failures above).'
+    : 'RPCs answered but returned zero rows, so nothing was checked (see the place assertions above).'
+  const vacuous = rows.length === 0
+
+  const outside = []
+  for (const { k, name, row } of rows) {
+    for (const f of Object.keys(row)) if (!PROJECTION[name].includes(f)) outside.push(`${k}: "${f}"`)
+  }
+  check(`${who}: every returned row's keys are a subset of the documented projection, per RPC (${rows.length} rows)`,
+    !vacuous && outside.length === 0,
+    vacuous ? none : `key(s) OUTSIDE the RETURNS TABLE allowlist — a leak under any name:\n${[...new Set(outside)].join('\n')}`)
+
+  const named = []
+  for (const [k, e] of okEntries) for (const f of keysIn(e.r.json)) if (FORBIDDEN_KEYS.includes(f)) named.push(`${k}: ${f}`)
+  check(`${who}: no response carries ${FORBIDDEN_KEYS.join(' / ')} (D-31, D-34; specific, second to the subset check)`,
+    !vacuous && named.length === 0, vacuous ? none : named.join('\n'))
+
+  if (!allowAuthor) {
+    const leaks = []
+    for (const { k, row } of rows) {
+      if (row.author_user_id != null) leaks.push(`${k}: author_user_id=${row.author_user_id}`)
+      if (row.author_avatar_url != null) leaks.push(`${k}: author_avatar_url non-NULL`)
+    }
+    check(`${who}: every returned row has author_user_id and author_avatar_url NULL (${rows.length} rows)`,
+      !vacuous && leaks.length === 0, vacuous ? none : leaks.join('\n'))
+  }
+}
+
+const calls = [
+  ['get_public_slice', { p_slice_type: PUB_TYPE, p_geoid: PUB_GEOID }],
+  ['get_public_feed', { p_slice_type: PUB_TYPE, p_geoid: PUB_GEOID, p_limit: 50 }],
+]
+const anonResponses = {}
+let postId = null
+for (const [name, args] of calls) {
+  const r = await rpc(name, args)
+  anonResponses[name] = r
+  record('anon', name, 'public place', r)
+  const ok = rpcState(r) === 'ok' && r.json.length > 0
+  check(`anon ${name}, public place ${PUB_TYPE}:${PUB_GEOID}: returns rows`, ok,
+    ok ? undefined : rpcState(r) !== 'ok' ? stateDetail(r)
+      : `returned 0 rows. Nothing seeded there, or the place is wrong: set ANON_READ_PUBLIC_PLACE=<type>:<geoid>.`)
+  if (name === 'get_public_feed' && ok) postId = r.json[0].id
+}
+{
+  const askFor = postId ?? '00000000-0000-0000-0000-000000000000'
+  const r1 = await rpc('get_public_post', { p_post_id: askFor })
+  const r2 = await rpc('get_public_replies', { p_post_id: askFor, p_limit: 50 })
+  record('anon', 'get_public_post', 'public post', r1)
+  record('anon', 'get_public_replies', 'public post', r2)
+  check(`anon get_public_post, a post from the public feed: returns it${postId ? '' : ' (no feed row to ask for)'}`,
+    rpcState(r1) === 'ok' && postId != null && r1.json.length === 1,
+    rpcState(r1) !== 'ok' ? stateDetail(r1) : postId == null ? 'no public feed row to ask for' : `returned ${r1.json.length} rows, wanted exactly 1`)
+  check('anon get_public_replies: callable and returns an array', rpcState(r2) === 'ok', stateDetail(r2))
+}
+
+// D-47: volunteer is the live private type. 🔴 The allowlist makes ANY geoid return zero from
+// get_public_slice / get_public_feed, so against a guessed geoid "zero rows" proves the type
+// allowlist and nothing about a real volunteer post being withheld. A real fixture comes from the
+// catalog or this is NOT RUN. get_public_post / _replies take a post id: the allowlist must hold
+// there too, and only a REAL volunteer post id exercises it.
+const VOL = { geoid: catalog?.volunteer_geoid ?? null, post: catalog?.volunteer_post ?? null }
+const volReason = !catalog ? `no catalog (${catalogSkip}), so the volunteer geoid and post id would be guesses`
+  : !VOL.geoid ? 'the catalog has no volunteer slice to use as a fixture' : null
+
+async function volunteerChecks(who, token) {
+  if (volReason) {
+    skip(`D-47 volunteer withheld, ${who} (real fixture, 4 RPCs)`, volReason)
+    return
+  }
+  const zero = async (name, args, label) => {
+    const r = await rpc(name, args, token)
+    record(who, name, 'volunteer', r)
+    check(`D-47 ${who} ${name}, ${label}: returns ZERO rows`, rpcState(r) === 'ok' && r.json.length === 0,
+      rpcState(r) !== 'ok' ? stateDetail(r) : `returned ${r.json.length} row(s) — a volunteer slice or post is publicly readable`)
+  }
+  await zero('get_public_slice', { p_slice_type: 'volunteer', p_geoid: VOL.geoid }, `REAL volunteer geoid ${VOL.geoid}`)
+  await zero('get_public_feed', { p_slice_type: 'volunteer', p_geoid: VOL.geoid, p_limit: 50 }, 'REAL volunteer geoid')
+  if (VOL.post) {
+    await zero('get_public_post', { p_post_id: VOL.post }, 'REAL volunteer post id')
+    await zero('get_public_replies', { p_post_id: VOL.post, p_limit: 50 }, 'REAL volunteer post id')
+  } else {
+    skip(`D-47 volunteer post withheld, ${who} (get_public_post / get_public_replies)`, 'the catalog has no volunteer post to use as a fixture')
+  }
+}
+await volunteerChecks('anon')
+
+// Leak assertions over everything anon received, including the volunteer responses.
+leakChecks('anon', Object.entries(scanned).filter(([k]) => k.startsWith('anon ')), { allowAuthor: false })
+
+// ── 3: the catalog ───────────────────────────────────────────────────────────
+
+console.log('── 3  catalog (psql) ──────────────────────────────────────────────────')
+
 if (catalog) {
   const got = catalog.definer_anon
   const missing = EXPECTED_DEFINER.filter((f) => !got.includes(f))
@@ -362,8 +451,8 @@ if (catalog) {
   check('3b  CONTROL: authenticated still reads at least one civic_spaces relation (a blind catalog read would pass 3b vacuously)', rels.some((r) => r.auth_select),
     'authenticated holds SELECT on nothing: wrong role/pooler, or the app is broken for every member. 3b proves nothing.')
 
-  check('3c  pg_default_acl has no civic_spaces entry granting anything to anon or PUBLIC', catalog.default_acl.length === 0,
-    `${catalog.default_acl.map((d) => `${d.role}: ${d.privilege_type} on objtype ${d.objtype} -> ${d.grantee}`).join('\n')}\nEvery new table in this schema would be anon-readable the moment it is created.`)
+  check('3c  pg_default_acl has no entry (civic_spaces OR global) granting anything to anon or PUBLIC', catalog.default_acl.length === 0,
+    `${catalog.default_acl.map((d) => `${d.is_global ? 'GLOBAL' : 'civic_spaces'} default, ${d.role}: ${d.privilege_type} on objtype ${d.objtype} -> ${d.grantee}`).join('\n')}\nEvery new table in this schema would be anon-readable the moment it is created.`)
 } else {
   skip('3a 3b 3c (catalog half: DEFINER set, table privileges, default ACL)', catalogSkip)
 }
@@ -381,30 +470,38 @@ const JWT = {
 const FRIEND_ID = process.env.ANON_READ_FRIEND_USER_ID
 const FRIEND_NAME = process.env.ANON_READ_FRIEND_DISPLAY_NAME
 const feedArgs = { p_slice_type: PUB_TYPE, p_geoid: PUB_GEOID, p_limit: 50 }
-const anonFeed = anonResponses['get_public_feed:public place']
+const anonFeed = anonResponses.get_public_feed
+
+async function viewerFeed(who) {
+  const r = await rpc('get_public_feed', feedArgs, JWT[who])
+  record(who, 'get_public_feed', 'public place', r)
+  return r
+}
 
 if (JWT.inform) {
-  const r = await rpc('get_public_feed', feedArgs, JWT.inform)
+  const r = await viewerFeed('inform')
   check('Inform viewer receives a response byte-identical to anon (D-04)', rpcState(r) === 'ok' && r.text === anonFeed?.text,
     rpcState(r) !== 'ok' ? stateDetail(r) : 'bytes differ from the anon response')
 } else skip('viewer 2 (Inform, D-04): ANON_READ_JWT_INFORM', 'no test JWT')
 
 if (JWT.nonmember) {
-  const r = await rpc('get_public_feed', feedArgs, JWT.nonmember)
+  const r = await viewerFeed('nonmember')
   check('Connected non-member receives the SAME narrow projection as anon (D-48)', rpcState(r) === 'ok' && r.text === anonFeed?.text,
     rpcState(r) !== 'ok' ? stateDetail(r) : 'bytes differ from the anon response')
 } else skip('viewer 3 (Connected non-member, D-48): ANON_READ_JWT_NONMEMBER', 'no test JWT')
 
 if (JWT.member) {
-  const r = await rpc('get_public_feed', feedArgs, JWT.member)
+  const r = await viewerFeed('member')
   const rows = rpcState(r) === 'ok' ? r.json : []
-  check('Connected member receives non-NULL author_user_id on every row, and some avatar (D-48)',
-    rows.length > 0 && rows.every((x) => x.author_user_id != null) && rows.some((x) => x.author_avatar_url != null),
+  // D-48's claim is a non-NULL author_user_id. Avatars are deliberately not asserted: a feed where
+  // nobody has one is plausible, and failing on it would teach people to ignore this guard.
+  check('Connected member receives a non-NULL author_user_id on every row (D-48)',
+    rows.length > 0 && rows.every((x) => x.author_user_id != null),
     rpcState(r) !== 'ok' ? stateDetail(r) : `${rows.length} rows; user ids non-NULL on ${rows.filter((x) => x.author_user_id != null).length}`)
 } else skip('viewer 4 (Connected member, D-48): ANON_READ_JWT_MEMBER', 'no test JWT')
 
 if (JWT.friend && FRIEND_ID && FRIEND_NAME) {
-  const r = await rpc('get_public_feed', feedArgs, JWT.friend)
+  const r = await viewerFeed('friend')
   const rows = rpcState(r) === 'ok' ? r.json : []
   const theirs = rows.filter((x) => x.author_display_name === FRIEND_NAME)
   const others = rows.filter((x) => x.author_display_name !== FRIEND_NAME)
@@ -413,15 +510,13 @@ if (JWT.friend && FRIEND_ID && FRIEND_NAME) {
     rpcState(r) !== 'ok' ? stateDetail(r) : `friend rows ${theirs.length}, other rows ${others.length} (need at least one of each in the same feed)`)
 } else skip('viewer 5 (Connected friend, D-49): ANON_READ_JWT_FRIEND + ANON_READ_FRIEND_USER_ID + ANON_READ_FRIEND_DISPLAY_NAME', 'no test JWT / friend identity')
 
-{
-  const tokens = Object.entries(JWT).filter(([, t]) => t)
-  const found = []
-  for (const [who, t] of tokens) {
-    const r = await rpc('get_public_feed', feedArgs, t)
-    for (const f of keysIn(r.json)) if (FORBIDDEN_KEYS.includes(f)) found.push(`${who}: ${f}`)
-  }
-  if (tokens.length) check(`no authenticated response carries ${FORBIDDEN_KEYS.join(' / ')}`, found.length === 0, found.join('\n'))
+// D-47 and the leak assertions for every configured viewer. Authenticated viewers may see author
+// ids (D-48/D-49), so only the projection-subset and named-key checks apply to them.
+for (const who of Object.keys(JWT).filter((w) => JWT[w])) {
+  await volunteerChecks(who, JWT[who])
+  leakChecks(who, Object.entries(scanned).filter(([k]) => k.startsWith(`${who} `)), { allowAuthor: true })
 }
+if (!Object.values(JWT).some(Boolean)) skip('D-47 volunteer withheld for the four authenticated viewers', 'no test JWTs')
 
 if (Object.values(JWT).some((t) => !t) || !FRIEND_ID || !FRIEND_NAME) {
   console.log('\n   !! UNPROVEN OVER HTTP: D-49 — the per-author projection in ONE response (a friend sees their')
