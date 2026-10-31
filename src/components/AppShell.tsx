@@ -1051,7 +1051,7 @@ export default function AppShell() {
      * were reading because somebody sent them a dead link.
      */
     /**
-     * 🔴 PHASE 18: a public post the viewer holds nothing in.
+     * 🔴 Phase 18: a public post the viewer holds nothing in.
      *
      * This branch runs BEFORE the place is cleared below, because unlike every
      * other outcome it is the one case where a place has to be SET. A signed-out
@@ -1146,7 +1146,7 @@ export default function AppShell() {
     }
     if (handledRoutePostRef.current === routePostId) return
     /**
-     * 🔴 PHASE 18 OPENED THIS GATE, and it was `!isAuthenticated || isLoading ||
+     * 🔴 Phase 18 OPENED THIS GATE, and it was `!isAuthenticated || isLoading ||
      * !hasAnySlices` — three conditions a signed-out visitor fails on all of.
      * That was right while every post was members-only: resolving one meant
      * matching its slice against the viewer's, and someone with no slices could
@@ -1903,7 +1903,7 @@ export default function AppShell() {
                           isAuthenticated,
                         })
 
-                        /* 🔴 PHASE 18. The same question the rest of the shell asks, asked
+                        /* 🔴 Phase 18. The same question the rest of the shell asks, asked
                            by the same function: may this viewer READ here? For the five
                            public types the answer is now yes for everyone, with or without
                            an account, so the honest card below is replaced by the actual

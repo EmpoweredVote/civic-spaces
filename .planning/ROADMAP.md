@@ -382,6 +382,32 @@ one `public` view `anon` actually reaches today (it answers `200 []`).
   `robots.txt`, one static set of `og:` tags. Crawlable ≠ indexed, and the copy must not
   overclaim.
 
+**Status, 2026-10-31.** All four plans are written; 18-01, 18-02 and 18-03 are implemented and
+reviewed. 🔴 **Nothing is applied and nothing may merge until it is.** Three migrations are
+written and unapplied, in a fixed order — `20261030000000` → `20261030000100` → `20261030000200`
+— and `.planning/phases/18-the-public-square/18-02-APPLY.md` is the runbook. `main` auto-deploys
+in ~3 minutes, so merging the frontend first shows every signed-out visitor "Failed to load
+posts"; merging it before `canReadConversationsIn` has RPCs to call would be worse, because an
+empty feed reads as "nobody has said anything here".
+
+The two privileged guards state this plainly today: `npm run check:anon-read` exits 1 with
+7 FAIL, every one of them "the RPCs are not granted yet", and `check:grants` exits 2 for want of
+a privileged `SUPABASE_DB_URL`. Both going green is the apply's definition of done.
+
+**18-03 retired three Phase 17 assertions, deliberately** — they asserted the absence of exactly
+what this phase builds. `check:place-entry` #3 required zero post cards at a visited place and
+now requires the read-only notice and zero composer affordances; its two NET assertions required
+that *nothing* about a visited place reach the database and now require that **only the four
+public RPCs** do, as an allowlist, with a positive half asserting the public path did ask;
+`check:explore-gate` #7 required the honest card and now requires the gate itself
+(`data-read-only-notice="other-place"`, zero write affordances). In each case the claim survived
+and only the evidence changed.
+
+**A named gap.** A shared `/post/:postId` link to a **federal or unified** public post does not
+open for a signed-out visitor. `ResolvedPlace.state` is not nullable and a placeless slice names
+no state, so `placeForPublicPost` returns null rather than inventing one. Every city, county and
+state link works. Closing it needs a geoid→place path that does not exist signed-out yet.
+
 **The display-name question is answered.** Measured in production 2026-10-26, aggregates only:
 11 connected profiles, **0** matching a real-name shape, **0** with an avatar, 12 live posts
 and 8 replies by 7 authors. Accepted risk, signed off by Chris with the number in front of

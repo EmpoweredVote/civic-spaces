@@ -1862,8 +1862,18 @@ function readVisibleConversation() {
   return {
     panel: true,
     shown,
+    // 🔴 Phase 18 retired the honest card on the public path. Kept because
+    // assertion 6 still asserts its ABSENCE for a resident's own level, which is
+    // a true statement either way — and because it would be the loud symptom if
+    // the fallback card ever became reachable again (FEED_TABS gaining a private
+    // slice type, or a type leaving PUBLIC_SLICE_TYPES).
     honestCard: /Conversations here belong to the people who live here/.test(txt),
     hasPosts: !!child && !!child.querySelector('article, [data-post-card], textarea'),
+    // The gate, which is what survives when the card does not: a composer of any
+    // kind reaching a place the viewer does not live in is the real regression.
+    writeAffordances: !child
+      ? 0
+      : child.querySelectorAll('textarea, button[type="submit"], button[aria-label="Create new post"]').length,
     reason: el ? el.getAttribute('data-read-only-notice') : null,
   }
 }
@@ -2002,17 +2012,25 @@ async function runMemberOwnPlace(fx) {
       '\n            gets its feed; a level still carrying a sentinel gets the card.',
   )
 
-  // ── 7  and a level they do NOT hold still gets the honest card ───────────
+  // ── 7  and a level they do NOT hold is still GATED ───────────────────────
   await page.evaluate(() => document.querySelector('[data-nav-tab="federal"]')?.click())
   await page.waitForTimeout(1400)
   const fed = await page.evaluate(readVisibleConversation)
   check(
     tab, 7,
-    'a level the viewer does NOT hold still gets the honest card and stays gated — the control for 5 and 6',
-    fed.panel && fed.shown && fed.honestCard && fed.reason === 'other-place',
+    'a level the viewer does NOT hold is still gated, and still says why — the control for 5 and 6',
+    fed.panel && fed.shown && fed.reason === 'other-place' && fed.writeAffordances === 0,
     `federal=${JSON.stringify(fed)}` +
       '\n            Without this, 5 and 6 are satisfied by simply ungating everything, which is the' +
-      '\n            opposite failure and the one this phase was written to prevent.',
+      '\n            opposite failure and the one this phase was written to prevent.' +
+      '\n            🔴 PHASE 18 CHANGED THE EVIDENCE, NOT THE CLAIM. This used to require the' +
+      '\n            honest card ("Conversations here belong to the people who live here"), which was' +
+      '\n            the only thing a level the viewer does not hold could show. That level now shows' +
+      '\n            its real public feed, so the card is gone and the GATE is what is asserted:' +
+      '\n            `data-read-only-notice="other-place"` is present and no write control is. If' +
+      '\n            `reason` is null here, the gate itself is gone and that is the regression this' +
+      '\n            assertion exists for; a red on writeAffordances means a composer reached a' +
+      '\n            jurisdiction the viewer does not live in.',
   )
 
   await ctx.close()

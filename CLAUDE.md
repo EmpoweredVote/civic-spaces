@@ -28,6 +28,17 @@ Forum content is members-only by design (every `civic_spaces` grant is `TO authe
 it stays synthetic locally. Extend `devMockData.ts`; never hardcode posts in components, and
 never copy real members' posts or profiles into fixtures.
 
+⚠️ Until `20261030000100_public_read.sql` and `20261030000200_public_read_grants.sql` are
+applied: Phase 18 **writes** the public read path but does not open it. On apply, `anon` gains
+schema `USAGE` plus `EXECUTE` on exactly four RPCs — `get_public_slice`, `get_public_feed`,
+`get_public_post`, `get_public_replies` — and nothing else: **no table or view grant, ever.**
+Reading City / County / State / Federal / Unified becomes open to anyone; **Volunteer stays
+members-only**, and so does every future private slice type, because the gate is an allowlist
+(D-28, `PUBLIC_SLICE_TYPES` in `src/lib/writeAccess.ts` and a literal array in the SQL — the two
+are pinned against each other by `check:write-access`). Writing did not open and must not: a
+visitor gets the read-only notice and no composer. On apply, change the first sentence above to
+name the exception rather than the rule, and delete this paragraph.
+
 To work against the real backend instead, copy `.env.example` to `.env.local` and fill in
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; then `?dev=1` still opts into the dev id.
 `VITE_SLICE_ASSIGNMENT_URL` is optional; without it the fire-and-forget slice-assignment POST
