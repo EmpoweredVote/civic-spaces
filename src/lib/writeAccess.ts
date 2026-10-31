@@ -221,17 +221,39 @@ export function canWriteIn(ctx: WriteContext): boolean {
  * viewed.id instead of placeKey and that Phase 16 behaviour regresses silently;
  * check-write-access.mjs assertion 13 is the one that catches it.
  *
- * 🔴 PHASE 18 CHANGES THIS FUNCTION'S BODY AND NOTHING ELSE. Once civic_spaces
- * grants anon schema USAGE and posts_select_public lands, every caller may read
- * every slice and this returns true unconditionally (minus whatever that phase
- * decides about deleted posts and suspended authors). Until then it is false for
- * another place and for a visitor, and the UI must say so rather than render an
- * empty feed — an empty feed returned by RLS reads as "nobody said anything here",
- * which is a lie told silently.
+ * 🔴 The gate is the SLICE TYPE, not the session and not membership. Phase 18 made
+ * the five public types readable by anyone — no account, no slice, no row — while
+ * volunteer (and whatever private types follow it) kept the old rule exactly. The
+ * two branches below are deliberately not merged into one expression: they answer
+ * different questions, and a reader who sees only the second one would conclude
+ * this function is still about membership.
+ *
+ * 🔴 The public branch returns true for a slice with `id === null`, and that is the
+ * COMMON case rather than an edge one. Slice rows are created on demand by /assign,
+ * which only runs for signed-in members, so most places a visitor names have no row
+ * at all. "Readable" here means "this conversation is public", not "there is one".
+ *
+ * 🔴 The private branch is where the session check still does work, and it must stay
+ * ahead of the membership test. A caller can hold the last member's ownedPlaceKeys
+ * for a render or two after logout — useAuth flips isAuthenticated from an effect —
+ * so membership alone would briefly admit a signed-out viewer to a private space.
+ * check-write-access.mjs assertion 41 carries a stale-sets viewer for exactly that.
+ *
+ * 🔴 What has NOT changed, and 18-04 still depends on it: where this returns false,
+ * the UI must SAY so. Rendering an empty feed instead reads as "nobody said anything
+ * here", which is a lie told silently — and the phase that made cities public is
+ * precisely the one that makes the two sentences distinguishable, because a public
+ * place with no posts can now be asked and answered honestly.
  */
 export function canReadConversationsIn(ctx: WriteContext): boolean {
-  if (!ctx.isAuthenticated) return false
   const viewed = ctx.viewed
   if (!viewed) return false
+
+  // Public: the allowlist is the whole gate. No session, no membership, no row.
+  if (isPublicSliceType(viewed.sliceType)) return true
+
+  // Private: unchanged since Phase 16. Session first, then the jurisdiction key —
+  // placeKey and not viewed.id, so a sibling shard of a private space stays readable.
+  if (!ctx.isAuthenticated) return false
   return ctx.ownedPlaceKeys.has(placeKey(viewed.sliceType, viewed.geoid))
 }

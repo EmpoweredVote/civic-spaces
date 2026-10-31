@@ -11,7 +11,7 @@
  * a check that re-implements it would be a second copy of the thing the module was
  * written to prevent. If you are tempted to paste a function in here, don't.
  *
- * What it covers (34 checks; numbers 1–24 and 26–34, with 19 used twice and 25 unused —
+ * What it covers (44 checks; numbers 1–24 and 26–44, with 19 used twice and 25 unused —
  * pre-existing, left unrenumbered; the count is the number of PASS lines the run prints):
  *
  *   1–11   whyNoWrite over every viewer × every slice on screen. 1 is the control
@@ -22,7 +22,19 @@
  *          whyNoWrite returned null. Run as a loop so the two cannot drift.
  *   12–15  canReadConversationsIn. 13 is the Phase 16 sibling-shard read, which
  *          goes red on its own if that predicate is keyed on a slice id instead of
- *          placeKey — the regression that would otherwise ship silently.
+ *          placeKey — the regression that would otherwise ship silently. 🔴 14 and 15
+ *          FLIPPED to true in Phase 18-03: another place and a signed-out visitor
+ *          both read a public city now. They were written as "false until Phase 18".
+ *   35–44  Phase 18-03: who may read a public slice. 35–40 and 42 are the behaviour;
+ *          41 is volunteer staying members-only, carrying the stale-sets viewer that
+ *          15 used to carry (city is public now, so 15 no longer reaches the session
+ *          check and volunteer is the only place that check still does work).
+ *          🔴 43 and 44 are the ones that make the rest mean anything: 35–42 all pass
+ *          on a DENYLIST ("everything except volunteer"), verified by mutation, and
+ *          a denylist publishes every future private slice type on its creation day.
+ *          43 asserts on a type in neither list; 44 asserts its members can still
+ *          read it. Mutation-tested both ways, 2026-10-31: the denylist body fails 43
+ *          alone, and deleting the session check fails 41 alone.
  *   26–29  the public slice-type allowlist (PUBLIC_SLICE_TYPES) as a TypeScript list.
  *   30–34  the SAME allowlist as a literal inside the 18-02 migration, PER FUNCTION:
  *          30 get_public_slice and 33 get_public_post each contain exactly one allowlist
@@ -248,14 +260,18 @@ for (const [n, viewer, viewed, expected, note] of TABLE) {
 const READ_TABLE = [
   [12, memberOfCityA, cityAShard1, true, 'their own shard'],
   [13, memberOfCityA, cityAShard2, true, '🔴 the sibling shard — Phase 16 behaviour that must not regress'],
-  [14, memberOfCityA, cityBRow, false, 'another place — false until Phase 18'],
-  [15, signedOut, cityAShard1, false, 'a visitor reads zero forum rows today'],
+  [14, memberOfCityA, cityBRow, true, '🔴 another place — FLIPPED by Phase 18-03; was false'],
+  [15, signedOut, cityAShard1, true, '🔴 a visitor reads a public city — FLIPPED by Phase 18-03; was false'],
 ]
 
 for (const [n, viewer, viewed, expected, note] of READ_TABLE) {
-  // 15, like 7, also runs against the stale-sets visitor — otherwise it passes a
-  // module with no session check in it, because an empty set refuses on its own.
-  const viewers = n === 15 ? [viewer, signedOutStaleSets] : [viewer]
+  // 🔴 15 no longer carries the stale-sets visitor. It used to, because a signed-out
+  // viewer holding an empty set is refused by the membership test anyway and the
+  // assertion would have passed a module with no session check in it. City is now
+  // PUBLIC, so this row no longer reaches the session check at all and the extra
+  // viewer would prove nothing here. That vacuity guard moved to assertion 41, on
+  // volunteer, which is where the session check still does work.
+  const viewers = [viewer]
   const got = viewers.map((v) => `${v.label} → ${canReadConversationsIn(ctx(v, viewed))}`)
   const actual = viewers.every((v) => canReadConversationsIn(ctx(v, viewed)) === expected)
     ? expected
@@ -483,6 +499,155 @@ const sameSet = (a, b) => [...a].sort().join(',') === [...b].sort().join(',')
   }
   check(34, 'the extractor throws when the named function is not defined at all', threwMissingFn)
 }
+
+// ── 35–42: Phase 18-03 — who may READ a public slice ─────────────────────────
+//
+// 🔴 These are the assertions that make the public square public, and 38 and 41 are
+// the two that have to disagree with each other. The rule is per SLICE TYPE, not per
+// session and not per membership: a city is readable by anyone, and volunteer is
+// readable by its members only. Collapse the two and you have either a wall in front
+// of the public square or a members-only space with the door open.
+//
+// Rows 14 and 15 of READ_TABLE above flipped from false to true in this phase. They
+// were written as "false until Phase 18" and this is Phase 18; their notes now say so.
+
+const volunteerRow = { id: 'slice-vol-1', sliceType: 'volunteer', geoid: '' }
+const volunteerOtherRow = { id: 'slice-vol-2', sliceType: 'volunteer', geoid: '' }
+
+const memberOfVolunteer = {
+  label: 'volunteer member',
+  ownedSliceIds: new Set(['slice-vol-1']),
+  ownedPlaceKeys: new Set([placeKey('volunteer', '')]),
+  isAuthenticated: true,
+}
+
+/**
+ * 🔴 Signed out, still holding a VOLUNTEER key. Without this viewer, 41 passes on a
+ * body with no session check in it at all: a plain `signedOut` viewer holds an empty
+ * set and is refused by the membership test anyway. Same vacuity trap assertion 15
+ * already carries for the city case, in the one place it now matters more — city is
+ * public, so volunteer is the only type where the session check still does any work.
+ */
+const signedOutStaleVolunteer = {
+  label: 'signed out, caller still holding a volunteer key',
+  ownedSliceIds: new Set(['slice-vol-1']),
+  ownedPlaceKeys: new Set([placeKey('volunteer', '')]),
+  isAuthenticated: false,
+}
+
+check(
+  35,
+  'canReadConversationsIn: a signed-out visitor reads a public city',
+  canReadConversationsIn(ctx(signedOut, cityAShard1)) === true,
+  'the whole point of the phase. False here means the body still starts with the isAuthenticated early return.',
+)
+
+check(
+  36,
+  'canReadConversationsIn: an Inform account reads EXACTLY what a visitor reads (D-04)',
+  canReadConversationsIn(ctx(informAccount, cityAShard1)) === canReadConversationsIn(ctx(signedOut, cityAShard1)) &&
+    canReadConversationsIn(ctx(informAccount, volunteerRow)) === canReadConversationsIn(ctx(signedOut, volunteerRow)),
+  'compared on a public type AND a private one, so it cannot pass by both being true.\n' +
+    '          D-04 is satisfied by the DATA (an Inform account holds no slices), never by a tier term.',
+)
+
+check(
+  37,
+  'canReadConversationsIn: a public place with NO slice row is still readable',
+  canReadConversationsIn(ctx(signedOut, cityANoRow)) === true &&
+    canReadConversationsIn(ctx(memberOfCityA, cityBNoRow)) === true,
+  '🔴 This is the COMMON case — 15 slice rows exist in the whole product, so most places a\n' +
+    '          visitor names have no row. False here and Task 2 cannot tell "nobody has posted here"\n' +
+    '          from "you may not look", which is the lie writeAccess.ts\'s own header warns about.',
+)
+
+check(
+  38,
+  'canReadConversationsIn: a member reads another place, and a sibling shard',
+  canReadConversationsIn(ctx(memberOfCityA, cityBRow)) === true &&
+    canReadConversationsIn(ctx(memberOfCityA, cityAShard2)) === true &&
+    canReadConversationsIn(ctx(memberOfCityA, cityAShard1)) === true,
+  'own shard, sibling shard and another city are now all readable. The sibling shard was\n' +
+    '          already readable (Phase 16, assertion 13); it must not regress on the way through here.',
+)
+
+check(
+  39,
+  'canReadConversationsIn: every public slice type is readable signed out',
+  PUBLIC_SLICE_TYPES.every((t) => canReadConversationsIn(ctx(signedOut, { id: 's', sliceType: t, geoid: 'x' })) === true),
+  `drives the allowlist itself rather than a hand-copied list, so adding a type to\n` +
+    `          PUBLIC_SLICE_TYPES cannot leave this assertion behind. Types: ${[...PUBLIC_SLICE_TYPES].join(', ')}`,
+)
+
+check(
+  40,
+  'canReadConversationsIn: nothing on screen is still not readable',
+  canReadConversationsIn(ctx(signedOut, null)) === false &&
+    canReadConversationsIn(ctx(memberOfCityA, null)) === false,
+  'a null `viewed` has no slice type to be public, and must not fall through to true.',
+)
+
+check(
+  41,
+  '🔴 canReadConversationsIn: volunteer stays members-only (D-27)',
+  canReadConversationsIn(ctx(signedOut, volunteerRow)) === false &&
+    canReadConversationsIn(ctx(signedOutStaleVolunteer, volunteerRow)) === false &&
+    canReadConversationsIn(ctx(informAccount, volunteerRow)) === false &&
+    canReadConversationsIn(ctx(memberOfCityA, volunteerRow)) === false,
+  'If this is the only red, the body treats the allowlist as a denylist or skips it entirely.\n' +
+    '          The stale-sets viewer is here so the assertion cannot pass on a body with no session check.',
+)
+
+check(
+  42,
+  'canReadConversationsIn: a volunteer member still reads volunteer, including a sibling shard',
+  canReadConversationsIn(ctx(memberOfVolunteer, volunteerRow)) === true &&
+    canReadConversationsIn(ctx(memberOfVolunteer, volunteerOtherRow)) === true,
+  'the private path is the OLD path and must survive unchanged: membership by placeKey,\n' +
+    '          which is what makes a sibling shard of a private space readable too.',
+)
+
+/**
+ * 🔴 43 is the assertion that makes 35–42 mean anything, and it was added because
+ * they did not. Mutation-tested while writing this task: replacing the allowlist
+ * call with the denylist `viewed.sliceType !== 'volunteer'` left all eight of them
+ * green. A denylist is the one implementation D-28 exists to forbid — new private
+ * space types are landing in `slices.slice_type`, and under a denylist each one is
+ * published to the entire internet on the day it is created, with nobody touching
+ * this file and no check going red.
+ *
+ * So this asserts on a type that is in NEITHER list. It is the only assertion here
+ * whose subject does not exist yet, which is precisely why it is the one that holds.
+ */
+const UNKNOWN_TYPES = ['neighborhood', 'school-district', 'precinct', 'ward']
+
+check(
+  43,
+  '🔴 D-28: a slice type in neither list is NOT readable — the denylist trap',
+  UNKNOWN_TYPES.every(
+    (t) =>
+      canReadConversationsIn(ctx(signedOut, { id: 's', sliceType: t, geoid: 'x' })) === false &&
+      canReadConversationsIn(ctx(informAccount, { id: 's', sliceType: t, geoid: 'x' })) === false &&
+      canReadConversationsIn(ctx(memberOfCityA, { id: 's', sliceType: t, geoid: 'x' })) === false,
+  ),
+  'If this is the only red, the body is a DENYLIST ("everything except volunteer") rather than\n' +
+    '          an allowlist. Every other assertion in this file passes on that implementation —\n' +
+    '          verified by mutation, 2026-10-31. Tomorrow\'s private slice type is what it costs.',
+)
+
+check(
+  44,
+  'D-28: and a member of an unlisted private type can still read it',
+  canReadConversationsIn({
+    viewed: { id: 'slice-nb-1', sliceType: 'neighborhood', geoid: 'x' },
+    ownedSliceIds: new Set(['slice-nb-1']),
+    ownedPlaceKeys: new Set([placeKey('neighborhood', 'x')]),
+    isAuthenticated: true,
+  }) === true,
+  'the allowlist gates the PUBLIC path only. An unlisted type is private, not broken:\n' +
+    '          its members keep the ordinary membership read, so a new space type works on day one\n' +
+    '          for the people in it and is invisible to everyone else. That is the D-28 bargain.',
+)
 
 // ── Result ───────────────────────────────────────────────────────────────────
 
