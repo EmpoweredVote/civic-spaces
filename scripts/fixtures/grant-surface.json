@@ -1,0 +1,508 @@
+{
+  "views": {
+    "action_log": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "moderator_id",
+        "action",
+        "target_type",
+        "target_id",
+        "flag_ids",
+        "notes",
+        "created_at"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "blocks": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "blocker_id",
+        "blocked_id",
+        "created_at"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "civic_notifications": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "recipient_id",
+        "event_type",
+        "actor_id",
+        "actor_ids",
+        "reference_id",
+        "reference_excerpt",
+        "event_count",
+        "is_read",
+        "group_window",
+        "created_at",
+        "updated_at"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "connected_profiles": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "user_id",
+        "display_name",
+        "account_standing",
+        "created_at",
+        "updated_at",
+        "avatar_url",
+        "tier",
+        "is_suspended"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "flags": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "reporter_id",
+        "category",
+        "detail",
+        "status",
+        "created_at",
+        "content_id",
+        "content_type"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "follows": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "follower_id",
+        "target_id",
+        "created_at"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "friendships": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "user_low",
+        "user_high",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "geography_columns": {
+      "owner": "supabase_admin",
+      "securityInvoker": false,
+      "columns": [
+        "f_table_catalog",
+        "f_table_schema",
+        "f_table_name",
+        "f_geography_column",
+        "coord_dimension",
+        "srid",
+        "type"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "geometry_columns": {
+      "owner": "supabase_admin",
+      "securityInvoker": false,
+      "columns": [
+        "f_table_catalog",
+        "f_table_schema",
+        "f_table_name",
+        "f_geometry_column",
+        "coord_dimension",
+        "srid",
+        "type"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "moderators": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "user_id",
+        "granted_at",
+        "granted_by"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "posts": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "slice_id",
+        "user_id",
+        "title",
+        "body",
+        "created_at",
+        "updated_at",
+        "is_deleted",
+        "edit_history",
+        "reply_count"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "replies": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "post_id",
+        "parent_reply_id",
+        "user_id",
+        "body",
+        "created_at",
+        "updated_at",
+        "is_deleted"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "slice_members": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "user_id",
+        "slice_id",
+        "joined_at"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "slices": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "slice_type",
+        "geoid",
+        "sibling_index",
+        "current_member_count",
+        "created_at"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "users_public": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "display_name",
+        "avatar_url"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    }
+  },
+  "ownedByUs": [
+    "posts",
+    "replies",
+    "slices",
+    "slice_members",
+    "connected_profiles",
+    "friendships",
+    "follows",
+    "civic_notifications",
+    "flags",
+    "blocks",
+    "moderators",
+    "action_log"
+  ],
+  "foreign": [
+    "users_public",
+    "geography_columns",
+    "geometry_columns"
+  ]
+}
