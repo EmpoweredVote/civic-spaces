@@ -83,7 +83,7 @@ COMMENT ON FUNCTION civic_spaces.public_author_is_visible(text, text, uuid) IS
 -- SECTION 2 of 4: get_public_slice
 -- ============================================================================
 --
--- THE PUBLIC ALLOWLIST LIVES HERE, AND ONLY HERE (in SQL).
+-- THE PUBLIC ALLOWLIST LIVES IN SQL IN TWO PLACES: THIS ARRAY AND THE IDENTICAL ONE IN get_public_post (section 4); check:write-access keeps both equal to PUBLIC_SLICE_TYPES.
 --
 --   D-27  A volunteer slice is never public.
 --   D-28  A slice type that is not named below is never public.
