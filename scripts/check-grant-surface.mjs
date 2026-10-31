@@ -12,26 +12,34 @@
  *
  * Two halves, deliberately not redundant:
  *
- *   CATALOG (1-4)  psql against SUPABASE_DB_URL, diffed against
- *                  scripts/fixtures/grant-surface.json.
+ *   CATALOG (1-5)  psql against SUPABASE_DB_URL, diffed against
+ *                  scripts/fixtures/grant-surface.json. Grants are read with
+ *                  has_table_privilege() for all seven privileges, because
+ *                  information_schema.table_privileges goes silently blank for a
+ *                  pooler / non-owner role and a blank reads as "anon holds nothing".
  *     1  every public view is either ours or a known foreign one. An UNKNOWN view
  *        FAILS: this is an allowlist, never a denylist, because a view added tomorrow
  *        inherits anon's defaults and this guard exists to catch exactly that.
  *     2  anon holds no privilege on any view we own. Reads the LIVE catalog — the
  *        fixture's own grants.anon is the pre-migration record, and comparing it to
  *        itself would be permanently green.
- *     3  security_invoker is on for every view we own. Off silently bypasses RLS.
- *     4  no view we own has gained or lost a column against the fixture.
+ *     3  CONTROL: authenticated still holds SELECT on every view we own. This is what
+ *        makes a blind catalog read fail loudly instead of letting 2 pass vacuously,
+ *        and it catches an over-revoke that would break the app for every member.
+ *     4  security_invoker is on for every view we own. Off silently bypasses RLS.
+ *     5  no view we own has gained or lost a column against the fixture.
  *
- *   HTTP (5)       anon GET /rest/v1/<view>?select=*&limit=1 for each of the twelve.
- *                  The only failure is a response that contains a ROW. 401, 403, 404 and
- *                  200-with-[] all pass; a specific status is not asserted, because
- *                  revoking the grant may change why a request is refused without
- *                  changing the outcome, and a guard that goes red the day the fix lands
- *                  gets switched off. This is the half that reflects PostgREST's cache.
+ *   HTTP (6)       anon GET /rest/v1/<view>?select=*&limit=1 for each of the twelve.
+ *                  Fails on a ROW. Passes on 200-with-[], 404, or a 401/403 whose body
+ *                  carries SQLSTATE 42501 (insufficient_privilege) — so a dead, rotated
+ *                  or malformed key (also 401, but PGRST301 / Invalid API key) cannot
+ *                  read as success. No specific status is demanded beyond that: a REVOKE
+ *                  may move the refusal from the table to the view without changing 42501,
+ *                  and a guard that goes red the day the fix lands gets switched off.
+ *                  This is the half that reflects PostgREST's schema cache.
  *
  * What it cannot prove without SUPABASE_DB_URL: everything in the catalog half. Without
- * it the guard still runs the HTTP half, then prints SKIP and exits NON-ZERO — a vacuous
+ * it the guard still runs the HTTP half, lists the catalog half as NOT RUN, and exits 2 — a vacuous
  * pass is the failure this refuses to commit. The HTTP half alone cannot see a grant:
  * today anon holds the grant but no RLS policy and no `civic_spaces` USAGE, so rows do
  * not come back anyway. A service-role key cannot stand in: PostgREST executes no
@@ -42,7 +50,8 @@
  * Credentials for the HTTP half (the publishable key, never a secret): VITE_SUPABASE_URL
  * and VITE_SUPABASE_ANON_KEY from the environment, else from .env.local.
  *
- * Exit codes: 0 clean, 1 an assertion failed, 2 the catalog half could not run.
+ * Exit codes: 0 clean; 1 any assertion failed (even when the catalog half could not run —
+ * a live exposure never reports as merely incomplete); 2 clean but INCOMPLETE.
  */
 
 import { execFileSync } from 'node:child_process'
@@ -72,6 +81,13 @@ function check(n, label, ok, detail) {
 
 // The Task 1 baseline query, wrapped so psql returns ONE json document. That avoids
 // parsing Postgres array literals out of text output, which is ambiguous.
+//
+// 🔴 Grants come from has_table_privilege(), NOT information_schema.table_privileges.
+// The latter only shows a grant when the connecting role is a member of the grantee or
+// the grantor; through a pooler or a read-only/non-owner role it returns nothing, and
+// "nothing" would read as "anon holds nothing" — a green light on a wide-open surface.
+// has_table_privilege() answers for any caller. Assertion 3 (authenticated still holds
+// SELECT) is the control that makes a blind read fail loudly anyway.
 const CATALOG_SQL = `
 SELECT COALESCE(json_agg(row_to_json(t) ORDER BY t.view_name), '[]'::json) FROM (
 SELECT c.relname AS view_name,
@@ -80,12 +96,12 @@ SELECT c.relname AS view_name,
                  WHERE option_name = 'security_invoker'), 'off') AS security_invoker,
        (SELECT array_agg(a.attname ORDER BY a.attnum)
           FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped) AS columns,
-       (SELECT array_agg(DISTINCT tp.privilege_type ORDER BY tp.privilege_type)
-          FROM information_schema.table_privileges tp
-         WHERE tp.table_schema = 'public' AND tp.table_name = c.relname AND tp.grantee = 'anon') AS anon_privs,
-       (SELECT array_agg(DISTINCT tp.privilege_type ORDER BY tp.privilege_type)
-          FROM information_schema.table_privileges tp
-         WHERE tp.table_schema = 'public' AND tp.table_name = c.relname AND tp.grantee = 'authenticated') AS auth_privs
+       (SELECT COALESCE(array_agg(p ORDER BY p), ARRAY[]::text[])
+          FROM unnest(ARRAY['DELETE','INSERT','REFERENCES','SELECT','TRIGGER','TRUNCATE','UPDATE']) p
+         WHERE has_table_privilege('anon', c.oid, p)) AS anon_privs,
+       (SELECT COALESCE(array_agg(p ORDER BY p), ARRAY[]::text[])
+          FROM unnest(ARRAY['DELETE','INSERT','REFERENCES','SELECT','TRIGGER','TRUNCATE','UPDATE']) p
+         WHERE has_table_privilege('authenticated', c.oid, p)) AS auth_privs
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relkind = 'v'
 ) t;`
@@ -113,6 +129,7 @@ function parseCatalog(text) {
       securityInvoker: r.security_invoker === 'on' || r.security_invoker === 'true',
       columns: r.columns ?? [],
       anon: r.anon_privs ?? [],
+      authenticated: r.auth_privs ?? [],
     }
   }
   return live
@@ -145,22 +162,25 @@ function httpCreds() {
 const ours = fixture.ownedByUs
 const known = new Set([...ours, ...fixture.foreign])
 
-// ── 1-4: the catalog ─────────────────────────────────────────────────────────
+// ── 1-5: the catalog ─────────────────────────────────────────────────────────
 
+const CATALOG_ASSERTIONS = 5
 let skipReason = null
 const dbUrl = process.env.SUPABASE_DB_URL
 let live = null
 if (!dbUrl) {
-  skipReason = 'SUPABASE_DB_URL is unset; the catalog half (1-4) cannot run.'
+  skipReason = 'SUPABASE_DB_URL is unset'
 } else {
   try {
     live = parseCatalog(fetchCatalogText(dbUrl))
   } catch (e) {
     // Never echo e.message: psql errors can quote the connection string.
-    skipReason = `the catalog query failed (${e.code === 'ENOENT' ? 'psql not found on PATH' : 'psql or its output was unusable'}).`
+    if (e.code === 'ENOENT') skipReason = 'psql is not on PATH'
+    else if (e instanceof SyntaxError) skipReason = 'psql ran but its output was not the expected JSON'
+    else skipReason = 'psql could not connect or the catalog query failed'
   }
   if (live && Object.keys(live).length === 0) {
-    skipReason = 'the catalog query returned zero views.'
+    skipReason = 'the catalog query returned zero views'
     live = null
   }
 }
@@ -178,50 +198,85 @@ if (live) {
       ...missing.map((n) => `${n}: not in the live catalog`),
     ].join('\n          '))
 
+  // THE CONTROL CASE, like check-write-access.mjs assertion 1. Without it, assertion 2
+  // could pass because the connecting role cannot see grants at all. `authenticated`
+  // must still SELECT every view, or the app is broken for every member; a read that
+  // reports false for everyone fails HERE, loudly, instead of passing 2 silently.
+  const lostSelect = ours.filter((n) => !(live[n]?.authenticated ?? []).includes('SELECT'))
+  check(3, 'CONTROL: authenticated still holds SELECT on every view this app owns', lostSelect.length === 0,
+    `authenticated lacks SELECT on: ${lostSelect.join(', ')}\n          Either the catalog read is blind (wrong role / pooler — assertion 2 above proves nothing)\n          or a revoke went too far and the app is broken for every member.`)
+
   const invokerOff = ours.filter((n) => live[n]?.securityInvoker !== true)
-  check(3, 'security_invoker is on for every view this app owns', invokerOff.length === 0,
+  check(4, 'security_invoker is on for every view this app owns', invokerOff.length === 0,
     `off or missing: ${invokerOff.join(', ')}`)
 
   const drifted = ours.filter((n) => JSON.stringify(live[n]?.columns) !== JSON.stringify(fixture.views[n].columns))
-  check(4, 'no view this app owns has gained or lost a column', drifted.length === 0,
+  check(5, 'no view this app owns has gained or lost a column', drifted.length === 0,
     drifted.map((n) => `${n}: live [${(live[n]?.columns ?? ['<absent>']).join(',')}] vs baseline [${fixture.views[n].columns.join(',')}]`).join('\n          '))
+} else {
+  console.log(`SKIP   1-${CATALOG_ASSERTIONS}  catalog half NOT RUN (${skipReason})`)
 }
 
-// ── 5: the HTTP half — runs with or without the catalog ──────────────────────
+// ── 6: the HTTP half — runs with or without the catalog ──────────────────────
+
+/**
+ * Pure verdict on one response. Pass = no row AND the refusal is the right KIND.
+ * 401/403 must carry SQLSTATE 42501 (insufficient_privilege); a dead, rotated or
+ * malformed key also answers 401 (PGRST301 / "Invalid API key") and must NOT read as
+ * success — Supabase disabled the legacy keys on 2026-09-09 and that looked exactly
+ * like this. 42501 does not change when a REVOKE moves the refusal from the underlying
+ * table to the view. 404 (PGRST205) and 200-with-[] also pass; no other status does.
+ */
+function judge(status, body) {
+  let parsed
+  try { parsed = JSON.parse(body) } catch { parsed = undefined }
+  if (status === 200) {
+    if (Array.isArray(parsed) && parsed.length === 0) return { ok: true, why: 'empty array' }
+    return { ok: false, why: 'a ROW (or an unreadable body) came back' }
+  }
+  if (status === 401 || status === 403) {
+    return parsed?.code === '42501'
+      ? { ok: true, why: 'privilege refusal 42501' }
+      : { ok: false, why: `refused, but not as a privilege refusal (code ${parsed?.code ?? 'none'}) — dead key?` }
+  }
+  if (status === 404) return { ok: true, why: 'not exposed' }
+  return { ok: false, why: 'unexpected status' }
+}
 
 const { url, key } = httpCreds()
 if (!url || !key) {
-  check(5, 'anon receives no row from any view this app owns (HTTP)', false,
+  check(6, 'anon is refused every view this app owns (HTTP)', false,
     'VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY not found in the environment or .env.local')
 } else {
-  const rowsSeen = []
+  const bad = []
   for (const name of ours) {
+    let v
     let status
-    let hasRow
     try {
       const res = await fetch(`${url.replace(/\/$/, '')}/rest/v1/${name}?select=*&limit=1`, {
         headers: { apikey: key, Authorization: `Bearer ${key}` },
       })
       status = res.status
-      let parsed
-      try { parsed = JSON.parse(await res.text()) } catch { parsed = undefined }
-      hasRow = res.ok && Array.isArray(parsed) && parsed.length > 0
+      v = judge(status, await res.text())
     } catch {
       status = 'network error'
-      hasRow = true // cannot show it is safe, so it is not a pass
+      v = { ok: false, why: 'request could not be made' } // cannot show it is safe
     }
-    console.log(`      ${hasRow ? '!!' : 'ok'} ${name} -> HTTP ${status}`)
-    if (hasRow) rowsSeen.push(`${name} (${status})`)
+    console.log(`      ${v.ok ? 'ok' : '!!'} ${name} -> HTTP ${status} (${v.why})`)
+    if (!v.ok) bad.push(`${name} (${status}: ${v.why})`)
   }
-  check(5, `anon receives no row from any of the ${ours.length} views this app owns (HTTP)`, rowsSeen.length === 0,
-    `a row came back, or the request could not be made: ${rowsSeen.join(', ')}`)
+  check(6, `anon is refused, with no row, by all ${ours.length} views this app owns (HTTP)`, bad.length === 0,
+    bad.join('\n          '))
 }
 
 // ── Result ───────────────────────────────────────────────────────────────────
+// A failure is a failure: exit 1 even when the catalog half could not run. Exit 2 is
+// reserved for a run that found nothing wrong but did not look everywhere.
 
-console.log(`\n${passed} PASS, ${failed} FAIL`)
 if (skipReason) {
-  console.log(`SKIP — no reachable project; this guard proves nothing\n          ${skipReason}`)
-  process.exit(2)
+  console.log(`\n${passed} PASS, ${failed} FAIL, ${CATALOG_ASSERTIONS} NOT RUN — INCOMPLETE: this is not a clean result`)
+  console.log(`SKIP — no reachable project; this guard proves nothing\n          reason: ${skipReason}`)
+  process.exit(failed > 0 ? 1 : 2)
 }
+console.log(`\n${passed} PASS, ${failed} FAIL`)
 process.exit(failed === 0 ? 0 : 1)
