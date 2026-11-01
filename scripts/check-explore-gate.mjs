@@ -91,6 +91,10 @@ const arg = (flag, fallback) => {
   return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback
 }
 
+// 🔴 The SHIPPED copy, not a transcription — see REASON_WORDS below for why, and
+// why this script now runs under `--experimental-strip-types`.
+import { replyClosedCopy } from '../src/lib/writeAccess.ts'
+
 const PORT = arg('--port', '5173')
 const ORIGIN = `http://localhost:${PORT}`
 
@@ -232,7 +236,49 @@ const WRITE_WORDS = 'Join the conversation|Share an idea|Discard draft|Sign in t
  * in a component's comments — a gate matching its own documentation is worse
  * than no gate, because it goes green for the wrong reason.
  */
-const REASON_WORDS = {
+/**
+ * The sentence each reason puts on screen — DERIVED from the shipped module, never
+ * transcribed.
+ *
+ * 🔴 This was four hand-written regexes against Phase 17's prose, and 18-04 changed
+ * every one of them: D-36 fixed Chris's exact wording and `ReplyClosedNotice`
+ * replaced `ReadOnlyNotice` on the feed and thread. Three assertions went red for a
+ * copy change rather than a behaviour change, which is the third time in this phase a
+ * guard has had to be edited to match new prose. Deriving it ends that: the words can
+ * only drift from `replyClosedCopy` if someone edits the function, and the exact
+ * strings are separately pinned by check:write-access 49 and 50.
+ *
+ * 🔴 It still earns its keep. `notice.reason` comes from a data attribute, so without
+ * a word check a notice could carry the right attribute and the wrong sentence —
+ * which is precisely what a copy/paste between reasons would produce. Full sentences
+ * are compared because they are mutually distinct; individual words are not.
+ *
+ * This is why the script now runs under `--experimental-strip-types`: it reads
+ * `src/lib/writeAccess.ts` for real, the way check-write-access.mjs does.
+ */
+const REPLY_WORDS = Object.fromEntries(
+  ['sibling-shard', 'signed-out', 'no-slice', 'other-place'].map((r) => {
+    const sentence = replyClosedCopy(r).sentence
+    return [r, { test: (text) => (text ?? '').includes(sentence), source: sentence }]
+  }),
+)
+
+/**
+ * 🔴 EXPLORE HAS ITS OWN COPY AND KEEPS IT — two notices, two vocabularies, and
+ * flattening them was a mistake I made once already in this file.
+ *
+ * 18-04 replaced `ReadOnlyNotice` with `ReplyClosedNotice` on the FEED and THREAD
+ * only. Explore still renders `ReadOnlyNotice`, deliberately: its sentences are about
+ * drafting and exploring a shard ("Starting a conversation — and the draft it begins
+ * with — stays in your own community"), not about replying, and D-36's wording is
+ * specifically the reply affordance's. Deriving every surface from `replyClosedCopy`
+ * turned four Explore assertions red against copy that is correct.
+ *
+ * So these stay hand-written, against `ReadOnlyNotice`. They are the one place in
+ * this script where prose is transcribed, and that is the cost of Explore having its
+ * own voice. If Explore's copy ever moves into a function too, derive it there.
+ */
+const EXPLORE_WORDS = {
   'sibling-shard': /Slice \d+ read-only/,
   'signed-out': /an address set/i,
   'no-slice': /no community at this level/i,
@@ -683,12 +729,17 @@ const read = (page, sel = PANEL) => page.evaluate(readPanel, { sel, words: WRITE
  * sibling-shard sentence to a signed-out visitor would still contain a reason,
  * and "a notice is present" would pass.
  */
-function namesReason(notice, expected) {
+/**
+ * @param words which vocabulary this surface speaks — EXPLORE_WORDS (the default,
+ *   ReadOnlyNotice) or REPLY_WORDS (ReplyClosedNotice, on the feed and thread).
+ *   The caller picks, because the surface is what decides which component renders.
+ */
+function namesReason(notice, expected, words = EXPLORE_WORDS) {
   if (!notice?.found || !notice.visible) return false
   if (notice.reason !== expected) return false
-  const own = REASON_WORDS[expected]
+  const own = words[expected]
   if (!own?.test(notice.text)) return false
-  return !Object.entries(REASON_WORDS).some(([r, re]) => r !== expected && re.test(notice.text))
+  return !Object.entries(words).some(([r, re]) => r !== expected && re.test(notice.text))
 }
 
 /**
@@ -959,7 +1010,10 @@ for (const spec of TABS) {
         onPostRoute: location.pathname === `/post/${postId}`,
         activeTab: localStorage.getItem('cs_active_tab'),
         onSibling: /Slice 2 · View Only/.test(pill),
-        readOnlyNotice: /read-only/i.test(body),
+        // 🔴 Structural. This was /read-only/i against Phase 17 prose; 18-04
+        // replaced the notice and its wording, and the precondition began failing
+        // for a copy change. What it has to establish is that the gate rendered.
+        readOnlyNotice: !!document.querySelector('[data-read-only-notice]'),
         pill,
         // PostComposer is a sheet and is unmounted when closed.
         composerOpen: /New Post/.test(body) || /Edit anything before you post/.test(body),
@@ -1047,7 +1101,7 @@ for (const spec of TABS) {
   check(
     tab, 13,
     'the FEED notice names the sibling-shard reason too — the per-tab call site',
-    namesReason(feedNotice, 'sibling-shard'),
+    namesReason(feedNotice, 'sibling-shard', REPLY_WORDS),
     JSON.stringify(feedNotice) +
       '\n            The feed panel computes its own answer for its own tab. If this is the only' +
       '\n            red, look at the FEED_TABS map in AppShell, not at the gate.',

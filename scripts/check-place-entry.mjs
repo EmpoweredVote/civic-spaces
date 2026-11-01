@@ -254,7 +254,13 @@ function readConversations({ sel }) {
     // half that was always load-bearing — the card was a stand-in for a feed that
     // could not be shown, and the feed can be shown now.
     honest: /Conversations here belong to the people who live here/.test(text),
-    readOnly: /Posting and replying belong to the people who live under that government/.test(text),
+    // 🔴 STRUCTURAL, not a copy match. This was the sentence Phase 17's notice used;
+    // 18-04 replaced that notice with ReplyClosedNotice and Chris's wording
+    // ("Replying is open to Connected accounts."), and the assertion went red for a
+    // copy change rather than a behaviour one. The contract worth asserting here is
+    // that the gate is PRESENT and names its reason; the exact words are pinned where
+    // they can be read without a browser — check:write-access 49 and 50.
+    readOnly: !!p.querySelector('[data-read-only-notice]'),
     notice: p.querySelector('[data-read-only-notice]')?.getAttribute('data-read-only-notice') ?? null,
   }
 }

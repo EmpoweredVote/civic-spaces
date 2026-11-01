@@ -378,12 +378,27 @@ one `public` view `anon` actually reaches today (it answers `200 []`).
   `/post/:postId` can simply be shown the post, which partly dissolves the deferred
   shared-link arrival. `unavailable`'s deliberate conflation still earns its keep for deleted
   posts and suspended authors.
-- **Not in this phase:** search-engine indexing and link unfurling. No SSR, no prerender, no
-  `robots.txt`, one static set of `og:` tags. Crawlable ≠ indexed, and the copy must not
-  overclaim.
+- **Not in this phase:** search-engine indexing and link unfurling — see the status note below,
+  which carries this and two others forward as named future work.
 
-**Status, 2026-10-31.** All four plans are written; 18-01, 18-02 and 18-03 are implemented and
-reviewed. 🔴 **Nothing is applied and nothing may merge until it is.** Three migrations are
+**Status, 2026-10-31. All four plans are implemented and reviewed.** 18-04 adds the closed
+door (`ReplyClosedNotice`, D-35/D-36/D-38) and the `/accounts` explainer (D-37), and retires
+the "Sign in" link that Phase 17's notice carried on this surface.
+
+**What did not ship, carried forward rather than left as prose:**
+
+- **Search-engine indexing and link unfurling (D-25).** No SSR, no prerender, no `robots.txt`,
+  one static set of `og:` tags. Crawlable ≠ indexed, and the copy must not overclaim.
+- **The Empowered cross-shard reply (D-21, D-40).** An Empowered account replying in any
+  sibling shard of a jurisdiction it holds. `whyNoWrite` reserves the seam in its own comments
+  and `replyClosedCopy` has a `sibling-shard` sentence ready for it; nothing else exists.
+  **→ a future phase.**
+- **The per-author sharing store (D-45).** What an author chooses to share with friends, as
+  data rather than as the D-49 all-or-nothing projection. **→ a future phase.**
+- **A block is slice-wide until D-50 is applied** — it is written and unapplied, like
+  everything else here.
+
+🔴 **Nothing is applied and nothing may merge until it is.** Three migrations are
 written and unapplied, in a fixed order — `20261030000000` → `20261030000100` → `20261030000200`
 — and `.planning/phases/18-the-public-square/18-02-APPLY.md` is the runbook. `main` auto-deploys
 in ~3 minutes, so merging the frontend first shows every signed-out visitor "Failed to load
@@ -438,4 +453,4 @@ validation in ev-accounts so the next real name cannot arrive silently.
 | 15. Tool Deep Links | — | 1/1 | Complete | 2026-09-08 |
 | 16. Explore by Slice | — | 10/10 | Complete | 2026-10-25 |
 | 17. The Signed-Out Arrival | — | 7/7 | Complete | 2026-10-26 |
-| 18. The Public Square | — | 0/? | Not planned | — |
+| 18. The Public Square | — | 4/4 | Code complete, **unapplied** | — |
