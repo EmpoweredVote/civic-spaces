@@ -282,9 +282,17 @@ SELECT json_build_object(
                        ORDER BY (p.reply_count > 0) DESC, p.created_at LIMIT 1)
 );`
 
+// 🔴 The SQL goes in on STDIN, never as a `-c` argv entry. Node encodes argv in the
+// system ANSI codepage on Windows, so a non-ASCII character in this query — the 🔴 and
+// the em dashes in its own comments — reaches psql as CP1252 bytes and dies with
+// `invalid byte sequence for encoding "UTF8": 0x97`. That was caught by the catch below
+// and reported as "psql could not connect", with the catalog assertions silently NOT RUN
+// on every Windows machine while psql and the credential were both fine. `input` is
+// written as UTF-8 bytes, which argv is not.
 function fetchCatalogText(dbUrl) {
-  return execFileSync('psql', [dbUrl, '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-c', CATALOG_SQL], {
-    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000,
+  return execFileSync('psql', [dbUrl, '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-f', '-'], {
+    input: CATALOG_SQL,
+    encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 30000,
   })
 }
 

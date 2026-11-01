@@ -110,10 +110,22 @@ WHERE n.nspname = 'public' AND c.relkind IN ('v','m','r','p','f')
 ) t;`
 
 /** Execution only. Returns psql's stdout; throws if psql is missing or the query fails. */
+// 🔴 The SQL goes in on STDIN, never as a `-c` argv entry. Node encodes argv in the
+// system ANSI codepage on Windows, so ONE non-ASCII character anywhere in this query —
+// a 🔴, an em dash, a curly quote, in the SQL or in its own comments — reaches psql as
+// CP1252 bytes and dies with `invalid byte sequence for encoding "UTF8": 0x97`. The
+// catch below turns that into "psql could not connect" and the catalog half reports NOT
+// RUN, on every Windows machine, while psql and the credential are both fine.
+// This query is ASCII today, so this is the fix applied before the bug rather than
+// after: check-anon-read.mjs had exactly four such characters and its catalog
+// assertions — the ones that prove only four RPCs are anon-executable — never ran here
+// once. Writing 🔴 in a comment is a house style, so that is a question of when.
+// `input` is written as UTF-8 bytes; argv is not.
 function fetchCatalogText(dbUrl) {
-  return execFileSync('psql', [dbUrl, '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-c', CATALOG_SQL], {
+  return execFileSync('psql', [dbUrl, '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-f', '-'], {
+    input: CATALOG_SQL,
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
     timeout: 30000,
   })
 }

@@ -106,22 +106,19 @@ same way and verify again.
 `prosrc` is exactly the text between the `$$` delimiters, so it can be compared byte for byte:
 
 ```bash
-node -e '
-const fs=require("fs"),cp=require("child_process");
-const sql=fs.readFileSync("/tmp/apply/20261030000100_public_read.sql","utf8");
-const blocks=[...sql.matchAll(/CREATE OR REPLACE FUNCTION civic_spaces\.(\w+)\([\s\S]*?AS \$\$([\s\S]*?)\$\$;/g)];
-if(blocks.length!==6) throw new Error("expected 6 function blocks, found "+blocks.length);
-let bad=0;
-for(const [,name,body] of blocks){
-  const live=cp.execFileSync("psql",[process.env.SCRATCH_DB_URL,"-X","-At","-c",
-    `select prosrc from pg_proc where pronamespace = $$civic_spaces$$::regnamespace and proname = $$${name}$$`]).toString();
-  // psql -At appends one newline after the value
-  const same = live.replace(/\n$/,"") === body;
-  console.log((same?"IDENTICAL ":"DIFFERS   ")+name);
-  if(!same) bad++;
-}
-process.exit(bad?1:0)'
+# 🔴 Compare the BYTES, not psql's stdout. On Windows psql writes stdout in TEXT mode, so
+# every \n inside prosrc comes back as \r\n and a string compare reports all six as DIFFERS,
+# each larger than the file by exactly its own line count. That is the measuring tool, not
+# the SQL -- the same shape of bug as the CR check in 0a. base64 is transport-safe.
+node scripts/prosrc-diff.mjs /tmp/apply/20261030000100_public_read.sql
 ```
+
+`scripts/prosrc-diff.mjs` extracts the six `$$` bodies from the file, reads each live body as
+`encode(convert_to(prosrc,'UTF8'),'base64')`, decodes it and compares with `Buffer.equals`,
+prints the first differing byte with context, and separately fails if any live body contains
+a CR. **Prove it can fail before you trust a pass**: replace one function with a one-line body
+and re-run; it must report `DIFFERS` at the right offset.
+
 
 Also read `pg_get_functiondef` for each and eyeball the two predicates that matter. Both must be
 present in the live definition:
@@ -306,10 +303,20 @@ rollback deliberately does not.
   member of one shard counts as a member for a sibling shard's authors. 18-03 must not decide it by
   accident.
 
-## Apply state as of 2026-11-01 — step 0a done, blocked on a credential
+## Apply state as of 2026-11-01 — step 0 REHEARSED END TO END, not applied
 
-**Step 0a is complete.** Committed bytes, verified LF-clean (0 CR bytes) and identical
-across `phase/18-02-public-read-path`, `…18-03…`, `…18-04…` and #137:
+**The credential blocker is cleared.** A postgres-role URI is at `~/.cs-db-url` (session
+pooler, port 5432 — session mode, which `-1` and `SET LOCAL ROLE` both need). It is the line
+commented out above the active one in `C:\EV-Accounts\backend\.env`, and it still
+authenticates: `select current_user` returns **postgres**.
+
+🔴 **The owner question is answered — `postgres` — and it was worth asking.** All sixteen
+existing `civic_spaces` functions are owned by `postgres`, the seven SECURITY DEFINER ones
+among them. So the four new RPCs must be created by `postgres`, never through ev-accounts'
+active `DATABASE_URL`, which connects as `ev_api`.
+
+**Step 0a re-verified.** The three committed files still hash to the values recorded here, with
+0 CR bytes and no BOM:
 
 ```
 9a71e0d406cd4c8751f6dddc08924bf9ebff9e145a3cdba4468cbfb2c5e3dcec  20261030000000_reconcile_public_views.sql
@@ -317,20 +324,112 @@ across `phase/18-02-public-read-path`, `…18-03…`, `…18-04…` and #137:
 c4aff59dc640357d53fbadcd8d057d10ff4168856a291039c8179d0c6114c938  20261030000200_public_read_grants.sql
 ```
 
-**Blocked on:** `SUPABASE_DB_URL` is unset and not in `.env.local`. `psql` 18 is installed.
-The URL is needed less for the apply than for the VERIFICATION — `check:grants` and the
-catalog half of `check:anon-read` both shell out to `psql` with it, and they are the two
-guards that decide whether the door opened correctly.
+### The scratch database: build it from a schema dump, NOT by replaying the migrations
 
-🔴 **Do NOT use `ev-accounts`' active `DATABASE_URL`.** It connects as the **`ev_api`**
-role (switched 2026-09-09 so local runs match prod; the previous superuser value is
-commented out above it in `C:\EV-Accounts\backend\.env`). `SECURITY DEFINER` means *runs
-as the owner* — create these four RPCs as `ev_api` and they run with `ev_api`'s rights
-instead of the owner's, which either breaks them or silently gives them a different
-privilege set than every assertion in `check:anon-read` was written against. The existing
-`civic_spaces` functions were created through the MCP, which connects as `postgres`.
-**Confirm the actual owner before applying** — one read-only catalog query, no credential
-needed.
+🔴 **`supabase/migrations/` does not replay on an empty cluster.** Tried first, as the plan
+said to. Eight of the twenty base files fail, and not all of them are fixable: the first is a
+missing `supabase_realtime` publication (stubbable), but three are one-off production data
+migrations whose own assertions are about production rows — `snapshot_before_taxonomy`
+("0 live vs 0 backed up"), `slice_taxonomy` ("expected exactly one federal slice, found 0")
+and `seed_geo_memberships` (reads `connect.connected_profiles`, a schema this repo does not
+own). A replay would have produced a shape nobody could vouch for, which is the opposite of
+what step 0 is for.
 
-**Scratch target chosen:** a local PostgreSQL 18 built from `supabase/migrations/`, not a
-paid Supabase branch. Not yet built.
+What was used instead, and what the next person should use:
+
+```bash
+# a throwaway cluster: trust auth, its own port, nothing to do with the local services
+initdb -D "$SCRATCH/pgdata" -U postgres --auth=trust -E UTF8 --locale=C
+pg_ctl -D "$SCRATCH/pgdata" -l "$SCRATCH/pg.log" -o "-p 5440 -c listen_addresses=localhost" start
+
+# schema only -- NO rows, so no member content ever lands on a dev machine
+pg_dump "$(cat ~/.cs-db-url)" --schema-only --no-owner -n civic_spaces -f prod_civic_spaces.sql
+pg_dump "$(cat ~/.cs-db-url)" --schema-only --no-owner \
+  -t public.action_log -t public.blocks -t public.civic_notifications -t public.connected_profiles \
+  -t public.flags -t public.follows -t public.friendships -t public.moderators \
+  -t public.posts -t public.replies -t public.slice_members -t public.slices \
+  -f prod_public_views.sql
+```
+
+Before restoring, the cluster needs what Supabase supplies and a stock Postgres does not:
+roles `anon`, `authenticated`, `service_role`, `civic_spaces_app`; then
+`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role`
+— **omit that and `...000` revokes nothing and passes vacuously**, since it is the whole reason
+anon holds all seven; an `auth.jwt()` stub reading `request.jwt.claim`; and
+`CREATE SCHEMA extensions; CREATE EXTENSION pg_trgm WITH SCHEMA extensions`, which one index on
+`connected_profiles` needs. Do **not** dump all of `public`: it carries another app's tables
+plus PostGIS, pg_cron, pg_net and supabase_vault, none of which restore here. `civic_spaces`
+itself uses only stock types, which is why it does.
+
+Result: 15 tables, 12 public views, 31 policies, 16 functions — production's shape, no rows.
+
+### What step 0 found, on that scratch
+
+| Step | Result |
+|---|---|
+| 0b `...000` | Applied clean. The five untracked `CREATE OR REPLACE VIEW`s matched the live column lists exactly — had they not it would have errored, which is the point of writing them that way. anon: 7 privileges on 12 views → **0**. authenticated: still 7 on all 12. `security_invoker=on` on all 12. |
+| 0b `...100` | Applied clean. Six functions, all `prosecdef`, all owned by `postgres`. |
+| shut door | **6/6 refused with 42501**, each in its own transaction — including the two helpers and `public_author_is_blocked`, which had never been probed before. A CONTROL call as the owner returned no error, proving the probe can tell a refusal from a success. |
+| 0c | **All six bodies byte-identical** to the file; no CR in any live body. A deliberate one-line mutation was reported as `DIFFERS` at the right offset, so the pass is not vacuous. |
+| predicates | Suspension filter on feed/post/replies, allowlist on slice/post — exactly as this file predicted. `get_public_feed` shows `has_allowlist = f` **and that is correct**: it gates by selecting `FROM civic_spaces.get_public_slice(...)`, so the allowlist is enforced one call down. `get_public_replies` gates through `get_public_post` the same way. |
+| 0b `...200` | Applied clean. anon: schema USAGE, EXECUTE on the four, **0 table privileges**. Both helpers executable by neither role. |
+
+**Behavioural rehearsal, on synthetic rows** — a city slice with two shards, a volunteer slice,
+a suspended author, one reply; fixture data only, no member content. As `anon`, after `...200`:
+the four RPCs return the city slice, feed, post and reply; `author_user_id` is NULL on every row
+(D-48/49); a shard-2 post keeps **its own** slice_id rather than being rewritten to shard 1; a
+suspended author's post is absent; and the volunteer slice, feed, post and replies **all return
+zero rows**. 11/11, with a deliberately-wrong control reading FAIL.
+
+### 🔴 `anon` gains EXECUTE on more than four functions, and it is fine — here is the proof
+
+`...200` grants EXECUTE on four. But schema `USAGE` also un-blocks Postgres's default
+`EXECUTE TO PUBLIC` on every pre-existing function that never revoked it: after `...200`, anon
+can execute **nine** others — `current_user_id`, `get_feed_filtered`,
+`get_boosted_feed_filtered` and six trigger functions. Read "EXECUTE on exactly four RPCs and
+nothing else" as being about SECURITY DEFINER functions and about table grants, which is what
+`check:anon-read` 3a actually asserts.
+
+Probed as `anon` on the scratch rather than argued:
+
+- `get_feed_filtered`, `get_boosted_feed_filtered` → `42501 permission denied for table posts`.
+  SECURITY INVOKER runs as the caller, and anon holds no table privilege here. Fail-closed.
+- the six trigger functions → `0A000 trigger functions can only be called as triggers`.
+- `current_user_id()` → returns anon's own NULL identity. Nothing to disclose.
+- direct reads of `civic_spaces.posts` / `slices` / `connected_profiles` and `public.posts` → all `42501`.
+
+That is exactly the argument written beside the `prosecdef` filter in
+`scripts/check-anon-read.mjs`, and it now has a probe behind it. It stops holding the day a
+SECURITY INVOKER function here gains a table GRANT.
+
+### 🔴 The guards' catalog half had never run on Windows — fixed in this commit
+
+`check:anon-read` reported `SKIP 3a 3b 3c ... (psql could not connect or the catalog query failed)`
+while `check:grants` connected fine **with the same URL**. psql was fine and so was the
+credential. `CATALOG_SQL` contains four non-ASCII characters — a 🔴 and em dashes, in its own
+comments — and Node encodes argv in the system ANSI codepage on Windows, so `-c` handed psql
+CP1252 bytes: `invalid byte sequence for encoding "UTF8": 0x97`. The catch turned that into a
+generic skip.
+
+So 3a/3b/3c — **the assertions that prove only four RPCs are anon-executable and that anon holds
+no table privilege** — had never once executed on the machine the apply will be run from, and
+would have reported NOT RUN on apply day while looking like a missing credential. Both scripts
+now pass the SQL on **stdin** (`-f -` plus `input:`), which Node writes as UTF-8.
+`check:grants` was ASCII and working; it is patched anyway, because a 🔴 in a comment is house
+style here and this is a question of when, not whether.
+
+Verified after the fix. Against the post-apply scratch, 3a/3b/3c run and **all seven pass**
+(38-44). Against production, the catalog half runs and reports the documented pre-apply state —
+3a "missing from the anon set" naming the four, both helpers "not defined" — while 41-44 pass.
+`check:grants` against production is unchanged at **5 PASS, 1 FAIL**, that FAIL being
+assertion 2 naming the twelve views: precisely the baseline this file predicts.
+
+### Still to do before a production apply
+
+1. **The cache check.** "Before 18-03 ships, confirm nothing shared caches `/rest/v1/rpc/*`."
+   Not done, and it is the one part of this phase that cannot be undone.
+2. **Section 4's test JWTs.** D-49's per-author projection over HTTP is still UNPROVEN; the SQL
+   rehearsal is not the same thing and the guard says so itself.
+3. **The open question in `18-02-PLAN.md`** — whether a member of one shard counts as a member
+   for a sibling shard's authors — is still open, and 18-03 must not settle it by accident.
+4. The apply itself, and the `supabase_migrations.schema_migrations` rows immediately after it.
