@@ -231,6 +231,54 @@ Cloudflare already fronts this product. **Before 18-03 ships, confirm nothing sh
 confirm with a GET and a POST of the same call carrying two different `Authorization` headers.
 Disclosure through a cache is the one part of this phase that cannot be undone.
 
+### Checked 2026-11-01: nothing shared caches it, and the reason is thinner than it looks
+
+**Done.** Probed live against production. The headline is that the risk is structurally absent
+today, but not because anything in our control is preventing it.
+
+**There is no Supabase custom domain.** The deployed bundle at
+`civicspaces.empowered.vote/assets/index-BY8XYtUE.js` calls
+`https://kxsdzaojfaibhuzmclfq.supabase.co` directly. So "an edge cache on the Supabase custom
+domain" has nothing to be configured on, and **our own Cloudflare zone is not in the REST path at
+all** — `civicspaces.empowered.vote/rest/v1/...` returns the SPA's `index.html` (200, text/html),
+which is the catch-all, not a proxy. Nothing of ours to misconfigure, and nothing of ours to fix
+either, which is the point below.
+
+**What does front it is Cloudflare — Supabase's, not ours.** `kxsdzaojfaibhuzmclfq.supabase.co`
+resolves to 172.64.149.246 / 104.18.38.10 and answers `Server: cloudflare`.
+
+Every probe, GET and POST, 200 and 404:
+
+| Request | Result |
+|---|---|
+| `GET /rest/v1/rpc/postgis_version`, valid key, ×3 | 200, `CF-Cache-Status: DYNAMIC` every time, never HIT, no `Age` |
+| `POST` the same | 200, `DYNAMIC` |
+| same URL + method, **different `Authorization`** | 401, never the cached 200 body |
+| same URL + method + key, **different `Accept-Profile`** (`public` vs `civic_spaces`, both valid) | 200 vs 404 vs 200 — no collision between two same-URL requests that differ only by a header |
+
+`DYNAMIC` means Cloudflare treated it as uncacheable and went to origin. A repeat never became a
+HIT, and no response carried `Age`.
+
+🔴 **CONTROL, because "no cache" is exactly the shape of a vacuous pass.** The same header probe,
+pointed at our own zone, reports `Cache-Control: public, max-age=0, s-maxage=300`, `Age: 115`,
+`cf-cache-status: HIT` on the JS bundle. The probe can see a cache. It is not seeing one here.
+
+🔴 **The thin part: the origin sends no `Cache-Control` at all, and no `Vary` on a 200.** Not
+`no-store`, not `private`, nothing. These responses differ only by the `Authorization` header
+(`current_user_id()`, the D-48/D-49 projection) and they say so to nobody. `DYNAMIC` is
+Cloudflare's *default* for this path, not a directive we issued — and the Cloudflare in front of
+`*.supabase.co` is **Supabase's zone, which we cannot add a rule to**. So the whole protection is
+a default on infrastructure we do not control. Our actual control surface is three things: keep
+the public reads on **POST**, never put a caching custom domain in front of this project, and
+re-run this probe when either changes.
+
+**One gap, stated plainly.** The two `Authorization` headers in the differential were a valid
+publishable key and an invalid one, so the second was refused at the gateway. The true hazard —
+two *valid* viewers, anon and a member, getting each other's rows — needs a member JWT this
+session did not have, and is the same missing credential as section 4's test JWTs. The
+`Accept-Profile` row above is the closest available substitute: two valid requests, same URL and
+method, differing only by a header, answered differently and never cross-served.
+
 ## Rollback: five statements, verbatim
 
 Privilege-reversible. The PUBLIC defaults stay revoked, so this lands **tighter** than before:
@@ -426,8 +474,10 @@ assertion 2 naming the twelve views: precisely the baseline this file predicts.
 
 ### Still to do before a production apply
 
-1. **The cache check.** "Before 18-03 ships, confirm nothing shared caches `/rest/v1/rpc/*`."
-   Not done, and it is the one part of this phase that cannot be undone.
+1. ~~The cache check.~~ **Done 2026-11-01** — see "Checked 2026-11-01" above.
+   Nothing shared caches `/rest/v1/rpc/*`; the protection is Cloudflare's default on Supabase's
+   own zone, not a directive of ours, so it is a standing re-check rather than a closed box.
+   Re-run it if a custom domain appears or the reads ever move off POST.
 2. **Section 4's test JWTs.** D-49's per-author projection over HTTP is still UNPROVEN; the SQL
    rehearsal is not the same thing and the guard says so itself.
 3. **The open question in `18-02-PLAN.md`** — whether a member of one shard counts as a member
