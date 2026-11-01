@@ -67,7 +67,14 @@ mkdir -p /tmp/apply && for f in 20261030000000_reconcile_public_views 2026103000
   git show HEAD:supabase/migrations/$f.sql > /tmp/apply/$f.sql
 done
 sha256sum /tmp/apply/*.sql        # must equal the hashes recorded above
-grep -c $'\r' /tmp/apply/*.sql    # must print 0 for each; a BOM check: head -c3 must not be ef bb bf
+# 🔴 COUNT CR BYTES, do not grep for them. `grep -c $'\r'` reports the number of
+# LINES MATCHED, and in Git Bash it matches every line — it reported 135/534/56 CRs
+# on 2026-11-01 in files that contain exactly zero. It is a measurement that always
+# "fails", so following it would make you reject clean bytes.
+for f in /tmp/apply/*.sql; do
+  printf "%s cr=%s bom=%s\n" "$(basename $f)" "$(tr -cd '\r' < $f | wc -c)" "$(head -c3 $f | od -An -tx1 | tr -d ' ')"
+done
+# cr must be 0 for each, and bom must NOT be efbbbf.
 ```
 
 ### 0b. Apply each file to a SCRATCH database with `psql -f`
@@ -298,3 +305,32 @@ rollback deliberately does not.
 - An open question for Chris is recorded in `18-02-PLAN.md` ("Open question for Chris"): whether a
   member of one shard counts as a member for a sibling shard's authors. 18-03 must not decide it by
   accident.
+
+## Apply state as of 2026-11-01 — step 0a done, blocked on a credential
+
+**Step 0a is complete.** Committed bytes, verified LF-clean (0 CR bytes) and identical
+across `phase/18-02-public-read-path`, `…18-03…`, `…18-04…` and #137:
+
+```
+9a71e0d406cd4c8751f6dddc08924bf9ebff9e145a3cdba4468cbfb2c5e3dcec  20261030000000_reconcile_public_views.sql
+3ca3013b5d6da6da45845fa049084e30fe013c8012e1d3751e4044988394c95f  20261030000100_public_read.sql
+c4aff59dc640357d53fbadcd8d057d10ff4168856a291039c8179d0c6114c938  20261030000200_public_read_grants.sql
+```
+
+**Blocked on:** `SUPABASE_DB_URL` is unset and not in `.env.local`. `psql` 18 is installed.
+The URL is needed less for the apply than for the VERIFICATION — `check:grants` and the
+catalog half of `check:anon-read` both shell out to `psql` with it, and they are the two
+guards that decide whether the door opened correctly.
+
+🔴 **Do NOT use `ev-accounts`' active `DATABASE_URL`.** It connects as the **`ev_api`**
+role (switched 2026-09-09 so local runs match prod; the previous superuser value is
+commented out above it in `C:\EV-Accounts\backend\.env`). `SECURITY DEFINER` means *runs
+as the owner* — create these four RPCs as `ev_api` and they run with `ev_api`'s rights
+instead of the owner's, which either breaks them or silently gives them a different
+privilege set than every assertion in `check:anon-read` was written against. The existing
+`civic_spaces` functions were created through the MCP, which connects as `postgres`.
+**Confirm the actual owner before applying** — one read-only catalog query, no credential
+needed.
+
+**Scratch target chosen:** a local PostgreSQL 18 built from `supabase/migrations/`, not a
+paid Supabase branch. Not yet built.
