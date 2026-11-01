@@ -76,6 +76,28 @@ vocabulary as a parameter — `REPLY_WORDS` for the feed and thread, `EXPLORE_WO
 Explore. The one place prose is still transcribed is the one surface whose copy does not live
 in a function.
 
+### The two guard fixes are mutation-proven, not just read
+
+The whole-branch review found both of these regressions passing every guard in the repo. Each
+fix was then verified by reproducing the exact regression and watching the intended assertion —
+and only that assertion — go red.
+
+| Mutation | Guard | Result |
+|---|---|---|
+| `noWriteReason={null}` on the public feed — no sentence, no explainer button, i.e. 18-04's whole surface gone | `check:place-entry` | **#3 red, and only #3** (19/1) |
+| `ThreadView`'s `<ReplyClosedNotice>` deleted, composer still suppressed | `check:explore-gate` | **#10 red on city AND federal, nothing else** (62/2) |
+
+🔴 **Mutation A also broke `tsc` — and that is not the safety net it looks like.** The build
+failed only on two now-unused identifiers (`TS6133`). Anyone actually removing that notice
+would remove its import too, and the build would be clean while a member on a sibling-shard
+thread got no composer and no explanation. The guard is the only thing that catches it.
+
+🔴 **The first attempt at mutation B tested nothing**: the dev server had been killed during
+cleanup, so the guard ran against a dead port and produced no result line at all. The *empty*
+output was the tell — a check for "no FAIL lines" would have read a dead server as a pass,
+which is the same vacuous shape as everything else in § 4. Both mutations were re-run against
+a live server, and the tree was verified clean between and after each.
+
 ## 3. Four-way visual evidence
 
 Light + dark × desktop + mobile, with the `ev_theme` cookie set on the browser context and
