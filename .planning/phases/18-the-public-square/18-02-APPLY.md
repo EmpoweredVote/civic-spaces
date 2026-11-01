@@ -422,6 +422,11 @@ Result: 15 tables, 12 public views, 31 policies, 16 functions — production's s
 | predicates | Suspension filter on feed/post/replies, allowlist on slice/post — exactly as this file predicted. `get_public_feed` shows `has_allowlist = f` **and that is correct**: it gates by selecting `FROM civic_spaces.get_public_slice(...)`, so the allowlist is enforced one call down. `get_public_replies` gates through `get_public_post` the same way. |
 | 0b `...200` | Applied clean. anon: schema USAGE, EXECUTE on the four, **0 table privileges**. Both helpers executable by neither role. |
 
+**The suite is committed**, at `scripts/rehearsal/18-02-seed.sql` and
+`scripts/rehearsal/18-02-behaviour.sql`: run the seed, then the behaviour file as the owner
+after `...100`, and its A-series block as anon after `...200`. Its last line is a deliberately
+wrong CONTROL that must print FAIL.
+
 **Behavioural rehearsal, on synthetic rows** — a city slice with two shards, a volunteer slice,
 a suspended author, one reply; fixture data only, no member content. As `anon`, after `...200`:
 the four RPCs return the city slice, feed, post and reply; `author_user_id` is NULL on every row
