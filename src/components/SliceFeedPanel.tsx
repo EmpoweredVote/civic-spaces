@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useImperativeHandle } from 'react'
+import { useLocation } from 'wouter'
 import type React from 'react'
 // import { useFeed } from '../hooks/useFeed' // Fallback: chronological feed
 import { useBoostedFeed } from '../hooks/useBoostedFeed'
@@ -15,7 +16,7 @@ import { toast } from 'sonner'
 import PostComposer, { type ComposeRequest } from './PostComposer'
 import ThreadView from './ThreadView'
 import InformUpgradePrompt from './InformUpgradePrompt'
-import { ReadOnlyNotice } from './ReadOnlyNotice'
+import { ReplyClosedNotice } from './ReplyClosedNotice'
 import type { SortMode } from './FeedTabs'
 import type { PostWithAuthor } from '../types/database'
 import type { NoWriteReason } from '../lib/writeAccess'
@@ -92,15 +93,15 @@ interface SliceFeedPanelProps {
   ownSliceIndex?: number
   onReturnToOwnSlice?: () => void
   /**
-   * The real sign-in, for a signed-out visitor.
+   * 🔴 There is NO `loginUrl` prop any more, and its absence is the decision.
    *
-   * 🔴 Here so the notice is rendered ONCE, by the component that knows it is gated.
-   * The first draft of the public path rendered a second `ReadOnlyNotice` in AppShell
-   * to get this link, and shipped two identical banners stacked on top of each other —
-   * visible in the first four-way shoot and in nothing else, because no assertion
-   * counts a component that renders correctly twice.
+   * 18-03 added one so the notice could be rendered ONCE here rather than twice —
+   * AppShell had been rendering a second copy beside this one to get the sign-in
+   * link, and shipped two identical banners stacked. 18-04 then removed the link
+   * itself: `ReplyClosedNotice` opens the explainer, never a login form (D-36/D-37),
+   * because the sentence names who may speak here and a direct jump to the accounts
+   * hub is the thing being replaced. One notice, and no sign-in on this surface.
    */
-  loginUrl?: string
 }
 
 export default function SliceFeedPanel({
@@ -118,7 +119,6 @@ export default function SliceFeedPanel({
   viewingSliceIndex,
   ownSliceIndex,
   onReturnToOwnSlice,
-  loginUrl,
 }: SliceFeedPanelProps) {
   // Hoisted above the feed hooks: the public query is cached PER VIEWER (D-49), so
   // the reader's id is part of its key and has to exist before the key is built.
@@ -162,6 +162,9 @@ export default function SliceFeedPanel({
   useRealtimeInvalidation(publicPlace ? null : sliceId)
 
   const { profile } = useProfile(userId)
+  const [, navigate] = useLocation()
+  // D-37: the door opens the explainer, never a login form.
+  const onExplain = () => navigate('/accounts')
   const deletePost = useDeletePost()
 
   const [composerOpen, setComposerOpen] = useState(false)
@@ -229,10 +232,10 @@ export default function SliceFeedPanel({
             neither. The gate does not depend on the fetch succeeding, so neither
             should the sentence that explains it. */}
         {isViewOnly && (
-          <ReadOnlyNotice
+          <ReplyClosedNotice
             reason={noWriteReason}
             surface="feed"
-            loginUrl={loginUrl}
+            onExplain={onExplain}
             viewingSliceIndex={viewingSliceIndex}
             ownSliceIndex={ownSliceIndex}
             onReturnToOwnSlice={onReturnToOwnSlice}
@@ -266,10 +269,10 @@ export default function SliceFeedPanel({
             gated must always say so, even if the reason did not reach it. The
             notice names nothing in that case, which is the observable. */}
         {isViewOnly && (
-          <ReadOnlyNotice
+          <ReplyClosedNotice
             reason={noWriteReason}
             surface="feed"
-            loginUrl={loginUrl}
+            onExplain={onExplain}
             viewingSliceIndex={viewingSliceIndex}
             ownSliceIndex={ownSliceIndex}
             onReturnToOwnSlice={onReturnToOwnSlice}

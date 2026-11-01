@@ -1973,7 +1973,6 @@ export default function AppShell() {
                                   the way out are passed down so it is rendered once, there. */}
                               <SliceFeedPanel
                                 sliceId={slice.id}
-                                loginUrl={isAuthenticated ? undefined : loginUrl}
                                 onReturnToOwnSlice={leavePlace}
                                 publicPlace={{ sliceType: slice.sliceType, geoid: slice.geoid }}
                                 isActive={isShown}

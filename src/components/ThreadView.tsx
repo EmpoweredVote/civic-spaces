@@ -9,7 +9,7 @@ import ReplyCard from './ReplyCard'
 import ReplyComposer from './ReplyComposer'
 import InformUpgradePrompt from './InformUpgradePrompt'
 import EmpoweredBadge from './EmpoweredBadge'
-import { ReadOnlyNotice } from './ReadOnlyNotice'
+import { ReplyClosedNotice } from './ReplyClosedNotice'
 import { usePublicThread } from '../hooks/usePublicThread'
 import { authorPresentation, threadTree } from '../lib/publicProjection'
 import { splitHeadline } from '../lib/postHeadline'
@@ -309,7 +309,16 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
             this gate without the thread half once already. */}
         {isViewOnly ? (
           <div className="py-3">
-            <ReadOnlyNotice reason={noWriteReason} surface="thread" ownSliceIndex={ownSliceIndex} />
+            {/* 🔴 Phase 18-04 replaced ReadOnlyNotice here rather than adding beside
+                it. Both answer "why can you not write here", and the old one ended in
+                a "Sign in" link, which D-36/D-37 forbid on this surface: the
+                explainer comes after the attempt, not a login form. */}
+            <ReplyClosedNotice
+              reason={noWriteReason}
+              surface="thread"
+              onExplain={() => navigate('/accounts')}
+              ownSliceIndex={ownSliceIndex}
+            />
           </div>
         ) : (
           (!userId || !profile?.is_suspended) && (
