@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useLocation } from 'wouter'
+import { FOCUS } from './explore/exploreUi'
 
 /**
  * `/accounts` — what the three account types are, reached by pressing the closed
@@ -31,6 +33,17 @@ import { useLocation } from 'wouter'
  */
 export default function AccountsExplainer() {
   const [, navigate] = useLocation()
+
+  /**
+   * 🔴 Scroll to the top on arrival. Nothing else does: `App.tsx` HIDES the shell
+   * rather than unmounting it, so the document collapses to this page's height and
+   * the browser merely clamps the existing `scrollY`. A reader who pressed the door
+   * at the bottom of a long thread — which is where the door lives — landed below
+   * the heading that says what they are looking at, and on a phone near the footer.
+   */
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -101,7 +114,7 @@ export default function AccountsExplainer() {
         <div className="mt-8 flex flex-wrap items-center gap-4">
           <a
             href="https://app.empowered.vote"
-            className="inline-flex items-center rounded-full border border-brand/60 px-4 py-2 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-brand-light/50 dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10"
+            className={`inline-flex items-center rounded-full border border-brand px-4 py-2 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 ${FOCUS} dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10`}
           >
             Set up an Empowered Vote account
           </a>

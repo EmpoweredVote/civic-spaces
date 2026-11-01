@@ -1,4 +1,5 @@
 import { replyClosedCopy, type NoWriteReason } from '../lib/writeAccess'
+import { FOCUS } from './explore/exploreUi'
 
 /** Where an address is changed. The same URL ReadOnlyNotice uses for the explore surface. */
 const LOCATION_SETTINGS_URL = 'https://app.empowered.vote/settings/location'
@@ -70,16 +71,20 @@ export function ReplyClosedNotice({
       data-read-only-notice={reason ?? 'unknown'}
       data-read-only-surface={surface}
       data-reply-closed=""
-      // 🔴 `dark:bg-gray-900`, NOT `dark:bg-white/5` and NOT `dark:bg-white/[0.03]`.
-      // Both of those were written here first and NEITHER applied: a `dark:` variant
-      // carries no extra specificity in Tailwind v4 (`:where(.dark, …)` is 0), so when
-      // it collides with a base utility on the SAME property the winner is whichever
-      // Tailwind emits last — and it emits `bg-white` before `bg-gray-50`. The box
-      // rendered light grey on a near-black page with barely legible text, while the
-      // sibling `dark:border-white/10` applied fine because `border-white` happens to
-      // sort after `border-gray-200`. Pick a dark value from the same scale as the
-      // light one, which is what every other card in this app already does.
-      className={`flex flex-col gap-2.5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 dark:border-white/10 dark:bg-gray-900${
+      // 🔴 `bg-gray-100`, not `bg-gray-50`: in the feed this box sits on a gray-50
+      // page, so gray-50 made it a hollow outline there while reading correctly in
+      // the thread. `dark:bg-white/5` recedes against both the gray-950 page and the
+      // gray-900 thread card, which a flat `dark:bg-gray-900` did not.
+      //
+      // 🔴 If a `dark:` class here ever looks like it is not applying, RESTART THE DEV
+      // SERVER before theorising about the cascade. This exact box rendered light grey
+      // on a near-black page for an hour, and the cause was a dev server started before
+      // this file existed: classes new to the whole project were missing from its
+      // generated CSS, while `bg-gray-50` — already used elsewhere — applied normally.
+      // That asymmetry reads exactly like a specificity bug and is not one. Measured in
+      // the built CSS, every `dark:` rule is emitted in a trailing block (offset ~73k+)
+      // long after every bare utility (~29k), so a `dark:` variant always wins on order.
+      className={`flex flex-col gap-2.5 rounded-xl border border-gray-200 bg-gray-100 px-4 py-3.5 dark:border-white/10 dark:bg-white/5${
         surface === 'feed' ? ' mb-3' : ''
       }`}
     >
@@ -93,8 +98,8 @@ export function ReplyClosedNotice({
         {reason === 'sibling-shard' && typeof ownSliceIndex === 'number' && (
           <>
             {typeof viewingSliceIndex === 'number'
-              ? ` You're reading Room ${viewingSliceIndex}; yours is Room ${ownSliceIndex}.`
-              : ` Yours is Room ${ownSliceIndex}.`}
+              ? ` You're reading Slice ${viewingSliceIndex}; yours is Slice ${ownSliceIndex}.`
+              : ` Yours is Slice ${ownSliceIndex}.`}
           </>
         )}
       </p>
@@ -102,13 +107,13 @@ export function ReplyClosedNotice({
       {/* 🔴 One row, at most one primary control. `justify-start` and not `w-full`:
           a full-width button reads as the composer it is standing in for, and this
           is deliberately quieter than the thing it replaced. */}
-      {(copy?.action || onReturnToOwnSlice) && (
+      {(copy?.action || (onReturnToOwnSlice && (reason === 'other-place' || reason === 'sibling-shard'))) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {copy?.action === 'explainer' && (
             <button
               type="button"
               onClick={onExplain}
-              className="inline-flex items-center rounded-full border border-brand px-3.5 py-1.5 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10"
+              className={`inline-flex items-center rounded-full border border-brand px-3.5 py-1.5 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 ${FOCUS} dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10`}
             >
               {copy.actionLabel}
             </button>
@@ -117,13 +122,20 @@ export function ReplyClosedNotice({
           {copy?.action === 'accounts-app' && (
             <a
               href={LOCATION_SETTINGS_URL}
-              className="inline-flex items-center rounded-full border border-brand px-3.5 py-1.5 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10"
+              className={`inline-flex items-center rounded-full border border-brand px-3.5 py-1.5 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 ${FOCUS} dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10`}
             >
               {copy.actionLabel}
             </a>
           )}
 
-          {onReturnToOwnSlice && (
+          {/* 🔴 NOT for a signed-out visitor. "Back to my spaces" names spaces they
+              have not got, and AppShell passes `leavePlace` unconditionally on the
+              public path — so gating it here is the only place it can be gated.
+              ReadOnlyNotice rendered this control inside its 'other-place' and
+              'sibling-shard' branches only, and AppShell carries a comment saying so
+              deliberately; moving the notice must not quietly undo that. A visitor
+              already has "Back to the welcome screen" in the place strip above. */}
+          {onReturnToOwnSlice && (reason === 'other-place' || reason === 'sibling-shard') && (
             <button
               type="button"
               onClick={onReturnToOwnSlice}

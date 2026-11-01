@@ -252,8 +252,10 @@ export interface ReplyClosedCopy {
 export function replyClosedCopy(reason: NoWriteReason): ReplyClosedCopy {
   switch (reason) {
     case 'signed-out':
-      // Also every Inform account, by construction (D-04): it holds no slices, so
-      // whyNoWrite returns 'signed-out' for it and it lands here without a tier term.
+      // 🔴 Only a viewer with NO SESSION reaches this. An Inform account does NOT —
+      // it is authenticated, holds no slices, and lands in 'other-place' below. See
+      // whyNoWrite's own note ("First because the remedy differs") and
+      // check-write-access 51b, which exists to keep that true.
       return {
         sentence: 'Replying is open to Connected accounts.',
         action: 'explainer',
@@ -261,12 +263,27 @@ export function replyClosedCopy(reason: NoWriteReason): ReplyClosedCopy {
       }
 
     case 'other-place':
-      // D-39: the rule here is WHERE THEY LIVE, not what they hold. Reading another
-      // place and being unable to answer there is the design, not a limitation.
+      /**
+       * 🔴 EVERY VIEWER WHO REACHES THIS IS ALREADY SIGNED IN, because 'signed-out'
+       * is returned first for `!isAuthenticated`. So neither the sentence nor the
+       * label may tell them to get an account — that is a non-answer to a Connected
+       * member visiting another city, and the first draft put it in the LABEL
+       * ("Connect an account to reply") after assertion 52 had removed it from the
+       * sentence. Both halves now avoid it.
+       *
+       * 🔴 And the sentence must be true for TWO different populations, because
+       * whyNoWrite cannot tell them apart and must not grow a tier term to try:
+       *   - a Connected member of somewhere else, who does not live here;
+       *   - an Inform account ANYWHERE, including in the city it lives in.
+       * "belongs to the people who live under this government" was the first draft
+       * and is false for the second: an Inform account in its own city does live
+       * there, and still cannot reply. Membership of the space is the one rule true
+       * of both, and it is the rule the code actually applies.
+       */
       return {
-        sentence: 'Replying here belongs to the people who live under this government.',
+        sentence: 'Replying here is for members of this civic space.',
         action: 'explainer',
-        actionLabel: 'Connect an account to reply',
+        actionLabel: 'How civic spaces work',
       }
 
     case 'sibling-shard':
@@ -274,7 +291,7 @@ export function replyClosedCopy(reason: NoWriteReason): ReplyClosedCopy {
       // accounts app helps: they already have everything they need. Offering a
       // remedy would be a lie about the cause, so there is no action at all.
       return {
-        sentence: 'This is another room of the same place. Your replies stay in your own room.',
+        sentence: 'This is another slice of the same place. Your replies stay in your own slice.',
         action: null,
         actionLabel: null,
       }

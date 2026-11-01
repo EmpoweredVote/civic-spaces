@@ -1013,7 +1013,15 @@ for (const spec of TABS) {
         // 🔴 Structural. This was /read-only/i against Phase 17 prose; 18-04
         // replaced the notice and its wording, and the precondition began failing
         // for a copy change. What it has to establish is that the gate rendered.
-        readOnlyNotice: !!document.querySelector('[data-read-only-notice]'),
+        // 🔴 VISIBLE, and on the THREAD. `!!querySelector(...)` matched the feed's
+        // notice, which is still in the DOM inside a CSS-hidden div while a thread is
+        // open — so deleting ThreadView's notice entirely left every assertion green
+        // and nothing covered the thread half of the gate at all. offsetParent is what
+        // the old /read-only/i-on-innerText probe got right by accident.
+        readOnlyNotice: (() => {
+          const n = [...document.querySelectorAll('[data-read-only-notice]')].find((e) => e.offsetParent !== null)
+          return !!n && n.getAttribute('data-read-only-surface') === 'thread'
+        })(),
         pill,
         // PostComposer is a sheet and is unmounted when closed.
         composerOpen: /New Post/.test(body) || /Edit anything before you post/.test(body),

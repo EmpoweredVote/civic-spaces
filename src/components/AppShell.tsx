@@ -1969,8 +1969,10 @@ export default function AppShell() {
                                   shipped two identical banners stacked — caught only by
                                   looking at the four-way shoot, because a component that
                                   renders correctly twice fails no assertion. The notice is
-                                  about WRITING, which this phase did not open; loginUrl and
-                                  the way out are passed down so it is rendered once, there. */}
+                                  about WRITING, which this phase did not open. The way out is
+                                  passed down so the notice is rendered once, there — and
+                                  ReplyClosedNotice gates it on the reason, because "Back to my
+                                  spaces" names spaces a signed-out visitor has not got. */}
                               <SliceFeedPanel
                                 sliceId={slice.id}
                                 onReturnToOwnSlice={leavePlace}

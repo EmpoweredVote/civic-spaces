@@ -49,13 +49,24 @@ assertion made only of absences is satisfied by a page that failed to load.
 one when 18-04 replaced the notice: the exact sentence is pinned where it can be read without
 a browser (`check:write-access` 49 and 50), and the browser asserts that the gate is present.
 
-🔴 **And `check:explore-gate` stopped transcribing prose, because editing it was becoming a
-habit.** Three times in this phase a guard went red for a copy change rather than a behaviour
-change. Its four reason patterns are now **derived from `replyClosedCopy`** at run time —
-which is why the script runs under `--experimental-strip-types`, the way
-`check-write-access.mjs` already did. The word check still earns its keep: `notice.reason`
-comes from a data attribute, so without it a notice could carry the right attribute and the
-wrong sentence, which is exactly what a copy/paste between reasons produces.
+🔴 **And `check:explore-gate` stopped transcribing prose for the feed and thread**, because
+editing it was becoming a habit — three times in this phase a guard went red for a copy change
+rather than a behaviour change. The **feed/thread** vocabulary is now derived from
+`replyClosedCopy` at run time, which is why the script runs under
+`--experimental-strip-types`. **Explore's is still hand-written** against `ReadOnlyNotice`,
+and five of the six `namesReason` call sites use it — so this is a partial fix, not a general
+one. The word check still earns its keep either way: `notice.reason` comes from a data
+attribute, so without it a notice could carry the right attribute and the wrong sentence.
+
+🔴 **What is and is not pinned, stated plainly, because the first draft of this section
+overstated it.** `check:write-access` 49, 50 and 52 pin the `signed-out` sentence and label
+verbatim and forbid account/sign-in wording on `other-place`. They run the *function*, never a
+call site. The `sibling-shard` and `no-slice` sentences are asserted only structurally. The
+browser guards now assert that the feed notice carries the reason `signed-out`
+(`check:place-entry` #3) and that the THREAD notice is the visible one
+(`check:explore-gate` assertion 10's precondition) — both of which were missing until the
+whole-branch review found that deleting `ThreadView`'s notice, or nulling `noWriteReason`,
+left every guard green.
 
 🔴 **Explore keeps its own vocabulary, and the first attempt at this flattened that.**
 Deriving *every* surface from `replyClosedCopy` turned four Explore assertions red against
@@ -101,11 +112,20 @@ Both were found by looking at an image, with every assertion green.
 - **18-04's notice rendered as a light grey block on a near-black page**, with barely legible
   text, while the contrast probe reported it fine. Two bugs on top of each other: the probe
   skipped the box's own semi-transparent background and measured an ancestor; and
-  `dark:bg-white/[0.03]` never applied at all. 🔴 A `dark:` variant carries **no extra
-  specificity** in Tailwind v4, so against a base utility on the same property the winner is
-  whichever Tailwind emits last — and it emits `bg-white` before `bg-gray-50`. The sibling
-  `dark:border-white/10` worked only because `border-white` sorts after `border-gray-200`,
-  which is what made the variant look like it was being applied.
+  `dark:bg-white/[0.03]` never applied at all.
+
+  🔴 **The first explanation recorded here was wrong, and is corrected.** It said a `dark:`
+  variant carries no extra specificity in Tailwind v4, so a base utility emitted later wins.
+  Measured in the built CSS, that is false: every `dark:` rule sits in a **trailing block**
+  (`.dark\:bg-white\/5` at offset 78942) long after every bare utility (`.bg-gray-50` at
+  27652, last bare `bg-*` at 29777), so a `dark:` variant always wins on order.
+
+  The real cause was a **stale dev server**: it was started before `ReplyClosedNotice.tsx`
+  existed, and classes new to the whole project were missing from its generated CSS, while
+  `bg-gray-50` — already used elsewhere — applied normally. That asymmetry is what made it
+  look like a cascade problem. Proved by putting `dark:bg-white/5` back and probing a freshly
+  started server: `oklab(… / 0.05)`, correct. The lesson is to restart the dev server after
+  adding a component, before trusting any screenshot or computed-style probe.
 
 An earlier run of the same probe reported dark contrast as 2.42/1.51/1.43 — pure measurement
 error, because Tailwind serialises backgrounds as `oklab(... / a)` and the "is this opaque"

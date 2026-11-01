@@ -789,15 +789,34 @@ check(
     `          signed in — and whyNoWrite has grown an isAuthenticated bug, not a tier term.`,
 )
 
-check(
-  52,
-  'other-place names the PLACE rule, not the account rule',
-  /live/.test(replyClosedCopy('other-place').sentence) &&
-    !/Connected accounts/.test(replyClosedCopy('other-place').sentence),
-  `got ${JSON.stringify(replyClosedCopy('other-place').sentence)} — telling someone who\n` +
-    `          already has a Connected account that "replying is open to Connected accounts" is\n` +
-    `          a non-answer. The rule here is where they live (D-39), not what they hold.`,
-)
+{
+  /**
+   * 🔴 EVERY viewer who reaches 'other-place' is signed in — `whyNoWrite` returns
+   * 'signed-out' first for `!isAuthenticated`. So nothing in this copy may tell them
+   * to get an account, in EITHER half.
+   *
+   * The first version of this assertion checked only `sentence`, and the non-answer
+   * simply moved into `actionLabel` ("Connect an account to reply"), which is what a
+   * Connected member visiting another city was shown. Both halves are checked now.
+   *
+   * It also must not claim the reader does not live here: an Inform account lands in
+   * 'other-place' in the city it DOES live in, so "belongs to the people who live
+   * under this government" names a rule it satisfies and is still refused by.
+   */
+  const c = replyClosedCopy('other-place')
+  const both = `${c.sentence} ${c.actionLabel ?? ''}`
+  check(
+    52,
+    'other-place tells a SIGNED-IN reader neither to get an account nor that they do not live here',
+    !/connect(ed)?\s+(an\s+)?account/i.test(both) &&
+      !/sign\s*in/i.test(both) &&
+      !/live/i.test(c.sentence),
+    `sentence=${JSON.stringify(c.sentence)}\n          label=${JSON.stringify(c.actionLabel)}\n` +
+      `          Both populations that reach this reason are already authenticated: a Connected\n` +
+      `          member of elsewhere, and an Inform account anywhere — including its own city.\n` +
+      `          Membership of the space is the one rule true of both, and the one the code applies.`,
+  )
+}
 
 check(
   53,

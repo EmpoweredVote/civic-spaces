@@ -754,9 +754,13 @@ async function runSignedOutWalk() {
     const conv = await page.evaluate(readConversations, { sel: FEED_PANEL })
     check(
       run, 3,
-      'a visited place shows its real conversation AND no composer — the public square, read-only',
+      'a visited place shows its real conversation, names why it is read-only, and offers no composer',
       conv.visible === true &&
         conv.postCards > 0 &&
+        // 🔴 The REASON, not just the presence of a notice. Without this the degraded
+        // shell — noWriteReason null, "Replying is not available here.", no explainer
+        // button, i.e. the whole of 18-04 gone — passes every guard in the repo.
+        conv.notice === 'signed-out' &&
         conv.textareas === 0 &&
         conv.submits === 0 &&
         conv.fabs === 0 &&
