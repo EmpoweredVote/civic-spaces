@@ -212,6 +212,86 @@ export function canWriteIn(ctx: WriteContext): boolean {
   return whyNoWrite(ctx) === null
 }
 
+// ── The closed door's copy ───────────────────────────────────────────────────
+
+/** Where the control behind a closed door goes, or null when there is nowhere useful. */
+export type ReplyClosedAction = 'explainer' | 'accounts-app' | null
+
+export interface ReplyClosedCopy {
+  /** What is true about why they cannot write here. Names the rule, never the remedy. */
+  sentence: string
+  action: ReplyClosedAction
+  /** Null exactly when `action` is null; a nameless button is a dead end. */
+  actionLabel: string | null
+}
+
+/**
+ * Why the reply box is not here, in words, for each reason `whyNoWrite` can give.
+ *
+ * 🔴 It lives in this module and not in the component, for the same reason the seam
+ * comment on `whyNoWrite` gives: a rule kept at a call site is a rule no check can
+ * reach, and `check-write-access.mjs` runs this file for real.
+ *
+ * 🔴 D-36 — THE SENTENCE NAMES THE RULE, NOT THE REMEDY. Chris: *"say 'Replying is
+ * open to Connected accounts'"*. It does not say "Sign in", and the control does not
+ * open a login form: D-37 puts the explainer AFTER the attempt, reached by pressing
+ * the door rather than pushed in front of it. The copy that said "Sign in" is the
+ * thing this replaces.
+ *
+ * 🔴 Exhaustive over `NoWriteReason` with NO `default` branch, deliberately. Add a
+ * fifth reason and this stops compiling, which is the point — a `default` here would
+ * hand a new reason the signed-out copy, and the signed-out copy is a statement about
+ * accounts that would be false for whatever the new reason turns out to be.
+ *
+ * 🔴 The per-reason split is the whole value. Telling someone who already holds a
+ * Connected account that "replying is open to Connected accounts" is a non-answer,
+ * and offering the tier explainer to the unincorporated member — who has the account
+ * and simply has no space at this level — is actively wrong. Three different causes,
+ * three different true sentences, and only two of them have a remedy at all.
+ */
+export function replyClosedCopy(reason: NoWriteReason): ReplyClosedCopy {
+  switch (reason) {
+    case 'signed-out':
+      // Also every Inform account, by construction (D-04): it holds no slices, so
+      // whyNoWrite returns 'signed-out' for it and it lands here without a tier term.
+      return {
+        sentence: 'Replying is open to Connected accounts.',
+        action: 'explainer',
+        actionLabel: 'Connect an account to reply',
+      }
+
+    case 'other-place':
+      // D-39: the rule here is WHERE THEY LIVE, not what they hold. Reading another
+      // place and being unable to answer there is the design, not a limitation.
+      return {
+        sentence: 'Replying here belongs to the people who live under this government.',
+        action: 'explainer',
+        actionLabel: 'Connect an account to reply',
+      }
+
+    case 'sibling-shard':
+      // The same jurisdiction, a different room. Neither the explainer nor the
+      // accounts app helps: they already have everything they need. Offering a
+      // remedy would be a lie about the cause, so there is no action at all.
+      return {
+        sentence: 'This is another room of the same place. Your replies stay in your own room.',
+        action: null,
+        actionLabel: null,
+      }
+
+    case 'no-slice':
+      // 🔴 The one case where the explainer is WRONG. This viewer is Connected
+      // already; their address resolves to no space at this level, which ev-accounts
+      // treats as an answer rather than an error, and the only place that can change
+      // is the accounts app.
+      return {
+        sentence: 'There is no civic space at this level for your address yet.',
+        action: 'accounts-app',
+        actionLabel: 'Check the address on your account',
+      }
+  }
+}
+
 /**
  * May this viewer READ the conversations in the slice on screen?
  *

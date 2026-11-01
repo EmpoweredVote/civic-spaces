@@ -11,7 +11,7 @@
  * a check that re-implements it would be a second copy of the thing the module was
  * written to prevent. If you are tempted to paste a function in here, don't.
  *
- * What it covers (48 checks; numbers 1–24 and 26–48, with 19 used twice and 25 unused —
+ * What it covers (56 checks; numbers 1–24, 26–55 and 51b, with 19 used twice and 25 unused —
  * pre-existing, left unrenumbered; the count is the number of PASS lines the run prints):
  *
  *   1–11   whyNoWrite over every viewer × every slice on screen. 1 is the control
@@ -68,6 +68,7 @@ import {
   isSameJurisdiction,
   placeKey,
   PUBLIC_SLICE_TYPES,
+  replyClosedCopy,
   whyNoWrite,
 } from '../src/lib/writeAccess.ts'
 
@@ -710,6 +711,134 @@ function functionBody(sql, fnName) {
     'Without the guard clause the helper reads civic_spaces.blocks for every anonymous\n' +
       '          row — comparing NULL to every blocker_id, which is never true but is a seq scan\n' +
       '          per row, and makes the anon path depend on a table it has no business touching.',
+  )
+}
+
+// ── 49–54: Phase 18-04 — one mapping from why-you-cannot-write to what it says ──
+//
+// 🔴 The mapping lives in writeAccess.ts, not in the component, for the reason D-21's
+// seam comment gives about whyNoWrite itself: a rule kept in a component is a rule no
+// check can reach. These assertions run the SHIPPED function.
+//
+// 🔴 D-36: the sentence names the RULE, not the remedy. It does not say "Sign in" and
+// the control does not open a login form — the explainer comes after the attempt
+// (D-37). An assertion that only checked "some sentence exists" would pass on the
+// copy this phase exists to replace, so 49 and 50 pin Chris's exact strings.
+
+check(
+  49,
+  "signed-out: the sentence is Chris's, verbatim",
+  replyClosedCopy('signed-out').sentence === 'Replying is open to Connected accounts.',
+  `got ${JSON.stringify(replyClosedCopy('signed-out').sentence)} — D-36 fixed this string.\n` +
+    `          It names who may speak here. It does not name what the reader should do.`,
+)
+
+check(
+  50,
+  'signed-out offers the EXPLAINER, with the exact label, and never a login',
+  replyClosedCopy('signed-out').action === 'explainer' &&
+    replyClosedCopy('signed-out').actionLabel === 'Connect an account to reply' &&
+    !/sign in/i.test(replyClosedCopy('signed-out').sentence + replyClosedCopy('signed-out').actionLabel),
+  `${JSON.stringify(replyClosedCopy('signed-out'))}\n` +
+    `          🔴 D-37: the explainer is reached by pressing the door, never pushed. A direct\n` +
+    `          jump to the accounts hub is the thing being replaced, so "sign in" must not\n` +
+    `          appear in either string.`,
+)
+
+/**
+ * 🔴 D-04, and the plan got the MECHANISM wrong — worth writing down because the
+ * wrong version is the intuitive one.
+ *
+ * 18-04-PLAN.md says an Inform account "reaches 'signed-out' by construction (D-04)"
+ * and asserts its copy equals the signed-out copy. It does not and must not:
+ * `whyNoWrite` returns 'signed-out' only for `!isAuthenticated`, and an Inform
+ * account IS authenticated. It holds no slices, so it lands in 'other-place' (or
+ * 'no-slice' where there is no row) — exactly as `whyNoWrite`'s own comment says it
+ * will: *"including an Inform account's, which holds no slices and so would fail
+ * below anyway. First because the remedy differs."*
+ *
+ * The remedy really does differ: telling someone who is already signed in to sign in
+ * is the failure D-37 is about. So the copy SHOULD differ from the anonymous one.
+ *
+ * What D-04 actually guarantees here is narrower and is what this asserts: the
+ * mapping has no tier term, so an Inform account and a Connected non-member standing
+ * in the same place get the SAME sentence. Nothing on this surface can tell them
+ * apart, which is the property that keeps a tier badge from ever appearing (D-33).
+ */
+check(
+  51,
+  '🔴 D-04: at the same place, an Inform account and a Connected non-member get identical copy',
+  JSON.stringify(replyClosedCopy(whyNoWrite(ctx(informAccount, cityBRow)))) ===
+    JSON.stringify(replyClosedCopy(whyNoWrite(ctx(memberOfCityA, cityBRow)))) &&
+    JSON.stringify(replyClosedCopy(whyNoWrite(ctx(informAccount, cityBNoRow)))) ===
+      JSON.stringify(replyClosedCopy(whyNoWrite(ctx(unincorporatedMember, cityBNoRow)))),
+  `inform@cityB   → ${JSON.stringify(replyClosedCopy(whyNoWrite(ctx(informAccount, cityBRow))))}\n` +
+    `          member@cityB   → ${JSON.stringify(replyClosedCopy(whyNoWrite(ctx(memberOfCityA, cityBRow))))}\n` +
+    `          Both rows are checked — one where a slices row exists and one where it does not —\n` +
+    `          because the two take different branches of whyNoWrite and only one of them is\n` +
+    `          'other-place'. A difference here means a tier term crept into the mapping.`,
+)
+
+check(
+  '51b',
+  'an Inform account does NOT take the signed-out branch (the plan said it did)',
+  whyNoWrite(ctx(informAccount, cityAShard1)) !== 'signed-out' &&
+    whyNoWrite(ctx(signedOut, cityAShard1)) === 'signed-out',
+  `inform → ${whyNoWrite(ctx(informAccount, cityAShard1))}, anon → ${whyNoWrite(ctx(signedOut, cityAShard1))}\n` +
+    `          If this ever goes red, an Inform account is being offered "sign in" while already\n` +
+    `          signed in — and whyNoWrite has grown an isAuthenticated bug, not a tier term.`,
+)
+
+check(
+  52,
+  'other-place names the PLACE rule, not the account rule',
+  /live/.test(replyClosedCopy('other-place').sentence) &&
+    !/Connected accounts/.test(replyClosedCopy('other-place').sentence),
+  `got ${JSON.stringify(replyClosedCopy('other-place').sentence)} — telling someone who\n` +
+    `          already has a Connected account that "replying is open to Connected accounts" is\n` +
+    `          a non-answer. The rule here is where they live (D-39), not what they hold.`,
+)
+
+check(
+  53,
+  'sibling-shard is its own sentence, not other-place\'s',
+  replyClosedCopy('sibling-shard').sentence !== replyClosedCopy('other-place').sentence &&
+    replyClosedCopy('sibling-shard').action === null,
+  `sibling → ${JSON.stringify(replyClosedCopy('sibling-shard'))}\n` +
+    `          other   → ${JSON.stringify(replyClosedCopy('other-place'))}\n` +
+    `          A sibling shard is the same jurisdiction, so neither the explainer nor the\n` +
+    `          accounts app is any use: the viewer already has everything they need and is\n` +
+    `          simply in the wrong room. Offering a remedy would be a lie about the cause.`,
+)
+
+check(
+  54,
+  'no-slice routes to the ACCOUNTS APP, not the explainer',
+  replyClosedCopy('no-slice').action === 'accounts-app' &&
+    !!replyClosedCopy('no-slice').actionLabel,
+  `got ${JSON.stringify(replyClosedCopy('no-slice'))}\n` +
+    `          🔴 This viewer HAS a Connected account — explaining the tiers to them is the\n` +
+    `          one case where the explainer is actively wrong. Their address resolves to no\n` +
+    `          space at this level, and the only place that can change is the accounts app.`,
+)
+
+{
+  // 🔴 Total over every reason, so a fifth NoWriteReason cannot be added and silently
+  // fall through to an empty sentence. The TS side is exhaustive with no `default`;
+  // this is the half that survives type erasure.
+  const ALL = ['signed-out', 'other-place', 'sibling-shard', 'no-slice']
+  const bad = ALL.filter((r) => {
+    const c = replyClosedCopy(r)
+    return !c || typeof c.sentence !== 'string' || c.sentence.trim().length < 10 ||
+      !(c.action === null || c.action === 'explainer' || c.action === 'accounts-app') ||
+      (c.action !== null && !c.actionLabel)
+  })
+  check(
+    55,
+    'every NoWriteReason maps to a real sentence, a valid action, and a label when it acts',
+    bad.length === 0,
+    `incomplete for: ${bad.join(', ')} — an action with no label renders a nameless button,\n` +
+      `          which check:explore-rooms goal 6 reads as a dead end.`,
   )
 }
 
