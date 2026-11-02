@@ -1,4 +1,14 @@
--- Phase 18-02: the grants. The privilege delta, and nothing else.
+-- Phase 18-02: the grants, half two of two — ANON. The irreversible one.
+--
+-- 🔴 THIS IS THE FILE THAT OPENS THE DOOR. Everything before it can be undone by
+-- dropping a function or revoking a member grant. What this one does cannot: once
+-- the public can read, whatever was read is read.
+--
+-- Order: 20261030000100 (functions, all revoked) -> 20261030000150 (authenticated)
+-- -> THIS FILE. 20261030000150 must already be applied; it is what makes
+-- check:anon-read section 4 — the per-author projection over real HTTP — runnable
+-- while the public door is still shut. Applying this file before that check has
+-- passed throws away the only chance to run it with the door closed.
 --
 -- 20261030000100_public_read.sql defines six SECURITY DEFINER functions and REVOKEs
 -- EXECUTE from PUBLIC on every one of them, each right after its own CREATE FUNCTION:
@@ -16,7 +26,8 @@
 -- public_author_is_visible as a friendship / membership oracle. This file contains no
 -- REVOKE at all: GRANT USAGE, four GRANT EXECUTE, NOTIFY.
 --
--- Reversible in five statements (see 18-02-APPLY.md). The PUBLIC defaults stay revoked
+-- Reversible in five statements (see 18-02-APPLY.md) — one REVOKE per function plus
+-- the schema USAGE. The PUBLIC defaults stay revoked
 -- afterwards, so rolling back lands tighter than before. What is NOT reversible is
 -- DISCLOSURE: whatever the RPCs project, and anything read through a cache, cannot be
 -- taken back. The caution belongs on what the RPCs return, not on this file.
@@ -34,9 +45,10 @@
 -- after it, a table read fails with "permission denied for table" instead. Both
 -- refuse. Expect the second in logs.
 --
--- authenticated KEEPS EXECUTE on the four. 18-03 calls them for signed-in members
--- too (a member calling the public RPC gets the wide projection for their own
--- slices, via current_user_id()).
+-- authenticated KEEPS EXECUTE on the four, granted in 20261030000150 rather than
+-- here. 18-03 calls them for signed-in members too (a member calling the public RPC
+-- gets the wide projection for their own jurisdiction, via current_user_id()). This
+-- file does not re-grant it: each file's delta is exactly what its name says.
 --
 -- 🔴 Targeted by name on purpose. NO `REVOKE ... ON ALL FUNCTIONS IN SCHEMA`:
 -- civic_spaces.current_user_id() has PUBLIC as its only grant and sits inside 21
@@ -48,9 +60,9 @@
 
 GRANT USAGE ON SCHEMA civic_spaces TO anon;
 
-GRANT EXECUTE ON FUNCTION civic_spaces.get_public_slice(text, text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION civic_spaces.get_public_feed(text, text, integer, timestamptz, uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION civic_spaces.get_public_post(uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION civic_spaces.get_public_replies(uuid, integer, timestamptz, uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION civic_spaces.get_public_slice(text, text) TO anon;
+GRANT EXECUTE ON FUNCTION civic_spaces.get_public_feed(text, text, integer, timestamptz, uuid) TO anon;
+GRANT EXECUTE ON FUNCTION civic_spaces.get_public_post(uuid) TO anon;
+GRANT EXECUTE ON FUNCTION civic_spaces.get_public_replies(uuid, integer, timestamptz, uuid) TO anon;
 
 NOTIFY pgrst, 'reload schema';
