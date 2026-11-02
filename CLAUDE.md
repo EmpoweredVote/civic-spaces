@@ -28,8 +28,15 @@ Forum content is members-only by design (every `civic_spaces` grant is `TO authe
 it stays synthetic locally. Extend `devMockData.ts`; never hardcode posts in components, and
 never copy real members' posts or profiles into fixtures.
 
-⚠️ Until `20261030000100_public_read.sql` and `20261030000200_public_read_grants.sql` are
-applied: Phase 18 **writes** the public read path but does not open it. On apply, `anon` gains
+⚠️ Until `20261030000100_public_read.sql`, `20261030000150_public_read_grants_members.sql`
+and `20261030000200_public_read_grants.sql` are applied: Phase 18 **writes** the public read
+path but does not open it. 🔴 **Those three are a ladder and the order is load-bearing**:
+`…000100` defines six functions and revokes every one from PUBLIC, so after it nobody but the
+owner can call anything; `…000150` gives `authenticated` EXECUTE on the four, which is the
+state `check:anon-read` section 4 runs in — members over real HTTP while `anon` still cannot
+resolve the schema; `…000200` is the irreversible one. Do not collapse them, and do not apply
+`…000200` before section 4 has passed, or the only chance to prove the per-author projection
+with the door shut is gone. On apply, `anon` gains
 schema `USAGE` plus `EXECUTE` on exactly four RPCs — `get_public_slice`, `get_public_feed`,
 `get_public_post`, `get_public_replies` — and nothing else: **no table or view grant, ever.**
 Reading City / County / State / Federal / Unified becomes open to anyone; **Volunteer stays
