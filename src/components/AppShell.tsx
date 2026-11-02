@@ -1110,10 +1110,32 @@ export default function AppShell() {
       setViewedPlace(place)
       writeViewedPlace(place)
       const tab = found.sliceType as TabKey
-      handleTabChange(tab)
+      /**
+       * 🔴 NOT `handleTabChange`. It writes `cs_active_tab` whenever
+       * `!isVisitingPlace`, and `isVisitingPlace` is `viewedPlace !== null`
+       * read from THIS render — `setViewedPlace` above has not flushed, and
+       * the callback closes over the previous value, so the guard is still
+       * `false` and the write happens. A member whose remembered tab is City,
+       * opening a shared link to a State post in another state, came back to
+       * State afterwards and `leavePlace` had nothing true left to restore.
+       * `enterPlace` avoids this the same way and says so.
+       */
+      scrollPositions.current[activeTab] = window.scrollY
+      setSearchQuery('')
+      setNavDrawerOpen(false)
+      setActiveTab(tab)
       setForumView('conversations')
-      setViewingSlices((prev) => ({ ...prev, [tab]: null }))
-      setActivePostIds((prev) => ({ ...prev, [tab]: postId }))
+      /**
+       * Every tab, not just the target. `clearPlaceScopedState()` is the usual
+       * reset but it also `navigate('/')`s, which would kill the deep link we
+       * are in the middle of opening. Without this, a thread left open on
+       * another tab survives into the visited place: that tab is now a `place:`
+       * sentinel, so it would re-render a post from the member's OWN slice as a
+       * public one, under the visited place's banner and with the narrow
+       * projection.
+       */
+      setViewingSlices(INITIAL_VIEWING)
+      setActivePostIds({ ...INITIAL_POST_IDS, [tab]: postId })
       setScrollToLatestMap((prev) => ({ ...prev, [tab]: scrollToLatest }))
       return
     }

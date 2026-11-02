@@ -219,7 +219,25 @@ export default function SliceFeedPanel({
   useImperativeHandle(panelRef, () => ({ compose: handleCompose }))
 
   if (isLoading) {
-    return <FeedSkeleton />
+    return (
+      <div className="flex flex-col gap-3">
+        {/* Same rule as the error branch below: the gate does not wait on the
+            fetch, so neither does the sentence explaining it. A slow public RPC
+            otherwise leaves a visitor staring at a skeleton with no composer and
+            no reason given for the whole fetch. */}
+        {isViewOnly && (
+          <ReplyClosedNotice
+            reason={noWriteReason}
+            surface="feed"
+            onExplain={onExplain}
+            viewingSliceIndex={viewingSliceIndex}
+            ownSliceIndex={ownSliceIndex}
+            onReturnToOwnSlice={onReturnToOwnSlice}
+          />
+        )}
+        <FeedSkeleton />
+      </div>
+    )
   }
 
   if (error) {
