@@ -24,27 +24,32 @@ meetings, compass topics — from the live ev-accounts API through the `/api` pr
 real officials for the mock city (Asheville, NC), from the public by-area lookup.
 `VITE_API_PROXY_TARGET` points the proxy at a local ev-accounts.
 
-Forum content is members-only by design (every `civic_spaces` grant is `TO authenticated`), so
-it stays synthetic locally. Extend `devMockData.ts`; never hardcode posts in components, and
+Forum content is members-only to **write**, and Volunteer is members-only to read at all; the
+five public slice types became readable by anyone on 2026-11-02, through four RPCs and nothing
+else. It stays synthetic locally either way. Extend `devMockData.ts`; never hardcode posts in components, and
 never copy real members' posts or profiles into fixtures.
 
-⚠️ Until `20261030000100_public_read.sql`, `20261030000150_public_read_grants_members.sql`
-and `20261030000200_public_read_grants.sql` are applied: Phase 18 **writes** the public read
-path but does not open it. 🔴 **Those three are a ladder and the order is load-bearing**:
-`…000100` defines six functions and revokes every one from PUBLIC, so after it nobody but the
-owner can call anything; `…000150` gives `authenticated` EXECUTE on the four, which is the
-state `check:anon-read` section 4 runs in — members over real HTTP while `anon` still cannot
-resolve the schema; `…000200` is the irreversible one. Do not collapse them, and do not apply
-`…000200` before section 4 has passed, or the only chance to prove the per-author projection
-with the door shut is gone. On apply, `anon` gains
-schema `USAGE` plus `EXECUTE` on exactly four RPCs — `get_public_slice`, `get_public_feed`,
-`get_public_post`, `get_public_replies` — and nothing else: **no table or view grant, ever.**
-Reading City / County / State / Federal / Unified becomes open to anyone; **Volunteer stays
+**The public read path is APPLIED (2026-11-02).** `anon` holds schema `USAGE` on
+`civic_spaces` plus `EXECUTE` on exactly four RPCs — `get_public_slice`, `get_public_feed`,
+`get_public_post`, `get_public_replies` — and **no table, view, column or sequence grant
+anywhere**. Verified live: `/rest/v1/posts` as `anon` returns `401 permission denied for table`.
+Reading City / County / State / Federal / Unified is open to anyone; **Volunteer stays
 members-only**, and so does every future private slice type, because the gate is an allowlist
 (D-28, `PUBLIC_SLICE_TYPES` in `src/lib/writeAccess.ts` and a literal array in the SQL — the two
 are pinned against each other by `check:write-access`). Writing did not open and must not: a
-visitor gets the read-only notice and no composer. On apply, change the first sentence above to
-name the exception rather than the rule, and delete this paragraph.
+visitor gets the read-only notice and no composer.
+
+🔴 **`npm run check:anon-read` is a live-exposure test now, not a rehearsal.** 72 PASS / 0 FAIL
+against production on 2026-11-02, all four authenticated viewers included — the first time
+section 4 had ever run. A failure there means something is readable that should not be. Run it
+after any migration touching `civic_spaces`, and periodically regardless. The four viewer JWTs
+are minted from `SUPABASE_JWT_SECRET`; the fixture is synthetic and torn down after.
+
+🔴 **Any SECURITY DEFINER function added to `civic_spaces` from now on is anon-callable the
+moment it is created**, because Postgres grants EXECUTE to PUBLIC by default and `anon` now
+resolves the schema. Revoke it beside its own `CREATE FUNCTION`, the way `20261030000100` does
+for all six of its own. `check:anon-read` asserts the anon-executable DEFINER set is exactly
+those four.
 
 To work against the real backend instead, copy `.env.example` to `.env.local` and fill in
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; then `?dev=1` still opts into the dev id.
@@ -87,9 +92,10 @@ PR check off. `check:grants` and `check:anon-read` (ninth, tenth) run by hand on
 `SUPABASE_DB_URL` plus `psql`, which CI does not have (`db-surface.yml` is the manual-dispatch job ready for when it does).
 
 🔴 **Running in CI is not the same as being required.** "Required to merge" is a
-branch-protection setting on `main`, and until the `Guards (pure)` and `Guards (browser)` job
-names are added there, a red run is advisory and a PR merges over it. `build` is still the
-only hard gate.
+branch-protection setting on `main`. As of 2026-11-02 it lists **`build` and `Guards (pure)`**,
+so `Guards (browser)` is still advisory and a PR merges over a red one. Read it with
+`gh api repos/EmpoweredVote/civic-spaces/branches/main/protection`. `enforce_admins` is `false`,
+so an admin merges past all of it — which is how #139 landed, self-approval being impossible.
 
 🔴 **Still run them by hand before you claim anything works.** CI runs them on a pull request;
 it does not run them while you are working, and `npm run build` on its own has never been
@@ -269,15 +275,16 @@ is not this app's data.
 🔴 **The migrations are not the grant surface; the catalog is.** `public` also carries twelve views
 over these same tables (fifteen in all; the other three are `users_public` and two PostGIS
 views), a second route in that the `civic_spaces` schema gate does not cover: `anon` has `USAGE`
-on `public` and none on `civic_spaces`. Five of the views (`posts`, `replies`, `slices`,
-`slice_members`, `connected_profiles`) are in no applied migration, and `anon` holds all seven
-privileges on every one, from Supabase's default privileges rather than any `GRANT` here. Only
-`security_invoker` and RLS hold them shut. `npm run check:grants` reads the catalog.
+on `public`, and since 2026-11-02 `USAGE` on `civic_spaces` too — though there it reaches four
+RPCs and nothing else. Five of the views (`posts`, `replies`, `slices`, `slice_members`,
+`connected_profiles`) were in no applied migration, and `anon` held all seven privileges on every
+one, from Supabase's default privileges rather than any `GRANT` here, with only
+`security_invoker` and RLS holding them shut. `20261030000000_reconcile_public_views.sql`
+revoked all twelve from `anon` on 2026-11-02; it now reaches 3 of the 15 (`users_public` and the
+two PostGIS views, left alone on purpose), while `authenticated` is unchanged at 15.
+🔴 The default privileges that created the problem are still in place, so the NEXT view created
+in `public` arrives anon-readable exactly as these did. `npm run check:grants` reads the catalog.
 `public.users_public` is deliberately left alone: it reads a `users` table this app does not own.
-
-⚠️ Until `20261030000000_reconcile_public_views.sql` is applied: it is written, not applied, and
-production is exactly as described above. On apply, delete this line, change "are in no applied
-migration" and "holds" to the past tense, and drop the "Only `security_invoker`" sentence.
 
 ## Talking to the rest of the platform
 

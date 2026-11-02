@@ -591,6 +591,71 @@ and are not merely globally sensitive. Rolled back; 0c re-run clean afterwards.
 - `anon` currently gets **`42501 permission denied`** on schema `civic_spaces` — the
   pre-apply door, confirmed shut from the outside.
 
+## APPLIED TO PRODUCTION — 2026-11-02
+
+All four rungs are in. Each file was staged from `git show origin/main:` and its sha256
+checked against the step 0a record immediately before it ran; all four matched. Applied with
+`psql -1` (one transaction per file), `ON_ERROR_STOP=1`, exit 0 each time.
+
+| rung | migration | result |
+|---|---|---|
+| 1 | `20261030000000_reconcile_public_views` | `anon` on public views **15 → 3**; `authenticated` unchanged at 15 |
+| 2 | `20261030000100_public_read` | 4 RPCs + 2 helpers created, **0 of 6 executable by anyone** |
+| 3 | `20261030000150_public_read_grants_members` | `authenticated` 4; `anon` 0 and **no schema USAGE** |
+| 4 | `20261030000200_public_read_grants` | `anon` USAGE + EXECUTE on exactly 4 |
+
+`supabase_migrations.schema_migrations` rows written for all four versions.
+
+**0c against production: ALL 6 IDENTICAL, no CR in any live body.** What is running is
+byte-for-byte the file reviewed in #139.
+
+### The grant surface, read from the catalog after rung 4
+
+| assertion | result |
+|---|---|
+| anon-executable SECURITY DEFINER functions in `civic_spaces` | exactly the four RPCs |
+| tables/views in `civic_spaces` anon can SELECT | **0** |
+| either `public_author_is_*` helper reachable by anon or authenticated | **0** |
+
+### Section 4 — the thing that had never run
+
+Run **between rungs 3 and 4**, which is the whole reason the grants were split.
+**58 PASS / 14 FAIL**, and *every one of the 14 was an* `anon` *assertion* — 27–38 because anon
+could not yet call the RPCs, 45–46 because they compare bytes against an anon response that did
+not exist. **No failure was in the member or friend path.** The two that matter passed with the
+public door still shut:
+
+```
+PASS 47  Connected member receives a non-NULL author_user_id on every row (D-48)
+PASS 48  D-49 in ONE response: the friend rows carry author_user_id, every other author NULL
+```
+
+Eyeballed directly rather than trusting the guard — same feed, same moment:
+
+| viewer | Author Alpha | Author Beta |
+|---|---|---|
+| friend of Alpha, **not** a member | `9e511ce0-aaaa…` | **NULL** |
+| member of the slice | `9e511ce0-aaaa…` | `9e511ce0-bbbb…` |
+| non-member, no friendship | NULL | NULL |
+| anon | `401 permission denied for schema civic_spaces` | |
+
+Re-run after rung 4: **72 PASS, 0 FAIL, 0 NOT RUN** — the whole guard green for the first time.
+
+🔴 **The fixture was synthetic and is gone.** Viewer 5 needs an accepted friendship with an
+author in the feed; pointing that at a real place would have meant writing a fabricated
+relationship involving a real member account into production to make a test pass. Instead:
+geoid `9999001`, which is not a TIGER/Line GEOID, so no assignment can route anyone there.
+Torn down and verified gone by five predicates, and by reading the geoid back through the
+public RPC (0 rows).
+
+### The feature, live
+
+`federal:US` as an anonymous visitor: `get_public_slice` 200; `get_public_feed` 200 with 11
+real posts, `author_user_id` NULL on all 11, `author_avatar_url` NULL on all, and none of
+`edit_history` / `is_deleted` / `account_standing` / `tier` / `current_member_count` present.
+`get_public_post` 1 row, `get_public_replies` 1 reply. **Volunteer: 0 rows.**
+**`/rest/v1/posts`: 401 permission denied for table.**
+
 ### Still to do before a production apply
 
 1. ~~The cache check.~~ **Done 2026-11-01** — see "Checked 2026-11-01" above.
@@ -605,4 +670,4 @@ and are not merely globally sensitive. Rolled back; 0c re-run clean afterwards.
 3. ~~The open question in `18-02-PLAN.md`.~~ **Closed 2026-11-01** — Chris chose the whole
    jurisdiction. `public_author_is_visible` now keys on `(slice_type, geoid)`, matching the
    sibling-read policies and `placeKey`. Covered by `18-02-d48-scope.sql`, mutation-proven.
-4. The apply itself, and the `supabase_migrations.schema_migrations` rows immediately after it.
+4. ~~The apply itself.~~ **Done 2026-11-02** — all four rungs, migration rows written. See above.
