@@ -432,6 +432,19 @@ validation in ev-accounts so the next real name cannot arrive silently.
 
 ---
 
+### Phase 19: The Town Divides
+**Goal**: A slice that reaches 6000 members divides, and the new one opens seeded with a forked
+window of its parent's conversation rather than empty.
+**Spec**: `docs/superpowers/specs/2026-11-01-slice-splitting-design.md` (approved 2026-11-01)
+**Plans**: 5 — 19-01 the split, 19-02 write permissions, 19-03 the cross-slice friend feed,
+19-04 the visitor's landing slice, 19-05 slice activity telemetry. **19-01 and 19-02 are
+written**; the rest are planned once 19-01 has landed, because the split is where the unknowns
+are. 19-04 must not be executed before Phase 18's apply, which is now done.
+
+🔴 **Redistribution is deliberately NOT in this phase** and is load-bearing rather than polish:
+a closed slice has no inflow ever, so every slice but the newest two is on a one-way decay
+curve. See §9.2 of the spec — it is a deadline, not a backlog item.
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -453,4 +466,5 @@ validation in ev-accounts so the next real name cannot arrive silently.
 | 15. Tool Deep Links | — | 1/1 | Complete | 2026-09-08 |
 | 16. Explore by Slice | — | 10/10 | Complete | 2026-10-25 |
 | 17. The Signed-Out Arrival | — | 7/7 | Complete | 2026-10-26 |
-| 18. The Public Square | — | 4/4 | Code complete, **unapplied** | — |
+| 18. The Public Square | — | 4/4 | Complete, **applied to production** | 2026-11-02 |
+| 19. The Town Divides | — | 0/5 planned (2 written) | Planning | — |
