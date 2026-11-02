@@ -477,14 +477,132 @@ Verified after the fix. Against the post-apply scratch, 3a/3b/3c run and **all s
 `check:grants` against production is unchanged at **5 PASS, 1 FAIL**, that FAIL being
 assertion 2 naming the twelve views: precisely the baseline this file predicts.
 
+### Re-rehearsed 2026-11-01, on four files instead of three
+
+🔴 **The earlier step-0a hashes are void.** Two things changed after that rehearsal, both
+deliberate, both committed:
+
+1. **D-48 was widened to the jurisdiction** (`e46b33d`). `public_author_is_visible`'s
+   membership arm now matches on `(slice_type, geoid)` instead of a single `slice_id`.
+   That closes the open question 18-02-PLAN left parked. Chris's call.
+2. **The grants were split in two** (`d5fc15d`), so that the per-author projection can be
+   proved over HTTP *before* anon can read rather than after.
+
+The apply is now a four-rung ladder, and each rung is checkable on its own:
+
+| # | file | what it changes | reversible? |
+|---|---|---|---|
+| 1 | `20261030000000_reconcile_public_views.sql` | the twelve `public.*` views stop being anon-SELECTable | yes |
+| 2 | `20261030000100_public_read.sql` | six functions exist; **every one revoked from PUBLIC** | yes, DROP |
+| 3 | `20261030000150_public_read_grants_members.sql` | `authenticated` gets EXECUTE on the four | yes, 4 REVOKEs |
+| 4 | `20261030000200_public_read_grants.sql` | `anon` gets USAGE + EXECUTE on the four | **NO — this is the door** |
+
+#### Step 0a — hashes of the COMMITTED bytes (not the working tree)
+
+| migration | sha256 | bytes |
+|---|---|---|
+| `20261030000000_reconcile_public_views.sql` | `9a71e0d406cd4c8751f6dddc08924bf9ebff9e145a3cdba4468cbfb2c5e3dcec` | 5859 |
+| `20261030000100_public_read.sql` | `e3a25da55a6e53b43988de1ef45dc3a83ce91312c53fce30530837a662937b71` | 25374 |
+| `20261030000150_public_read_grants_members.sql` | `20b23cd27112f2fcf6b296b847f6900818095e4a0520edf645a09aa3fbee479f` | 3610 |
+| `20261030000200_public_read_grants.sql` | `02900db7003e7d487f7a1fbed4c2ccc2e4ed305338d3ce8f40a0338226da325c` | 4168 |
+
+Zero CR bytes in all four. Working copies are CRLF (`core.autocrlf=true`); `git show HEAD:…`
+is what was hashed and what was applied.
+
+#### The scratch database
+
+Rebuilt from scratch per the recipe below: PostgreSQL 18.1, throwaway trust-auth cluster on
+port 5441, schema-only `pg_dump` of production (`-n civic_spaces`, plus the twelve
+`public.*` views by name in a **separate** dump — mixing `-n` and `-t` in one invocation
+has ambiguous semantics). **Zero `COPY`/`INSERT` lines in either dump**, asserted, so no
+member content reached the machine. Both restores: **0 errors**.
+
+Baseline matched production exactly before anything was applied:
+
+| | |
+|---|---|
+| `civic_spaces` functions / tables | 16 / 15 |
+| `public.*` views restored | 12 |
+| the four public RPCs | 0 — not yet defined |
+| `anon` USAGE on `civic_spaces` | **false** |
+| views `anon` could SELECT | **12** |
+| views with `security_invoker=on` | 12 |
+
+That last pair is the twelve-view problem exactly as `CLAUDE.md` describes it, and it is
+only reproducible because the bootstrap sets Supabase's `ALTER DEFAULT PRIVILEGES` first —
+**omit that and the reconcile migration revokes nothing and passes vacuously.**
+
+#### Step 0b — the ladder, rung by rung
+
+| after | `authenticated` EXECUTE on the 4 | `anon` EXECUTE on the 4 | `anon` schema USAGE | either helper reachable |
+|---|---|---|---|---|
+| `…000000` | — | — | false | — |
+| `…000100` | **0** | **0** | false | **0** |
+| `…000150` | **4** | **0** | **false** | **0** |
+| `…000200` | 4 | **4** | **true** | **0** |
+
+Reconcile took `anon`-SELECTable views from **12 to 0**.
+
+🔴 **The `…000100` row is the one that matters.** After the functions land, *nobody but the
+owner can call anything* — the REVOKEs beside each `CREATE FUNCTION` do their job. And the
+`…000150` row is the whole reason for the split: a state in which the four RPCs answer real
+HTTP for members while `anon` cannot even resolve the schema. **Neither helper is reachable
+by anyone at any rung**, which is what keeps `public_author_is_visible` from being a
+friendship oracle.
+
+#### Step 0c — byte identity
+
+`node scripts/prosrc-diff.mjs <committed 000100>` → **ALL 6 IDENTICAL, no CR in any live
+body.** `public_author_is_visible` reads 741 bytes, up from the pre-widening body, which is
+the independent confirmation that the edited version is the one that landed.
+
+#### Behaviour — 31 PASS, and the only two FAILs are the two controls
+
+`18-02-behaviour.sql` 20/20 (T1–T11 as owner, A1–A9 as anon), plus the new
+`18-02-d48-scope.sql` 11/11. Both files end in a deliberately-wrong CONTROL and both printed
+FAIL, so the harness is known to be able to.
+
+🔴 **Why `18-02-d48-scope.sql` had to be written.** Every one of the twenty existing
+assertions reads as **anon**, where `p_viewer IS NULL` and the projection is always narrow.
+They were green before the widening and green after it, because not one of them puts a
+*member* in the viewer seat. **The rule that changed had no test at all.** The new file puts
+members there — and three of its assertions are walls rather than doors:
+
+| | claim |
+|---|---|
+| D2 | a member of shard 1 **sees** an author in shard 2 — *the widening* |
+| D3 | a **county** member does **not** see a city author — type still matters |
+| D4 | **another city's** member does **not** see them — geoid still matters |
+| D7 | a friend of X does **not** unlock author Y — D-49 stays per-author |
+| E2 | the same as D2 **through `get_public_post` with a real JWT claim** |
+| E4 | `external_id` outranks `sub` — the WorkOS path |
+
+**Mutation-proven.** With the old narrow body pasted back inside a transaction, **D2 and E2
+flip to FAIL while D1 and D3 stay PASS** — so the new assertions detect this specific change
+and are not merely globally sensitive. Rolled back; 0c re-run clean afterwards.
+
+#### Confirmed live against production, before any apply
+
+- A JWT minted from `SUPABASE_JWT_SECRET` is **accepted**, and `current_user_id()` over
+  `/rest/v1/rpc/` returns the identity claimed. Two controls: a token signed with the wrong
+  secret gets `401 PGRST301`, and the publishable key as bearer gets `401 42501`.
+- **`external_id` beats `sub` over HTTP**, matching the function definition. This is the
+  identity-resolution risk `CLAUDE.md` documents, and it is now measured rather than assumed.
+- `anon` currently gets **`42501 permission denied`** on schema `civic_spaces` — the
+  pre-apply door, confirmed shut from the outside.
+
 ### Still to do before a production apply
 
 1. ~~The cache check.~~ **Done 2026-11-01** — see "Checked 2026-11-01" above.
    Nothing shared caches `/rest/v1/rpc/*`; the protection is Cloudflare's default on Supabase's
    own zone, not a directive of ours, so it is a standing re-check rather than a closed box.
    Re-run it if a custom domain appears or the reads ever move off POST.
-2. **Section 4's test JWTs.** D-49's per-author projection over HTTP is still UNPROVEN; the SQL
-   rehearsal is not the same thing and the guard says so itself.
-3. **The open question in `18-02-PLAN.md`** — whether a member of one shard counts as a member
-   for a sibling shard's authors — is still open, and 18-03 must not settle it by accident.
+2. **Section 4's test JWTs.** Still unrun, but **no longer blocked** — the secret exists
+   (`SUPABASE_JWT_SECRET` in `C:\EV-Accounts\backend\.env`, same project), minted tokens are
+   accepted, and `20261030000150` creates the state in which section 4 can run with the
+   public door shut. It runs **between rungs 3 and 4**, and rung 4 should not be applied
+   until it has passed. That ordering is the point of the split.
+3. ~~The open question in `18-02-PLAN.md`.~~ **Closed 2026-11-01** — Chris chose the whole
+   jurisdiction. `public_author_is_visible` now keys on `(slice_type, geoid)`, matching the
+   sibling-read policies and `placeKey`. Covered by `18-02-d48-scope.sql`, mutation-proven.
 4. The apply itself, and the `supabase_migrations.schema_migrations` rows immediately after it.
