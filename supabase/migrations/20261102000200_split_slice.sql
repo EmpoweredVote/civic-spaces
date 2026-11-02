@@ -122,7 +122,73 @@ BEGIN
   SET    current_member_count = v_to_move
   WHERE  id = v_new_id;
 
-  -- Task 6 adds the seed copy here.
+  -- ── the seed ───────────────────────────────────────────────────────────
+  -- The new slice must open TALKING. An empty slice is the failure this whole
+  -- design exists to avoid, so it is handed a forked copy of a recent window of
+  -- the parent's conversation (design 4.5).
+  --
+  -- 🔴 The copies keep the ORIGINAL author, title, body and TIMESTAMPS. The
+  -- feed is ORDER BY created_at DESC: stamping now() would open the new slice
+  -- with a wall of simultaneous posts in arbitrary order, and would lie about
+  -- when the words were said. Original timestamps also let the seed interleave
+  -- correctly, which makes p_seed_window the thing that decides what sits above
+  -- the fold.
+  --
+  -- The copy is ARCHIVAL with respect to its author: the byline is kept because
+  -- they are genuinely that person's words, but forked_from denies them standing
+  -- here and denies them the edit (19-02). The conversation continues without
+  -- them.
+  --
+  -- Excluded, each by one clause: out of window; soft-deleted; author suspended.
+  -- Resurrecting any of those in the new slice would publish, to a fresh
+  -- audience, something the parent's own feed has stopped showing.
+  WITH src AS (
+    SELECT p.id, p.user_id, p.title, p.body, p.created_at, p.updated_at
+    FROM   civic_spaces.posts p
+    JOIN   civic_spaces.connected_profiles cp ON cp.user_id = p.user_id
+    WHERE  p.slice_id   = p_slice_id
+      AND  p.is_deleted = false
+      AND  cp.account_standing <> 'suspended'
+      AND  p.created_at >= now() - p_seed_window
+  ), ins AS (
+    INSERT INTO civic_spaces.posts
+      (slice_id, user_id, title, body, created_at, updated_at, forked_from)
+    SELECT v_new_id, s.user_id, s.title, s.body, s.created_at, s.updated_at, s.id
+    FROM   src s
+    RETURNING id, forked_from
+  )
+  -- Replies ride along with their posts, under the same exclusions. A thread
+  -- seeded as a bare post with its replies stripped is an archive, not a
+  -- conversation — the exact failure this is meant to avoid.
+  --
+  -- parent_reply_id is deliberately NULL here and remapped below: the copy it
+  -- must point at does not exist until this statement has finished.
+  INSERT INTO civic_spaces.replies
+    (post_id, parent_reply_id, user_id, body, created_at, updated_at, forked_from)
+  SELECT ins.id, NULL, r.user_id, r.body, r.created_at, r.updated_at, r.id
+  FROM   civic_spaces.replies r
+  JOIN   ins ON ins.forked_from = r.post_id
+  JOIN   civic_spaces.connected_profiles cp ON cp.user_id = r.user_id
+  WHERE  r.is_deleted = false
+    AND  cp.account_standing <> 'suspended';
+
+  -- 🔴 THE REMAP. Copying parent_reply_id verbatim would point a reply in the
+  -- NEW slice at a reply in the PARENT — silently stitching together two threads
+  -- that are supposed to have forked apart, so that a nested reply in one slice
+  -- hangs off a conversation in another. Done as a second pass because the
+  -- target ids are only knowable once the copies exist. Matching through
+  -- forked_from handles any nesting depth, not just the one level the schema
+  -- allows today.
+  UPDATE civic_spaces.replies child
+  SET    parent_reply_id = parent_copy.id
+  FROM   civic_spaces.replies original
+  JOIN   civic_spaces.replies parent_copy
+         ON parent_copy.forked_from = original.parent_reply_id
+  JOIN   civic_spaces.posts  pc ON pc.id = parent_copy.post_id
+  WHERE  child.forked_from = original.id
+    AND  original.parent_reply_id IS NOT NULL
+    AND  pc.slice_id = v_new_id
+    AND  child.post_id IN (SELECT id FROM civic_spaces.posts WHERE slice_id = v_new_id);
 
   RETURN v_new_id;
 END;
