@@ -66,6 +66,7 @@ import {
   canWriteIn,
   isPublicSliceType,
   isSameJurisdiction,
+  offersReturnToOwnSpaces,
   placeKey,
   PUBLIC_SLICE_TYPES,
   replyClosedCopy,
@@ -858,6 +859,76 @@ check(
     bad.length === 0,
     `incomplete for: ${bad.join(', ')} — an action with no label renders a nameless button,\n` +
       `          which check:explore-rooms goal 6 reads as a dead end.`,
+  )
+}
+
+// ── 56–59: offersReturnToOwnSpaces ───────────────────────────────────────────
+//
+// 🔴 These exist because a D-04 violation shipped and NOTHING here went red.
+// The control "Back to my spaces" was gated on the REASON alone, which excludes
+// a signed-out visitor — the intent — and does NOT exclude an Inform account,
+// because `whyNoWrite` puts it in 'other-place' by construction (row 8 of TABLE,
+// the same reason rows 3 and 4 produce for a member visiting another city). So
+// the one viewer D-04 says to treat as anonymous was the one offered a control
+// named after spaces it has not got, which on click dropped it on the welcome
+// screen. whyNoWrite was never wrong; what the answer was handed to was.
+//
+// The loop runs the SAME TABLE the reason assertions run, and derives
+// hasOwnSpaces from each viewer's real ownedSliceIds rather than a literal, so
+// it cannot pass on a hand-picked fixture.
+
+{
+  const RETURN_TABLE = [
+    [1, false, 'a member in their own shard — no notice at all, so nothing to offer'],
+    [2, true, 'a member in a sibling shard — the control it was written for'],
+    [3, true, 'a member visiting another city that has a row'],
+    [4, true, 'a member visiting another city with no row'],
+    [5, false, "no-slice: they hold spaces, but not one here, and 'Back' is not the remedy"],
+    [6, false, 'signed-out, nothing on screen'],
+    [7, false, 'signed-out, a real row'],
+    [8, false, '🔴 THE REGRESSION: Inform shares row 3/4 reason and has NO spaces'],
+    [10, false, 'a placeless type, their own row'],
+    [11, true, 'a placeless type, a sibling row'],
+  ]
+  const expected = new Map(RETURN_TABLE.map(([n, v]) => [n, v]))
+  const wrong = []
+  for (const [n, viewer, viewed] of TABLE) {
+    const reason = whyNoWrite(ctx(viewer, viewed))
+    const hasOwnSpaces = viewer.ownedSliceIds.size > 0
+    const got = offersReturnToOwnSpaces(reason, hasOwnSpaces)
+    if (got !== expected.get(n)) {
+      wrong.push(`${n} (${viewer.label}, reason ${reason === null ? 'null' : `'${reason}'`}, hasOwnSpaces=${hasOwnSpaces}) → ${got}, want ${expected.get(n)}`)
+    }
+  }
+  check(56, 'offersReturnToOwnSpaces over every viewer × slice in TABLE', wrong.length === 0, wrong.join('; '))
+
+  // The discrimination itself, stated on its own so a failure names the bug.
+  check(
+    57,
+    "D-04: the SAME reason answers differently for a viewer with no spaces — 'other-place' offers the control to a member and withholds it from Inform",
+    offersReturnToOwnSpaces('other-place', true) === true &&
+      offersReturnToOwnSpaces('other-place', false) === false,
+    'the reason alone is deciding it again — an Inform account is being offered spaces it has not got',
+  )
+
+  // No reason may offer the control to someone with nothing to return to.
+  const leaks = ['signed-out', 'no-slice', 'other-place', 'sibling-shard', null]
+    .filter((r) => offersReturnToOwnSpaces(r, false))
+  check(58, 'no reason whatsoever offers the control when hasOwnSpaces is false', leaks.length === 0,
+    `offered for: ${leaks.join(', ')}`)
+
+  // 🔴 ReadOnlyNotice does NOT call this predicate. Its control is confined to its
+  // `reason === 'sibling-shard'` branch, and that is only safe while sibling-shard
+  // cannot be reached without membership. Assert the invariant it leans on, so a
+  // change to whyNoWrite lands here rather than in production.
+  const siblingWithoutSpaces = TABLE.filter(([, viewer, viewed]) =>
+    whyNoWrite(ctx(viewer, viewed)) === 'sibling-shard' && viewer.ownedSliceIds.size === 0)
+  check(
+    59,
+    "ReadOnlyNotice's structural gate holds: 'sibling-shard' is unreachable without membership",
+    siblingWithoutSpaces.length === 0,
+    `rows ${siblingWithoutSpaces.map(([n]) => n).join(', ')} reach sibling-shard with no spaces — ` +
+      'ReadOnlyNotice would offer "Switch back" to someone with nowhere to go. Give it the predicate.',
   )
 }
 

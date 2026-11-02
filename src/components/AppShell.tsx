@@ -2007,12 +2007,17 @@ export default function AppShell() {
                                   looking at the four-way shoot, because a component that
                                   renders correctly twice fails no assertion. The notice is
                                   about WRITING, which this phase did not open. The way out is
-                                  passed down so the notice is rendered once, there — and
-                                  ReplyClosedNotice gates it on the reason, because "Back to my
-                                  spaces" names spaces a signed-out visitor has not got. */}
+                                  passed down so the notice is rendered once, there. The gate is
+                                  `offersReturnToOwnSpaces` in writeAccess.ts, which needs BOTH
+                                  the reason and `hasOwnSpaces`: "Back to my spaces" names
+                                  spaces a signed-out visitor has not got, and an Inform account
+                                  has not got them either while sharing the visiting member's
+                                  reason. AppShell hands over the data; the notice applies the
+                                  rule, so there is one rule. */}
                               <SliceFeedPanel
                                 sliceId={slice.id}
-                                onReturnToOwnSlice={hasOwnSpaces ? leavePlace : undefined}
+                                onReturnToOwnSlice={leavePlace}
+                                hasOwnSpaces={hasOwnSpaces}
                                 publicPlace={{ sliceType: slice.sliceType, geoid: slice.geoid }}
                                 isActive={isShown}
                                 isViewOnly

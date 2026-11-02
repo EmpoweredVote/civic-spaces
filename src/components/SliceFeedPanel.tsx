@@ -92,6 +92,8 @@ interface SliceFeedPanelProps {
   viewingSliceIndex?: number
   ownSliceIndex?: number
   onReturnToOwnSlice?: () => void
+  /** Whether the viewer has spaces to go back to. See `offersReturnToOwnSpaces`. */
+  hasOwnSpaces?: boolean
   /**
    * 🔴 There is NO `loginUrl` prop any more, and its absence is the decision.
    *
@@ -119,6 +121,8 @@ export default function SliceFeedPanel({
   viewingSliceIndex,
   ownSliceIndex,
   onReturnToOwnSlice,
+
+  hasOwnSpaces = false,
 }: SliceFeedPanelProps) {
   // Hoisted above the feed hooks: the public query is cached PER VIEWER (D-49), so
   // the reader's id is part of its key and has to exist before the key is built.
@@ -233,6 +237,8 @@ export default function SliceFeedPanel({
             viewingSliceIndex={viewingSliceIndex}
             ownSliceIndex={ownSliceIndex}
             onReturnToOwnSlice={onReturnToOwnSlice}
+
+            hasOwnSpaces={hasOwnSpaces}
           />
         )}
         <FeedSkeleton />
@@ -257,6 +263,8 @@ export default function SliceFeedPanel({
             viewingSliceIndex={viewingSliceIndex}
             ownSliceIndex={ownSliceIndex}
             onReturnToOwnSlice={onReturnToOwnSlice}
+
+            hasOwnSpaces={hasOwnSpaces}
           />
         )}
         <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400">
@@ -294,6 +302,8 @@ export default function SliceFeedPanel({
             viewingSliceIndex={viewingSliceIndex}
             ownSliceIndex={ownSliceIndex}
             onReturnToOwnSlice={onReturnToOwnSlice}
+
+            hasOwnSpaces={hasOwnSpaces}
           />
         )}
         {posts.length === 0 ? (
