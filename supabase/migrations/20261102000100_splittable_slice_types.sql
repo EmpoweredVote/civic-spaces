@@ -39,6 +39,17 @@ $$;
 -- check:anon-read asserts the anon-executable set is exactly the four public RPCs.
 REVOKE ALL ON FUNCTION civic_spaces.is_splittable_slice_type(text) FROM PUBLIC, anon, authenticated;
 
+-- 🔴 ...and granted back to the engine alone. ev-accounts has to know whether a
+-- full slice DIVIDES or merely OVERFLOWS, because the two have different outcomes:
+-- a splittable type calls split_slice, while `volunteer` falls through to the
+-- dormant create-a-sibling path described above. The engine could carry its own
+-- copy of the five strings, but that would be a THIRD list with nothing pinning
+-- it to these two -- and a drifted copy there would route a split down the wrong
+-- branch in silence. Asking the database costs one round trip on a path that
+-- fires once per 6000 members, and it leaks nothing: the function reads no table
+-- and its answer is a constant.
+GRANT EXECUTE ON FUNCTION civic_spaces.is_splittable_slice_type(text) TO civic_spaces_app;
+
 COMMENT ON FUNCTION civic_spaces.is_splittable_slice_type(text) IS
   'Design §4.2: city, county, state, federal, unified divide at the cap; volunteer does not, because it is a role rather than a place. Twin of SPLITTABLE_SLICE_TYPES in src/lib/writeAccess.ts — deliberately NOT the same list as the public-read allowlist, though the contents match today. Pinned by check:write-access 60-63.';
 
