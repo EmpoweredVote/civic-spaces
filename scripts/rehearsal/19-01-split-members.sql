@@ -27,12 +27,25 @@ $try$;
 -- Returns the new slice id, or NULL if the call was refused. Used by the
 -- assertions that expect a REFUSAL, so a raise reads as a result rather than a
 -- crash.
+-- 🔴 p_min_members => 1. These fixtures hold seven members, not six thousand,
+-- because split_slice halves whatever it is given and seeding the cap would buy
+-- nothing but minutes. The threshold exists to stop a buggy caller dividing a
+-- jurisdiction that was never full, so it is passed explicitly here and left at
+-- its default in M11 below, which is where it is actually under test.
 CREATE OR REPLACE FUNCTION pg_temp.try_split(p uuid) RETURNS uuid
 LANGUAGE plpgsql AS $ts$
 DECLARE r uuid;
-BEGIN SELECT civic_spaces.split_slice(p) INTO r; RETURN r;
+BEGIN SELECT civic_spaces.split_slice(p, interval '14 days', 1) INTO r; RETURN r;
 EXCEPTION WHEN others THEN RETURN NULL; END
 $ts$;
+
+-- The same call with the threshold left alone, for M11.
+CREATE OR REPLACE FUNCTION pg_temp.try_split_default(p uuid) RETURNS uuid
+LANGUAGE plpgsql AS $tsd$
+DECLARE r uuid;
+BEGIN SELECT civic_spaces.split_slice(p) INTO r; RETURN r;
+EXCEPTION WHEN others THEN RETURN NULL; END
+$tsd$;
 
 -- ── fixture ────────────────────────────────────────────────────────────────
 -- Main: one city slice, 7 members, distinct joined_at ascending m1..m7.
@@ -40,6 +53,7 @@ INSERT INTO civic_spaces.slices (id, slice_type, geoid, sibling_index) VALUES
   ('19010000-0000-4000-8000-000000000001'::uuid, 'city', '9999020', 1),
   ('19010000-0000-4000-8000-000000000023'::uuid, 'city', '9999023', 1),
   ('19010000-0000-4000-8000-000000000024'::uuid, 'volunteer', '9999024', 1),
+  ('19010000-0000-4000-8000-000000000025'::uuid, 'city', '9999025', 1),
   -- the tie pair, seeded identically
   ('19010000-0000-4000-8000-000000000021'::uuid, 'city', '9999021', 1),
   ('19010000-0000-4000-8000-000000000022'::uuid, 'city', '9999022', 1);
@@ -77,6 +91,14 @@ CROSS JOIN (VALUES
   ('19010000-0000-4000-8000-000000000021'::uuid),
   ('19010000-0000-4000-8000-000000000022'::uuid)
 ) AS t(s);
+
+-- 🔴 M11's fixture: a city slice that IS the frontier, IS splittable, and is
+-- nowhere near the cap. Every guard the function had before passes on it.
+INSERT INTO civic_spaces.slice_members (user_id, slice_id, joined_at)
+SELECT 'u' || i || '-0000-4000-8000-00000000000' || i,
+       '19010000-0000-4000-8000-000000000025'::uuid,
+       timestamptz '2026-03-01 00:00:00+00' + (i || ' days')::interval
+FROM generate_series(1, 3) AS i;
 
 -- Capture joined_at BEFORE the split, so M4 compares against recorded values
 -- rather than against whatever the rows say afterwards.
@@ -184,6 +206,21 @@ SELECT 'M10 the parent is left below the cap, joinable  : ' ||
   CASE WHEN pg_temp.try_bool($q$
     SELECT (SELECT main IS NOT NULL FROM result) AND (SELECT current_member_count FROM civic_spaces.slices
             WHERE id='19010000-0000-4000-8000-000000000001'::uuid) < 6000 $q$)
+  THEN 'PASS' ELSE 'FAIL' END;
+
+-- 🔴 M11. Dividing is IRREVERSIBLE, and until the review the only guards were
+-- "exists", "splittable" and "is the frontier" — all three of which the
+-- function's OWN OUTPUT satisfies, since the slice it creates is splittable and
+-- is the new frontier. A caller in a loop would have halved a jurisdiction
+-- repeatedly, and a three-member slice would have divided as willingly as a
+-- full one. This fixture passes every other guard, which is the whole point.
+SELECT 'M11 a slice below the cap is refused by default : ' ||
+  CASE WHEN pg_temp.try_bool($q$
+    SELECT (SELECT main IS NOT NULL FROM result)
+       AND pg_temp.try_split_default('19010000-0000-4000-8000-000000000025'::uuid) IS NULL
+       AND (SELECT count(*) FROM civic_spaces.slices WHERE geoid='9999025') = 1
+       AND (SELECT count(*) FROM civic_spaces.slice_members
+            WHERE slice_id='19010000-0000-4000-8000-000000000025'::uuid) = 3 $q$)
   THEN 'PASS' ELSE 'FAIL' END;
 
 -- 🔴 CONTROL. Deliberately wrong, MUST print FAIL.

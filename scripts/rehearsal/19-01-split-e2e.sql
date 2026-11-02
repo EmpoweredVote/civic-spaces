@@ -32,7 +32,7 @@ $try$;
 CREATE OR REPLACE FUNCTION pg_temp.try_split(p uuid) RETURNS uuid
 LANGUAGE plpgsql AS $ts$
 DECLARE r uuid;
-BEGIN SELECT civic_spaces.split_slice(p) INTO r; RETURN r;
+BEGIN SELECT civic_spaces.split_slice(p, interval '14 days', 1) INTO r; RETURN r;
 EXCEPTION WHEN others THEN RETURN NULL; END
 $ts$;
 

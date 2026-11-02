@@ -74,17 +74,19 @@ SELECT 'F2 replies.forked_from is a nullable uuid      : ' ||
       AND column_name='forked_from' AND data_type='uuid' AND is_nullable='YES')
   THEN 'PASS' ELSE 'FAIL' END;
 
--- confdeltype: 'n' = SET NULL, 'c' = CASCADE, 'a' = NO ACTION.
--- 🔴 CASCADE would let a hard delete of a parent destroy a conversation the new
--- slice has been having underneath it. The product has no hard delete today —
--- is_deleted is a soft flag — so this is about what a future one must not do.
-SELECT 'F3 both forked_from FKs are ON DELETE SET NULL : ' ||
+-- confdeltype: 'a' = NO ACTION, 'n' = SET NULL, 'c' = CASCADE.
+-- 🔴 BOTH of the obvious choices are wrong, and SET NULL is the dangerous one.
+-- NULL means "written in place" to the permission predicates, so SET NULL would
+-- promote every copy of a deleted original into an original and hand its author
+-- standing in a slice they were never assigned to. NO ACTION refuses the delete
+-- while forks exist. Nothing hard-deletes today, so nothing is blocked.
+SELECT 'F3 both forked_from FKs are ON DELETE NO ACTION: ' ||
   CASE WHEN (
     SELECT count(*) FROM pg_constraint c
     JOIN pg_class t ON t.oid = c.conrelid
     JOIN pg_namespace n ON n.oid = t.relnamespace
     WHERE n.nspname='civic_spaces' AND t.relname IN ('posts','replies')
-      AND c.contype='f' AND c.confdeltype='n'
+      AND c.contype='f' AND c.confdeltype='a'
       AND EXISTS (SELECT 1 FROM unnest(c.conkey) k
                   JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k
                   WHERE a.attname='forked_from')
@@ -110,25 +112,46 @@ SELECT 'F6 a reply may point forked_from at a reply    : ' ||
       AND forked_from='f0f0f0f0-2222-4000-8000-000000000001' $q$)
   THEN 'PASS' ELSE 'FAIL' END;
 
--- Hard-delete the original post. Its own reply cascades away with it; the FORKS
--- must survive both, with their pointers NULLed rather than following the parent.
-DO $del$
-BEGIN
-  DELETE FROM civic_spaces.posts WHERE id='f0f0f0f0-1111-4000-8000-000000000001';
-EXCEPTION WHEN others THEN NULL;
-END
-$del$;
+-- 🔴 Try to hard-delete the original post, inside a subtransaction so a refusal
+-- is a result rather than the end of the file. It MUST be refused while a fork
+-- of it exists, and the fork MUST still be a fork afterwards.
+CREATE OR REPLACE FUNCTION pg_temp.try_delete(q text) RETURNS boolean
+LANGUAGE plpgsql AS $td$
+BEGIN EXECUTE q; RETURN true;
+EXCEPTION WHEN others THEN RETURN false; END
+$td$;
 
-SELECT 'F7 the post fork survives its parent, NULLed   : ' ||
+CREATE TEMP TABLE del AS SELECT
+  pg_temp.try_delete($d$DELETE FROM civic_spaces.posts
+                        WHERE id='f0f0f0f0-1111-4000-8000-000000000001'$d$) AS post_deleted,
+  pg_temp.try_delete($d$DELETE FROM civic_spaces.replies
+                        WHERE id='f0f0f0f0-2222-4000-8000-000000000001'$d$) AS reply_deleted;
+
+-- 🔴 THE ASSERTION THE REVIEW ADDED. Under ON DELETE SET NULL this read PASS
+-- while doing the opposite thing: the delete succeeded and the fork's pointer
+-- was quietly NULLed, which to every permission predicate reads as "written in
+-- place". The author of a deleted original would have gained standing in a
+-- slice they were never assigned to, and nothing anywhere would have said so.
+SELECT 'F7 deleting a forked original is REFUSED       : ' ||
   CASE WHEN pg_temp.try_bool($q$
-    SELECT count(*)=1 FROM civic_spaces.posts
-    WHERE id='f0f0f0f0-1111-4000-8000-000000000002' AND forked_from IS NULL $q$)
+    SELECT (SELECT post_deleted = false FROM del)
+       AND EXISTS (SELECT 1 FROM civic_spaces.posts
+                   WHERE id='f0f0f0f0-1111-4000-8000-000000000001') $q$)
   THEN 'PASS' ELSE 'FAIL' END;
 
-SELECT 'F8 the reply fork survives its parent, NULLed  : ' ||
+SELECT 'F7b the fork is STILL a fork, not promoted     : ' ||
   CASE WHEN pg_temp.try_bool($q$
-    SELECT count(*)=1 FROM civic_spaces.replies
-    WHERE id='f0f0f0f0-2222-4000-8000-000000000002' AND forked_from IS NULL $q$)
+    SELECT count(*)=1 FROM civic_spaces.posts
+    WHERE id='f0f0f0f0-1111-4000-8000-000000000002'
+      AND forked_from='f0f0f0f0-1111-4000-8000-000000000001' $q$)
+  THEN 'PASS' ELSE 'FAIL' END;
+
+SELECT 'F8 the same holds for a forked reply           : ' ||
+  CASE WHEN pg_temp.try_bool($q$
+    SELECT (SELECT reply_deleted = false FROM del)
+       AND (SELECT count(*)=1 FROM civic_spaces.replies
+            WHERE id='f0f0f0f0-2222-4000-8000-000000000002'
+              AND forked_from='f0f0f0f0-2222-4000-8000-000000000001') $q$)
   THEN 'PASS' ELSE 'FAIL' END;
 
 -- 🔴 CONTROL. Deliberately wrong, MUST print FAIL.

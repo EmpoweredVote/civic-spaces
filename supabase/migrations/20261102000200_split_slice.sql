@@ -28,9 +28,28 @@
 -- sibling. The refusal masked the double-split; a function without the frontier
 -- guard would simply have divided the jurisdiction twice and said nothing.
 
+-- 🔴 p_min_members IS A SAFETY CATCH, NOT A TUNING KNOB. Dividing is
+-- IRREVERSIBLE — there is no inverse function, and even with one, the replies
+-- written in the new slice afterwards have nowhere to go. Without this the only
+-- preconditions were "exists", "is splittable" and "is the frontier", and the
+-- function's OWN OUTPUT satisfies all three: the slice it just created is
+-- splittable and is the new frontier. So a caller in a loop would halve a
+-- jurisdiction over and over, re-seeding another copy of the window each time,
+-- and a slice of ten members, or one, or zero (ceil(0/2) = 0, an empty sibling)
+-- would divide just as willingly as a full one.
+--
+-- The only thing standing between that and production was caller discipline in
+-- civic_spaces_app — precisely the role this whole design treats as untrusted
+-- enough to wall off from post content. Defaulting to the cap means the engine's
+-- one-argument call is guarded without knowing it, while an operator who really
+-- does mean to split a half-empty slice has to say so.
+--
+-- 6000 MUST equal civic_spaces.enforce_slice_cap()'s threshold and
+-- SLICE_CAPACITY in ev-accounts' sliceAssigner.ts. Three places, one number.
 CREATE OR REPLACE FUNCTION civic_spaces.split_slice(
   p_slice_id    uuid,
-  p_seed_window interval DEFAULT interval '14 days'
+  p_seed_window interval DEFAULT interval '14 days',
+  p_min_members integer  DEFAULT 6000
 )
 RETURNS uuid
 LANGUAGE plpgsql
@@ -75,16 +94,26 @@ BEGIN
       p_slice_id, v_parent.sibling_index, v_max USING ERRCODE = 'P0001';
   END IF;
 
-  INSERT INTO civic_spaces.slices (slice_type, geoid, sibling_index)
-  VALUES (v_parent.slice_type, v_parent.geoid, v_max + 1)
-  RETURNING id INTO v_new_id;
-
   -- 🔴 count(*), NOT the cap and NOT current_member_count. Members leave, and
   -- the count is trigger-maintained and can drift from reality. "The most recent
-  -- half" means half of what is actually there.
+  -- half" means half of what is actually there — and it is also what the
+  -- fullness guard below has to be measured against, for the same reason.
   SELECT count(*) INTO v_total
   FROM   civic_spaces.slice_members
   WHERE  slice_id = p_slice_id;
+
+  -- 🔴 COUNTED AND REFUSED BEFORE ANYTHING IS CREATED. A split that should not
+  -- have happened cannot be undone, so the refusal has to come before the
+  -- INSERT, not after it — otherwise a rejected call still leaves a new slice
+  -- row behind, which is itself the new frontier.
+  IF v_total < p_min_members THEN
+    RAISE EXCEPTION 'split_slice: slice % has % members, below the % required to divide; splitting is irreversible',
+      p_slice_id, v_total, p_min_members USING ERRCODE = 'P0001';
+  END IF;
+
+  INSERT INTO civic_spaces.slices (slice_type, geoid, sibling_index)
+  VALUES (v_parent.slice_type, v_parent.geoid, v_max + 1)
+  RETURNING id INTO v_new_id;
 
   v_to_move := ceil(v_total / 2.0);
 
@@ -127,12 +156,24 @@ BEGIN
   -- design exists to avoid, so it is handed a forked copy of a recent window of
   -- the parent's conversation (design 4.5).
   --
-  -- 🔴 The copies keep the ORIGINAL author, title, body and TIMESTAMPS. The
+  -- 🔴 The copies keep the ORIGINAL author, title, body and created_at. The
   -- feed is ORDER BY created_at DESC: stamping now() would open the new slice
   -- with a wall of simultaneous posts in arbitrary order, and would lie about
-  -- when the words were said. Original timestamps also let the seed interleave
+  -- when the words were said. Original created_at also lets the seed interleave
   -- correctly, which makes p_seed_window the thing that decides what sits above
   -- the fold.
+  --
+  -- 🔴 updated_at IS NOT PRESERVED, and saying otherwise would be a lie this
+  -- file told for a while. The INSERTs below do carry it, but two existing
+  -- triggers overwrite it afterwards and neither can be avoided from in here:
+  -- trg_reply_count UPDATEs posts.reply_count for every copied reply, and the
+  -- parent_reply_id remap at the bottom UPDATEs the copied replies — each firing
+  -- set_updated_at(), which assigns now() unconditionally. The only way to stop
+  -- it is to make that shared trigger honour an explicitly supplied value, which
+  -- would hand every authenticated client control of updated_at on their own
+  -- rows through PostgREST. Not worth it: created_at is the ordering key and the
+  -- "edited" marker reads edit_history, not this column. Asserted as-is in
+  -- 19-01-split-seed.sql (S6b) so the behaviour is pinned rather than accidental.
   --
   -- The copy is ARCHIVAL with respect to its author: the byline is kept because
   -- they are genuinely that person's words, but forked_from denies them standing
@@ -163,6 +204,18 @@ BEGIN
   --
   -- parent_reply_id is deliberately NULL here and remapped below: the copy it
   -- must point at does not exist until this statement has finished.
+  --
+  -- 🔴 A REPLY WHOSE PARENT IS EXCLUDED IS EXCLUDED TOO. Without the last
+  -- clause, a child of a soft-deleted or suspended-author reply was still copied
+  -- when its own author was fine — and the remap then found no parent to point
+  -- at, so it stayed NULL and rendered as a direct reply to the post. The words
+  -- survive, stripped of what they were answering, in front of an audience who
+  -- never saw the question. In the parent slice that reply still nests correctly
+  -- under a hidden parent; the fork is where it gets promoted.
+  --
+  -- One level deep, which is all the schema allows today. If nesting ever goes
+  -- deeper this needs to be recursive, or a grandchild of an excluded reply
+  -- comes back the same way.
   INSERT INTO civic_spaces.replies
     (post_id, parent_reply_id, user_id, body, created_at, updated_at, forked_from)
   SELECT ins.id, NULL, r.user_id, r.body, r.created_at, r.updated_at, r.id
@@ -170,7 +223,14 @@ BEGIN
   JOIN   ins ON ins.forked_from = r.post_id
   JOIN   civic_spaces.connected_profiles cp ON cp.user_id = r.user_id
   WHERE  r.is_deleted = false
-    AND  cp.account_standing <> 'suspended';
+    AND  cp.account_standing <> 'suspended'
+    AND  (r.parent_reply_id IS NULL OR EXISTS (
+            SELECT 1
+            FROM   civic_spaces.replies              pr
+            JOIN   civic_spaces.connected_profiles  pcp ON pcp.user_id = pr.user_id
+            WHERE  pr.id          = r.parent_reply_id
+              AND  pr.is_deleted  = false
+              AND  pcp.account_standing <> 'suspended'));
 
   -- 🔴 THE REMAP. Copying parent_reply_id verbatim would point a reply in the
   -- NEW slice at a reply in the PARENT — silently stitching together two threads
@@ -198,10 +258,18 @@ $$;
 -- default EXECUTE-to-PUBLIC is callable by anyone who can resolve the schema —
 -- and since Phase 18, `anon` can. This one MOVES MEMBERS; world-callable it
 -- would be a way to reshuffle a jurisdiction from the open internet.
-REVOKE ALL ON FUNCTION civic_spaces.split_slice(uuid, interval) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION civic_spaces.split_slice(uuid, interval) TO civic_spaces_app;
+REVOKE ALL ON FUNCTION civic_spaces.split_slice(uuid, interval, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION civic_spaces.split_slice(uuid, interval, integer) TO civic_spaces_app;
 
-COMMENT ON FUNCTION civic_spaces.split_slice(uuid, interval) IS
-  'Design 4.4: divides a FRONTIER slice, moving the most recently joined half (ceil) to a new sibling and seeding it with a window of the parent''s recent threads. Refuses a non-frontier slice (it closes instead) and any non-splittable type. joined_at is carried, never restamped. Called by the ev-accounts engine, which cannot touch post content itself.';
+COMMENT ON FUNCTION civic_spaces.split_slice(uuid, interval, integer) IS
+  'Design 4.4: divides a FRONTIER slice, moving the most recently joined half (ceil) to a new sibling and seeding it with a window of the parent''s recent threads. Refuses a non-frontier slice (it closes instead), any non-splittable type, and any slice below p_min_members (default 6000) -- splitting is irreversible and the function''s own output satisfies every other guard. joined_at is carried, never restamped; updated_at on a copy is the copy time, because two existing triggers restamp it. Called by the ev-accounts engine, which cannot touch post content itself.';
+
+-- 🔴 Two column comments the design asks for (§3, §4.4), because this migration
+-- is what makes the old ones wrong.
+COMMENT ON COLUMN civic_spaces.slices.sibling_index IS
+  'Position in this (slice_type, geoid)''s sequence of slices, from 1. It is also the ONLY record of which slices are open: the two highest values accept new members and every lower one is closed. "Closed" is therefore derived, never stored -- there is no is_closed column and must not be, or it could disagree with this. See split_slice() and ev-accounts chooseOpenSlice().';
+
+COMMENT ON COLUMN civic_spaces.slice_members.joined_at IS
+  'When this member joined the JURISDICTION''s conversation, not this particular slice. A split carries it across unchanged (design 4.4) -- restamping it would destroy the only tenure record the platform holds, irreversibly, and it is the key a split sorts on to decide who moves.';
 
 NOTIFY pgrst, 'reload schema';
