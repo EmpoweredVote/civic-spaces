@@ -1298,6 +1298,21 @@ export default function AppShell() {
     () => new Set(Object.values(slices).map((s) => placeKey(s.sliceType, s.geoid))),
     [slices],
   )
+  /**
+   * 🔴 Whether "Back to my spaces" has anywhere to go. D-04 says an Inform
+   * account receives exactly what an anonymous visitor receives — and an Inform
+   * account holds no slice_members rows, so `whyNoWrite` lands it in
+   * `'other-place'` BY CONSTRUCTION, the same branch a member visiting another
+   * city lands in. `ReplyClosedNotice` gates the control on that reason, which
+   * correctly excludes the signed-out visitor and does NOT exclude Inform: the
+   * one account D-04 says must be treated as a visitor was being offered a
+   * control named after spaces it has not got, and pressing it ran `leavePlace`
+   * and dropped it on the welcome screen.
+   *
+   * Reason cannot tell those two apart — membership can, and it is data rather
+   * than a tier term, which is the distinction `whyNoWrite`'s header insists on.
+   */
+  const hasOwnSpaces = ownedSliceIds.size > 0
 
   /**
    * The shard on screen for the active tab, and WHY the viewer may not write in
@@ -1997,7 +2012,7 @@ export default function AppShell() {
                                   spaces" names spaces a signed-out visitor has not got. */}
                               <SliceFeedPanel
                                 sliceId={slice.id}
-                                onReturnToOwnSlice={leavePlace}
+                                onReturnToOwnSlice={hasOwnSpaces ? leavePlace : undefined}
                                 publicPlace={{ sliceType: slice.sliceType, geoid: slice.geoid }}
                                 isActive={isShown}
                                 isViewOnly
@@ -2022,7 +2037,7 @@ export default function AppShell() {
                               reason={reason}
                               surface="feed"
                               loginUrl={isAuthenticated ? undefined : loginUrl}
-                              onReturnToOwnSlice={leavePlace}
+                              onReturnToOwnSlice={hasOwnSpaces ? leavePlace : undefined}
                             />
                             {/*
                               🔴 THE FAIL-CLOSED FALLBACK, and as of Phase 18 it is
