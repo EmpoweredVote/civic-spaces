@@ -1,6 +1,13 @@
 # 19-01 apply runbook — the split
 
-**Status: NOT APPLIED.** Three migrations, written and rehearsed, nothing run against production.
+**Status: APPLIED to production 2026-11-02.** All three, in order, one transaction each,
+from the committed bytes (hashes below matched before and after extraction). Recorded in
+`supabase_migrations.schema_migrations`. **No data changed** — 15 slices / 36 members /
+12 posts before and after, 0 forked posts, 0 forked replies — because nothing calls these
+functions yet. The irreversible moment is still ahead: it is the first time ev-accounts
+calls `split_slice`, which is gated on the scheduling question in ev-accounts#1281.
+
+Do not apply again. If you are here to deploy the engine, go to "Still to do" at the bottom.
 
 Same discipline as `18-02-APPLY.md`, which this follows: **hash the committed bytes, never the
 working tree.** Working copies here are CRLF (`core.autocrlf=true`) and the committed bytes are
@@ -98,10 +105,44 @@ exercised** — all four rehearsal files run as the scratch cluster's superuser,
 `has_function_privilege` is trivially true and no role named `civic_spaces_app` exists. The
 queries above are the only check they get, and they must be run after apply, not assumed.
 
+**Run on 2026-11-02, and they hold.** Both rows came back `f | f | t`, and the ACLs read
+`postgres=X/postgres | civic_spaces_app=X/postgres` on both functions — **no PUBLIC entry**,
+so the default `EXECUTE TO PUBLIC` never took. `forked_from` is `confdeltype = 'a'`
+(NO ACTION) on both tables, `split_slice` is SECURITY DEFINER with the 3-arg signature, and
+`is_splittable_slice_type` answers `t` for the five place types, `f` for `volunteer` and for
+an unknown string. A `NOTIFY pgrst, 'reload schema'` followed.
+
 🔴 Then run `npm run check:anon-read` and expect **72 PASS / 0 FAIL**. Since Phase 18, `anon`
 resolves schema `civic_spaces`, so every function added from now on is anon-callable the moment
 it is created unless its own file revokes `PUBLIC` — both of these do, and that guard is what
 proves it.
+
+**Run on 2026-11-02 after apply: 72 PASS, 0 FAIL, 0 NOT RUN, exit 0.** The assertion that
+settles this phase is check 38, *the anon-executable SECURITY DEFINER set equals exactly 4
+RPCs*: `split_slice` is a new DEFINER function in a schema `anon` can resolve, and set
+equality still holds.
+
+🔴 **Two things about reaching 72 that cost an hour, so they are written down.**
+
+1. **The default place has no posts.** `ANON_READ_PUBLIC_PLACE` defaults to `city:1805860`,
+   which holds zero; the only seeded public slice in production is `federal:US` with 11. On
+   the default, checks 28 and 29 FAIL for "returns rows" — that is empty content, not an
+   exposure, and reading it as one wastes the time this note saves.
+2. **Section 4 needs a fixture, and `federal:US` is the wrong place to run it against.** D-49
+   needs one feed containing a friend-authored post *and* another author's post; against
+   `federal:US` that "other author" is a real member. `scripts/` has no fixture for this, so
+   it is built by hand: six synthetic profiles prefixed `zz-anonread-`, one `city:9999099`
+   slice, two posts, one `FRIEND` row, and four JWTs minted off `SUPABASE_JWT_SECRET`. The
+   viewer shapes are the whole point — the friend must **not** be a slice member, or
+   membership makes every author visible and D-49 passes for the wrong reason.
+
+🔴 **Checks 45 and 46 assert "byte-identical to anon", which a REJECTED token also satisfies.**
+They can pass vacuously. Three controls were run against the same feed and must be run again
+by anyone repeating this: a tampered-signature token is refused `401 PGRST301` (not downgraded
+to anon); a validly-signed token for a user in no slice and no friendship sees NULL author ids;
+and the member token on that same feed sees non-NULL ids, so the second control is not vacuous
+in turn. Tear the fixture down afterwards and delete the minted tokens — they are real
+production tokens for as long as they live.
 
 ---
 
