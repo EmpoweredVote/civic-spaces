@@ -32,7 +32,9 @@
 -- How much of an AUTHOR a viewer may see (the wide projection vs the narrow one).
 --
 --   D-48  MEMBERSHIP unlocks the wide projection, not account tier. A member of
---         the slice sees that slice's authors in full.
+--         the JURISDICTION -- any slice sharing (slice_type, geoid) -- sees the
+--         authors of every slice in it in full. Scope decided 2026-11-01; the
+--         reasoning is on the function itself.
 --   D-49  FRIENDSHIP is the one exception, and it is PER AUTHOR: a viewer who is
 --         not a member but is an accepted friend of one particular author sees
 --         that author in full, while other authors in the same response stay
@@ -57,10 +59,24 @@
 -- an unpinned search_path on a definer function is a privilege-escalation hole.
 -- An anon viewer (NULL) is always narrow.
 --
--- p_viewer = p_author returns FALSE unless the viewer is a member of the slice: no
--- self-friendship row can exist (CHECK (user_low < user_high)). So an author who has
--- left a slice sees NULL on their own post. 18-03 must NOT test ownership through
--- author_user_id; compare against the session's own id instead.
+-- p_viewer = p_author returns FALSE unless the viewer is a member of the jurisdiction:
+-- no self-friendship row can exist (CHECK (user_low < user_high)). So an author who has
+-- left the jurisdiction entirely sees NULL on their own post. 18-03 must NOT test
+-- ownership through author_user_id; compare against the session's own id instead.
+--
+-- 🔴 D-48 SCOPE: membership is keyed on the WHOLE JURISDICTION, (slice_type, geoid),
+-- not on one slice. Decided by Chris 2026-11-01, after 18-02 left it open.
+-- Two reasons, and the second is why it could not be deferred:
+--   1. It matches everything else that already keys on jurisdiction -- the sibling-read
+--      policies in 20260917000000_sibling_slice_read_access.sql and placeKey in
+--      src/lib/writeAccess.ts. A member can ALREADY READ every sibling slice's posts;
+--      keying identity to a single slice meant they could read the words and not the
+--      name, which is an inconsistency rather than a privacy boundary.
+--   2. Slices split (see docs/superpowers/specs/2026-11-01-slice-splitting-design.md).
+--      Once they do, being in a sibling of someone is the normal condition, not a rare
+--      one. Keyed on a single slice, a split would have made a member's own neighbours
+--      progressively anonymous to them -- a disclosure change caused by a membership
+--      table moving, which nobody decided and nobody would have seen coming.
 
 CREATE OR REPLACE FUNCTION civic_spaces.public_author_is_visible(
   p_viewer   text,
@@ -79,8 +95,11 @@ AS $$
       EXISTS (
         SELECT 1
         FROM civic_spaces.slice_members sm
-        WHERE sm.slice_id = p_slice_id
-          AND sm.user_id  = p_viewer
+        JOIN civic_spaces.slices        mine   ON mine.id = sm.slice_id
+        JOIN civic_spaces.slices        target ON target.slice_type = mine.slice_type
+                                              AND target.geoid      = mine.geoid
+        WHERE sm.user_id = p_viewer
+          AND target.id  = p_slice_id
       )
       OR EXISTS (
         SELECT 1
@@ -102,7 +121,7 @@ REVOKE ALL ON FUNCTION civic_spaces.public_author_is_visible(text, text, uuid)
   FROM PUBLIC, anon, authenticated;
 
 COMMENT ON FUNCTION civic_spaces.public_author_is_visible(text, text, uuid) IS
-  'D-48/D-49: true when the viewer is a member of the slice, or an accepted (FRIEND) friend of this author. The only implementation of the rule.';
+  'D-48/D-49: true when the viewer is a member of ANY slice sharing (slice_type, geoid) with this one, or an accepted (FRIEND) friend of this author. The only implementation of the rule. Jurisdiction scope decided 2026-11-01; see the header.';
 
 
 -- ────────────────────────────────────────────────────────────────────────────
