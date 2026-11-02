@@ -1,6 +1,6 @@
 # Slice splitting: keeping a slice small while the platform grows
 
-**Status:** design, approved for planning. Nothing here is built.
+**Status:** **approved by Chris 2026-11-01.** Nothing here is built; the next step is a plan.
 **Date:** 2026-11-01
 **Applies to:** `civic-spaces` (this repo) and `ev-accounts` (`backend/src/civic_spaces/`)
 
