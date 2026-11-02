@@ -100,6 +100,31 @@ export function isPublicSliceType(t: string): boolean {
 }
 
 /**
+ * The slice types that DIVIDE when they fill (design §4.2).
+ *
+ * Volunteer is absent for a structural reason rather than a product one: it is
+ * not a place. It is role-gated through `assignVolunteerIfEligible`, membership
+ * is revocable when the role goes away, and its population is bounded by who
+ * holds the role. There is no small town there to protect.
+ *
+ * 🔴 THIS DELIBERATELY REPEATS THE FIVE STRINGS ABOVE RATHER THAN ALIASING
+ * `PUBLIC_SLICE_TYPES`, and `check-write-access` assertion 63 fails if anyone
+ * "tidies" it into an alias. The two lists are equal today by coincidence, not
+ * by rule: one is a CAPACITY decision, the other a DISCLOSURE allowlist (D-28).
+ * Share the object and a future private slice type cannot be split without
+ * being published to the whole internet, nor published without being split.
+ *
+ * 🔴 The SQL repeats it too — supabase/migrations/20261102000100 — and the two
+ * must change together. Neither side can import the other; the guard pins this.
+ */
+export const SPLITTABLE_SLICE_TYPES: readonly string[] = ['city', 'county', 'state', 'federal', 'unified']
+
+/** Does this slice type divide at the cap? Unknown types do not. */
+export function isSplittableSliceType(t: string): boolean {
+  return SPLITTABLE_SLICE_TYPES.includes(t)
+}
+
+/**
  * Is the viewer's own row at this level the SAME JURISDICTION as the one a
  * visited place presents there?
  *
