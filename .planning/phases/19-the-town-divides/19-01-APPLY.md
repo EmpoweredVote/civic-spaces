@@ -40,7 +40,7 @@ and let the engine start calling it as its own decision.
 | # | file | sha256 of the committed bytes |
 |---|---|---|
 | 1 | `20261102000000_fork_provenance.sql` | `f7e44a04c20f5cde5a731cd3130264621f0191df1aeed5e623d96c7c61f51dea` |
-| 2 | `20261102000100_splittable_slice_types.sql` | `9a844470d0216004439a0dd0e665b1a5ff971042ea22d718a08f4359b56d554d` |
+| 2 | `20261102000100_splittable_slice_types.sql` | `82a5694b8846fe29f4dbcfeb4a010f631e286c79d2e9e1a23bfbb5277d2a9218` |
 | 3 | `20261102000200_split_slice.sql` | `dcb11540931f30d6d8a12e779742bed29b5bea384ad3997cab0a868dcfd6a7db` |
 
 Order matters: 3 calls `is_splittable_slice_type` from 2, and writes `forked_from` from 1.
@@ -76,7 +76,19 @@ ON CONFLICT (version) DO NOTHING;
 SELECT has_function_privilege('anon',             'civic_spaces.split_slice(uuid,interval)', 'EXECUTE'),  -- false
        has_function_privilege('authenticated',    'civic_spaces.split_slice(uuid,interval)', 'EXECUTE'),  -- false
        has_function_privilege('civic_spaces_app', 'civic_spaces.split_slice(uuid,interval)', 'EXECUTE');  -- true
+
+-- is_splittable_slice_type: the same two. The engine reads it to decide whether a full
+-- slice divides or falls through to the dormant overflow path, so a missing grant here
+-- does not fail loudly — placement would route every full slice down one branch.
+SELECT has_function_privilege('anon',             'civic_spaces.is_splittable_slice_type(text)', 'EXECUTE'),  -- false
+       has_function_privilege('authenticated',    'civic_spaces.is_splittable_slice_type(text)', 'EXECUTE'),  -- false
+       has_function_privilege('civic_spaces_app', 'civic_spaces.is_splittable_slice_type(text)', 'EXECUTE');  -- true
 ```
+
+🔴 **The two grant statements are the one part of these migrations the rehearsals never
+exercised** — all four rehearsal files run as the scratch cluster's superuser, where every
+`has_function_privilege` is trivially true and no role named `civic_spaces_app` exists. The
+queries above are the only check they get, and they must be run after apply, not assumed.
 
 🔴 Then run `npm run check:anon-read` and expect **72 PASS / 0 FAIL**. Since Phase 18, `anon`
 resolves schema `civic_spaces`, so every function added from now on is anon-callable the moment
