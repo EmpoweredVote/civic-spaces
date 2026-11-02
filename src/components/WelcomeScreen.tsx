@@ -197,16 +197,20 @@ export function WelcomeScreen({
               out of them.
             </p>
             {/*
-              🔴 PHASE 18 REVISES THIS PARAGRAPH. Today conversations are
-              members-only — every civic_spaces grant is TO authenticated — so
-              "and reading them needs an account too" is TRUE and must be said.
-              Phase 18 (The Public Square) opens anon read, and on the day that
-              migration lands this sentence becomes false. Recorded in
-              17-VALIDATION.md § Known gaps so that phase can grep for
-              "PHASE 18" rather than re-read the screen.
+              🔴 This paragraph said "Conversations are for members right now, and
+              reading them needs an account too" — true while every civic_spaces
+              grant was TO authenticated, and false from the moment 18-02's grants
+              are applied. Phase 18 split the two halves apart: READING is open to
+              everyone, WRITING still belongs to the people who live there.
+
+              🔴 It must stay accurate about VOLUNTEER, which did not open and is
+              not a civic space in the sense this screen means — so the sentence
+              talks about what a visitor can do here, not about every space that
+              exists.
             */}
             <p>
-              Conversations are for members right now, and reading them needs an account too.
+              Reading is open to everyone. You can follow any city, county, state or national
+              conversation without an account at all.
             </p>
             <p>
               {/* 🔴 BOTH walls. "Make an account" is only the first: Civic Spaces

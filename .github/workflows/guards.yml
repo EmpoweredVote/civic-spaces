@@ -36,7 +36,7 @@ name: Guards
 # fall back to `npm root -g`. The version is pinned to the one in use locally;
 # bump both together or the two environments drift without saying so.
 #
-# Node 24, not the 20 in build-check.yml: four of these run through
+# Node 24, not the 20 in build-check.yml: five of these run through
 # `node --experimental-strip-types`, which needs 22 or newer. build-check is left
 # alone on purpose — `npm run build` does not use type stripping and changing a
 # working check is not this file's job.

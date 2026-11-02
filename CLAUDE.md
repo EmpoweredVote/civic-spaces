@@ -28,6 +28,24 @@ Forum content is members-only by design (every `civic_spaces` grant is `TO authe
 it stays synthetic locally. Extend `devMockData.ts`; never hardcode posts in components, and
 never copy real members' posts or profiles into fixtures.
 
+⚠️ Until `20261030000100_public_read.sql`, `20261030000150_public_read_grants_members.sql`
+and `20261030000200_public_read_grants.sql` are applied: Phase 18 **writes** the public read
+path but does not open it. 🔴 **Those three are a ladder and the order is load-bearing**:
+`…000100` defines six functions and revokes every one from PUBLIC, so after it nobody but the
+owner can call anything; `…000150` gives `authenticated` EXECUTE on the four, which is the
+state `check:anon-read` section 4 runs in — members over real HTTP while `anon` still cannot
+resolve the schema; `…000200` is the irreversible one. Do not collapse them, and do not apply
+`…000200` before section 4 has passed, or the only chance to prove the per-author projection
+with the door shut is gone. On apply, `anon` gains
+schema `USAGE` plus `EXECUTE` on exactly four RPCs — `get_public_slice`, `get_public_feed`,
+`get_public_post`, `get_public_replies` — and nothing else: **no table or view grant, ever.**
+Reading City / County / State / Federal / Unified becomes open to anyone; **Volunteer stays
+members-only**, and so does every future private slice type, because the gate is an allowlist
+(D-28, `PUBLIC_SLICE_TYPES` in `src/lib/writeAccess.ts` and a literal array in the SQL — the two
+are pinned against each other by `check:write-access`). Writing did not open and must not: a
+visitor gets the read-only notice and no composer. On apply, change the first sentence above to
+name the exception rather than the rule, and delete this paragraph.
+
 To work against the real backend instead, copy `.env.example` to `.env.local` and fill in
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; then `?dev=1` still opts into the dev id.
 `VITE_SLICE_ASSIGNMENT_URL` is optional; without it the fire-and-forget slice-assignment POST
@@ -60,13 +78,13 @@ copy `cs_token` out of that tab's localStorage, and paste it into localhost's un
 Those panels fall back to fixtures for the dev id only; that is expected, not a bug.
 
 **The frontend has no test framework.** No test script, no test files. What it has instead is
-nine `check:*` guard scripts, and **seven of them now run in CI** —
+ten `check:*` guard scripts, and **seven of them now run in CI** —
 `.github/workflows/guards.yml`, two jobs: four pure Node checks that read the shipped modules,
 and three that drive the real app through Playwright against a `npm run dev` server.
 `check:banners` is the eighth and runs weekly on a schedule instead
 (`.github/workflows/banner-drift.yml`), because drift there arrives with no commit to hang a
-PR check off. `check:grants` is the ninth and runs by hand only: it needs a privileged
-`SUPABASE_DB_URL` plus `psql`, which CI does not have.
+PR check off. `check:grants` and `check:anon-read` (ninth, tenth) run by hand only: each needs a privileged
+`SUPABASE_DB_URL` plus `psql`, which CI does not have (`db-surface.yml` is the manual-dispatch job ready for when it does).
 
 🔴 **Running in CI is not the same as being required.** "Required to merge" is a
 branch-protection setting on `main`, and until the `Guards (pure)` and `Guards (browser)` job

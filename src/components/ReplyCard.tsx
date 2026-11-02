@@ -3,6 +3,7 @@ import { formatDistanceToNow } from 'date-fns'
 import type { ReplyWithAuthor } from '../types/database'
 import EmpoweredBadge from './EmpoweredBadge'
 import FlagButton from './FlagButton'
+import { authorPresentation } from '../lib/publicProjection'
 
 interface ReplyCardProps {
   reply: ReplyWithAuthor
@@ -26,35 +27,58 @@ export default function ReplyCard({ reply, depth, onReply, canWrite, currentUser
 
   const timeAgo = formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })
   const initial = reply.author.display_name.charAt(0).toUpperCase()
+  const author = authorPresentation(reply.user_id)
 
   return (
     <div className={`py-3 ${depth === 1 ? 'ml-8 border-l-2 border-gray-200 dark:border-gray-700 pl-4' : ''}`}>
-      {/* Author row */}
-      <button
-        type="button"
-        onClick={() => navigate('/profile/' + reply.user_id)}
-        className="flex items-center gap-2 text-left w-full"
-        aria-label={`View ${reply.author.display_name}'s profile`}
-      >
-        {reply.author.avatar_url ? (
-          <img
-            src={reply.author.avatar_url}
-            alt={reply.author.display_name}
-            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-          />
-        ) : (
-          <div className="w-7 h-7 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{initial}</span>
+      {/* Author row — see PostCard for why the two branches share their innards.
+          A reply list is where a mixed thread is most visible: D-49 makes the
+          decision per author, so a friend's reply sits directly under a stranger's
+          and the two must line up to the pixel. */}
+      {author.linkable ? (
+        <button
+          type="button"
+          onClick={() => navigate(author.profileHref!)}
+          className="flex items-center gap-2 text-left w-full"
+          aria-label={`View ${reply.author.display_name}'s profile`}
+        >
+          {reply.author.avatar_url ? (
+            <img
+              src={reply.author.avatar_url}
+              alt={reply.author.display_name}
+              className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{initial}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+              {reply.author.display_name}
+            </span>
+            {reply.author.tier === 'empowered' && <EmpoweredBadge />}
+            <span className="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0">{timeAgo}</span>
           </div>
-        )}
-        <div className="flex items-center gap-1 min-w-0">
-          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-            {reply.author.display_name}
-          </span>
-          {reply.author.tier === 'empowered' && <EmpoweredBadge />}
-          <span className="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0">{timeAgo}</span>
+        </button>
+      ) : (
+        <div className="flex items-center gap-2 text-left w-full">
+          {/* 🔴 aria-hidden and gray-600, not gray-500. The initial repeats a handle
+              that is already in the next span, so it is decoration to a screen
+              reader — and gray-500 on gray-100 is ~4.1:1, under the 4.5:1 AA wants
+              for text. The linkable branch above sits inside a labelled button, so
+              this is the one that had neither. */}
+          <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-white/[0.06] flex items-center justify-center flex-shrink-0" aria-hidden="true">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{initial}</span>
+          </div>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+              {reply.author.display_name}
+            </span>
+            <span className="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0">{timeAgo}</span>
+          </div>
         </div>
-      </button>
+      )}
 
       {/* Body */}
       <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{reply.body}</p>

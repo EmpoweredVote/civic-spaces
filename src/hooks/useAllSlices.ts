@@ -7,6 +7,8 @@ interface UseAllSlicesResult {
   slices: Partial<Record<SliceType, SliceInfo>>
   hasJurisdiction: boolean
   isLoading: boolean
+  /** The slices query FAILED, as distinct from "this member holds none". */
+  isError: boolean
 }
 
 async function fetchAllSlicesData(userId: string): Promise<{
@@ -73,7 +75,7 @@ async function fetchAllSlicesData(userId: string): Promise<{
 }
 
 export function useAllSlices(userId: string | null): UseAllSlicesResult {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['all-slices', userId],
     queryFn: () => fetchAllSlicesData(userId!),
     enabled: !!userId,
@@ -83,5 +85,14 @@ export function useAllSlices(userId: string | null): UseAllSlicesResult {
     slices: data?.slices ?? {},
     hasJurisdiction: data?.hasJurisdiction ?? false,
     isLoading,
+    /**
+     * 🔴 Exposed because an empty `slices` has two causes that mean opposite things,
+     * and callers were reading the one that is indistinguishable. `{}` means "this
+     * member holds nothing" OR "the query failed" — and after `retry: 1` gives up,
+     * `isLoading` is false for both. Phase 18 made that difference matter: a member
+     * whose slices failed to load and is treated as holding none reads their OWN
+     * city through the public path, as a stranger to their own neighbours.
+     */
+    isError,
   }
 }

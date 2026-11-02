@@ -78,12 +78,45 @@ export interface Reply {
   is_deleted: boolean
 }
 
-export type PostWithAuthor = Post & {
-  author: Pick<ConnectedProfile, 'display_name' | 'avatar_url' | 'tier'>
+/**
+ * What a card needs to know about whoever wrote a post or reply.
+ *
+ * 🔴 `tier` is OPTIONAL as of Phase 18. The public RPCs do not return it (D-34
+ * withholds it from readers with no account), and `useFeed` has in fact never
+ * supplied it on the fallback path either — it builds `{ display_name: 'Unknown',
+ * avatar_url: null }` and casts. Optional is what was already true at runtime.
+ * Both render sites compare it to `'empowered'`, so undefined simply shows no badge.
+ */
+export type PostAuthor = Pick<ConnectedProfile, 'display_name' | 'avatar_url'> & {
+  tier?: ConnectedProfile['tier']
 }
 
-export type ReplyWithAuthor = Reply & {
-  author: Pick<ConnectedProfile, 'display_name' | 'avatar_url' | 'tier'>
+/**
+ * 🔴 `user_id` is NULLABLE here and NOT on `Post`, which is the whole point.
+ *
+ * Phase 18's public RPCs return the author's id only where D-48/D-49 say the viewer
+ * may have it: a member of that slice, or a friend of that author. Everyone else gets
+ * null, and null means "render the handle as plain text" — no avatar, no /profile/
+ * link, no friend affordance. Never a sentinel string and never `''`.
+ *
+ * Widening it here rather than on `Post` keeps every write path (useCreatePost,
+ * moderation, the delete hooks) typed as it was, and points `tsc` at exactly the
+ * five read sites that have to make the decision. That list being short is why this
+ * is a type change and not a convention.
+ *
+ * `edit_history` is optional for the same reason: the public RPCs do not return it,
+ * and synthesising `[]` would tell a reader "never edited" about a post we were not
+ * told about. Undefined renders identically and does not lie.
+ */
+export type PostWithAuthor = Omit<Post, 'user_id' | 'edit_history'> & {
+  user_id: string | null
+  edit_history?: EditHistoryEntry[]
+  author: PostAuthor
+}
+
+export type ReplyWithAuthor = Omit<Reply, 'user_id'> & {
+  user_id: string | null
+  author: PostAuthor
 }
 
 // ---- Phase 3: Social Graph types ----
@@ -108,8 +141,14 @@ export type BoostedPost = Post & {
   boosted_at: string
 }
 
-export type BoostedPostWithAuthor = BoostedPost & {
-  author: Pick<ConnectedProfile, 'display_name' | 'avatar_url' | 'tier'>
+/**
+ * 🔴 Derived from PostWithAuthor, not from BoostedPost, so the nullable `user_id`
+ * and optional `edit_history` rules exist once. SliceFeedPanel renders both kinds
+ * through the same PostCard; two independent author shapes feeding one component is
+ * how they drift, and the drift would show up as a disclosure rather than an error.
+ */
+export type BoostedPostWithAuthor = PostWithAuthor & {
+  boosted_at: string
 }
 
 export type RelationshipState = 'none' | 'pending_sent' | 'pending_received' | 'friends'

@@ -1,7 +1,10 @@
 import { useRef, useEffect, useState, useImperativeHandle } from 'react'
+import { useLocation } from 'wouter'
 import type React from 'react'
 // import { useFeed } from '../hooks/useFeed' // Fallback: chronological feed
 import { useBoostedFeed } from '../hooks/useBoostedFeed'
+import { usePublicFeed } from '../hooks/usePublicFeed'
+import { usePublicSlice } from '../hooks/usePublicSlice'
 import { useRealtimeInvalidation } from '../hooks/useRealtimeInvalidation'
 import { useAuth } from '../hooks/useAuth'
 import { useProfile } from '../hooks/useProfile'
@@ -13,7 +16,7 @@ import { toast } from 'sonner'
 import PostComposer, { type ComposeRequest } from './PostComposer'
 import ThreadView from './ThreadView'
 import InformUpgradePrompt from './InformUpgradePrompt'
-import { ReadOnlyNotice } from './ReadOnlyNotice'
+import { ReplyClosedNotice } from './ReplyClosedNotice'
 import type { SortMode } from './FeedTabs'
 import type { PostWithAuthor } from '../types/database'
 import type { NoWriteReason } from '../lib/writeAccess'
@@ -45,8 +48,32 @@ export interface FeedPanelHandle {
   compose: (request?: ComposeRequest) => void
 }
 
+/** A place being read without membership — Phase 18's public path. */
+export interface PublicPlace {
+  sliceType: string
+  geoid: string
+}
+
 interface SliceFeedPanelProps {
   sliceId: string
+  /**
+   * Set when this panel is showing a PUBLIC place the viewer is not a member of.
+   *
+   * 🔴 The two feeds are not interchangeable and must never both be live. The member
+   * feed is block-filtered and carries every author's id; the public one applies the
+   * D-48/D-49 per-author projection and no block filter. Routing a member through the
+   * public path would silently un-block people they blocked, and routing a visitor
+   * through the member path 403s. So exactly one query is enabled, here, by this prop.
+   */
+  publicPlace?: PublicPlace | null
+  /**
+   * 🔴 Only used to gate the PUBLIC query. All six panels mount at once, and every
+   * level of a visited place is public, so without this one visit fires six RPCs for
+   * five feeds nobody is looking at — against a surface that is now open to the whole
+   * internet. The member feeds stay eager, as they were: that is what keeps the tab
+   * switch instant and the scroll position alive, and it costs a member nothing new.
+   */
+  isActive?: boolean
   activePostId: string | null
   onNavigateToThread: (postId: string | null) => void
   scrollToLatest?: boolean
@@ -65,10 +92,22 @@ interface SliceFeedPanelProps {
   viewingSliceIndex?: number
   ownSliceIndex?: number
   onReturnToOwnSlice?: () => void
+  /**
+   * 🔴 There is NO `loginUrl` prop any more, and its absence is the decision.
+   *
+   * 18-03 added one so the notice could be rendered ONCE here rather than twice —
+   * AppShell had been rendering a second copy beside this one to get the sign-in
+   * link, and shipped two identical banners stacked. 18-04 then removed the link
+   * itself: `ReplyClosedNotice` opens the explainer, never a login form (D-36/D-37),
+   * because the sentence names who may speak here and a direct jump to the accounts
+   * hub is the thing being replaced. One notice, and no sign-in on this surface.
+   */
 }
 
 export default function SliceFeedPanel({
   sliceId,
+  publicPlace = null,
+  isActive = true,
   activePostId,
   onNavigateToThread,
   scrollToLatest,
@@ -81,6 +120,21 @@ export default function SliceFeedPanel({
   ownSliceIndex,
   onReturnToOwnSlice,
 }: SliceFeedPanelProps) {
+  // Hoisted above the feed hooks: the public query is cached PER VIEWER (D-49), so
+  // the reader's id is part of its key and has to exist before the key is built.
+  const { userId } = useAuth()
+
+  // 🔴 Both hooks are called on every render — React's rules of hooks require it —
+  // and exactly one of them is ENABLED. `useBoostedFeed(null)` does not run; the
+  // public query is off unless this panel is both public and on screen.
+  const memberFeed = useBoostedFeed(publicPlace ? null : sliceId)
+  const publicFeed = usePublicFeed(
+    userId,
+    publicPlace?.sliceType ?? null,
+    publicPlace?.geoid ?? null,
+    !!publicPlace && isActive,
+  )
+
   const {
     data,
     fetchNextPage,
@@ -89,12 +143,28 @@ export default function SliceFeedPanel({
     isLoading,
     error,
     refetch,
-  } = useBoostedFeed(sliceId)
+  } = publicPlace ? publicFeed : memberFeed
 
-  useRealtimeInvalidation(sliceId)
+  // 🔴 Only to tell "nobody has posted here" from "this space does not exist yet".
+  // Both render as an empty feed and they are opposite facts for a visitor deciding
+  // whether an account would get them anything. See usePublicSlice's header.
+  const publicSlice = usePublicSlice(
+    publicPlace?.sliceType ?? null,
+    publicPlace?.geoid ?? null,
+    !!publicPlace && isActive,
+  )
+  // Undefined while it loads — treated as "exists", so the harsher sentence is never
+  // shown on the strength of a pending query.
+  const publicSliceExists = publicSlice.data !== null
 
-  const { userId } = useAuth()
+  // A visited place has no slice id to watch, and nothing a visitor can subscribe to:
+  // realtime runs over the same table grants the RPCs exist to avoid needing.
+  useRealtimeInvalidation(publicPlace ? null : sliceId)
+
   const { profile } = useProfile(userId)
+  const [, navigate] = useLocation()
+  // D-37: the door opens the explainer, never a login form.
+  const onExplain = () => navigate('/accounts')
   const deletePost = useDeletePost()
 
   const [composerOpen, setComposerOpen] = useState(false)
@@ -149,19 +219,55 @@ export default function SliceFeedPanel({
   useImperativeHandle(panelRef, () => ({ compose: handleCompose }))
 
   if (isLoading) {
-    return <FeedSkeleton />
+    return (
+      <div className="flex flex-col gap-3">
+        {/* Same rule as the error branch below: the gate does not wait on the
+            fetch, so neither does the sentence explaining it. A slow public RPC
+            otherwise leaves a visitor staring at a skeleton with no composer and
+            no reason given for the whole fetch. */}
+        {isViewOnly && (
+          <ReplyClosedNotice
+            reason={noWriteReason}
+            surface="feed"
+            onExplain={onExplain}
+            viewingSliceIndex={viewingSliceIndex}
+            ownSliceIndex={ownSliceIndex}
+            onReturnToOwnSlice={onReturnToOwnSlice}
+          />
+        )}
+        <FeedSkeleton />
+      </div>
+    )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400">
-        <p className="text-sm">Failed to load posts. Please try again.</p>
-        <button
-          onClick={() => refetch()}
-          className="text-sm text-brand hover:underline"
-        >
-          Try again
-        </button>
+      <div className="flex flex-col gap-3">
+        {/* 🔴 The notice renders in the ERROR state too, and that is not cosmetic.
+            Both early returns used to skip it, so a panel that was gated AND
+            failed to load dropped the only explanation of why there is no
+            composer — leaving a reader who cannot post, cannot read, and is told
+            neither. The gate does not depend on the fetch succeeding, so neither
+            should the sentence that explains it. */}
+        {isViewOnly && (
+          <ReplyClosedNotice
+            reason={noWriteReason}
+            surface="feed"
+            onExplain={onExplain}
+            viewingSliceIndex={viewingSliceIndex}
+            ownSliceIndex={ownSliceIndex}
+            onReturnToOwnSlice={onReturnToOwnSlice}
+          />
+        )}
+        <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400">
+          <p className="text-sm">Failed to load posts. Please try again.</p>
+          <button
+            onClick={() => refetch()}
+            className="text-sm text-brand hover:underline"
+          >
+            Try again
+          </button>
+        </div>
       </div>
     )
   }
@@ -181,21 +287,38 @@ export default function SliceFeedPanel({
             gated must always say so, even if the reason did not reach it. The
             notice names nothing in that case, which is the observable. */}
         {isViewOnly && (
-          <ReadOnlyNotice
+          <ReplyClosedNotice
             reason={noWriteReason}
             surface="feed"
+            onExplain={onExplain}
             viewingSliceIndex={viewingSliceIndex}
             ownSliceIndex={ownSliceIndex}
             onReturnToOwnSlice={onReturnToOwnSlice}
           />
         )}
         {posts.length === 0 ? (
-          <div className="flex items-center justify-center py-16 text-center px-6 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900">
+          <div className="flex flex-col items-center justify-center py-16 text-center px-6 gap-2 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900">
+            {/* 🔴 THREE sentences, and which one is true is a fact this phase can
+                finally establish. Phase 17 could not read `slices` and so wrote one
+                paragraph true of both empty cases; `usePublicSlice` asks outright.
+                "Be the first to start a conversation" is addressed to someone who
+                CAN post — never show it to a reader the write path will refuse. */}
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {searchQuery.trim()
                 ? `No posts match "${searchQuery.trim()}".`
-                : 'No posts yet. Be the first to start a conversation!'}
+                : !publicPlace
+                  ? 'No posts yet. Be the first to start a conversation!'
+                  : publicSliceExists
+                    ? 'No conversations here yet.'
+                    : "This space hasn't opened yet."}
             </p>
+            {!searchQuery.trim() && publicPlace && (
+              <p className="max-w-sm text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                {publicSliceExists
+                  ? 'Anyone can read a civic space. Posting belongs to the people who live under that government.'
+                  : 'Civic spaces open as people arrive. An Empowered Vote account with an address set opens the ones where you live.'}
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -288,6 +411,7 @@ export default function SliceFeedPanel({
             onBack={() => onNavigateToThread(null)}
             scrollToLatest={scrollToLatest}
             isViewOnly={isViewOnly}
+            isPublic={!!publicPlace}
             noWriteReason={noWriteReason}
             ownSliceIndex={ownSliceIndex}
           />

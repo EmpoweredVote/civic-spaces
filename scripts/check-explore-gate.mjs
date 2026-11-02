@@ -91,6 +91,10 @@ const arg = (flag, fallback) => {
   return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback
 }
 
+// 🔴 The SHIPPED copy, not a transcription — see REASON_WORDS below for why, and
+// why this script now runs under `--experimental-strip-types`.
+import { replyClosedCopy } from '../src/lib/writeAccess.ts'
+
 const PORT = arg('--port', '5173')
 const ORIGIN = `http://localhost:${PORT}`
 
@@ -232,7 +236,49 @@ const WRITE_WORDS = 'Join the conversation|Share an idea|Discard draft|Sign in t
  * in a component's comments — a gate matching its own documentation is worse
  * than no gate, because it goes green for the wrong reason.
  */
-const REASON_WORDS = {
+/**
+ * The sentence each reason puts on screen — DERIVED from the shipped module, never
+ * transcribed.
+ *
+ * 🔴 This was four hand-written regexes against Phase 17's prose, and 18-04 changed
+ * every one of them: D-36 fixed Chris's exact wording and `ReplyClosedNotice`
+ * replaced `ReadOnlyNotice` on the feed and thread. Three assertions went red for a
+ * copy change rather than a behaviour change, which is the third time in this phase a
+ * guard has had to be edited to match new prose. Deriving it ends that: the words can
+ * only drift from `replyClosedCopy` if someone edits the function, and the exact
+ * strings are separately pinned by check:write-access 49 and 50.
+ *
+ * 🔴 It still earns its keep. `notice.reason` comes from a data attribute, so without
+ * a word check a notice could carry the right attribute and the wrong sentence —
+ * which is precisely what a copy/paste between reasons would produce. Full sentences
+ * are compared because they are mutually distinct; individual words are not.
+ *
+ * This is why the script now runs under `--experimental-strip-types`: it reads
+ * `src/lib/writeAccess.ts` for real, the way check-write-access.mjs does.
+ */
+const REPLY_WORDS = Object.fromEntries(
+  ['sibling-shard', 'signed-out', 'no-slice', 'other-place'].map((r) => {
+    const sentence = replyClosedCopy(r).sentence
+    return [r, { test: (text) => (text ?? '').includes(sentence), source: sentence }]
+  }),
+)
+
+/**
+ * 🔴 EXPLORE HAS ITS OWN COPY AND KEEPS IT — two notices, two vocabularies, and
+ * flattening them was a mistake I made once already in this file.
+ *
+ * 18-04 replaced `ReadOnlyNotice` with `ReplyClosedNotice` on the FEED and THREAD
+ * only. Explore still renders `ReadOnlyNotice`, deliberately: its sentences are about
+ * drafting and exploring a shard ("Starting a conversation — and the draft it begins
+ * with — stays in your own community"), not about replying, and D-36's wording is
+ * specifically the reply affordance's. Deriving every surface from `replyClosedCopy`
+ * turned four Explore assertions red against copy that is correct.
+ *
+ * So these stay hand-written, against `ReadOnlyNotice`. They are the one place in
+ * this script where prose is transcribed, and that is the cost of Explore having its
+ * own voice. If Explore's copy ever moves into a function too, derive it there.
+ */
+const EXPLORE_WORDS = {
   'sibling-shard': /Slice \d+ read-only/,
   'signed-out': /an address set/i,
   'no-slice': /no community at this level/i,
@@ -683,12 +729,17 @@ const read = (page, sel = PANEL) => page.evaluate(readPanel, { sel, words: WRITE
  * sibling-shard sentence to a signed-out visitor would still contain a reason,
  * and "a notice is present" would pass.
  */
-function namesReason(notice, expected) {
+/**
+ * @param words which vocabulary this surface speaks — EXPLORE_WORDS (the default,
+ *   ReadOnlyNotice) or REPLY_WORDS (ReplyClosedNotice, on the feed and thread).
+ *   The caller picks, because the surface is what decides which component renders.
+ */
+function namesReason(notice, expected, words = EXPLORE_WORDS) {
   if (!notice?.found || !notice.visible) return false
   if (notice.reason !== expected) return false
-  const own = REASON_WORDS[expected]
+  const own = words[expected]
   if (!own?.test(notice.text)) return false
-  return !Object.entries(REASON_WORDS).some(([r, re]) => r !== expected && re.test(notice.text))
+  return !Object.entries(words).some(([r, re]) => r !== expected && re.test(notice.text))
 }
 
 /**
@@ -959,7 +1010,18 @@ for (const spec of TABS) {
         onPostRoute: location.pathname === `/post/${postId}`,
         activeTab: localStorage.getItem('cs_active_tab'),
         onSibling: /Slice 2 · View Only/.test(pill),
-        readOnlyNotice: /read-only/i.test(body),
+        // 🔴 Structural. This was /read-only/i against Phase 17 prose; 18-04
+        // replaced the notice and its wording, and the precondition began failing
+        // for a copy change. What it has to establish is that the gate rendered.
+        // 🔴 VISIBLE, and on the THREAD. `!!querySelector(...)` matched the feed's
+        // notice, which is still in the DOM inside a CSS-hidden div while a thread is
+        // open — so deleting ThreadView's notice entirely left every assertion green
+        // and nothing covered the thread half of the gate at all. offsetParent is what
+        // the old /read-only/i-on-innerText probe got right by accident.
+        readOnlyNotice: (() => {
+          const n = [...document.querySelectorAll('[data-read-only-notice]')].find((e) => e.offsetParent !== null)
+          return !!n && n.getAttribute('data-read-only-surface') === 'thread'
+        })(),
         pill,
         // PostComposer is a sheet and is unmounted when closed.
         composerOpen: /New Post/.test(body) || /Edit anything before you post/.test(body),
@@ -1047,7 +1109,7 @@ for (const spec of TABS) {
   check(
     tab, 13,
     'the FEED notice names the sibling-shard reason too — the per-tab call site',
-    namesReason(feedNotice, 'sibling-shard'),
+    namesReason(feedNotice, 'sibling-shard', REPLY_WORDS),
     JSON.stringify(feedNotice) +
       '\n            The feed panel computes its own answer for its own tab. If this is the only' +
       '\n            red, look at the FEED_TABS map in AppShell, not at the gate.',
@@ -1862,8 +1924,18 @@ function readVisibleConversation() {
   return {
     panel: true,
     shown,
+    // 🔴 Phase 18 retired the honest card on the public path. Kept because
+    // assertion 6 still asserts its ABSENCE for a resident's own level, which is
+    // a true statement either way — and because it would be the loud symptom if
+    // the fallback card ever became reachable again (FEED_TABS gaining a private
+    // slice type, or a type leaving PUBLIC_SLICE_TYPES).
     honestCard: /Conversations here belong to the people who live here/.test(txt),
     hasPosts: !!child && !!child.querySelector('article, [data-post-card], textarea'),
+    // The gate, which is what survives when the card does not: a composer of any
+    // kind reaching a place the viewer does not live in is the real regression.
+    writeAffordances: !child
+      ? 0
+      : child.querySelectorAll('textarea, button[type="submit"], button[aria-label="Create new post"]').length,
     reason: el ? el.getAttribute('data-read-only-notice') : null,
   }
 }
@@ -2002,17 +2074,29 @@ async function runMemberOwnPlace(fx) {
       '\n            gets its feed; a level still carrying a sentinel gets the card.',
   )
 
-  // ── 7  and a level they do NOT hold still gets the honest card ───────────
+  // ── 7  and a level they do NOT hold is still GATED ───────────────────────
   await page.evaluate(() => document.querySelector('[data-nav-tab="federal"]')?.click())
   await page.waitForTimeout(1400)
   const fed = await page.evaluate(readVisibleConversation)
   check(
     tab, 7,
-    'a level the viewer does NOT hold still gets the honest card and stays gated — the control for 5 and 6',
-    fed.panel && fed.shown && fed.honestCard && fed.reason === 'other-place',
+    'a level the viewer does NOT hold shows its public feed and is still gated — the control for 5 and 6',
+    fed.panel && fed.shown && fed.hasPosts && fed.reason === 'other-place' && fed.writeAffordances === 0,
     `federal=${JSON.stringify(fed)}` +
       '\n            Without this, 5 and 6 are satisfied by simply ungating everything, which is the' +
-      '\n            opposite failure and the one this phase was written to prevent.',
+      '\n            opposite failure and the one this phase was written to prevent.' +
+      '\n            🔴 PHASE 18 CHANGED THE EVIDENCE, NOT THE CLAIM. This used to require the' +
+      '\n            honest card ("Conversations here belong to the people who live here"), which was' +
+      '\n            the only thing a level the viewer does not hold could show. That level now shows' +
+      '\n            its real public feed, so the card is gone and three things are asserted instead:' +
+      '\n            `hasPosts` (the feed actually rendered), `data-read-only-notice="other-place"`' +
+      '\n            (the gate survived) and zero write controls.' +
+      '\n            🔴 `hasPosts` is the POSITIVE half and it is here because the first draft of' +
+      '\n            this retirement dropped it. Both remaining terms are absence/gate terms, and the' +
+      '\n            panel\'s ERROR state renders the read-only notice too — so without it the whole' +
+      '\n            read path this phase built is unasserted and a feed that failed to load passes.' +
+      '\n            Red on `reason` means the gate itself is gone; red on writeAffordances means a' +
+      '\n            composer reached a jurisdiction the viewer does not live in.',
   )
 
   await ctx.close()

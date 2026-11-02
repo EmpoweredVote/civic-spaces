@@ -6,6 +6,7 @@ import { isWithinEditWindow } from '../hooks/useEditPost'
 import EmpoweredBadge from './EmpoweredBadge'
 import FlagButton from './FlagButton'
 import { splitHeadline } from '../lib/postHeadline'
+import { authorPresentation } from '../lib/publicProjection'
 import { toast } from 'sonner'
 
 interface PostCardProps {
@@ -84,7 +85,10 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
   }
 
   const timeAgo = formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
-  const wasEdited = post.edit_history.length > 0
+  // The author affordances, as one decision — see authorPresentation's header.
+  const authorBubble = authorPresentation(post.user_id)
+  // undefined means the public RPC did not tell us (D-31), not "never edited".
+  const wasEdited = (post.edit_history?.length ?? 0) > 0
   const canEdit = isWithinEditWindow(post.created_at)
 
   const { headline, excerpt } = splitHeadline(post.title, post.body)
@@ -94,27 +98,45 @@ export default function PostCard({ post, onClick, isOwnPost, currentUserId, onEd
     <article className="relative w-full rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 px-4 pt-3.5 pb-2 hover:border-gray-300 dark:hover:border-white/15 transition-colors">
       {/* Byline: author, badge, time — one quiet line, so the headline leads. */}
       <div className={`flex items-center gap-2 min-w-0 ${isOwnPost ? 'pr-9' : ''}`}>
-        <button
-          type="button"
-          onClick={() => navigate('/profile/' + post.user_id)}
-          className="relative z-10 flex items-center gap-2 min-w-0 rounded-full hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-          aria-label={`View ${post.author.display_name}'s profile`}
-        >
-          {post.author.avatar_url ? (
-            <img
-              src={post.author.avatar_url}
-              alt=""
-              className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-            />
-          ) : (
-            <span className="w-7 h-7 rounded-full bg-brand-muted dark:bg-brand/20 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand dark:text-brand-light" aria-hidden="true">
+        {/* 🔴 One byline, two wrappers. The inner content is IDENTICAL in both
+            branches so a mixed thread — a friend's post above a stranger's, from the
+            same response (D-49) — does not jump: same 7×7 bubble, same gap, same
+            text size. What a narrow row loses is the avatar IMAGE, the link and the
+            hover, which are the three things that depend on knowing who wrote it.
+            The initial bubble stays: it is the first letter of a handle already on
+            screen, so it discloses nothing the row did not already say. */}
+        {authorBubble.linkable ? (
+          <button
+            type="button"
+            onClick={() => navigate(authorBubble.profileHref!)}
+            className="relative z-10 flex items-center gap-2 min-w-0 rounded-full hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            aria-label={`View ${post.author.display_name}'s profile`}
+          >
+            {post.author.avatar_url ? (
+              <img
+                src={post.author.avatar_url}
+                alt=""
+                className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <span className="w-7 h-7 rounded-full bg-brand-muted dark:bg-brand/20 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand dark:text-brand-light" aria-hidden="true">
+                {post.author.display_name.charAt(0).toUpperCase()}
+              </span>
+            )}
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+              {post.author.display_name}
+            </span>
+          </button>
+        ) : (
+          <span className="relative z-10 flex items-center gap-2 min-w-0">
+            <span className="w-7 h-7 rounded-full bg-gray-100 dark:bg-white/[0.06] flex items-center justify-center flex-shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-400" aria-hidden="true">
               {post.author.display_name.charAt(0).toUpperCase()}
             </span>
-          )}
-          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-            {post.author.display_name}
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+              {post.author.display_name}
+            </span>
           </span>
-        </button>
+        )}
         {post.author.tier === 'empowered' && <EmpoweredBadge />}
         <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0" aria-hidden="true">·</span>
         <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">

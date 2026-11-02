@@ -248,7 +248,19 @@ function readConversations({ sel }) {
     postButtons: [...document.querySelectorAll('button')].filter(
       (b) => b.offsetParent !== null && (b.textContent || '').trim() === 'Post',
     ).length,
+    // 🔴 PHASE 18 RETIRED THE HONEST CARD on the public path and replaced it with
+    // the conversation itself. What survives is the WRITE half: a visitor may read
+    // and may not post. `readOnly` is what assertion 3 now requires, and it is the
+    // half that was always load-bearing — the card was a stand-in for a feed that
+    // could not be shown, and the feed can be shown now.
     honest: /Conversations here belong to the people who live here/.test(text),
+    // 🔴 STRUCTURAL, not a copy match. This was the sentence Phase 17's notice used;
+    // 18-04 replaced that notice with ReplyClosedNotice and Chris's wording
+    // ("Replying is open to Connected accounts."), and the assertion went red for a
+    // copy change rather than a behaviour one. The contract worth asserting here is
+    // that the gate is PRESENT and names its reason; the exact words are pinned where
+    // they can be read without a browser — check:write-access 49 and 50.
+    readOnly: !!p.querySelector('[data-read-only-notice]'),
     notice: p.querySelector('[data-read-only-notice]')?.getAttribute('data-read-only-notice') ?? null,
   }
 }
@@ -528,12 +540,44 @@ function strings(value, out = []) {
   return out
 }
 
+/**
+ * 🔴 PHASE 18: the four RPCs that are ALLOWED to carry a visited geoid.
+ *
+ * Phase 17's rule was "nothing about a visited place reaches the database", and it
+ * was right while every grant was TO authenticated: a request could only come back
+ * with zero rows, which renders as a lie. Phase 18 grants anon EXECUTE on exactly
+ * these four and nothing else, so they are now the sanctioned way to ask.
+ *
+ * 🔴 The assertion keeps its teeth by being an ALLOWLIST, the same shape D-28 uses
+ * in SQL and in writeAccess.ts. Any OTHER PostgREST request carrying a visited
+ * geoid is still a failure — a `posts` select, a `connected_profiles` join, a
+ * boosted feed, a future RPC nobody thought about. Widening this list is a
+ * deliberate act, which is the point.
+ */
+const PUBLIC_RPCS = ['get_public_slice', 'get_public_feed', 'get_public_post', 'get_public_replies']
+
+const isPublicRpc = (pathname) => PUBLIC_RPCS.some((fn) => pathname.endsWith(`/rpc/${fn}`))
+
+/** The positive half: the public path DID ask, so "no offending hit" is not vacuous. */
+function publicRpcHits(seen) {
+  const hits = []
+  for (const { url: raw } of seen) {
+    if (!raw.includes('/rest/v1/')) continue
+    let url
+    try { url = new URL(raw) } catch { continue }
+    if (isPublicRpc(url.pathname)) hits.push(url.pathname.split('/rpc/')[1])
+  }
+  return hits
+}
+
 function postgrestHits(seen) {
   const hits = []
   for (const { url: raw, body } of seen) {
     if (!raw.includes('/rest/v1/')) continue
     let url
     try { url = new URL(raw) } catch { continue }
+    // Sanctioned since Phase 18 — see PUBLIC_RPCS. Everything else still counts.
+    if (isPublicRpc(url.pathname)) continue
     for (const [key, value] of url.searchParams) {
       const why = offending(value)
       if (why) hits.push(`${url.pathname}?${key}=${value} (${why})`)
@@ -710,18 +754,31 @@ async function runSignedOutWalk() {
     const conv = await page.evaluate(readConversations, { sel: FEED_PANEL })
     check(
       run, 3,
-      'the Conversations view for a visited place says so honestly: zero post cards and zero composer affordances',
+      'a visited place shows its real conversation, names why it is read-only, and offers no composer',
       conv.visible === true &&
-        conv.postCards === 0 &&
+        conv.postCards > 0 &&
+        // 🔴 The REASON, not just the presence of a notice. Without this the degraded
+        // shell — noWriteReason null, "Replying is not available here.", no explainer
+        // button, i.e. the whole of 18-04 gone — passes every guard in the repo.
+        conv.notice === 'signed-out' &&
         conv.textareas === 0 &&
         conv.submits === 0 &&
         conv.fabs === 0 &&
         conv.postButtons === 0 &&
-        conv.honest === true,
+        conv.readOnly === true,
       JSON.stringify(conv) +
-        '\n              An empty feed here would be worse than this state, not better: in Phase 17 RLS' +
-        '\n              answers a visited place with zero rows, and zero rows renders as "nobody has' +
-        '\n              said anything here" — a false statement delivered silently.',
+        '\n              🔴 PHASE 18 INVERTED THE FIRST TERM, and deliberately. Phase 17 required ZERO' +
+        '\n              POST CARDS here, because RLS answered a visited place with zero rows and zero' +
+        '\n              rows renders as "nobody has said anything here" — a false statement delivered' +
+        '\n              silently. The public RPCs answer it for real now, so post cards are REQUIRED.' +
+        '\n              🔴 `postCards > 0` is the POSITIVE half and it is the whole point of keeping' +
+        '\n              it. Every other term is an absence, and the panel\'s ERROR state ("Failed to' +
+        '\n              load posts") renders the read-only notice too — so without this term the' +
+        '\n              assertion is fully satisfied by a feed that failed to load, which is exactly' +
+        '\n              what it was satisfied by when the retirement was first written.' +
+        '\n              What did not change is the write gate: a visitor may read and may not post.' +
+        '\n              Red on textareas/submits/fabs/postButtons means a write control reached a' +
+        '\n              place the viewer does not live in — the real regression.',
     )
   }
 
@@ -765,12 +822,19 @@ async function runSignedOutWalk() {
     )
 
     const hits = postgrestHits(requests.seen)
+    const publicHits = publicRpcHits(requests.seen)
     const sawRequests = requests.seen.length
     check(
       run, 'NET',
-      'nothing about the visited place reaches the database — and the page WAS doing something',
+      'only the four public RPCs may carry the visited geoid — and the page WAS doing something',
       hits.length === 0 && sawRequests > 0 && counters.search > 1 && counters.coordinate === 1,
-      `postgrestHits=${JSON.stringify(hits.slice(0, 5))} requests=${sawRequests} ` +
+      `offending=${JSON.stringify(hits.slice(0, 5))} publicRpcs=${JSON.stringify([...new Set(publicHits)])} requests=${sawRequests} ` +
+        '\n              🔴 publicRpcs is REPORTED, not asserted, and that is not an oversight.' +
+        '\n              CI runs this against `npm run dev` on a fresh checkout with no .env, where' +
+        '\n              usePublicFeed and usePublicSlice both return fixtures BEFORE touching' +
+        '\n              supabase — so zero PostgREST requests are issued and requiring one here' +
+        '\n              would be permanently red for everyone. The positive half of the public path' +
+        '\n              is assertion 3 (`postCards > 0`), which the fixtures DO satisfy.' +
         `location-search=${counters.search} coordinate-lookup=${counters.coordinate}` +
         '\n              🔴 The three numbers after the hits are the POSITIVE half, and without them' +
         '\n              "no PostgREST request" is also true of a page that never loaded.' +
@@ -1101,15 +1165,22 @@ async function runMemberVisit() {
   const visiting = await page.evaluate(readPlace, { panel: PANEL, rail: RAIL, bar: TABBAR })
   const seen = await traverse(page, 'city')
   const hits = postgrestHits(requests.seen)
+  const publicHits = publicRpcHits(requests.seen)
   check(
     run, 'NET',
-    'entering a place FROM THE SHELL sends nothing about it to the database either — both views, City and Federal',
+    'entering a place FROM THE SHELL sends only the four public RPCs about it — both views, City and Federal',
     visiting.hero === PLACE_NAME &&
       hits.length === 0 &&
       seen.every((s) => s.endsWith(':true')) &&
       counters.coordinate === 1,
     `hero=${JSON.stringify(visiting.hero)} traversed=${JSON.stringify(seen)} ` +
-      `postgrestHits=${JSON.stringify(hits.slice(0, 5))} coordinate-lookup=${counters.coordinate}` +
+      `offending=${JSON.stringify(hits.slice(0, 5))} publicRpcs=${JSON.stringify([...new Set(publicHits)])} ` +
+      `coordinate-lookup=${counters.coordinate}` +
+      '\n              🔴 A SIGNED-IN MEMBER on another city now also reads through the public RPCs,' +
+      '\n              which is correct: the member feed is scoped to a slice they hold. What must' +
+      '\n              never appear here is a `posts`/`replies`/`connected_profiles` request or a' +
+      '\n              boosted feed carrying the visited geoid — those are not block-filtered for a' +
+      '\n              place they do not belong to, and they are what this allowlist excludes.' +
       '\n              🔴 The shell path is the one with a hero banner and a sticky tab bar on it.' +
       '\n              ActiveHeroBanner calls useSiblingSlices for EVERY visited place, and the shard' +
       '\n              switcher and feed search sit in that bar OUTSIDE the FEED_TABS map — so the' +

@@ -9,9 +9,10 @@ import ReplyCard from './ReplyCard'
 import ReplyComposer from './ReplyComposer'
 import InformUpgradePrompt from './InformUpgradePrompt'
 import EmpoweredBadge from './EmpoweredBadge'
-import { ReadOnlyNotice } from './ReadOnlyNotice'
+import { ReplyClosedNotice } from './ReplyClosedNotice'
+import { usePublicThread } from '../hooks/usePublicThread'
+import { authorPresentation, threadTree } from '../lib/publicProjection'
 import { splitHeadline } from '../lib/postHeadline'
-import type { ReplyWithAuthor } from '../types/database'
 import type { NoWriteReason } from '../lib/writeAccess'
 
 /**
@@ -60,6 +61,15 @@ interface ThreadViewProps {
   noWriteReason?: NoWriteReason | null
   /** The user's own slice number for this location — used in the view-only explanation. */
   ownSliceIndex?: number
+  /**
+   * Set when this thread belongs to a PUBLIC place the reader is not a member of.
+   *
+   * 🔴 PR #133's lesson, in the one place it keeps biting: gate the feed AND the
+   * thread. A thread opened from a public feed reads through the public RPCs or it
+   * reads nothing — `useThread` selects from `posts`, `replies` and
+   * `connected_profiles`, three tables `anon` holds no privilege on and never will.
+   */
+  isPublic?: boolean
 }
 
 interface ReplyTarget {
@@ -67,10 +77,17 @@ interface ReplyTarget {
   authorName: string
 }
 
-export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly = false, noWriteReason = null, ownSliceIndex }: ThreadViewProps) {
+export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly = false, noWriteReason = null, ownSliceIndex, isPublic = false }: ThreadViewProps) {
   const [, navigate] = useLocation()
-  const { post, replies, fetchMoreReplies, hasMoreReplies, isLoading } = useThread(postId)
+  // Both called every render, exactly one enabled — the same rule SliceFeedPanel
+  // follows for the two feeds, and for the same reason: the member path carries
+  // author ids and block filtering, the public path carries neither.
+  // Hoisted above the thread hooks: the public queries are cached PER VIEWER
+  // (D-49), so the reader's id is part of their keys.
   const { userId } = useAuth()
+  const memberThread = useThread(isPublic ? null : postId)
+  const publicThread = usePublicThread(userId, postId, isPublic)
+  const { post, replies, fetchMoreReplies, hasMoreReplies, isLoading } = isPublic ? publicThread : memberThread
   const { profile } = useProfile(userId)
 
   const [activeReplyTarget, setActiveReplyTarget] = useState<ReplyTarget | null>(null)
@@ -155,16 +172,22 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
     }
   }
 
-  // Build nested reply tree
-  const rootReplies = replies.filter((r) => !r.parent_reply_id)
-  const childMap = new Map<string, ReplyWithAuthor[]>()
-  replies.forEach((r) => {
-    if (r.parent_reply_id) {
-      const children = childMap.get(r.parent_reply_id) ?? []
-      children.push(r)
-      childMap.set(r.parent_reply_id, children)
-    }
-  })
+  /**
+   * 🔴 One body, because the two paths disagree about what arrives.
+   *
+   * This was `replies.filter((r) => !r.parent_reply_id)`, which is correct for the
+   * MEMBER path: `useThread` selects every reply including deleted ones, so a deleted
+   * parent is present as a `[Reply deleted]` placeholder and every child has somewhere
+   * to nest. `get_public_replies` filters `is_deleted` on the row itself and leaves
+   * the children behind, so on the public path a child of a deleted reply pointed at
+   * a parent that is not on the page — and vanished, while the count above the list
+   * (`replies.length`) still included it. Three deleted roots out of six read as
+   * "3 replies" over an empty thread.
+   *
+   * `threadTree` promotes a reply with nowhere to nest to a root instead of dropping
+   * it, and is checked by check:composition 88–90.
+   */
+  const { roots: rootReplies, childMap } = threadTree(replies)
 
   const closeComposer = () => {
     setReplyComposerOpen(false)
@@ -202,32 +225,54 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
         {/* 1. The post — author, then the rest of what they wrote */}
         {post && (
           <div className="py-4">
-            <button
-              type="button"
-              onClick={() => navigate('/profile/' + post.user_id)}
-              className="flex items-center gap-2.5 min-w-0 max-w-full text-left rounded-full hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-              aria-label={`View ${post.author.display_name}'s profile`}
-            >
-              {post.author.avatar_url ? (
-                <img
-                  src={post.author.avatar_url}
-                  alt=""
-                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                />
+            {/* Same two-branch byline as PostCard and ReplyCard. See
+                authorPresentation: one body, because the fifth hand-written
+                `user_id ? link : text` is the one that gets it wrong. */}
+            {(() => {
+              const author = authorPresentation(post.user_id)
+              const inner = (
+                <>
+                  {author.linkable && post.author.avatar_url ? (
+                    <img
+                      src={post.author.avatar_url}
+                      alt=""
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <span
+                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold ${
+                        author.linkable
+                          ? 'bg-brand-muted dark:bg-brand/20 text-brand dark:text-brand-light'
+                          : 'bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-gray-400'
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {post.author.display_name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="flex items-baseline gap-1 min-w-0">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{post.author.display_name}</span>
+                    {author.linkable && post.author.tier === 'empowered' && <EmpoweredBadge />}
+                    <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                      · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                      {(post.edit_history?.length ?? 0) > 0 && ' · edited'}
+                    </span>
+                  </span>
+                </>
+              )
+              return author.linkable ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(author.profileHref!)}
+                  className="flex items-center gap-2.5 min-w-0 max-w-full text-left rounded-full hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                  aria-label={`View ${post.author.display_name}'s profile`}
+                >
+                  {inner}
+                </button>
               ) : (
-                <span className="w-8 h-8 rounded-full bg-brand-muted dark:bg-brand/20 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-brand dark:text-brand-light" aria-hidden="true">
-                  {post.author.display_name.charAt(0).toUpperCase()}
-                </span>
-              )}
-              <span className="flex items-baseline gap-1 min-w-0">
-                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{post.author.display_name}</span>
-                {post.author.tier === 'empowered' && <EmpoweredBadge />}
-                <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                  · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                  {post.edit_history.length > 0 && ' · edited'}
-                </span>
-              </span>
-            </button>
+                <span className="flex items-center gap-2.5 min-w-0 max-w-full text-left">{inner}</span>
+              )
+            })()}
 
             {/* The post as written, in full — the topic above is a heading, not the
                 only copy of it. See the note on `headline`. */}
@@ -264,7 +309,16 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
             this gate without the thread half once already. */}
         {isViewOnly ? (
           <div className="py-3">
-            <ReadOnlyNotice reason={noWriteReason} surface="thread" ownSliceIndex={ownSliceIndex} />
+            {/* 🔴 Phase 18-04 replaced ReadOnlyNotice here rather than adding beside
+                it. Both answer "why can you not write here", and the old one ended in
+                a "Sign in" link, which D-36/D-37 forbid on this surface: the
+                explainer comes after the attempt, not a login form. */}
+            <ReplyClosedNotice
+              reason={noWriteReason}
+              surface="thread"
+              onExplain={() => navigate('/accounts')}
+              ownSliceIndex={ownSliceIndex}
+            />
           </div>
         ) : (
           (!userId || !profile?.is_suspended) && (
