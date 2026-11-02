@@ -1,4 +1,4 @@
-import { replyClosedCopy, type NoWriteReason } from '../lib/writeAccess'
+import { replyClosedCopy, offersReturnToOwnSpaces, type NoWriteReason } from '../lib/writeAccess'
 import { FOCUS } from './explore/exploreUi'
 
 /** Where an address is changed. The same URL ReadOnlyNotice uses for the explore surface. */
@@ -47,6 +47,7 @@ export function ReplyClosedNotice({
   viewingSliceIndex,
   ownSliceIndex,
   onReturnToOwnSlice,
+  hasOwnSpaces = false,
 }: {
   /**
    * Straight from `whyNoWrite()`. 🔴 Null is a DEGRADED state, not an unused one: a
@@ -63,6 +64,14 @@ export function ReplyClosedNotice({
   ownSliceIndex?: number
   /** The escape hatch out of a sibling shard. Not a remedy, so not an `action`. */
   onReturnToOwnSlice?: () => void
+  /**
+   * Does this viewer have spaces to go back to? `ownedSliceIds.size > 0` in
+   * AppShell. 🔴 The reason cannot answer it — an Inform account shares
+   * `'other-place'` with a member visiting another city. See
+   * `offersReturnToOwnSpaces`. Defaults to false so a caller that forgets it
+   * hides the control rather than offering a broken one.
+   */
+  hasOwnSpaces?: boolean
 }) {
   const copy = reason ? replyClosedCopy(reason) : null
 
@@ -128,14 +137,14 @@ export function ReplyClosedNotice({
             </a>
           )}
 
-          {/* 🔴 NOT for a signed-out visitor. "Back to my spaces" names spaces they
-              have not got, and AppShell passes `leavePlace` unconditionally on the
-              public path — so gating it here is the only place it can be gated.
-              ReadOnlyNotice rendered this control inside its 'other-place' and
-              'sibling-shard' branches only, and AppShell carries a comment saying so
-              deliberately; moving the notice must not quietly undo that. A visitor
-              already has "Back to the welcome screen" in the place strip above. */}
-          {onReturnToOwnSlice && (reason === 'other-place' || reason === 'sibling-shard') && (
+          {/* 🔴 NOT for a signed-out visitor, and NOT for an Inform account either —
+              which the reason alone cannot tell you, because an Inform account shares
+              'other-place' with a member visiting another city. The rule is one body
+              in writeAccess.ts and `check:write-access` runs the shipped copy of it;
+              this used to be an inline expression here and a different one in
+              ReadOnlyNotice, which is how they drifted. A visitor already has "Back to
+              the welcome screen" in the place strip above. */}
+          {onReturnToOwnSlice && offersReturnToOwnSpaces(reason, hasOwnSpaces) && (
             <button
               type="button"
               onClick={onReturnToOwnSlice}

@@ -249,6 +249,36 @@ export interface ReplyClosedCopy {
  * and simply has no space at this level — is actively wrong. Three different causes,
  * three different true sentences, and only two of them have a remedy at all.
  */
+/**
+ * Whether to offer "Back to my spaces".
+ *
+ * 🔴 THE REASON ALONE CANNOT ANSWER THIS, and assuming it could is how a D-04
+ * violation shipped. `whyNoWrite` puts an Inform account in `'other-place'` BY
+ * CONSTRUCTION — it holds no `slice_members` rows, so both its sets are empty —
+ * and that is the same branch a Connected member visiting another city lands in.
+ * Gating the control on `reason` therefore excluded the signed-out visitor, which
+ * was the intent, and NOT the Inform account, which D-04 says receives exactly
+ * what an anonymous visitor receives. The one visitor the rule was written for
+ * was the one visitor it missed: offered a control named after spaces it has not
+ * got, which on click ran `leavePlace` and dropped it on the welcome screen.
+ *
+ * Membership answers it and tier does not, which is the distinction this module
+ * insists on everywhere else. `hasOwnSpaces` is `ownedSliceIds.size > 0` — data.
+ *
+ * 🔴 It lives HERE, not in a component, because there are two notices —
+ * `ReplyClosedNotice` and `ReadOnlyNotice` — and before this they disagreed:
+ * one gated on the reason, the other on nothing but the callback's presence. Two
+ * shapes of the same rule is what let them drift apart in the first place, and a
+ * rule in this module is a rule `check:write-access` runs the shipped copy of.
+ */
+export function offersReturnToOwnSpaces(
+  reason: NoWriteReason | null,
+  hasOwnSpaces: boolean,
+): boolean {
+  if (!hasOwnSpaces) return false
+  return reason === 'other-place' || reason === 'sibling-shard'
+}
+
 export function replyClosedCopy(reason: NoWriteReason): ReplyClosedCopy {
   switch (reason) {
     case 'signed-out':
