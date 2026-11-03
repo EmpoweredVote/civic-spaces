@@ -51,6 +51,13 @@ resolves the schema. Revoke it beside its own `CREATE FUNCTION`, the way `202610
 for all six of its own. `check:anon-read` asserts the anon-executable DEFINER set is exactly
 those four.
 
+**`CREATE OR REPLACE` on an EXISTING function is the one case that is already safe** — it
+preserves the ACL, so replacing a pre-Phase-18 trigger function does not re-open it. Write the
+revoke anyway, as `20261102000300` does: it costs nothing, it is idempotent, and a reader
+should not have to query the catalog to know the function is shut. Note that revoking from
+`authenticated` does **not** break a trigger — Postgres checks EXECUTE on a trigger function at
+`CREATE TRIGGER` time, not on each fire.
+
 To work against the real backend instead, copy `.env.example` to `.env.local` and fill in
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; then `?dev=1` still opts into the dev id.
 `VITE_SLICE_ASSIGNMENT_URL` is optional; without it the fire-and-forget slice-assignment POST
