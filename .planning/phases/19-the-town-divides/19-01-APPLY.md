@@ -9,12 +9,14 @@ calls `split_slice`, which is gated on the scheduling question in ev-accounts#12
 
 Do not apply again. If you are here to deploy the engine, go to "Still to do" at the bottom.
 
-🔴 **A FOURTH migration exists and is NOT applied: `20261102000300_no_notify_on_fork.sql`.**
-It fixes a correctness bug in the three above (issue #145 — a split notified every member who
-had posted in the last fortnight that they had new replies, linking them into a slice they may
-not belong to). It is safe to apply any time, it changes no data, and it must be applied
-**before ev-accounts first calls `split_slice`** — after that the wrong notifications have
-already been delivered and there is no taking them back. See "The fourth migration" below.
+**A FOURTH migration, `20261102000300_no_notify_on_fork.sql`, was APPLIED to production
+2026-11-02** (issue #145 — a split notified every member who had posted in the last fortnight
+that they had new replies, linking them into a slice they may not belong to). Same discipline:
+committed bytes, one transaction, recorded in the ledger. **No data changed** — 15 slices / 36
+members / 12 posts / 8 replies / 1 notification before and after. Verified live, not just in
+the catalog: a forked reply inserted in production notifies nobody, while an ordinary reply in
+the same transaction still does. `check:anon-read` re-run afterwards: **72 PASS**. See "The
+fourth migration" below. Do not apply again.
 
 Same discipline as `18-02-APPLY.md`, which this follows: **hash the committed bytes, never the
 working tree.** Working copies here are CRLF (`core.autocrlf=true`) and the committed bytes are
@@ -64,7 +66,7 @@ and let the engine start calling it as its own decision.
 | 1 | `20261102000000_fork_provenance.sql` | `40ed2df3991250b074366027f3c3e0eae49ab92295590fd1fc38966ffd20f784` |
 | 2 | `20261102000100_splittable_slice_types.sql` | `82a5694b8846fe29f4dbcfeb4a010f631e286c79d2e9e1a23bfbb5277d2a9218` |
 | 3 | `20261102000200_split_slice.sql` | `2c208e4aad4f266c0b5e2bf9734297c3dd6d23b59c95770bcd012adfa646b812` |
-| 4 | `20261102000300_no_notify_on_fork.sql` — **NOT APPLIED** | `0be7cc155c0c94c9b7b1c30766218a6c6760d2d96cb163770ca8ff1545b16c73` |
+| 4 | `20261102000300_no_notify_on_fork.sql` | `0be7cc155c0c94c9b7b1c30766218a6c6760d2d96cb163770ca8ff1545b16c73` |
 
 Order matters: 3 calls `is_splittable_slice_type` from 2, and writes `forked_from` from 1.
 
@@ -239,8 +241,9 @@ they are about method rather than about this feature:
 
 ## The fourth migration — `20261102000300_no_notify_on_fork.sql`
 
-**Status: NOT APPLIED.** Written and rehearsed 2026-11-02, after the benchmark in
-`19-01-SPLIT-TIMING.md` turned up a correctness bug by reading the trigger list. Issue #145.
+**Status: APPLIED to production 2026-11-02.** Written and rehearsed the same day, after the
+benchmark in `19-01-SPLIT-TIMING.md` turned up a correctness bug by reading the trigger list.
+Issue #145, PR #146, merged as `ec4e4a0`. Do not apply again.
 
 **The bug.** `reply_notification` fires `AFTER INSERT` on every row that lands in `replies`,
 and the seed copy lands thousands at once. A copy keeps the original byline deliberately, so
@@ -268,27 +271,50 @@ has to maintain `posts.reply_count` itself — and getting that wrong opens ever
 reading "0 replies" while holding them. Performance change, correctness risk, different
 decision: it belongs with the scheduling work in ev-accounts#1281.
 
-### Applying it
+### How it was applied, 2026-11-02
 
 Same discipline as the three above — hash the committed bytes, one transaction:
 
 ```bash
-git show HEAD:supabase/migrations/20261102000300_no_notify_on_fork.sql > /tmp/m4.sql
-sha256sum /tmp/m4.sql   # 0be7cc155c0c94c9b7b1c30766218a6c6760d2d96cb163770ca8ff1545b16c73
-psql "$(cat ~/.cs-db-url)" -X -v ON_ERROR_STOP=1 -1 -f /tmp/m4.sql
+git show HEAD:supabase/migrations/20261102000300_no_notify_on_fork.sql > m4.sql
+sha256sum m4.sql   # 0be7cc155c0c94c9b7b1c30766218a6c6760d2d96cb163770ca8ff1545b16c73 ✓
+psql "$(cat ~/.cs-db-url)" -X -q -1 -v ON_ERROR_STOP=1 -f m4.sql
 ```
 
-Afterwards, three things, all cheap:
+Then recorded: `INSERT INTO supabase_migrations.schema_migrations VALUES
+('20261102000300','no_notify_on_fork')`, and `NOTIFY pgrst, 'reload schema'`.
 
-| check | expected |
+| check | expected | got |
+|---|---|---|
+| guard in `prosrc` | `true` | **true** (sha `518dc717…` → `08c3071e…`) |
+| `proacl` | `postgres=X/postgres, service_role=X/postgres` — **unchanged**, since `CREATE OR REPLACE` preserves the ACL and the REVOKE only restates it | **unchanged** |
+| `anon` / `authenticated` EXECUTE | `false` / `false` | **false / false** |
+| still `prosecdef`, trigger still attached and enabled | `t`, 1, `O` | **t, 1, O** |
+| data | 15 / 36 / 12 / 8 / 1 | **unchanged** |
+| `npm run check:anon-read` | 72 PASS, exit 0 | **72 PASS, 0 FAIL, 0 NOT RUN** + 3 refusal controls |
+
+🔴 **The catalog is not the behaviour.** "The right text is in `prosrc`" is not the same claim
+as "the function does the right thing", and this repo has shipped that confusion before. So a
+**live probe** ran in production, inside `BEGIN … ROLLBACK`, on synthetic rows at geoid
+`9999145`:
+
+| | |
 |---|---|
-| `SELECT prosrc LIKE '%forked_from%' FROM pg_proc WHERE proname='notify_on_reply'` | `t` |
-| `SELECT proacl FROM pg_proc WHERE proname='notify_on_reply'` | `postgres=X/postgres, service_role=X/postgres` — **unchanged**; the REVOKE restates what is already true, because `CREATE OR REPLACE` preserves the ACL |
-| `npm run check:anon-read` | still 72 PASS — 3a asserts the anon-executable DEFINER set is exactly the four public RPCs, and this function must not join it |
+| L1 **CONTROL** — an ordinary reply by another member | **notifies** (+1) |
+| L2 — a reply with `forked_from` set, exactly what the seed inserts | **notifies nobody** (+0) |
+| L3 — exactly one notification references the probe post | the control's |
+| L4 — the forked reply was really inserted, not silently skipped | present, `forked_from` non-null |
 
-No data changes. Nothing calls `split_slice` yet, so the bug has never fired in production and
-cannot until ev-accounts ships — which is the whole reason this gets fixed before the first
-split rather than after one.
+L1 is the whole point: without it, a trigger that had stopped notifying *anyone* would read as
+a pass. Rolled back, zero residue, production back to 15 / 12 / 8 / 1.
+
+🔴 **No `ALTER TABLE … DISABLE TRIGGER` in that probe.** The seed rehearsal uses it to backdate
+its fixture; on a live table it takes ACCESS EXCLUSIVE and blocks every reader and writer for
+the duration. The probe does not need it, and nothing run against production should.
+
+No data changed. Nothing calls `split_slice` yet, so the bug never fired in production and
+could not have until ev-accounts ships — which is the whole reason it was fixed before the
+first split rather than after one.
 
 ### 🔴 Two ways the verification lied before it told the truth
 
