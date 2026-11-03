@@ -74,7 +74,7 @@ side-effect count, not just the clock.
 
 > **Fixed 2026-11-02 in `20261102000300_no_notify_on_fork.sql`** (issue #145), by making
 > `notify_on_reply` return early on `forked_from IS NOT NULL`. Pinned by S13/S14/S15 in
-> `19-01-split-seed.sql`, written first and watched failing. **Not yet applied to production.**
+> `19-01-split-seed.sql`, written first and watched failing. Applied to production 2026-11-02.
 > The rest of this section is left as it was written, because it is the measurement.
 
 `reply_notification` fires `AFTER INSERT` on **every copied reply**. The copy keeps the
