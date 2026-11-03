@@ -34,8 +34,14 @@ $try$;
 INSERT INTO civic_spaces.slices (id, slice_type, geoid, sibling_index) VALUES
   ('19010000-0000-4000-8000-000000000030'::uuid, 'city', '9999030', 1);
 
+-- 🔴 seed-replier exists so the NOTIFICATION assertions cannot pass vacuously.
+-- notify_on_reply skips self-replies, and every other reply in this fixture is
+-- by the post's own author — so before this profile existed, a split produced
+-- zero notifications no matter what the trigger did, and S13–S15 would have
+-- read PASS against the unfixed function. Measured: they do.
 INSERT INTO civic_spaces.connected_profiles (user_id, display_name, account_standing) VALUES
   ('seed-active-author',    'ZZ Seed Active',    'active'),
+  ('seed-replier',          'ZZ Seed Replier',   'active'),
   ('seed-suspended-author', 'ZZ Seed Suspended', 'suspended');
 
 -- Two members, so ceil(2/2) = 1 moves and the split is a normal one.
@@ -80,6 +86,12 @@ INSERT INTO civic_spaces.replies (id, post_id, parent_reply_id, user_id, body, c
   ('19010000-2222-4000-8000-000000000004'::uuid, '19010000-1111-4000-8000-000000000002'::uuid,
    '19010000-2222-4000-8000-000000000003'::uuid, 'seed-active-author',
    'child of the suspended author''s reply',
+   now() - interval '3 days', now() - interval '3 days', false),
+-- 🔴 r5 is the only reply here written by someone OTHER than the post's author,
+-- and it is the whole reason S13-S15 can fail. Its copy is the one insert in a
+-- split that reaches notify_on_reply's notify branch at all.
+  ('19010000-2222-4000-8000-000000000005'::uuid, '19010000-1111-4000-8000-000000000002'::uuid,
+   NULL, 'seed-replier', 'a reply by somebody else',
    now() - interval '3 days', now() - interval '3 days', false);
 
 -- 🔴 PUT THE ORIGINALS BACK IN THE PAST. Inserting the originals' own replies
@@ -102,6 +114,23 @@ UPDATE civic_spaces.replies SET updated_at = now() - interval '3 days'
   WHERE post_id = '19010000-1111-4000-8000-000000000002'::uuid;
 ALTER TABLE civic_spaces.posts   ENABLE TRIGGER trg_posts_updated_at;
 ALTER TABLE civic_spaces.replies ENABLE TRIGGER trg_replies_updated_at;
+
+-- 🔴 Snapshot the notifications table BEFORE the split, because the fixture's
+-- own inserts legitimately produce some: r3 and r5 are replies by someone other
+-- than p2's author, and that is exactly what notify_on_reply is for. What a
+-- SPLIT must produce is nothing. Both numbers are taken, because a copy can
+-- corrupt this table two ways: by inserting a row (count moves) or by landing on
+-- an existing unread row through the ON CONFLICT ... group_window arm and
+-- bumping its counter (count holds, event_count moves).
+-- 🔴 The ROWS, not a count. A count answers S13 and nothing else; S15 has to ask
+-- whether the rows that were already here came through the split unchanged, and
+-- it cannot do that from a total — a new row at event_count 1 moves a SUM by
+-- exactly as much as a bump does, so a sum-based S15 is S13 wearing a hat. It
+-- read FAIL for that reason on the first run, which looked like two findings and
+-- was one.
+CREATE TEMP TABLE notif_before AS
+  SELECT id, recipient_id, event_count, actor_ids, reference_id, updated_at
+  FROM   civic_spaces.notifications;
 
 -- Call it ONCE, into a variable: split_slice is VOLATILE and mutates, so a call
 -- in a WHERE clause is evaluated per row.
@@ -189,7 +218,7 @@ SELECT 'S10 NO copied reply points into the parent     : ' ||
   CASE WHEN pg_temp.try_bool($q$
     SELECT (SELECT count(*) FROM civic_spaces.replies c
             JOIN civic_spaces.posts cp ON cp.id = c.post_id, result r
-            WHERE cp.slice_id = r.child) = 2
+            WHERE cp.slice_id = r.child) = 3
        AND NOT EXISTS (
       SELECT 1
       FROM civic_spaces.replies c
@@ -208,10 +237,10 @@ SELECT 'S10 NO copied reply points into the parent     : ' ||
 -- nothing checked it, and if it ever stopped, every seeded thread would open
 -- saying "0 replies" while containing them. Silent, and exactly the failure
 -- this phase exists to avoid.
-SELECT 'S11 the copied thread reports its 2 replies    : ' ||
+SELECT 'S11 the copied thread reports its 3 replies    : ' ||
   CASE WHEN pg_temp.try_bool($q$
     SELECT (SELECT count(*) FROM civic_spaces.posts p, result r
-            WHERE p.slice_id = r.child AND p.reply_count = 2) = 1
+            WHERE p.slice_id = r.child AND p.reply_count = 3) = 1
        AND (SELECT count(*) FROM civic_spaces.posts p, result r
             WHERE p.slice_id = r.child
               AND p.reply_count <> (SELECT count(*) FROM civic_spaces.replies c
@@ -226,7 +255,7 @@ SELECT 'S12 a child of an EXCLUDED reply is not copied : ' ||
   CASE WHEN pg_temp.try_bool($q$
     SELECT (SELECT count(*) FROM civic_spaces.replies c
             JOIN civic_spaces.posts cp ON cp.id = c.post_id, result r
-            WHERE cp.slice_id = r.child) = 2
+            WHERE cp.slice_id = r.child) = 3
        AND NOT EXISTS (
          SELECT 1 FROM civic_spaces.replies c
          JOIN civic_spaces.posts cp ON cp.id = c.post_id, result r
@@ -277,6 +306,75 @@ SELECT 'S6c updated_at: kept on a root reply copy      : ' ||
             JOIN civic_spaces.posts cp ON cp.id = c.post_id, result r
             WHERE cp.slice_id = r.child
               AND c.forked_from = '19010000-2222-4000-8000-000000000002'::uuid) $q$)
+  THEN 'PASS' ELSE 'FAIL' END;
+
+-- 🔴 S13. A SPLIT MUST NOT NOTIFY ANYBODY. reply_notification fires AFTER INSERT
+-- on every copied reply, and a copy keeps the original byline — so the copied
+-- post's owner IS the original author and notify_on_reply tells them they have
+-- new replies on it. They do not: those are forks of a conversation that already
+-- happened, days ago, probably already read. Worse, reference_id points at the
+-- COPY, so following the notification lands them in a slice they may not belong
+-- to. Benchmarked on a busy jurisdiction: 2,800 notification rows from one split,
+-- to every member who had posted in the last fortnight, at the moment their town
+-- divided. Fixed by notify_on_reply returning early on a forked row
+-- (20261102000300); this is the assertion that was watched failing first.
+--
+-- 🔴 EVERY ARM OF THE GUARD IS LOAD-BEARING. The last line alone reads PASS on a
+-- fixture where nothing was copied, and on one where no reply could have
+-- notified anyone — which is what this file looked like before seed-replier.
+SELECT 'S13 the split notifies NOBODY                  : ' ||
+  CASE WHEN pg_temp.try_bool($q$
+    SELECT (SELECT count(*) FROM notif_before) >= 1
+       AND (SELECT count(*) FROM civic_spaces.posts p, result r
+            WHERE p.slice_id = r.child) = 2
+       AND (SELECT count(*) FROM civic_spaces.replies c
+            JOIN civic_spaces.posts cp ON cp.id = c.post_id, result r
+            WHERE cp.slice_id = r.child) = 3
+       AND (SELECT count(*) FROM civic_spaces.notifications)
+           = (SELECT count(*) FROM notif_before) $q$)
+  THEN 'PASS' ELSE 'FAIL' END;
+
+-- S13 says the row count did not move. S14 says it did not move SOMEWHERE ELSE:
+-- no notification anywhere in the table points at a post in the new slice. The
+-- two are not the same assertion — a fix that deleted its own rows afterwards
+-- would satisfy S13 and fail this.
+SELECT 'S14 no notification points into the new slice  : ' ||
+  CASE WHEN pg_temp.try_bool($q$
+    SELECT (SELECT count(*) FROM civic_spaces.posts p, result r
+            WHERE p.slice_id = r.child) = 2
+       AND NOT EXISTS (
+         SELECT 1 FROM civic_spaces.notifications n, result r
+         WHERE n.reference_id IN (SELECT p.id::text FROM civic_spaces.posts p
+                                  WHERE p.slice_id = r.child)) $q$)
+  THEN 'PASS' ELSE 'FAIL' END;
+
+-- 🔴 S15. The OTHER way a copy can reach this table, and the one a row count
+-- cannot see. notify_on_reply upserts on (recipient, event_type, reference_id,
+-- group_window) WHERE is_read = false — so a copy whose reference_id collides
+-- with an unread notification the recipient already has adds NO row at all: it
+-- increments event_count and appends to actor_ids on theirs. The member is told
+-- about replies that are not there, the count silently inflated, with nothing
+-- new in the table to find. S13 cannot see that; this compares the pre-split
+-- rows against themselves, field by field.
+--
+-- It does not collide on THIS fixture — reference_id is the copied post's id,
+-- which is new — so today it is a guard against a future change that makes the
+-- copy reference the original instead. That would be an easy and plausible
+-- "fix" for the wrong-slice link in S14, and it would be worse than the bug.
+SELECT 'S15 no pre-existing notification is touched   : ' ||
+  CASE WHEN pg_temp.try_bool($q$
+    SELECT (SELECT count(*) FROM notif_before) >= 1
+       AND (SELECT count(*) FROM civic_spaces.replies c
+            JOIN civic_spaces.posts cp ON cp.id = c.post_id, result r
+            WHERE cp.slice_id = r.child) = 3
+       AND NOT EXISTS (
+         SELECT 1 FROM notif_before b
+         JOIN civic_spaces.notifications n ON n.id = b.id
+         WHERE (n.event_count, n.actor_ids, n.reference_id, n.updated_at)
+            IS DISTINCT FROM (b.event_count, b.actor_ids, b.reference_id, b.updated_at))
+       AND (SELECT count(*) FROM notif_before b
+            JOIN civic_spaces.notifications n ON n.id = b.id)
+           = (SELECT count(*) FROM notif_before) $q$)
   THEN 'PASS' ELSE 'FAIL' END;
 
 -- 🔴 CONTROL. Deliberately wrong, MUST print FAIL.

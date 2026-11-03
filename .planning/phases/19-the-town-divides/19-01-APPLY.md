@@ -9,6 +9,13 @@ calls `split_slice`, which is gated on the scheduling question in ev-accounts#12
 
 Do not apply again. If you are here to deploy the engine, go to "Still to do" at the bottom.
 
+🔴 **A FOURTH migration exists and is NOT applied: `20261102000300_no_notify_on_fork.sql`.**
+It fixes a correctness bug in the three above (issue #145 — a split notified every member who
+had posted in the last fortnight that they had new replies, linking them into a slice they may
+not belong to). It is safe to apply any time, it changes no data, and it must be applied
+**before ev-accounts first calls `split_slice`** — after that the wrong notifications have
+already been delivered and there is no taking them back. See "The fourth migration" below.
+
 Same discipline as `18-02-APPLY.md`, which this follows: **hash the committed bytes, never the
 working tree.** Working copies here are CRLF (`core.autocrlf=true`) and the committed bytes are
 LF, so `git show HEAD:<path>` is what you hash and what you apply.
@@ -57,6 +64,7 @@ and let the engine start calling it as its own decision.
 | 1 | `20261102000000_fork_provenance.sql` | `40ed2df3991250b074366027f3c3e0eae49ab92295590fd1fc38966ffd20f784` |
 | 2 | `20261102000100_splittable_slice_types.sql` | `82a5694b8846fe29f4dbcfeb4a010f631e286c79d2e9e1a23bfbb5277d2a9218` |
 | 3 | `20261102000200_split_slice.sql` | `2c208e4aad4f266c0b5e2bf9734297c3dd6d23b59c95770bcd012adfa646b812` |
+| 4 | `20261102000300_no_notify_on_fork.sql` — **NOT APPLIED** | `0be7cc155c0c94c9b7b1c30766218a6c6760d2d96cb163770ca8ff1545b16c73` |
 
 Order matters: 3 calls `is_splittable_slice_type` from 2, and writes `forked_from` from 1.
 
@@ -168,12 +176,13 @@ of them ends in `ROLLBACK`; after a full run, `SELECT count(*) FROM civic_spaces
 |---|---|
 | `19-01-fork-provenance.sql` | **9 PASS**, control FAIL |
 | `19-01-split-members.sql` | **12 PASS**, control FAIL |
-| `19-01-split-seed.sql` | **14 PASS**, control FAIL |
+| `19-01-split-seed.sql` | **17 PASS**, control FAIL |
 | `19-01-split-e2e.sql` | **5 PASS**, control FAIL |
 
-**40 PASS, four controls FAIL, `SELECT count(*) FROM civic_spaces.slices` = 0 afterwards.**
+**43 PASS, four controls FAIL, `SELECT count(*) FROM civic_spaces.slices` = 0 afterwards.**
 Re-run in full on 2026-11-02 after the whole-branch review's fixes, on a freshly rebuilt
-cluster.
+cluster. The seed file went 14 → 17 with S13/S14/S15 (the notification bug, #145); the run
+above is with `...000300` applied.
 
 Every file ends in a deliberately-wrong CONTROL that must print FAIL. A suite of
 `CASE WHEN … THEN 'PASS'` assertions that has never printed FAIL has not been shown to be able
@@ -196,6 +205,9 @@ discriminating, which is a different thing and a worse one.
 | drop the `p_min_members` guard | M11 | M1–M10, every seed and e2e assertion |
 | copy a reply whose parent was excluded | S10, S11, S12 | S1–S9 |
 | never copy replies at all | S9, S10, S11, S12, S6b, S6c | S1–S8 |
+| remove the `forked_from` guard from `notify_on_reply` (i.e. the #145 bug) | S13, S14 | S15, S1–S12 |
+| notify on forked rows but point `reference_id` at the ORIGINAL post | **S15 only** | S13, S14, S1–S12 |
+| the pre-`seed-replier` fixture, with the #145 bug live | *nothing* — S13, S14 read **PASS** | all |
 
 🔴 **Two findings from the rehearsal that the plan did not predict**, both recorded here because
 they are about method rather than about this feature:
@@ -222,6 +234,83 @@ they are about method rather than about this feature:
    printing anything, and the grep for FAIL came back empty. Read carelessly that is "the
    assertions are insensitive to this mutation" — the exact opposite of the truth. Every
    mutation run here now asserts the function is present before reading the result.
+
+---
+
+## The fourth migration — `20261102000300_no_notify_on_fork.sql`
+
+**Status: NOT APPLIED.** Written and rehearsed 2026-11-02, after the benchmark in
+`19-01-SPLIT-TIMING.md` turned up a correctness bug by reading the trigger list. Issue #145.
+
+**The bug.** `reply_notification` fires `AFTER INSERT` on every row that lands in `replies`,
+and the seed copy lands thousands at once. A copy keeps the original byline deliberately, so
+the copied post's owner *is* the original author — and `notify_on_reply` told them they had
+new replies. They did not: those are forks of a conversation that already happened elsewhere,
+usually already read. And `reference_id` is the **copy's** post id, so following the
+notification lands them in a slice they may not belong to, where `locatePost` returns
+`unavailable`. One busy jurisdiction's split produced **2,800 such rows**.
+
+**The fix** is four lines in `notify_on_reply`: return early when `NEW.forked_from IS NOT NULL`.
+Nothing else in the function changes, and `split_slice` is not touched at all.
+
+🔴 **Why not the session GUC the issue proposed.** `forked_from` is a fact about the ROW, not
+about who inserted it, so any future copier — a backfill, a repair script, 19-02's
+redistribution — gets this for free instead of having to re-learn a flag. A GUC left set, by an
+exception between set and reset or by a pooled session handed on, silently suppresses **real**
+notifications for everything after it, and the symptom is members quietly not being told about
+replies, which nobody reports as a bug. And `forked_from IS NULL` already *means* "written in
+place" — that is the stated contract the `ON DELETE NO ACTION` FK exists to defend, and
+`has_written_in_thread` already reads it to decide standing.
+
+**Not in this migration:** `trg_reply_count`. It is another ~34% of a split and it is what
+restamps `updated_at` on seeded posts (the S6b wart), but suppressing it means `split_slice`
+has to maintain `posts.reply_count` itself — and getting that wrong opens every seeded thread
+reading "0 replies" while holding them. Performance change, correctness risk, different
+decision: it belongs with the scheduling work in ev-accounts#1281.
+
+### Applying it
+
+Same discipline as the three above — hash the committed bytes, one transaction:
+
+```bash
+git show HEAD:supabase/migrations/20261102000300_no_notify_on_fork.sql > /tmp/m4.sql
+sha256sum /tmp/m4.sql   # 0be7cc155c0c94c9b7b1c30766218a6c6760d2d96cb163770ca8ff1545b16c73
+psql "$(cat ~/.cs-db-url)" -X -v ON_ERROR_STOP=1 -1 -f /tmp/m4.sql
+```
+
+Afterwards, three things, all cheap:
+
+| check | expected |
+|---|---|
+| `SELECT prosrc LIKE '%forked_from%' FROM pg_proc WHERE proname='notify_on_reply'` | `t` |
+| `SELECT proacl FROM pg_proc WHERE proname='notify_on_reply'` | `postgres=X/postgres, service_role=X/postgres` — **unchanged**; the REVOKE restates what is already true, because `CREATE OR REPLACE` preserves the ACL |
+| `npm run check:anon-read` | still 72 PASS — 3a asserts the anon-executable DEFINER set is exactly the four public RPCs, and this function must not join it |
+
+No data changes. Nothing calls `split_slice` yet, so the bug has never fired in production and
+cannot until ev-accounts ships — which is the whole reason this gets fixed before the first
+split rather than after one.
+
+### 🔴 Two ways the verification lied before it told the truth
+
+Both are recorded because the shape outlives the instance, and both are the same shape as the
+two already recorded against the benchmark.
+
+- **A mutation that silently did not apply.** The first attempt to prove the assertions
+  discriminate built the mutated function with `String.replace` in Node — which treats `$$` in
+  a replacement string as an escape for a single `$`. The dollar-quoted body arrived as
+  `AS $ … $;`, psql split it at every internal `;`, and one of the resulting fragments was a
+  bare `END;` — **a synonym for COMMIT**. The transaction ended there, everything after it ran
+  in autocommit, the fixture committed, and the assertions read PASS against the *fixed*
+  function while claiming to test the broken one. It was caught by a later run failing on a
+  duplicate key, i.e. by the leftover rows — not by the run itself.
+- **A grep that hid the errors.** That run's output *was* full of psql errors. They were
+  invisible because the filter was `grep -E '^(S[0-9]|C |ERROR)'` and psql prefixes errors with
+  `psql:<file>:<line>: ERROR:`, which does not start with `ERROR`. Anchor on `-i error`, or do
+  not filter.
+
+The rule both of them point at: **assert the mutation landed before trusting what it reports**,
+and check the side-effect (here, `count(*) FROM slices` after the rollback) rather than only
+the clock or the PASS line.
 
 ---
 

@@ -72,6 +72,11 @@ side-effect count, not just the clock.
 
 ## 🔴 A correctness bug, found by reading the trigger list
 
+> **Fixed 2026-11-02 in `20261102000300_no_notify_on_fork.sql`** (issue #145), by making
+> `notify_on_reply` return early on `forked_from IS NOT NULL`. Pinned by S13/S14/S15 in
+> `19-01-split-seed.sql`, written first and watched failing. **Not yet applied to production.**
+> The rest of this section is left as it was written, because it is the measurement.
+
 `reply_notification` fires `AFTER INSERT` on **every copied reply**. The copy keeps the
 original byline, so the copied post's owner is the original author — and they get notified.
 
@@ -110,10 +115,21 @@ says why in numbers: **the thing that decides whether it fits is how busy the ju
 is, and busy jurisdictions are the ones that split.** Recommendation, cheapest first:
 
 1. **Stop the two triggers firing on seeded rows.** Biggest win by far — 3.9× — and it fixes
-   the notification bug and preserves `updated_at` (the S6b wart) at the same time. A
-   session-local guard the seed sets, which `notify_on_reply` and `trg_reply_count` check, is
-   enough; `ALTER TABLE ... DISABLE TRIGGER` takes an ACCESS EXCLUSIVE lock and must not be
-   used on a live table.
+   the notification bug and preserves `updated_at` (the S6b wart) at the same time.
+   `ALTER TABLE ... DISABLE TRIGGER` takes an ACCESS EXCLUSIVE lock and must not be used on a
+   live table.
+
+   **Half of this is done.** `notify_on_reply` now returns early on a forked row
+   (`20261102000300`), which removes the correctness bug and the 33% it cost. The guard is
+   `forked_from`, a fact about the row, rather than the session-local setting this paragraph
+   originally proposed — see the runbook for why a GUC is the worse of the two.
+
+   `trg_reply_count` — the other ~34%, and the cause of the S6b wart — is **not** done, and it
+   is not the same kind of change. Suppressing it means `split_slice` must maintain
+   `posts.reply_count` itself, and a mistake there opens every seeded thread reading
+   "0 replies" while holding them: silent, and the exact failure this phase exists to avoid.
+   It is a performance change with a correctness risk, so it belongs here, with the scheduling
+   decision, and not in a bug fix. Remaining win from it alone: roughly 2×.
 2. **Move the call out of the request** regardless. Even at 2.6 s the heavy case is far too
    slow for a fire-and-forget endpoint, and 1 only buys headroom — it does not make the
    placement correct. `pg_cron` is already installed in `public`.
