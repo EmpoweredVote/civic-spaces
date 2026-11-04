@@ -56,7 +56,7 @@ import type { SliceInfo } from '../types/database'
  * While the name is still resolving, nothing is shown rather than the tab label:
  * `useJurisdictionName` answers "City" until its offline shard lands, and
  * *"Looking at City"* is worse than waiting a frame. That is the same
- * `name !== fallback` idiom `ActiveExplore` and `ActiveLocationCard` already
+ * `name !== fallback` idiom `ActiveExplore` and `HomeLocationCard` already
  * use.
  */
 
