@@ -46,6 +46,7 @@ export function LocationCard({
           type="button"
           onClick={onChange}
           aria-expanded={expanded}
+          data-place-change=""
           className="flex-shrink-0 cursor-pointer rounded font-semibold text-brand dark:text-brand-light hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
         >
           Change

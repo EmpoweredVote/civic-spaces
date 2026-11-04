@@ -806,7 +806,7 @@ async function runSignedOutWalk() {
 
         const leaveHit = await page.evaluate(hitTest, { selector: LEAVE })
         // Open the strip's own picker and reach its input and first row.
-        await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+        await page.locator(`[data-place-change]:visible`).first().click()
         await page.waitForTimeout(350)
         const inputHit = await page.evaluate(hitTest, { selector: `${STRIP} input[role="combobox"]` })
         await typeInto(page, STRIP, PLACE_NAME.toLowerCase())
@@ -818,7 +818,7 @@ async function runSignedOutWalk() {
         // 🔴 Escape, never a click: choosing a row would resolve a second place
         // and the coordinate-lookup-exactly-once assertion above would be a lie.
         await page.keyboard.press('Escape')
-        await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+        await page.locator(`[data-place-change]:visible`).first().click()
         await page.waitForTimeout(300)
 
         results.push({ theme, w: vp.width, classOk, leave: leaveHit, input: inputHit, option: optionHit })
@@ -1092,7 +1092,7 @@ async function runMemberVisit() {
   // ── Enter Asheville from the SHELL, which is the half the welcome screen
   //    cannot cover: the banner and the tab bar only exist on this path.
   requests.recording = true
-  await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+  await page.locator(`[data-place-change]:visible`).first().click()
   await page.waitForTimeout(300)
   await typeInto(page, STRIP, PLACE_NAME.toLowerCase())
   await page.locator(`${STRIP} [role="option"]`).first().click()
@@ -1184,7 +1184,7 @@ async function runMemberVisit() {
       thread: /sidewalk repairs/i.test(document.body.innerText || ''),
       path: location.pathname,
     }))
-    await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+    await page.locator(`[data-place-change]:visible`).first().click()
     await page.waitForTimeout(300)
     await typeInto(page, STRIP, PLACE_NAME.toLowerCase())
     await page.locator(`${STRIP} [role="option"]`).first().click()
@@ -1212,7 +1212,7 @@ async function runMemberVisit() {
   await page.goto(`${ORIGIN}/?dev=1&place=bloomington`, { waitUntil: 'domcontentloaded' })
   await page.waitForSelector(RAIL, { timeout: 25000 })
   await page.waitForTimeout(2000)
-  await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+  await page.locator(`[data-place-change]:visible`).first().click()
   await page.waitForTimeout(300)
   await typeInto(page, STRIP, PLACE_NAME.toLowerCase())
   await page.locator(`${STRIP} [role="option"]`).first().click()

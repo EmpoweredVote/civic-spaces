@@ -28,7 +28,7 @@ import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
 import { WelcomeScreen } from './WelcomeScreen'
-import { PlaceStrip } from './PlaceStrip'
+import { PlaceStrip, HomeLocationCard } from './PlaceStrip'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
 import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId } from '../lib/viewedPlace'
 import type { ResolvedPlace } from '../lib/placeResolve'
@@ -854,8 +854,12 @@ export default function AppShell() {
   // and collapsing the nav rail widens both together. The percentage resolves against
   // the grid container, not the viewport.
   const showSidebar = activeTab !== 'volunteer' && !sidebarCollapsed
-  const sidebarGridCols = 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_clamp(17rem,26%,20rem)]'
-  const contentGridCols = showSidebar ? sidebarGridCols : 'grid-cols-1'
+  const contentGridCols = showSidebar
+    ? 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_clamp(17rem,26%,20rem)]'
+    : 'grid-cols-1'
+  // The place picker under the banner. Lifted here because its Change lives in two
+  // places: PlaceStrip below md, and the tab bar beside the sidebar toggle from md.
+  const [placePickerOpen, setPlacePickerOpen] = useState(false)
 
   // Keep the active tab on a slice the member actually has.
   //
@@ -1567,7 +1571,8 @@ export default function AppShell() {
                     visitedFallback={visitedPlaceSlice ? TAB_LABELS[visitedPlaceSlice.sliceType] : ''}
                     homeSlice={homeSlice}
                     homeFallback={homeSlice ? TAB_LABELS[homeSlice.sliceType] : ''}
-                    sidebarCols={sidebarGridCols}
+                    open={placePickerOpen}
+                    onOpenChange={setPlacePickerOpen}
                     isAuthenticated={isAuthenticated}
                     onResolved={enterPlace}
                     onLeave={leavePlace}
@@ -1662,8 +1667,22 @@ export default function AppShell() {
                     {/* The right sidebar's toggle sits at the bar's far end, above the
                         column it controls, and stays put whether the column is open or
                         not. md up only: below that SidebarMobile collapses on its own. */}
+                    {/* "Showing content for Asheville, NC · Change", side by side with
+                        the sidebar toggle. md up; phones get it under the banner in
+                        PlaceStrip. Change opens the picker there. Absent while
+                        visiting — the amber strip says where you are then. */}
+                    {hasExplore && homeSlice && (
+                      <div className={`hidden md:block min-w-0 max-w-[20rem] ${effectiveView === 'conversations' ? '' : 'md:ml-auto'}`}>
+                        <HomeLocationCard
+                          slice={homeSlice}
+                          fallback={TAB_LABELS[homeSlice.sliceType]}
+                          expanded={placePickerOpen}
+                          onChange={() => setPlacePickerOpen((v) => !v)}
+                        />
+                      </div>
+                    )}
                     {activeTab !== 'volunteer' && (
-                      <div className="hidden md:block md:ml-auto flex-shrink-0">
+                      <div className={`hidden md:block ${hasExplore && homeSlice ? '' : 'md:ml-auto'} flex-shrink-0`}>
                         <PanelToggle side="right" collapsed={sidebarCollapsed} onToggle={toggleSidebarCollapsed} label="sidebar" />
                       </div>
                     )}

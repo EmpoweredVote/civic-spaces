@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { PlacePicker } from './PlacePicker'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
 import { stateAbbrevFromGeoid } from '../lib/stateAbbrev'
@@ -111,7 +110,7 @@ function VisitingLine({ slice, fallback }: { slice: SliceInfo; fallback: string 
  * the active tab. Change opens the place picker below, so it looks at another place
  * rather than editing the address.
  */
-function HomeLocationCard({
+export function HomeLocationCard({
   slice,
   fallback,
   expanded,
@@ -147,8 +146,13 @@ export function PlaceStrip({
   /** The member's own most local slice, named by the card when they are not visiting. */
   homeSlice,
   homeFallback = '',
-  /** The content grid's two-column template; the card sits in its second track. */
-  sidebarCols,
+  /**
+   * Whether the picker is open. AppShell owns it because the home card has two
+   * mounts — here below `md`, and in the tab bar beside the sidebar toggle from
+   * `md` up — and both open this one picker.
+   */
+  open,
+  onOpenChange,
   isAuthenticated,
   onResolved,
   onLeave,
@@ -157,12 +161,14 @@ export function PlaceStrip({
   visitedFallback: string
   homeSlice?: SliceInfo
   homeFallback?: string
-  sidebarCols?: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
   isAuthenticated: boolean
   onResolved: (place: ResolvedPlace) => void
   onLeave: () => void
 }) {
-  const [open, setOpen] = useState(false)
+  const setOpen = (next: boolean | ((v: boolean) => boolean)) =>
+    onOpenChange(typeof next === 'function' ? next(open) : next)
 
   const handleResolved = (place: ResolvedPlace) => {
     setOpen(false)
@@ -195,6 +201,7 @@ export function PlaceStrip({
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
+              data-place-change=""
               className={`${CONTROL} underline hover:no-underline`}
             >
               Change
@@ -215,20 +222,15 @@ export function PlaceStrip({
         </div>
       ) : homeSlice ? (
         /* On their own spaces: name the place, and let Change open the picker.
-           Its Change is the strip's one `aria-expanded` button, which is what
-           `check:place-entry` clicks. */
-        /* Sized to the sidebar track, and over it, using AppShell's own column
-           template so the two cannot drift. It keeps that width with the sidebar
-           collapsed; full width on phones. */
-        <div className={`grid gap-3 md:gap-4 ${sidebarCols ?? 'grid-cols-1'}`}>
-          <div className={sidebarCols ? 'md:col-start-2' : undefined}>
-            <HomeLocationCard
-              slice={homeSlice}
-              fallback={homeFallback}
-              expanded={open}
-              onChange={() => setOpen((v) => !v)}
-            />
-          </div>
+           Phones only — from `md` the card sits in the tab bar beside the
+           sidebar toggle (AppShell), so the strip is just the picker there. */
+        <div className="md:hidden">
+          <HomeLocationCard
+            slice={homeSlice}
+            fallback={homeFallback}
+            expanded={open}
+            onChange={() => setOpen((v) => !v)}
+          />
         </div>
       ) : (
         /* 🔴 Quiet and SECONDARY, deliberately — and only when there is no home
@@ -239,6 +241,7 @@ export function PlaceStrip({
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
+            data-place-change=""
             className={`${CONTROL} -mr-3 text-gray-600 underline hover:text-gray-900 hover:no-underline dark:text-gray-400 dark:hover:text-gray-200`}
           >
             <PinIcon className="h-4 w-4 flex-shrink-0" />

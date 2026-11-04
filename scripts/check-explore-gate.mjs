@@ -1591,7 +1591,7 @@ async function runMemberOtherPlace(fx) {
 
   const walked = { entered: false, hero: null }
   try {
-    await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+    await page.locator(`[data-place-change]:visible`).first().click()
     await page.waitForTimeout(300)
     await typeInto(page, STRIP, PLACE_QUERY)
     await page.locator(`${STRIP} [role="option"]`).first().click()
@@ -1919,7 +1919,7 @@ async function runMemberOwnPlace(fx) {
   // ── Enter the SAME place through the strip ───────────────────────────────
   const walked = { entered: false }
   try {
-    await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+    await page.locator(`[data-place-change]:visible`).first().click()
     await page.waitForTimeout(300)
     await typeInto(page, STRIP, PLACE_QUERY)
     await page.locator(`${STRIP} [role="option"]`).first().click()
