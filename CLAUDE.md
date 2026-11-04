@@ -43,7 +43,21 @@ visitor gets the read-only notice and no composer.
 against production on 2026-11-02, all four authenticated viewers included — the first time
 section 4 had ever run. A failure there means something is readable that should not be. Run it
 after any migration touching `civic_spaces`, and periodically regardless. The four viewer JWTs
-are minted from `SUPABASE_JWT_SECRET`; the fixture is synthetic and torn down after.
+are minted from `SUPABASE_JWT_SECRET`; the fixture is synthetic and torn down after. The fixture
+is committed at `scripts/rehearsal/18-02-section4-seed.sql` (+ teardown) — section 4 cannot run
+against production data because production holds **zero friendships**, and D-49 is a claim about
+one.
+
+🔴 **Sections 1–3c are content-BLIND, and that is not a gap in the implementation — it is the
+shape of the question they ask.** They assert the projection is narrow and the door is one door,
+and every one of them is satisfied by a feed of invented people. On 2026-11-04 the guard read
+44 PASS / 0 FAIL on a `federal:US` feed where **9 of the 11 posts anon was served were demo
+personas** keyed `fake-author-N`, one making a voting claim about a named living politician.
+**3d is the half that looks at who is talking**: every author of anon-visible content must have a
+UUID-shaped `user_id`, because every `civic_spaces` row is keyed on the internal UUID. It is an
+allowlist on shape, deliberately not a denylist of known fake prefixes. A failure is either
+seeded content a visitor can read, or a WorkOS id meaning identity resolution broke for a real
+member — the two are repaired differently and the guard says which it saw.
 
 🔴 **Any SECURITY DEFINER function added to `civic_spaces` from now on is anon-callable the
 moment it is created**, because Postgres grants EXECUTE to PUBLIC by default and `anon` now
