@@ -5,7 +5,7 @@ import { useCreateReply } from '../hooks/useCreateReply'
 import EmpoweredBadge from './EmpoweredBadge'
 import { FOCUS, PrimaryButton, TEXT_FIELD, TEXT_FIELD_INVALID } from './explore/exploreUi'
 import { createReplySchema, REPLY_BODY_MAX, type CreateReplyInput } from '../lib/validators'
-import { writeErrorMessage } from '../lib/writeErrors'
+import { writeErrorMessage, canRetryWrite } from '../lib/writeErrors'
 
 interface ReplyComposerProps {
   postId: string
@@ -104,7 +104,8 @@ export default function ReplyComposer({
         <div role="alert" className="mb-2 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 px-3 py-2">
           <p className="text-sm font-semibold text-red-800 dark:text-red-200">Your reply wasn’t posted.</p>
           <p className="text-sm text-red-700 dark:text-red-300">
-            {writeErrorMessage(createReply.error)} Your reply is still here — press Try again.
+            {writeErrorMessage(createReply.error)}{' '}
+            {canRetryWrite(createReply.error) ? 'Your reply is still here — press Try again.' : 'Your reply is still here.'}
           </p>
         </div>
       )}
@@ -144,7 +145,7 @@ export default function ReplyComposer({
               Cancel
             </button>
             <PrimaryButton type="submit" disabled={pending}>
-              {pending ? 'Posting…' : createReply.error ? 'Try again' : 'Reply'}
+              {pending ? 'Posting…' : createReply.error && canRetryWrite(createReply.error) ? 'Try again' : 'Reply'}
             </PrimaryButton>
           </div>
         </div>

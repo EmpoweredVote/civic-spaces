@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { isSyntheticUserId } from '../lib/devMockData'
+import { TestAccountWriteError } from '../lib/writeErrors'
 
 interface CreateReplyInput {
   body: string
@@ -19,6 +21,8 @@ export function useCreateReply(postId: string, userId: string) {
 
   return useMutation({
     mutationFn: async ({ body, parentReplyId }: CreateReplyInput) => {
+      // The local test id has no session and fixture post ids: refuse, send nothing.
+      if (isSyntheticUserId(userId)) throw new TestAccountWriteError()
       const { data, error } = await supabase
         .schema('civic_spaces')
         .from('replies')

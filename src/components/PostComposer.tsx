@@ -10,7 +10,7 @@ import { QuestionPicker } from './QuestionPicker'
 import { FOCUS, PrimaryButton, TEXT_FIELD, TEXT_FIELD_INVALID } from './explore/exploreUi'
 import { questionsFor } from '../lib/writingGuidance'
 import { focusAtEnd } from '../lib/focusAtEnd'
-import { writeErrorMessage } from '../lib/writeErrors'
+import { writeErrorMessage, canRetryWrite } from '../lib/writeErrors'
 import type { PostWithAuthor } from '../types/database'
 import type { ExploreTopic } from '../types/explore'
 
@@ -215,7 +215,10 @@ export default function PostComposer({
                   {isEditMode ? 'Your changes weren’t saved.' : 'Your post wasn’t published.'}
                 </p>
                 <p className="mt-0.5 text-sm text-red-700 dark:text-red-300">
-                  {writeErrorMessage(failed)} Your text is still here — press {isEditMode ? 'Save' : 'Post'} to try again.
+                  {writeErrorMessage(failed)}{' '}
+                  {canRetryWrite(failed)
+                    ? <>Your text is still here — press {isEditMode ? 'Save' : 'Post'} to try again.</>
+                    : 'Your text is still here.'}
                 </p>
               </div>
             )}

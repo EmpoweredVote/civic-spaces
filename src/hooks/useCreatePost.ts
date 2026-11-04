@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import type { CreatePostInput } from '../lib/validators'
+import { isSyntheticUserId } from '../lib/devMockData'
+import { TestAccountWriteError } from '../lib/writeErrors'
 
 /**
  * Create a post, and show it only once the database has it.
@@ -15,6 +17,8 @@ export function useCreatePost(sliceId: string, userId: string) {
 
   return useMutation({
     mutationFn: async ({ title, body }: CreatePostInput) => {
+      // The local test id has no session and fixture slice ids: refuse, send nothing.
+      if (isSyntheticUserId(userId)) throw new TestAccountWriteError()
       const { data, error } = await supabase
         .schema('civic_spaces')
         .from('posts')
