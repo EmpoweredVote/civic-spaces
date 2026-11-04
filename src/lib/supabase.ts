@@ -51,6 +51,15 @@ function currentAccessToken(): string {
 // Supabase Third-Party Auth: accounts JWT is stored as cs_token and used directly.
 // Supabase validates it against the configured JWKS from accounts.empowered.vote.
 // Queries target public-schema views that forward to civic_spaces tables.
+//
+// 🔴 With no session the bearer is the ANON KEY, never ''. supabase-js sends the
+// callback's value as-is, so '' went out as `Authorization: Bearer ` and PostgREST
+// refused it — `401 PGRST301 Empty JWT` — on every request. That was harmless while
+// every grant was `TO authenticated`; since Phase 18 it meant a signed-out visitor
+// could not reach the four public RPCs at all, and saw "Failed to load posts" in
+// production. The anon key is the token PostgREST maps to the `anon` role, which is
+// exactly what holds EXECUTE on those four and nothing else. check:anon-read missed
+// it because it calls PostgREST directly with the anon key, not through this client.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  accessToken: async () => currentAccessToken(),
+  accessToken: async () => currentAccessToken() || supabaseAnonKey,
 })
