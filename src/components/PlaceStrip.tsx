@@ -181,12 +181,12 @@ export function PlaceStrip({
            own feed this is navigation they rarely want, and a prominent control
            here would compete with the Post button two rows down. D-18 still
            holds: it is always present, never buried. */
-        <div className="flex">
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className={`${CONTROL} -ml-3 text-gray-600 underline hover:text-gray-900 hover:no-underline dark:text-gray-400 dark:hover:text-gray-200`}
+            className={`${CONTROL} -mr-3 text-gray-600 underline hover:text-gray-900 hover:no-underline dark:text-gray-400 dark:hover:text-gray-200`}
           >
             <PinIcon className="h-4 w-4 flex-shrink-0" />
             Look at another place
