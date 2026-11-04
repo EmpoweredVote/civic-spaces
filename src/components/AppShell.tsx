@@ -1672,12 +1672,17 @@ export default function AppShell() {
                         PlaceStrip. Change opens the picker there. Absent while
                         visiting — the amber strip says where you are then. */}
                     {hasExplore && homeSlice && (
-                      <div className={`hidden md:block min-w-0 max-w-[20rem] ${effectiveView === 'conversations' ? '' : 'md:ml-auto'}`}>
+                      // Card + toggle together take the sidebar track's own width rule,
+                      // so their left edge lines up with the boxes below: the track,
+                      // less the toggle (2rem) and the bar's gap (0.5rem). The bar spans
+                      // the same container as the content grid, so 26% resolves alike.
+                      <div className={`hidden md:block min-w-0 md:w-[calc(clamp(17rem,26%,20rem)-2.5rem)] ${effectiveView === 'conversations' ? '' : 'md:ml-auto'}`}>
                         <HomeLocationCard
                           slice={homeSlice}
                           fallback={TAB_LABELS[homeSlice.sliceType]}
                           expanded={placePickerOpen}
                           onChange={() => setPlacePickerOpen((v) => !v)}
+                          compact
                         />
                       </div>
                     )}

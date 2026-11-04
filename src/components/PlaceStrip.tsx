@@ -115,11 +115,14 @@ export function HomeLocationCard({
   fallback,
   expanded,
   onChange,
+  compact,
 }: {
   slice: SliceInfo
   fallback: string
   expanded: boolean
   onChange: () => void
+  /** Tighter padding, for the tab bar. */
+  compact?: boolean
 }) {
   const name = useJurisdictionName(slice, fallback)
   const stateName = geoidToDisplayName('state', slice.geoid.slice(0, 2))
@@ -128,7 +131,7 @@ export function HomeLocationCard({
   const label = slice.sliceType === 'state' || !resolved
     ? (stateName ?? name)
     : abbrev ? `${name}, ${abbrev}` : name
-  return <LocationCard label={label} onChange={onChange} expanded={expanded} />
+  return <LocationCard label={label} onChange={onChange} expanded={expanded} compact={compact} />
 }
 
 /** The amber pair, written light and dark together, exactly as `ReadOnlyNotice` writes it. */
