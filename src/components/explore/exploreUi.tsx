@@ -33,7 +33,7 @@ export function PrimaryButton({
     lg: 'rounded-xl px-5 py-3 text-base font-bold shadow-[0_4px_0_rgb(0_0_0_/_0.12)] dark:shadow-[0_4px_0_rgb(0_0_0_/_0.45)]',
     // Same pressed-key shadow, at the size of the outlined button beside it.
     card: 'rounded-xl px-4 py-2.5 text-sm font-bold shadow-[0_3px_0_rgb(0_0_0_/_0.12)] dark:shadow-[0_3px_0_rgb(0_0_0_/_0.45)]',
-    md: 'rounded-full px-4 py-2 text-sm font-semibold shadow-sm',
+    md: 'rounded-xl px-4 py-2 text-sm font-semibold shadow-sm',
   }[size]
   return (
     <button
@@ -61,7 +61,7 @@ export function SecondaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold ${SECONDARY} disabled:opacity-50 disabled:cursor-not-allowed motion-safe:transition-colors ${FOCUS}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold ${SECONDARY} disabled:opacity-50 disabled:cursor-not-allowed motion-safe:transition-colors ${FOCUS}`}
     >
       {children}
     </button>

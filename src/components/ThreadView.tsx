@@ -294,7 +294,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
 
         {/* Action row: comment count + share */}
             <div className="mt-3 flex items-center gap-2">
-              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300">
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
@@ -303,7 +303,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
               <button
                 type="button"
                 onClick={handleShare}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v6a2 2 0 002 2h12a2 2 0 002-2v-6M16 6l-4-4-4 4M12 2v13" />
@@ -339,7 +339,7 @@ export default function ThreadView({ postId, onBack, scrollToLatest, isViewOnly 
                 <button
                   type="button"
                   onClick={handleReplyToPost}
-                  className="w-full flex items-center gap-2 text-left px-4 py-2.5 rounded-full border border-gray-300 dark:border-white/15 text-sm font-medium text-gray-600 dark:text-gray-400 hover:border-brand dark:hover:border-brand-light hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                  className="w-full flex items-center gap-2 text-left px-4 py-2.5 rounded-xl border border-gray-300 dark:border-white/15 text-sm font-medium text-gray-600 dark:text-gray-400 hover:border-brand dark:hover:border-brand-light hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />

@@ -393,7 +393,7 @@ export default function SliceFeedPanel({
                 type="button"
                 onClick={() => fetchNextPage()}
                 disabled={isFetchingNextPage}
-                className="rounded-full px-3 py-1.5 text-xs font-medium text-brand dark:text-brand-light bg-brand-muted dark:bg-brand/10 hover:bg-brand/15 disabled:opacity-60"
+                className="rounded-xl px-3 py-1.5 text-xs font-medium text-brand dark:text-brand-light bg-brand-muted dark:bg-brand/10 hover:bg-brand/15 disabled:opacity-60"
               >
                 {isFetchingNextPage ? 'Loading…' : 'Load more posts to search'}
               </button>

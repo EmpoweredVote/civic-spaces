@@ -122,7 +122,7 @@ export function ReplyClosedNotice({
             <button
               type="button"
               onClick={onExplain}
-              className={`inline-flex items-center rounded-full border border-brand px-3.5 py-1.5 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 ${FOCUS} dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10`}
+              className={`inline-flex items-center rounded-xl border border-brand px-3.5 py-1.5 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 ${FOCUS} dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10`}
             >
               {copy.actionLabel}
             </button>
@@ -131,7 +131,7 @@ export function ReplyClosedNotice({
           {copy?.action === 'accounts-app' && (
             <a
               href={LOCATION_SETTINGS_URL}
-              className={`inline-flex items-center rounded-full border border-brand px-3.5 py-1.5 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 ${FOCUS} dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10`}
+              className={`inline-flex items-center rounded-xl border border-brand px-3.5 py-1.5 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 ${FOCUS} dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10`}
             >
               {copy.actionLabel}
             </a>

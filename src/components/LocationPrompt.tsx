@@ -58,7 +58,7 @@ export default function LocationPrompt() {
           href={LOCATION_SETTINGS_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-brand-btn px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
+          className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-brand-btn px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
         >
           Add your address
         </a>

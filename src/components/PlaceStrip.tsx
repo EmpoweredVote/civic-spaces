@@ -139,7 +139,7 @@ const AMBER =
   'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200'
 
 /** ≥44px touch target, visible focus, a real pointer. Both controls, both states. */
-const CONTROL = `inline-flex min-h-[2.75rem] cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold motion-safe:transition-colors ${FOCUS}`
+const CONTROL = `inline-flex min-h-[2.75rem] cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold motion-safe:transition-colors ${FOCUS}`
 
 export function PlaceStrip({
   /** The place on screen's most local slice, or undefined when the viewer is on their own spaces. */
