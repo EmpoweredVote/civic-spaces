@@ -396,15 +396,7 @@ export function HeroBanner({
                 <span className="font-semibold tabular-nums">{countdownLabel(electionDays)}</span>
               </FactChip>
             )}
-            {nextElection === null && (
-              <FactChip
-                icon="🗳️"
-                label="for upcoming elections"
-                details="No upcoming election is on file for this area."
-              >
-                <span className="font-medium">None on file</span>
-              </FactChip>
-            )}
+            {/* Nothing upcoming (null) renders nothing: the chip is there only while an election is. */}
             {weather && (
               <span className={`${CHIP} pr-1`}>
                 <a
