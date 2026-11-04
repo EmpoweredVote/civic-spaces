@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { PlacePicker } from './PlacePicker'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
+import { stateAbbrevFromGeoid } from '../lib/stateAbbrev'
+import { geoidToDisplayName } from '../lib/geoidToWiki'
+import { LocationCard } from './Sidebar'
 import { FOCUS } from './explore/exploreUi'
 import type { ResolvedPlace } from '../lib/placeResolve'
 import type { SliceInfo } from '../types/database'
@@ -103,6 +106,32 @@ function VisitingLine({ slice, fallback }: { slice: SliceInfo; fallback: string 
   )
 }
 
+/**
+ * "Showing content for Asheville, NC · Change" — the member's most local slice, not
+ * the active tab. Change opens the place picker below, so it looks at another place
+ * rather than editing the address.
+ */
+function HomeLocationCard({
+  slice,
+  fallback,
+  expanded,
+  onChange,
+}: {
+  slice: SliceInfo
+  fallback: string
+  expanded: boolean
+  onChange: () => void
+}) {
+  const name = useJurisdictionName(slice, fallback)
+  const stateName = geoidToDisplayName('state', slice.geoid.slice(0, 2))
+  const abbrev = stateAbbrevFromGeoid(slice.geoid)
+  const resolved = name !== fallback
+  const label = slice.sliceType === 'state' || !resolved
+    ? (stateName ?? name)
+    : abbrev ? `${name}, ${abbrev}` : name
+  return <LocationCard label={label} onChange={onChange} expanded={expanded} />
+}
+
 /** The amber pair, written light and dark together, exactly as `ReadOnlyNotice` writes it. */
 const AMBER =
   'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200'
@@ -115,12 +144,17 @@ export function PlaceStrip({
   visitedSlice,
   /** That slice's tab label, so an unresolved name can be told from a resolved one. */
   visitedFallback,
+  /** The member's own most local slice, named by the card when they are not visiting. */
+  homeSlice,
+  homeFallback = '',
   isAuthenticated,
   onResolved,
   onLeave,
 }: {
   visitedSlice?: SliceInfo
   visitedFallback: string
+  homeSlice?: SliceInfo
+  homeFallback?: string
   isAuthenticated: boolean
   onResolved: (place: ResolvedPlace) => void
   onLeave: () => void
@@ -176,11 +210,20 @@ export function PlaceStrip({
             </button>
           </div>
         </div>
+      ) : homeSlice ? (
+        /* On their own spaces: name the place, and let Change open the picker.
+           Its Change is the strip's one `aria-expanded` button, which is what
+           `check:place-entry` clicks. */
+        <HomeLocationCard
+          slice={homeSlice}
+          fallback={homeFallback}
+          expanded={open}
+          onChange={() => setOpen((v) => !v)}
+        />
       ) : (
-        /* 🔴 Quiet and SECONDARY, deliberately. For a signed-in member on their
-           own feed this is navigation they rarely want, and a prominent control
-           here would compete with the Post button two rows down. D-18 still
-           holds: it is always present, never buried. */
+        /* 🔴 Quiet and SECONDARY, deliberately — and only when there is no home
+           place to name (slices still loading, or a viewer with none). D-18 still holds: the picker is always
+           reachable, never buried. */
         <div className="flex justify-end">
           <button
             type="button"

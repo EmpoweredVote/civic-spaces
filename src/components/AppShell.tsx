@@ -22,7 +22,6 @@ import { useUpcomingMeetings } from '../hooks/useUpcomingMeetings'
 import { UpcomingEventsWidget } from './widgets/UpcomingEventsWidget'
 import { forecastUrlFor } from '../lib/forecastLink'
 import { stateAbbrevFromGeoid } from '../lib/stateAbbrev'
-import { geoidToDisplayName } from '../lib/geoidToWiki'
 import { usePopulation } from '../hooks/usePopulation'
 import { useCurrentWeather } from '../hooks/useCurrentWeather'
 import { useTheme } from '../hooks/useTheme'
@@ -45,7 +44,7 @@ import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
 import NotificationBell from './NotificationBell'
 import ModeratorQueue from './ModeratorQueue'
-import { Sidebar, LocationCard } from './Sidebar'
+import { Sidebar } from './Sidebar'
 import { SidebarMobile } from './SidebarMobile'
 import NavSidebar from './NavSidebar'
 import { PanelToggle, usePersistedCollapse } from './PanelToggle'
@@ -191,21 +190,6 @@ function ActiveFeedSearch({
 }) {
   const name = useJurisdictionName(slice, fallbackName)
   return <FeedSearch value={value} onChange={onChange} placeholder={`Search loaded posts in ${name}…`} className={className} />
-}
-
-/**
- * "Showing content for Asheville, NC". The member's most local slice, not the active
- * tab: it names where their spaces come from, which is what "Change" changes.
- */
-function ActiveLocationCard({ slice, fallbackName }: { slice: SliceInfo; fallbackName: string }) {
-  const name = useJurisdictionName(slice, fallbackName)
-  const stateName = geoidToDisplayName('state', slice.geoid.slice(0, 2))
-  const abbrev = stateAbbrevFromGeoid(slice.geoid)
-  const resolved = name !== fallbackName
-  const label = slice.sliceType === 'state' || !resolved
-    ? (stateName ?? name)
-    : abbrev ? `${name}, ${abbrev}` : name
-  return <LocationCard label={label} />
 }
 
 /**
@@ -1582,6 +1566,8 @@ export default function AppShell() {
                   <PlaceStrip
                     visitedSlice={visitedPlaceSlice}
                     visitedFallback={visitedPlaceSlice ? TAB_LABELS[visitedPlaceSlice.sliceType] : ''}
+                    homeSlice={homeSlice}
+                    homeFallback={homeSlice ? TAB_LABELS[homeSlice.sliceType] : ''}
                     isAuthenticated={isAuthenticated}
                     onResolved={enterPlace}
                     onLeave={leavePlace}
@@ -1690,9 +1676,6 @@ export default function AppShell() {
                     <SidebarMobile
                       repsData={repsData}
                       activeTab={activeTab}
-                      location={homeSlice && (
-                        <ActiveLocationCard slice={homeSlice} fallbackName={TAB_LABELS[homeSlice.sliceType]} />
-                      )}
                       events={activeSlice && (
                         <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={onScreenSlices['state']} userId={userId} />
                       )}
@@ -1935,9 +1918,6 @@ export default function AppShell() {
                     <Sidebar
                       repsData={repsData}
                       activeTab={activeTab}
-                      location={homeSlice && (
-                        <ActiveLocationCard slice={homeSlice} fallbackName={TAB_LABELS[homeSlice.sliceType]} />
-                      )}
                       events={activeSlice && (
                         <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={onScreenSlices['state']} userId={userId} />
                       )}

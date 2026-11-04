@@ -15,11 +15,21 @@ interface SidebarProps {
 }
 
 /**
- * "Showing content for {place} · Change". Address changes happen in the accounts app,
- * never here: this app does not geocode or store a location (see CLAUDE.md, "Talking
- * to the rest of the platform").
+ * "Showing content for {place} · Change". Without `onChange`, Change links to the
+ * accounts app — address changes happen there, never here: this app does not geocode
+ * or store a location (see CLAUDE.md, "Talking to the rest of the platform"). With it,
+ * Change is a disclosure button instead: `PlaceStrip` uses that to open the
+ * "look at another place" picker, which views a place without touching the address.
  */
-export function LocationCard({ label }: { label: string }) {
+export function LocationCard({
+  label,
+  onChange,
+  expanded,
+}: {
+  label: string
+  onChange?: () => void
+  expanded?: boolean
+}) {
   return (
     // The sidebar's width follows the space available, so the sentence wraps rather than
     // ellipsising the place name — the one part of it that matters. "Change" stays on
@@ -31,15 +41,27 @@ export function LocationCard({ label }: { label: string }) {
       <p className="min-w-0 flex-1 break-words text-gray-600 dark:text-gray-400">
         Showing content for <span className="font-semibold text-gray-900 dark:text-gray-100">{label}</span>
       </p>
-      <a
-        href="https://app.empowered.vote/settings/location"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex-shrink-0 font-semibold text-brand dark:text-brand-light hover:underline"
-      >
-        Change
-        <span className="sr-only"> your address (opens the Empowered Vote account settings in a new tab)</span>
-      </a>
+      {onChange ? (
+        <button
+          type="button"
+          onClick={onChange}
+          aria-expanded={expanded}
+          className="flex-shrink-0 cursor-pointer rounded font-semibold text-brand dark:text-brand-light hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+        >
+          Change
+          <span className="sr-only"> place: look at another place</span>
+        </button>
+      ) : (
+        <a
+          href="https://app.empowered.vote/settings/location"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-shrink-0 font-semibold text-brand dark:text-brand-light hover:underline"
+        >
+          Change
+          <span className="sr-only"> your address (opens the Empowered Vote account settings in a new tab)</span>
+        </a>
+      )}
     </div>
   )
 }
