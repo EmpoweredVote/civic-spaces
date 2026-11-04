@@ -854,9 +854,8 @@ export default function AppShell() {
   // and collapsing the nav rail widens both together. The percentage resolves against
   // the grid container, not the viewport.
   const showSidebar = activeTab !== 'volunteer' && !sidebarCollapsed
-  const contentGridCols = showSidebar
-    ? 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_clamp(17rem,26%,20rem)]'
-    : 'grid-cols-1'
+  const sidebarGridCols = 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_clamp(17rem,26%,20rem)]'
+  const contentGridCols = showSidebar ? sidebarGridCols : 'grid-cols-1'
 
   // Keep the active tab on a slice the member actually has.
   //
@@ -1568,7 +1567,7 @@ export default function AppShell() {
                     visitedFallback={visitedPlaceSlice ? TAB_LABELS[visitedPlaceSlice.sliceType] : ''}
                     homeSlice={homeSlice}
                     homeFallback={homeSlice ? TAB_LABELS[homeSlice.sliceType] : ''}
-                    sidebarCols={showSidebar ? contentGridCols : undefined}
+                    sidebarCols={sidebarGridCols}
                     isAuthenticated={isAuthenticated}
                     onResolved={enterPlace}
                     onLeave={leavePlace}

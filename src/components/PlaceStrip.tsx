@@ -147,7 +147,7 @@ export function PlaceStrip({
   /** The member's own most local slice, named by the card when they are not visiting. */
   homeSlice,
   homeFallback = '',
-  /** The content grid's two-column template while the sidebar shows; the card sits in its second track. */
+  /** The content grid's two-column template; the card sits in its second track. */
   sidebarCols,
   isAuthenticated,
   onResolved,
@@ -218,7 +218,8 @@ export function PlaceStrip({
            Its Change is the strip's one `aria-expanded` button, which is what
            `check:place-entry` clicks. */
         /* Sized to the sidebar track, and over it, using AppShell's own column
-           template so the two cannot drift; full width where there is no sidebar. */
+           template so the two cannot drift. It keeps that width with the sidebar
+           collapsed; full width on phones. */
         <div className={`grid gap-3 md:gap-4 ${sidebarCols ?? 'grid-cols-1'}`}>
           <div className={sidebarCols ? 'md:col-start-2' : undefined}>
             <HomeLocationCard
