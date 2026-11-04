@@ -35,7 +35,9 @@ export function OfficialsModule({ ctx }: { ctx: ExploreCtx }) {
     <section aria-labelledby="explore-officials" className="flex flex-col gap-3 pt-2">
       <SectionHeader id="explore-officials" eyebrow="From the public officials list" title={headingFor(ctx)} />
       <p className="px-1 -mt-1 text-sm text-gray-600 dark:text-gray-400">
-        The people who hold office here, from the public record. Start a conversation about what you would ask them.
+        {/* 🔴 No write wording: this line renders for a visitor too, and
+            check:explore-gate 5 holds a view-only page to that. */}
+        The people who hold office here, from the public record — and what you might ask them.
       </p>
       <div className="grid gap-4 @xl:grid-cols-2">
         {topics.map((topic) => (
