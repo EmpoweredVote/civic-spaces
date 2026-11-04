@@ -3,8 +3,7 @@ import { useRoute, useLocation } from 'wouter'
 import { toast } from 'sonner'
 import type React from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { isSyntheticUserId, MOCK_REPRESENTATIVES } from '../lib/devMockData'
-import { filterRepsByTab, type PoliticianFlatRecord } from '../types/representatives'
+import { isSyntheticUserId } from '../lib/devMockData'
 import { useAllSlices } from '../hooks/useAllSlices'
 import { useEnsureSlices } from '../hooks/useEnsureSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
@@ -319,14 +318,7 @@ function ActiveExplore({
   onScrollTop,
   onGoToView,
   whatsNewInSidebar,
-  officials,
 }: {
-  /**
-   * Every official the shell's lookup returned for the place on screen, or null when
-   * there is no real list (still loading, failed, or the dev id's fixtures). Filtered
-   * to this tab's level here, the same way the sidebar filters it.
-   */
-  officials: PoliticianFlatRecord[] | null
   /** The slice for the tab being shown. Explore follows the tab, not the home slice. */
   activeSlice: SliceInfo
   /**
@@ -481,7 +473,6 @@ function ActiveExplore({
       elections={elections}
       races={races}
       raceMedia={raceMedia}
-      officials={officials ? filterRepsByTab(officials, activeSlice.sliceType) : null}
       answeredCompassTopicIds={answeredCompassTopicIds}
       compassLevelFlags={compassLevelFlags}
       onStartConversation={onStartConversation}
@@ -1867,11 +1858,6 @@ export default function AppShell() {
                       >
                         {activeSlice ? (
                           <ActiveExplore
-                            /* 🔴 The SAME list the sidebar shows, so Explore and
-                               "Representing this community" can never disagree —
-                               and null for the dev id's fixtures, which must never
-                               be presented as the public record. */
-                            officials={repsData.data && repsData.data !== MOCK_REPRESENTATIVES ? repsData.data : null}
                             activeSlice={activeSlice}
                             /* 🔴 The MEMBER's own, deliberately — ExploreView checks
                                a stored draft key against it. Never onScreenSlices. */

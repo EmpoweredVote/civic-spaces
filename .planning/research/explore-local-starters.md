@@ -4,6 +4,28 @@
 order to grow it in. Written alongside commit `47eb625` (place-named starters and the
 "Who represents {place}" module).
 
+## 🔴 SUPERSEDED IN PART, 2026-11-04: the officials module is gone from Explore
+
+Chris, reviewing #133: *"I do not like the real living officials in the middle section — I
+don't mind them on a border — but having a big list of elected officials in the middle isn't
+helpful."*
+
+So the `officials` module was removed from `DEFAULT_MODULES` on all four levels, and
+`officialsTopics.ts`, `OfficialsModule.tsx`, the `officialTopics` context field and the
+`officials` prop chain into Explore were deleted with it. The middle column is for
+conversation, not for a roster.
+
+**Who represents a place is still on screen, and always was** — `RepresentativesWidget`
+in the right sidebar ("Representing this community"), desktop and mobile, on every
+non-Volunteer tab. That is the border treatment this decision is fine with. Nothing was
+moved and nothing was added; the middle column simply stopped repeating it.
+
+What this does NOT change: the rule in the next section still governs every other source,
+and the by-area officials lookup is still the only national-coverage local source we have.
+If a future starter wants to use it, the constraint to design against is the one that was
+just rejected — a module that reads as a list of names rather than as an invitation to
+talk. The deleted code is recoverable from this branch's history (`47eb625`, `30a9949`).
+
 ## The rule every layer follows
 
 A starter may use a **local fact only if a real source returned it for this exact
@@ -16,7 +38,7 @@ gets its own provenance value rather than borrowing one.
 
 | Source | Real? | Coverage | Used for | Provenance |
 |---|---|---|---|---|
-| Public officials, by area (`/api/essentials/browse/by-area`) | Yes | **National** — any address with districts. Asheville returns mayor, council, county, governor, legislators, Congress | **New:** "Who represents {place}" starters, one per office group | `derived-from-officials` |
+| Public officials, by area (`/api/essentials/browse/by-area`) | Yes | **National** — any address with districts. Asheville returns mayor, council, county, governor, legislators, Congress | ~~"Who represents {place}" starters~~ — **removed 2026-11-04, see above**; still shown in the sidebar widget | ~~`derived-from-officials`~~ |
 | Resolved place name (`useJurisdictionName`, geoid → name) | Yes | National | **New:** "your city" → "Asheville" in general starters | `staff` (unchanged) |
 | Published council agendas (`useAgendaItems`) | Yes | **One city** (Bloomington, IN) | Agenda module, one starter per item | `derived-from-agenda` |
 | Elections and races (`useNextElection`, races) | Yes | National, **only while an election is scheduled** (none right now — 3 Nov just passed) | Races and debates modules | — (module, not starters) |

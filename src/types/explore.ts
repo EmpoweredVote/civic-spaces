@@ -22,7 +22,6 @@ export type TopicProvenance =
   | 'chapter'               // a nonpartisan local chapter (LWV, Braver Angels).
   | 'derived-from-agenda'   // built from a published agenda item. Verbatim title.
   | 'derived-from-vote'     // built from a published roll call.
-  | 'derived-from-officials' // built from the public list of who holds office here. Names only.
   | 'member'                // requested by a member of this place.
 
 /**
@@ -110,8 +109,6 @@ export type ModuleId =
   | 'races'
   | 'debates'
   | 'whats-new'
-  /** Conversation starters built from the public list of who holds office here. */
-  | 'officials'
   /**
    * The welcome for a place nobody has seeded yet. Built in 16-08, WITHOUT the
    * vote behind it (Chris, 2026-10-24: "show it without the vote for now").

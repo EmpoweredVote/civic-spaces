@@ -24,7 +24,6 @@ import { FeaturedModule } from './modules/FeaturedModule'
 import { ImagineModule, imagineModuleTopics } from './modules/ImagineModule'
 import { IntroModule } from './modules/IntroModule'
 import { NearbyModule, nearbyModuleTopics } from './modules/NearbyModule'
-import { OfficialsModule } from './modules/OfficialsModule'
 import { QuestionsModule } from './modules/QuestionsModule'
 import { RacesModule } from './modules/RacesModule'
 import { SeedInvitationModule } from './modules/SeedInvitationModule'
@@ -219,13 +218,6 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
   questions: {
     available: (ctx) => ctx.composition.questionTopicIds.length > 0,
     Component: QuestionsModule,
-    emptyState: 'hide',
-  },
-  officials: {
-    // Hidden, not a reserved room, when the lookup has nothing: a place with no
-    // officials on file is not a promise about what this space becomes.
-    available: (ctx) => ctx.officialTopics.length > 0,
-    Component: OfficialsModule,
     emptyState: 'hide',
   },
   imagine: {

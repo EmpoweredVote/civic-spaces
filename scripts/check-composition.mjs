@@ -60,7 +60,6 @@ import {
 } from '../src/mocks/civicSpacesExplore.ts'
 import { MOCK_COMPASS_ANSWERS, MOCK_COMPASS_TOPICS } from '../src/lib/devMockData.ts'
 import { placeForPublicPost } from '../src/lib/viewedPlace.ts'
-import { officialsTopics } from '../src/lib/officialsTopics.ts'
 import { readFileSync } from 'node:fs'
 import {
   PUBLIC_FEED_COLUMNS,
@@ -1153,7 +1152,7 @@ const narrowRow = { ...wideRow, id: 'p2', author_user_id: null, author_avatar_ur
   }
 }
 
-// ── Local starters: naming the place, and the officials list ─────────────────
+// ── Local starters: naming the place ────────────────────────────────────────
 
 {
   console.log('\n── Local starters ──────────────────────────────────────────────')
@@ -1181,66 +1180,13 @@ const narrowRow = { ...wideRow, id: 'p2', author_user_id: null, author_avatar_ur
       const agendaLike = { ...cityTopic, provenance: 'derived-from-agenda', title: 'What is in your city budget' }
       return nameTopic(agendaLike, 'Asheville') === agendaLike
     })(),
-    'an agenda item or an officials topic is verbatim; only staff text uses the stand-in phrase.',
+    'an agenda item is verbatim; only staff text uses the stand-in phrase.',
   )
 
   check(
     94,
     'with no resolved name, the generic text stands (no "Welcome to City")',
     !!cityTopic && nameTopic(cityTopic, null) === cityTopic,
-  )
-
-  const rep = (id, district_type, office_title, extra = {}) => ({
-    id, full_name: `Person ${id}`, office_title, district_type, photo_origin_url: '',
-    government_type: '', is_vacant: false, is_elected: true, images: [], ...extra,
-  })
-  // Asheville's shape: the mayor is filed LOCAL, beside the council.
-  const asheville = [
-    rep('m', 'LOCAL', 'Mayor'),
-    rep('c1', 'LOCAL', 'Council Member'),
-    rep('c2', 'LOCAL', 'Council Member'),
-    rep('v', 'LOCAL', 'Council Member', { is_vacant: true }),
-  ]
-  const cityStarters = officialsTopics(asheville, 'city', '3702140')
-
-  check(
-    95,
-    '🔴 a mayor filed as LOCAL still gets their own card, and is not repeated in the council card',
-    cityStarters.length === 2 &&
-      cityStarters[0].title.includes('Person m') &&
-      !(cityStarters[1].blurb ?? '').includes('Person m'),
-    JSON.stringify(cityStarters.map((t) => [t.title, t.blurb])),
-  )
-
-  check(
-    96,
-    'a vacant seat is never asked for its priorities',
-    cityStarters.every((t) => !(t.blurb ?? '').includes('Person v') && !t.title.includes('Person v')),
-  )
-
-  check(
-    97,
-    'officials starters are stamped derived-from-officials, carry the geoid, and say nothing beyond name and office',
-    cityStarters.every((t) => t.provenance === 'derived-from-officials' && t.geoid === '3702140' && t.level === 'city') &&
-      cityStarters.every((t) => (t.moreQuestions ?? []).length >= 5),
-  )
-
-  check(
-    98,
-    'no officials, or the wrong level’s officials, means no starters — never an empty card',
-    officialsTopics([], 'city', '3702140').length === 0 &&
-      officialsTopics(null, 'state', '37').length === 0 &&
-      officialsTopics(asheville, 'state', '37').length === 0 &&
-      officialsTopics(asheville, 'unified', null).length === 0,
-  )
-
-  check(
-    99,
-    'the officials module sits before the general questions on every level that has officials',
-    ['city', 'county', 'state', 'federal'].every(
-      (level) => DEFAULT_MODULES[level].indexOf('officials') > -1 &&
-        DEFAULT_MODULES[level].indexOf('officials') < DEFAULT_MODULES[level].indexOf('questions'),
-    ) && !DEFAULT_MODULES.unified.includes('officials'),
   )
 }
 

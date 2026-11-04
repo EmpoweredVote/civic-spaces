@@ -155,12 +155,6 @@ export interface ExploreCtx {
    */
   races?: Partial<Record<ExploreLevel, MemberRace[]>>
   /**
-   * Starters built from the public officials list for this tab's level. Empty when
-   * the lookup has nothing real — including the dev id's fixture officials, which
-   * must never be presented as the record.
-   */
-  officialTopics: ExploreTopic[]
-  /**
    * Recorded debates and candidate forums, by `race_id`. A race with none has no
    * entry. 🔴 Recordings only: no upcoming debate is published anywhere, so
    * nothing here may be worded as a schedule.
