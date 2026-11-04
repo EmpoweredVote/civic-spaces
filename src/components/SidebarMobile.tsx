@@ -7,12 +7,11 @@ import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 interface SidebarMobileProps {
   repsData: ReturnType<typeof useRepresentatives>
   activeTab: string
-  location?: ReactNode
   events?: ReactNode
   about?: ReactNode
 }
 
-export function SidebarMobile({ repsData, activeTab, location, events, about }: SidebarMobileProps) {
+export function SidebarMobile({ repsData, activeTab, events, about }: SidebarMobileProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (activeTab === 'volunteer') return null
@@ -59,7 +58,6 @@ export function SidebarMobile({ repsData, activeTab, location, events, about }: 
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-3 p-3">
-              {location}
               {events}
 
 

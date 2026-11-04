@@ -6,8 +6,6 @@ import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 interface SidebarProps {
   repsData: ReturnType<typeof useRepresentatives>
   activeTab: string
-  /** Built by AppShell, which owns the name and Census lookups these need. */
-  location?: ReactNode
   events?: ReactNode
   about?: ReactNode
   /** Explore's "What's new" card — passed only while the Explore view is showing. */
@@ -78,7 +76,7 @@ export function LocationCard({
   )
 }
 
-export function Sidebar({ repsData, activeTab, location, events, about, whatsNew }: SidebarProps) {
+export function Sidebar({ repsData, activeTab, events, about, whatsNew }: SidebarProps) {
   if (activeTab === 'volunteer') return null
 
   const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
@@ -88,7 +86,6 @@ export function Sidebar({ repsData, activeTab, location, events, about, whatsNew
 
   return (
     <div className="flex flex-col gap-3">
-      {location}
       {events}
 
 
