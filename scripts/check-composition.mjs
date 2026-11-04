@@ -58,6 +58,19 @@ import {
   IMAGINE_TOPICS,
 } from '../src/mocks/civicSpacesExplore.ts'
 import { MOCK_COMPASS_ANSWERS, MOCK_COMPASS_TOPICS } from '../src/lib/devMockData.ts'
+import { placeForPublicPost } from '../src/lib/viewedPlace.ts'
+import { readFileSync } from 'node:fs'
+import {
+  PUBLIC_FEED_COLUMNS,
+  PUBLIC_POST_COLUMNS,
+  PUBLIC_REPLY_COLUMNS,
+  authorPresentation,
+  mapPublicPostRow,
+  mapPublicReplyRow,
+  publicLocationFrom,
+  publicQueryKey,
+  threadTree,
+} from '../src/lib/publicProjection.ts'
 
 // ── Harness ──────────────────────────────────────────────────────────────────
 
@@ -782,6 +795,360 @@ check(
       `          answered Compass id, or none was, so the ranking is a no-op on real data while passing\n` +
       `          every synthetic check above. Fix src/mocks/civicSpacesExplore.ts.`,
   )
+}
+
+// ── 63–72  Phase 18-03: the public RPC row → PostWithAuthor mapping ──────────
+//
+// 🔴 These run the SHIPPED src/lib/publicProjection.ts, for the same reason every
+// other section here does: a transcribed mapper passes while the real one is wrong.
+//
+// 🔴 63–66 are the DRIFT guards and they are the reason this section exists at all.
+// The RPCs these hooks call do not exist in any database yet — 18-02's migrations are
+// written and unapplied — so nothing in this repo can call one and see what comes back.
+// A column renamed on the SQL side would otherwise surface as a 400 to the first
+// signed-out visitor after apply. Instead the mapper declares the column list it
+// expects and these assertions diff it against the migration's own RETURNS TABLE.
+
+const PUBLIC_READ_SQL_PATH = new URL('../supabase/migrations/20261030000100_public_read.sql', import.meta.url)
+
+/**
+ * The column names in one function's `RETURNS TABLE (...)`, in order.
+ * 🔴 Throws rather than returning [] when the function is not found: an extractor
+ * that returns nothing makes every comparison against it vacuously true, which is
+ * the failure 18-02's allowlist guard was rebuilt to avoid.
+ */
+function returnsTableColumns(sql, fnName) {
+  const start = sql.indexOf(`CREATE OR REPLACE FUNCTION civic_spaces.${fnName}(`)
+  if (start === -1) throw new Error(`${fnName} is not defined in the migration`)
+  const rt = sql.indexOf('RETURNS TABLE (', start)
+  if (rt === -1) throw new Error(`${fnName} has no RETURNS TABLE`)
+  const open = rt + 'RETURNS TABLE '.length
+  let depth = 0
+  let end = -1
+  for (let i = open; i < sql.length; i++) {
+    if (sql[i] === '(') depth++
+    else if (sql[i] === ')') {
+      depth--
+      if (depth === 0) { end = i; break }
+    }
+  }
+  if (end === -1) throw new Error(`${fnName}'s RETURNS TABLE is unbalanced`)
+  return sql
+    .slice(open + 1, end)
+    .split(',')
+    .map((s) => s.trim().split(/\s+/)[0])
+    .filter(Boolean)
+}
+
+{
+  const sql = readFileSync(PUBLIC_READ_SQL_PATH, 'utf8')
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
+
+  for (const [num, fnName, declared] of [
+    [63, 'get_public_feed', PUBLIC_FEED_COLUMNS],
+    [64, 'get_public_post', PUBLIC_POST_COLUMNS],
+    [65, 'get_public_replies', PUBLIC_REPLY_COLUMNS],
+  ]) {
+    let sqlCols = null
+    let why = ''
+    try { sqlCols = returnsTableColumns(sql, fnName) } catch (e) { why = e.message }
+    check(
+      num,
+      `${fnName}: the mapper's column list matches the migration's RETURNS TABLE, in order`,
+      sqlCols !== null && same(sqlCols, [...declared]),
+      sqlCols === null
+        ? `could not read the SQL: ${why}`
+        : `SQL:    [${sqlCols.join(', ')}]\n          mapper: [${[...declared].join(', ')}]\n` +
+          `          🔴 These RPCs have never been called. This diff is the only thing standing between a\n` +
+          `          renamed column and a 400 shown to the first signed-out visitor after the migrations apply.`,
+    )
+  }
+
+  let threw = false
+  try { returnsTableColumns(sql, 'get_public_nothing') } catch { threw = true }
+  check(66, 'the RETURNS TABLE extractor throws when the function is missing, rather than returning []', threw)
+}
+
+const wideRow = {
+  id: 'p1', slice_id: 's1', title: 'A title', body: 'A body',
+  created_at: '2026-10-31T12:00:00Z', updated_at: '2026-10-31T12:00:00Z',
+  reply_count: 3,
+  author_display_name: 'Ada', author_user_id: 'u-ada', author_avatar_url: 'https://x/a.png',
+}
+const narrowRow = { ...wideRow, id: 'p2', author_user_id: null, author_avatar_url: null }
+
+{
+  const wide = mapPublicPostRow(wideRow)
+  const narrow = mapPublicPostRow(narrowRow)
+
+  check(
+    67,
+    'a row with author_user_id set maps to a LINKABLE author',
+    wide.user_id === 'u-ada' && wide.author.avatar_url === 'https://x/a.png' && wide.author.display_name === 'Ada',
+    JSON.stringify({ user_id: wide.user_id, author: wide.author }),
+  )
+
+  check(
+    68,
+    '🔴 a row with author_user_id null maps to user_id null and NO avatar',
+    narrow.user_id === null && narrow.author.avatar_url === null,
+    `${JSON.stringify({ user_id: narrow.user_id, author: narrow.author })}\n` +
+      `          Never a sentinel string and never ''. A null author id is what tells the card to render\n` +
+      `          the handle as plain text: no avatar, no /profile/ link, no friend affordance.`,
+  )
+
+  check(
+    69,
+    "author_display_name 'Unknown' survives the mapping unchanged",
+    mapPublicPostRow({ ...narrowRow, author_display_name: 'Unknown' }).author.display_name === 'Unknown',
+    'the SQL COALESCEs a missing profile to Unknown; the mapper must not re-handle it and must not blank it.',
+  )
+
+  check(
+    70,
+    'the mapper never invents a tier, and never claims a post was not edited',
+    wide.author.tier === undefined && narrow.author.tier === undefined &&
+      wide.edit_history === undefined && narrow.edit_history === undefined,
+    `tier: ${wide.author.tier}, edit_history: ${JSON.stringify(wide.edit_history)}\n` +
+      `          The public RPCs return neither (D-31 narrow projection, D-34 withholds tier).\n` +
+      `          Synthesising edit_history: [] would tell a reader "never edited" about a post we\n` +
+      `          simply were not told about. undefined is the honest value and renders the same.`,
+  )
+
+  check(
+    71,
+    'an empty result maps to an empty page, never to undefined',
+    Array.isArray([].map(mapPublicPostRow)) && [].map(mapPublicPostRow).length === 0 &&
+      Array.isArray([].map(mapPublicReplyRow)),
+    'a feed hook that returns undefined for an empty page breaks getNextPageParam, which reads .length.',
+  )
+
+  const reply = mapPublicReplyRow({
+    id: 'r1', post_id: 'p1', parent_reply_id: 'r0', body: 'A reply',
+    created_at: '2026-10-31T12:01:00Z', updated_at: '2026-10-31T12:01:00Z',
+    author_display_name: 'Grace', author_user_id: null, author_avatar_url: null,
+  })
+  check(
+    72,
+    'parent_reply_id survives the public reply mapping (nesting is not flattened)',
+    reply.parent_reply_id === 'r0' && reply.post_id === 'p1' && reply.user_id === null,
+    JSON.stringify(reply),
+  )
+}
+
+// ── 73–77  Phase 18-03: what a card may offer about an author ───────────────
+
+{
+  const anon = authorPresentation(null)
+  const known = authorPresentation('u-ada')
+
+  check(
+    73,
+    'a null author id offers no profile href and nothing linkable',
+    anon.profileHref === null && anon.linkable === false,
+    `${JSON.stringify(anon)} — and 🔴 never the STRING "null": '/profile/' + null is legal\n` +
+      `          JavaScript and legal TypeScript, and it produces a link to /profile/null.`,
+  )
+
+  check(
+    74,
+    'a known author id offers /profile/:id and a linkable name',
+    known.profileHref === '/profile/u-ada' && known.linkable === true,
+    JSON.stringify(known),
+  )
+
+  check(
+    75,
+    '🔴 D-49: one response produces MIXED presentations, row by row',
+    (() => {
+      const rows = [wideRow, narrowRow, { ...wideRow, id: 'p3' }].map(mapPublicPostRow)
+      const p = rows.map((r) => authorPresentation(r.user_id))
+      return p[0].linkable && !p[1].linkable && p[2].linkable
+    })(),
+    'a friend of one author and a stranger to the next, in the same thread — the decision is\n' +
+      '          per row, never per response. A mapper that hoisted it would make the whole page\n' +
+      '          narrow or the whole page wide, and the wide one is a disclosure.',
+  )
+
+  check(
+    76,
+    'the presentation never yields an empty or whitespace href',
+    authorPresentation('').profileHref === null && authorPresentation(undefined).profileHref === null,
+    `'' is falsy and must take the same branch as null — a '' id would otherwise build '/profile/'.`,
+  )
+
+  /**
+   * 🔴 A SOURCE SCAN, and it is here because the type system cannot do this job.
+   * Widening user_id to `string | null` produced three compile errors and none of
+   * them were these: string concatenation with null is legal and yields
+   * '/profile/null'. So the guard is structural — the three components that render
+   * an author must route through authorPresentation and never build the path.
+   */
+  const AUTHOR_COMPONENTS = ['PostCard.tsx', 'ReplyCard.tsx', 'ThreadView.tsx']
+  const offenders = []
+  for (const name of AUTHOR_COMPONENTS) {
+    const src = readFileSync(new URL(`../src/components/${name}`, import.meta.url), 'utf8')
+    for (const [i, line] of src.split('\n').entries()) {
+      if (/['"`]\/profile\/['"`]\s*\+|\/profile\/\$\{/.test(line)) {
+        offenders.push(`${name}:${i + 1}  ${line.trim().slice(0, 80)}`)
+      }
+    }
+  }
+  check(
+    77,
+    'no author component builds a /profile/ path by hand — all route through authorPresentation',
+    offenders.length === 0,
+    `${offenders.join('\n          ')}\n` +
+      `          Each of these produces '/profile/null' for a narrow-projection row, which is a\n` +
+      `          dead link offered to a reader the server deliberately did not identify the author to.`,
+  )
+}
+
+// ── 78–84  Phase 18-03: locatePost's fourth outcome ─────────────────────────
+
+{
+  check(
+    78,
+    "no public row resolves 'unavailable', never 'public'",
+    publicLocationFrom(null, 'p1').kind === 'unavailable',
+    `🔴 This is the assertion that keeps a DELETED post, a VOLUNTEER post and an id that\n` +
+      `          never existed all landing on the same answer. get_public_post returns no row for\n` +
+      `          each of them, and this side cannot tell which — splitting them would reveal\n` +
+      `          whether a post the reader may not see exists.`,
+  )
+
+  const loc = publicLocationFrom({ slice_type: 'city', geoid: '3702140' }, 'p1')
+  check(
+    79,
+    "a public row resolves 'public', carrying the place the RPC already returned",
+    loc.kind === 'public' && loc.sliceType === 'city' && loc.geoid === '3702140' && loc.postId === 'p1',
+    `${JSON.stringify(loc)} — no second query: get_public_post returns slice_type and geoid\n` +
+      `          precisely so the deep link does not need one.`,
+  )
+
+  check(
+    80,
+    "the 'public' outcome carries NO tab — the viewer has none for a place they hold nothing in",
+    !('tab' in loc),
+    'a tab would be a member concept leaking into the visitor path; AppShell derives the tab\n' +
+      '          from sliceType instead, which is the only thing true for a reader with no slices.',
+  )
+
+  for (const [num, type, geoid, want] of [
+    [81, 'city', '3702140', { city: '3702140', county: null, state: '37', nation: 'US', unified: 'UNIFIED' }],
+    [82, 'county', '37021', { city: null, county: '37021', state: '37', nation: 'US', unified: 'UNIFIED' }],
+    [83, 'state', '37', { city: null, county: null, state: '37', nation: 'US', unified: 'UNIFIED' }],
+  ]) {
+    const got = placeForPublicPost(type, geoid)
+    check(
+      num,
+      `a public ${type} post derives its place from its own geoid`,
+      JSON.stringify(got) === JSON.stringify(want),
+      `got ${JSON.stringify(got)}, want ${JSON.stringify(want)} — census geoids nest, so a city or\n` +
+        `          county geoid carries its state in the first two characters. city/county stay null\n` +
+        `          where unknown: that is the documented meaning of null, and guessing a county is how\n` +
+        `          a visitor ends up reading the wrong county's agenda.`,
+    )
+  }
+
+  check(
+    84,
+    '🔴 a placeless public post derives NO place, rather than inventing a state',
+    placeForPublicPost('federal', 'US') === null && placeForPublicPost('unified', '') === null,
+    `got ${JSON.stringify(placeForPublicPost('federal', 'US'))} / ${JSON.stringify(placeForPublicPost('unified', ''))}.\n` +
+      `          ResolvedPlace.state is not nullable and federal|US names no state. 'US'.slice(0,2)\n` +
+      `          is "US", which is not a state FIPS — it would seat a visitor nowhere real and the\n` +
+      `          shell would render a place that does not exist. Null is the honest answer and the\n` +
+      `          caller handles it.`,
+  )
+}
+
+// ── 85–90  Phase 18-03 review fixes: the cache key, and orphaned replies ────
+
+{
+  /**
+   * 🔴 D-49: "its result is per-(slice, viewer), so it must not be cached per slice."
+   * The first draft keyed the public feed on ['public-feed', sliceType, geoid] and the
+   * thread on ['public-post', postId] — correct namespaces, no viewer. The author id
+   * and avatar in those rows are narrowed PER READER, so one cache entry shared across
+   * identities hands a signed-out reader whatever the last signed-in one was allowed
+   * to see. useAuth flips in place on a cross-tab logout (no reload), and staleTime is
+   * 60s, so the window is real rather than theoretical.
+   */
+  const anon = publicQueryKey('public-feed', null, 'city', '3702140')
+  const ada = publicQueryKey('public-feed', 'u-ada', 'city', '3702140')
+  const bob = publicQueryKey('public-feed', 'u-bob', 'city', '3702140')
+
+  check(
+    85,
+    '🔴 D-49: two viewers of the SAME place get different cache keys',
+    JSON.stringify(ada) !== JSON.stringify(bob) && JSON.stringify(anon) !== JSON.stringify(ada),
+    `anon=${JSON.stringify(anon)}\n          ada =${JSON.stringify(ada)}\n          bob =${JSON.stringify(bob)}\n` +
+      `          Equal keys here means one reader is served another reader's projection.`,
+  )
+
+  check(
+    86,
+    'the viewer term is present and distinguishes anon from a signed-in reader',
+    anon.includes('anon') && ada.includes('u-ada') && !anon.includes('u-ada'),
+    `${JSON.stringify(anon)} vs ${JSON.stringify(ada)} — null must map to a STABLE token, not to\n` +
+      `          undefined or '', either of which React Query would drop from the key.`,
+  )
+
+  check(
+    87,
+    'the key still separates the public namespace from the member one, and two places from each other',
+    publicQueryKey('public-feed', null, 'city', '3702140')[0] === 'public-feed' &&
+      JSON.stringify(publicQueryKey('public-feed', null, 'city', '3702140')) !==
+        JSON.stringify(publicQueryKey('public-feed', null, 'city', '1805860')),
+    'the viewer term must be ADDED to what was already there, not replace it.',
+  )
+
+  /**
+   * 🔴 get_public_replies filters is_deleted on the ROW ITSELF, so a child of a
+   * deleted reply still arrives with its parent_reply_id pointing at a row that is
+   * not in the page. The member path never sees this — useThread does select('*')
+   * with no filter, so deleted parents arrive as [Reply deleted] placeholders.
+   * Grouping on "no parent_reply_id" therefore drops those children silently, while
+   * the header still counts them.
+   */
+  const reply = (id, parent) => ({ id, post_id: 'p1', parent_reply_id: parent, user_id: null, body: id,
+    created_at: '2026-10-28T00:00:00Z', updated_at: '2026-10-28T00:00:00Z', is_deleted: false,
+    author: { display_name: 'X', avatar_url: null } })
+
+  {
+    const tree = threadTree([reply('b', 'a-deleted'), reply('c', null), reply('d', 'c')])
+    check(
+      88,
+      '🔴 a reply whose PARENT is missing from the page is still rendered, as a root',
+      tree.roots.map((r) => r.id).sort().join(',') === 'b,c',
+      `roots=${JSON.stringify(tree.roots.map((r) => r.id))} — 'b' is a child of a deleted reply.\n` +
+        `          Dropping it empties a thread that the header above it still counts: a reader\n` +
+        `          following a shared link to a thread whose first reply was removed sees\n` +
+        `          "3 replies" over an empty list.`,
+    )
+
+    check(
+      89,
+      'a real parent still owns its child — orphan promotion must not flatten the nesting',
+      (tree.childMap.get('c') ?? []).map((r) => r.id).join(',') === 'd' &&
+        !tree.roots.some((r) => r.id === 'd'),
+      `childMap(c)=${JSON.stringify((tree.childMap.get('c') ?? []).map((r) => r.id))}`,
+    )
+
+    check(
+      90,
+      'every reply appears exactly once — no reply is both a root and a child, and none is lost',
+      (() => {
+        const rows = [reply('b', 'a-deleted'), reply('c', null), reply('d', 'c')]
+        const t = threadTree(rows)
+        const seen = [...t.roots.map((r) => r.id), ...[...t.childMap.values()].flat().map((r) => r.id)]
+        return seen.length === rows.length && new Set(seen).size === rows.length
+      })(),
+      'the count under the post is replies.length; if the tree shows fewer, the two disagree\n' +
+        '          on screen and the number is the one the reader believes.',
+    )
+  }
 }
 
 // ── Result ───────────────────────────────────────────────────────────────────

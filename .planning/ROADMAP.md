@@ -342,12 +342,28 @@ Guest observe, only Connect and Empowered post, vote or impact.
 permanently, scriptably public. Its failures are also silent: an over-wide grant publishes the
 member roster and nothing turns red.
 
-**The gate is not RLS.** `civic_spaces` has no `GRANT USAGE ON SCHEMA … TO anon`, so PostgREST
-cannot resolve the schema before a policy is ever consulted. Both feed RPCs fail independently
+**The gate is not RLS — on one route.** `civic_spaces` has no `GRANT USAGE ON SCHEMA … TO anon`,
+so PostgREST cannot resolve the schema before a policy is ever consulted. 🔴 That holds for the
+`civic_spaces` route **only**: `anon` already has `USAGE` on `public`, which carries views over
+the same tables and where `anon` holds every privilege, so a second route exists. Today it is held shut by `security_invoker` and a missing
+privilege, not by RLS: the views are `security_invoker = on` and `anon` has no `USAGE` on
+`civic_spaces`, so `anon` is refused `401 {"code":"42501","message":"permission denied for
+table posts"}` — a **privilege** refusal raised before any policy is consulted. RLS never runs
+(D-43, `18-CONTEXT.md`). 18-01 is the prerequisite that closes it. Both feed RPCs fail independently
 of policy: `get_feed_filtered` welds `AND p.slice_id IN (SELECT slice_id FROM slice_members
 WHERE user_id = current_user_id())` into its body, and `get_boosted_feed_filtered` is
 `SECURITY INVOKER` and reads `friendships` / `follows` / `blocks` as the caller. This is a
 grants-and-a-new-RPC job.
+
+⚠️ Until `20261030000000_reconcile_public_views.sql` is applied: it is written, not applied, and
+`anon` holds every privilege on those views in production today. On apply, delete this line and
+put "holds" and "today it is held shut by `security_invoker` and a missing privilege" in the paragraph above in the past tense.
+
+**Narrowed from D-43:** D-43 asked for reconciliation on six views and a revoke on every
+`public.*` view; 18-01 ships reconciliation on five and a revoke on twelve. `public.users_public`
+is deliberately left alone: it reads a `users` table this app does not own and another EV app
+depends on its grants. `anon` keeps `SELECT`, `INSERT`, `UPDATE` and `DELETE` on it, and it is the
+one `public` view `anon` actually reaches today (it answers `200 []`).
 
 - Schema `USAGE`, **column-level** grants (`useThread` does `select('*')`, so a table grant
   publishes `edit_history`), a narrow `get_public_feed`, and an author-scoped
@@ -362,9 +378,50 @@ grants-and-a-new-RPC job.
   `/post/:postId` can simply be shown the post, which partly dissolves the deferred
   shared-link arrival. `unavailable`'s deliberate conflation still earns its keep for deleted
   posts and suspended authors.
-- **Not in this phase:** search-engine indexing and link unfurling. No SSR, no prerender, no
-  `robots.txt`, one static set of `og:` tags. Crawlable ≠ indexed, and the copy must not
-  overclaim.
+- **Not in this phase:** search-engine indexing and link unfurling — see the status note below,
+  which carries this and two others forward as named future work.
+
+**Status, 2026-10-31. All four plans are implemented and reviewed.** 18-04 adds the closed
+door (`ReplyClosedNotice`, D-35/D-36/D-38) and the `/accounts` explainer (D-37), and retires
+the "Sign in" link that Phase 17's notice carried on this surface.
+
+**What did not ship, carried forward rather than left as prose:**
+
+- **Search-engine indexing and link unfurling (D-25).** No SSR, no prerender, no `robots.txt`,
+  one static set of `og:` tags. Crawlable ≠ indexed, and the copy must not overclaim.
+- **The Empowered cross-shard reply (D-21, D-40).** An Empowered account replying in any
+  sibling shard of a jurisdiction it holds. `whyNoWrite` reserves the seam in its own comments
+  and `replyClosedCopy` has a `sibling-shard` sentence ready for it; nothing else exists.
+  **→ a future phase.**
+- **The per-author sharing store (D-45).** What an author chooses to share with friends, as
+  data rather than as the D-49 all-or-nothing projection. **→ a future phase.**
+- **A block is slice-wide until D-50 is applied** — it is written and unapplied, like
+  everything else here.
+
+🔴 **Nothing is applied and nothing may merge until it is.** Three migrations are
+written and unapplied, in a fixed order — `20261030000000` → `20261030000100` → `20261030000200`
+— and `.planning/phases/18-the-public-square/18-02-APPLY.md` is the runbook. `main` auto-deploys
+in ~3 minutes, so merging the frontend first shows every signed-out visitor "Failed to load
+posts"; merging it before `canReadConversationsIn` has RPCs to call would be worse, because an
+empty feed reads as "nobody has said anything here".
+
+The two privileged guards state this plainly today: `npm run check:anon-read` exits 1 with
+7 FAIL, every one of them "the RPCs are not granted yet", and `check:grants` exits 2 for want of
+a privileged `SUPABASE_DB_URL`. Both going green is the apply's definition of done.
+
+**18-03 retired three Phase 17 assertions, deliberately** — they asserted the absence of exactly
+what this phase builds. `check:place-entry` #3 required zero post cards at a visited place and
+now requires the read-only notice and zero composer affordances; its two NET assertions required
+that *nothing* about a visited place reach the database and now require that **only the four
+public RPCs** do, as an allowlist, with a positive half asserting the public path did ask;
+`check:explore-gate` #7 required the honest card and now requires the gate itself
+(`data-read-only-notice="other-place"`, zero write affordances). In each case the claim survived
+and only the evidence changed.
+
+**A named gap.** A shared `/post/:postId` link to a **federal or unified** public post does not
+open for a signed-out visitor. `ResolvedPlace.state` is not nullable and a placeless slice names
+no state, so `placeForPublicPost` returns null rather than inventing one. Every city, county and
+state link works. Closing it needs a geoid→place path that does not exist signed-out yet.
 
 **The display-name question is answered.** Measured in production 2026-10-26, aggregates only:
 11 connected profiles, **0** matching a real-name shape, **0** with an avatar, 12 live posts
@@ -374,6 +431,19 @@ validation in ev-accounts so the next real name cannot arrive silently.
 
 
 ---
+
+### Phase 19: The Town Divides
+**Goal**: A slice that reaches 6000 members divides, and the new one opens seeded with a forked
+window of its parent's conversation rather than empty.
+**Spec**: `docs/superpowers/specs/2026-11-01-slice-splitting-design.md` (approved 2026-11-01)
+**Plans**: 5 — 19-01 the split, 19-02 write permissions, 19-03 the cross-slice friend feed,
+19-04 the visitor's landing slice, 19-05 slice activity telemetry. **19-01 and 19-02 are
+written**; the rest are planned once 19-01 has landed, because the split is where the unknowns
+are. 19-04 must not be executed before Phase 18's apply, which is now done.
+
+🔴 **Redistribution is deliberately NOT in this phase** and is load-bearing rather than polish:
+a closed slice has no inflow ever, so every slice but the newest two is on a one-way decay
+curve. See §9.2 of the spec — it is a deadline, not a backlog item.
 
 ## Progress
 
@@ -396,4 +466,5 @@ validation in ev-accounts so the next real name cannot arrive silently.
 | 15. Tool Deep Links | — | 1/1 | Complete | 2026-09-08 |
 | 16. Explore by Slice | — | 10/10 | Complete | 2026-10-25 |
 | 17. The Signed-Out Arrival | — | 7/7 | Complete | 2026-10-26 |
-| 18. The Public Square | — | 0/? | Not planned | — |
+| 18. The Public Square | — | 4/4 | Complete, **applied to production** | 2026-11-02 |
+| 19. The Town Divides | — | 0/5 planned (2 written) | Planning | — |

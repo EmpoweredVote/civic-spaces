@@ -1,0 +1,60 @@
+name: DB surface
+
+# Why this exists, and why it is not a PR check
+# ---------------------------------------------
+# `check:grants` (18-01) and `check:anon-read` (18-02) guard what the PUBLIC can reach in
+# the database: no anon privilege on the `public.*` views, no anon SELECT on any
+# `civic_spaces` table, exactly four anon-executable SECURITY DEFINER functions, no
+# default ACL granting to anon. The hazards they watch arrive IN THE DATABASE WITH NO PULL
+# REQUEST IN THIS REPO: a future SECURITY DEFINER function inheriting Postgres's
+# EXECUTE-to-PUBLIC default, a stray `GRANT SELECT`, an `ALTER DEFAULT PRIVILEGES`. That is
+# the same argument banner-drift.yml makes for `check:banners`: there is no commit for a PR
+# check to hang off, so the check has to run on a clock.
+#
+# 🔴 It ships MANUAL-BUT-READY, with the schedule commented out. A weekly job that fails
+# every week for want of a secret teaches people to ignore it, and one that passes
+# vacuously is worse. So `workflow_dispatch` is live and the cron is not, until the
+# secrets below exist.
+#
+# Secrets (repository settings > Secrets and variables > Actions):
+#   SUPABASE_DB_URL          a direct Postgres connection string able to read the catalog
+#                            (pg_proc, pg_class, pg_default_acl and has_*_privilege)
+#   VITE_SUPABASE_URL        the project URL
+#   VITE_SUPABASE_ANON_KEY   the PUBLISHABLE anon key (never a service-role key)
+# `psql` must be on the runner's PATH: ubuntu-latest does not ship it, so the job installs
+# postgresql-client. Without SUPABASE_DB_URL the catalog halves SKIP and the scripts exit
+# non-zero, which is the loud failure we want rather than a quiet green.
+#
+# When this goes red: it is a notification, not a gate. Read the named object, find who
+# granted it, and revoke it. Never loosen an assertion to make it green. For a new
+# SECURITY DEFINER function, REVOKE ALL ... FROM PUBLIC in the function's own migration.
+
+on:
+  # Once the three secrets exist, uncomment this block (Mondays, 14:00 UTC, a weekday
+  # someone is around to read it) and delete this note.
+  # schedule:
+  #   - cron: '0 14 * * 1'
+  workflow_dispatch:
+
+jobs:
+  surface:
+    name: DB surface
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: check:grants
+        run: npm run check:grants
+      - name: check:anon-read
+        if: ${{ !cancelled() }}
+        run: npm run check:anon-read

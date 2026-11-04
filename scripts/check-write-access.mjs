@@ -11,7 +11,8 @@
  * a check that re-implements it would be a second copy of the thing the module was
  * written to prevent. If you are tempted to paste a function in here, don't.
  *
- * What it covers (19 assertions — 18 tabled, plus the derivation loop):
+ * What it covers (56 checks; numbers 1–24, 26–55 and 51b, with 19 used twice and 25 unused —
+ * pre-existing, left unrenumbered; the count is the number of PASS lines the run prints):
  *
  *   1–11   whyNoWrite over every viewer × every slice on screen. 1 is the control
  *          case (a member writing in their own shard) and the only `null` among
@@ -21,7 +22,29 @@
  *          whyNoWrite returned null. Run as a loop so the two cannot drift.
  *   12–15  canReadConversationsIn. 13 is the Phase 16 sibling-shard read, which
  *          goes red on its own if that predicate is keyed on a slice id instead of
- *          placeKey — the regression that would otherwise ship silently.
+ *          placeKey — the regression that would otherwise ship silently. 🔴 14 and 15
+ *          FLIPPED to true in Phase 18-03: another place and a signed-out visitor
+ *          both read a public city now. They were written as "false until Phase 18".
+ *   35–44  Phase 18-03: who may read a public slice. 35–40 and 42 are the behaviour;
+ *          41 is volunteer staying members-only, carrying the stale-sets viewer that
+ *          15 used to carry (city is public now, so 15 no longer reaches the session
+ *          check and volunteer is the only place that check still does work).
+ *          🔴 43 and 44 are the ones that make the rest mean anything: 35–42 all pass
+ *          on a DENYLIST ("everything except volunteer"), verified by mutation, and
+ *          a denylist publishes every future private slice type on its creation day.
+ *          43 asserts on a type in neither list; 44 asserts its members can still
+ *          read it. Mutation-tested both ways, 2026-10-31: the denylist body fails 43
+ *          alone, and deleting the session check fails 41 alone.
+ *   26–29  the public slice-type allowlist (PUBLIC_SLICE_TYPES) as a TypeScript list.
+ *   30–34  the SAME allowlist as a literal inside the 18-02 migration, PER FUNCTION:
+ *          30 get_public_slice and 33 get_public_post each contain exactly one allowlist
+ *          literal equal to PUBLIC_SLICE_TYPES (deleting either predicate is a red run;
+ *          get_public_replies inherits get_public_post's gate, get_public_feed
+ *          get_public_slice's), 31 no slice-type array anywhere in the file differs, 32 the
+ *          extractor throws rather than passing when the array is missing, 34 it throws when
+ *          the named function is missing. Reads the SQL file, so adding a type to one side
+ *          only is a red run.
+ *   20–24  isSameJurisdiction (23 is the production-federal case; 24 pins that it is not placeKey membership).
  *   16–18  placeKey. 18 pins the one place it and compositionKey() deliberately
  *          differ: this key KEEPS the geoid for a placeless type, because it
  *          compares places and compositionKey chooses content.
@@ -37,11 +60,18 @@
  * A FAIL is a bug in the shipped module. There is nothing else here for it to be.
  */
 
+import { readFileSync } from 'node:fs'
 import {
   canReadConversationsIn,
   canWriteIn,
+  isPublicSliceType,
   isSameJurisdiction,
+  offersReturnToOwnSpaces,
+  SPLITTABLE_SLICE_TYPES,
+  isSplittableSliceType,
   placeKey,
+  PUBLIC_SLICE_TYPES,
+  replyClosedCopy,
   whyNoWrite,
 } from '../src/lib/writeAccess.ts'
 
@@ -234,14 +264,18 @@ for (const [n, viewer, viewed, expected, note] of TABLE) {
 const READ_TABLE = [
   [12, memberOfCityA, cityAShard1, true, 'their own shard'],
   [13, memberOfCityA, cityAShard2, true, '🔴 the sibling shard — Phase 16 behaviour that must not regress'],
-  [14, memberOfCityA, cityBRow, false, 'another place — false until Phase 18'],
-  [15, signedOut, cityAShard1, false, 'a visitor reads zero forum rows today'],
+  [14, memberOfCityA, cityBRow, true, '🔴 another place — FLIPPED by Phase 18-03; was false'],
+  [15, signedOut, cityAShard1, true, '🔴 a visitor reads a public city — FLIPPED by Phase 18-03; was false'],
 ]
 
 for (const [n, viewer, viewed, expected, note] of READ_TABLE) {
-  // 15, like 7, also runs against the stale-sets visitor — otherwise it passes a
-  // module with no session check in it, because an empty set refuses on its own.
-  const viewers = n === 15 ? [viewer, signedOutStaleSets] : [viewer]
+  // 🔴 15 no longer carries the stale-sets visitor. It used to, because a signed-out
+  // viewer holding an empty set is refused by the membership test anyway and the
+  // assertion would have passed a module with no session check in it. City is now
+  // PUBLIC, so this row no longer reaches the session check at all and the extra
+  // viewer would prove nothing here. That vacuity guard moved to assertion 41, on
+  // volunteer, which is where the session check still does work.
+  const viewers = [viewer]
   const got = viewers.map((v) => `${v.label} → ${canReadConversationsIn(ctx(v, viewed))}`)
   const actual = viewers.every((v) => canReadConversationsIn(ctx(v, viewed)) === expected)
     ? expected
@@ -341,6 +375,597 @@ check(
     `          different shard of the same place — the sibling-shard question. This asks whether THIS\n` +
     `          row is the one to render. Collapsing them re-introduces the bug, so they stay apart.`,
 )
+
+// ── 26–29: the public slice-type allowlist ───────────────────────────────────
+//
+// 🔴 D-28: new private space types are landing in slices.slice_type, so public is an
+// ALLOWLIST. 29 is the demonstration: a type the DB constraint accepts and this list
+// has never heard of stays private, with no database fixture needed to show it.
+
+check(
+  26,
+  'the five public types are exactly city, county, state, federal, unified',
+  [...PUBLIC_SLICE_TYPES].sort().join(',') === 'city,county,federal,state,unified',
+  `got ${[...PUBLIC_SLICE_TYPES].sort().join(',')}`,
+)
+
+check(27, 'volunteer is not public', !isPublicSliceType('volunteer'))
+
+check(28, 'an unknown type is not public', !isPublicSliceType('neighborhood'))
+
+check(
+  29,
+  'a type added to the DB constraint but not to this list stays private',
+  !isPublicSliceType('school-board'),
+  'a denylist would publish this the day it is created; this must stay an allowlist',
+)
+
+// ── 30–32: the SQL allowlist cannot drift from PUBLIC_SLICE_TYPES ────────────
+//
+// 🔴 The same five types are a literal array inside get_public_slice, in the 18-02
+// migration. They are written twice because they have to be — one is the database's
+// gate, one is the client's — and a comment saying "keep them equal" is not a guard.
+// For a security allowlist across two languages that is exactly the shape that
+// silently publishes a private space type. So this READS the migration and compares.
+//
+// It fails LOUDLY rather than passing quietly: if the function, or its array, cannot be
+// found (a rename, a reformat, the file moved) that is a FAIL with the reason, never a
+// vacuous pass. 32 pins that behaviour on text with no array in it.
+
+
+const PUBLIC_READ_SQL = new URL(
+  '../supabase/migrations/20261030000100_public_read.sql',
+  import.meta.url,
+)
+
+/** SQL with `--` line comments removed, so a documented array cannot be mistaken for code. */
+function stripSqlComments(sql) {
+  return sql.replace(/--[^\n]*/g, '')
+}
+
+/** Every ARRAY['a', 'b', ...] literal made only of quoted strings, as arrays of strings. */
+function stringArrayLiterals(sql) {
+  const out = []
+  for (const m of sql.matchAll(/ARRAY\s*\[\s*((?:'[^']*'\s*,?\s*)+)\]/gi)) {
+    out.push([...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]))
+  }
+  return out
+}
+
+/**
+ * The allowlist literal inside ONE named function. Throws, with a reason, if the function is
+ * missing or does not contain exactly one slice-type array. Per function on purpose: a file-wide
+ * "every copy equals the list" check stays green when one function's predicate is deleted.
+ */
+function allowlistFromFunctionBody(sql, fnName) {
+  const code = stripSqlComments(sql)
+  const start = code.search(new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+civic_spaces\\.${fnName}\\s*\\(`, 'i'))
+  if (start < 0) throw new Error(`${fnName} is not defined in the migration`)
+  const rest = code.slice(start)
+  const next = rest.slice(1).search(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION/i)
+  const body = next < 0 ? rest : rest.slice(0, next + 1)
+  const arrays = stringArrayLiterals(body)
+  if (arrays.length !== 1) {
+    throw new Error(`expected exactly one string-array literal in ${fnName}, found ${arrays.length}`)
+  }
+  return arrays[0]
+}
+
+const sameSet = (a, b) => [...a].sort().join(',') === [...b].sort().join(',')
+
+{
+  const sql = readFileSync(PUBLIC_READ_SQL, 'utf8')
+  // One assertion per function that gates on the allowlist. get_public_replies gates through
+  // get_public_post, so it inherits that one; get_public_feed gates through get_public_slice.
+  for (const [num, fnName] of [[30, 'get_public_slice'], [33, 'get_public_post']]) {
+    let sqlList = null
+    let reason = ''
+    try {
+      sqlList = allowlistFromFunctionBody(sql, fnName)
+    } catch (e) {
+      reason = e.message
+    }
+    check(
+      num,
+      `${fnName} contains exactly one allowlist literal, equal to PUBLIC_SLICE_TYPES`,
+      sqlList !== null && sameSet(sqlList, PUBLIC_SLICE_TYPES),
+      sqlList === null
+        ? `could not extract the SQL allowlist: ${reason}`
+        : `SQL has [${sqlList.join(', ')}], writeAccess.ts has [${[...PUBLIC_SLICE_TYPES].join(', ')}]`,
+    )
+  }
+
+  // Any OTHER literal in the file that lists slice types is a second copy of the rule.
+  const known = new Set([...PUBLIC_SLICE_TYPES, 'volunteer'])
+  const copies = stringArrayLiterals(stripSqlComments(sql)).filter((arr) => arr.some((t) => known.has(t)))
+  check(
+    31,
+    'every slice-type array literal in the migration equals PUBLIC_SLICE_TYPES (and there is at least one)',
+    copies.length >= 1 && copies.every((arr) => sameSet(arr, PUBLIC_SLICE_TYPES)),
+    `found ${copies.length} slice-type literal(s): ${JSON.stringify(copies)}`,
+  )
+}
+
+{
+  let threw = false
+  try {
+    allowlistFromFunctionBody('CREATE OR REPLACE FUNCTION civic_spaces.get_public_slice(a text) AS $$ SELECT 1 $$;', 'get_public_slice')
+  } catch {
+    threw = true
+  }
+  check(32, 'the extractor throws, rather than returning nothing, when the array is missing', threw)
+
+  let threwMissingFn = false
+  try {
+    allowlistFromFunctionBody('CREATE OR REPLACE FUNCTION civic_spaces.get_public_slice(a text) AS $$ SELECT ARRAY[\'city\'] $$;', 'get_public_post')
+  } catch {
+    threwMissingFn = true
+  }
+  check(34, 'the extractor throws when the named function is not defined at all', threwMissingFn)
+}
+
+// ── 35–42: Phase 18-03 — who may READ a public slice ─────────────────────────
+//
+// 🔴 These are the assertions that make the public square public, and 38 and 41 are
+// the two that have to disagree with each other. The rule is per SLICE TYPE, not per
+// session and not per membership: a city is readable by anyone, and volunteer is
+// readable by its members only. Collapse the two and you have either a wall in front
+// of the public square or a members-only space with the door open.
+//
+// Rows 14 and 15 of READ_TABLE above flipped from false to true in this phase. They
+// were written as "false until Phase 18" and this is Phase 18; their notes now say so.
+
+const volunteerRow = { id: 'slice-vol-1', sliceType: 'volunteer', geoid: '' }
+const volunteerOtherRow = { id: 'slice-vol-2', sliceType: 'volunteer', geoid: '' }
+
+const memberOfVolunteer = {
+  label: 'volunteer member',
+  ownedSliceIds: new Set(['slice-vol-1']),
+  ownedPlaceKeys: new Set([placeKey('volunteer', '')]),
+  isAuthenticated: true,
+}
+
+/**
+ * 🔴 Signed out, still holding a VOLUNTEER key. Without this viewer, 41 passes on a
+ * body with no session check in it at all: a plain `signedOut` viewer holds an empty
+ * set and is refused by the membership test anyway. Same vacuity trap assertion 15
+ * already carries for the city case, in the one place it now matters more — city is
+ * public, so volunteer is the only type where the session check still does any work.
+ */
+const signedOutStaleVolunteer = {
+  label: 'signed out, caller still holding a volunteer key',
+  ownedSliceIds: new Set(['slice-vol-1']),
+  ownedPlaceKeys: new Set([placeKey('volunteer', '')]),
+  isAuthenticated: false,
+}
+
+check(
+  35,
+  'canReadConversationsIn: a signed-out visitor reads a public city',
+  canReadConversationsIn(ctx(signedOut, cityAShard1)) === true,
+  'the whole point of the phase. False here means the body still starts with the isAuthenticated early return.',
+)
+
+check(
+  36,
+  'canReadConversationsIn: an Inform account reads EXACTLY what a visitor reads (D-04)',
+  canReadConversationsIn(ctx(informAccount, cityAShard1)) === canReadConversationsIn(ctx(signedOut, cityAShard1)) &&
+    canReadConversationsIn(ctx(informAccount, volunteerRow)) === canReadConversationsIn(ctx(signedOut, volunteerRow)),
+  'compared on a public type AND a private one, so it cannot pass by both being true.\n' +
+    '          D-04 is satisfied by the DATA (an Inform account holds no slices), never by a tier term.',
+)
+
+check(
+  37,
+  'canReadConversationsIn: a public place with NO slice row is still readable',
+  canReadConversationsIn(ctx(signedOut, cityANoRow)) === true &&
+    canReadConversationsIn(ctx(memberOfCityA, cityBNoRow)) === true,
+  '🔴 This is the COMMON case — 15 slice rows exist in the whole product, so most places a\n' +
+    '          visitor names have no row. False here and Task 2 cannot tell "nobody has posted here"\n' +
+    '          from "you may not look", which is the lie writeAccess.ts\'s own header warns about.',
+)
+
+check(
+  38,
+  'canReadConversationsIn: a member reads another place, and a sibling shard',
+  canReadConversationsIn(ctx(memberOfCityA, cityBRow)) === true &&
+    canReadConversationsIn(ctx(memberOfCityA, cityAShard2)) === true &&
+    canReadConversationsIn(ctx(memberOfCityA, cityAShard1)) === true,
+  'own shard, sibling shard and another city are now all readable. The sibling shard was\n' +
+    '          already readable (Phase 16, assertion 13); it must not regress on the way through here.',
+)
+
+check(
+  39,
+  'canReadConversationsIn: every public slice type is readable signed out',
+  PUBLIC_SLICE_TYPES.every((t) => canReadConversationsIn(ctx(signedOut, { id: 's', sliceType: t, geoid: 'x' })) === true),
+  `drives the allowlist itself rather than a hand-copied list, so adding a type to\n` +
+    `          PUBLIC_SLICE_TYPES cannot leave this assertion behind. Types: ${[...PUBLIC_SLICE_TYPES].join(', ')}`,
+)
+
+check(
+  40,
+  'canReadConversationsIn: nothing on screen is still not readable',
+  canReadConversationsIn(ctx(signedOut, null)) === false &&
+    canReadConversationsIn(ctx(memberOfCityA, null)) === false,
+  'a null `viewed` has no slice type to be public, and must not fall through to true.',
+)
+
+check(
+  41,
+  '🔴 canReadConversationsIn: volunteer stays members-only (D-27)',
+  canReadConversationsIn(ctx(signedOut, volunteerRow)) === false &&
+    canReadConversationsIn(ctx(signedOutStaleVolunteer, volunteerRow)) === false &&
+    canReadConversationsIn(ctx(informAccount, volunteerRow)) === false &&
+    canReadConversationsIn(ctx(memberOfCityA, volunteerRow)) === false,
+  'If this is the only red, the body treats the allowlist as a denylist or skips it entirely.\n' +
+    '          The stale-sets viewer is here so the assertion cannot pass on a body with no session check.',
+)
+
+check(
+  42,
+  'canReadConversationsIn: a volunteer member still reads volunteer, including a sibling shard',
+  canReadConversationsIn(ctx(memberOfVolunteer, volunteerRow)) === true &&
+    canReadConversationsIn(ctx(memberOfVolunteer, volunteerOtherRow)) === true,
+  'the private path is the OLD path and must survive unchanged: membership by placeKey,\n' +
+    '          which is what makes a sibling shard of a private space readable too.',
+)
+
+/**
+ * 🔴 43 is the assertion that makes 35–42 mean anything, and it was added because
+ * they did not. Mutation-tested while writing this task: replacing the allowlist
+ * call with the denylist `viewed.sliceType !== 'volunteer'` left all eight of them
+ * green. A denylist is the one implementation D-28 exists to forbid — new private
+ * space types are landing in `slices.slice_type`, and under a denylist each one is
+ * published to the entire internet on the day it is created, with nobody touching
+ * this file and no check going red.
+ *
+ * So this asserts on a type that is in NEITHER list. It is the only assertion here
+ * whose subject does not exist yet, which is precisely why it is the one that holds.
+ */
+const UNKNOWN_TYPES = ['neighborhood', 'school-district', 'precinct', 'ward']
+
+check(
+  43,
+  '🔴 D-28: a slice type in neither list is NOT readable — the denylist trap',
+  UNKNOWN_TYPES.every(
+    (t) =>
+      canReadConversationsIn(ctx(signedOut, { id: 's', sliceType: t, geoid: 'x' })) === false &&
+      canReadConversationsIn(ctx(informAccount, { id: 's', sliceType: t, geoid: 'x' })) === false &&
+      canReadConversationsIn(ctx(memberOfCityA, { id: 's', sliceType: t, geoid: 'x' })) === false,
+  ),
+  'If this is the only red, the body is a DENYLIST ("everything except volunteer") rather than\n' +
+    '          an allowlist. Every other assertion in this file passes on that implementation —\n' +
+    '          verified by mutation, 2026-10-31. Tomorrow\'s private slice type is what it costs.',
+)
+
+check(
+  44,
+  'D-28: and a member of an unlisted private type can still read it',
+  canReadConversationsIn({
+    viewed: { id: 'slice-nb-1', sliceType: 'neighborhood', geoid: 'x' },
+    ownedSliceIds: new Set(['slice-nb-1']),
+    ownedPlaceKeys: new Set([placeKey('neighborhood', 'x')]),
+    isAuthenticated: true,
+  }) === true,
+  'the allowlist gates the PUBLIC path only. An unlisted type is private, not broken:\n' +
+    '          its members keep the ordinary membership read, so a new space type works on day one\n' +
+    '          for the people in it and is invisible to everyone else. That is the D-28 bargain.',
+)
+
+// ── 45–48: the block filter is in every body that returns authored content ──
+//
+// Numbered 45+ and not 35+ on purpose: 18-03 adds 35–44 to this same file, and two
+// branches both starting at 35 is a merge conflict that resolves by silently
+// renumbering somebody's assertion. The gap 39–44 is unused on this branch and fills
+// in when 18-03 lands — the file already carries an unused 25 for the same reason.
+//
+// 🔴 Exactly the shape assertions 30 and 33 exist for, and written because that
+// lesson was learned the hard way in this same file: the allowlist literal lived in
+// two function bodies, the guard read one, and deleting the predicate from the other
+// left the run fully green while deep-linked posts resolved in any slice type.
+//
+// public_author_is_blocked is referenced from FIVE places in the migration — three
+// row filters (feed, post, replies) and two reply_count subqueries. Miss one and the
+// failure is silent and asymmetric: a blocked author's posts vanish from the list
+// while the count above it still includes their replies, or a thread the member
+// should never see opens from a deep link.
+
+/** The text of one CREATE FUNCTION body, comments stripped. Throws rather than returning ''. */
+function functionBody(sql, fnName) {
+  const code = stripSqlComments(sql)
+  const start = code.search(new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+civic_spaces\\.${fnName}\\s*\\(`, 'i'))
+  if (start < 0) throw new Error(`${fnName} is not defined in the migration`)
+  const rest = code.slice(start)
+  const next = rest.slice(1).search(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION/i)
+  return next < 0 ? rest : rest.slice(0, next + 1)
+}
+
+{
+  const sql = readFileSync(PUBLIC_READ_SQL, 'utf8')
+
+  // [number, function, how many NOT-blocked predicates its body must carry]
+  for (const [num, fnName, want] of [
+    [45, 'get_public_feed', 2], // the row filter, and the reply_count subquery
+    [46, 'get_public_post', 2], // the same two
+    [47, 'get_public_replies', 1], // per-reply; the post gate comes from get_public_post
+  ]) {
+    let body = null
+    let why = ''
+    try { body = functionBody(sql, fnName) } catch (e) { why = e.message }
+    const uses = body === null ? -1 : (body.match(/NOT\s+civic_spaces\.public_author_is_blocked\s*\(/gi) ?? []).length
+    check(
+      num,
+      `${fnName} applies the block filter ${want === 1 ? 'once' : `${want}×`} (rows${want === 2 ? ' and reply_count' : ''})`,
+      uses === want,
+      body === null
+        ? `could not read the body: ${why}`
+        : `found ${uses} \`NOT public_author_is_blocked(...)\` in ${fnName}, expected ${want}.\n` +
+          `          A missing one is SILENT: the list and the count disagree, or a blocked\n` +
+          `          author's thread opens from a deep link. Anon is unaffected either way,\n` +
+          `          which is exactly why no anon-facing check can catch this.`,
+    )
+  }
+
+  check(
+    48,
+    'the block helper short-circuits on a NULL viewer, so anon output is unchanged',
+    /WHEN\s+p_viewer\s+IS\s+NULL\s+THEN\s+false/i.test(functionBody(sql, 'public_author_is_blocked')),
+    'Without the guard clause the helper reads civic_spaces.blocks for every anonymous\n' +
+      '          row — comparing NULL to every blocker_id, which is never true but is a seq scan\n' +
+      '          per row, and makes the anon path depend on a table it has no business touching.',
+  )
+}
+
+// ── 49–54: Phase 18-04 — one mapping from why-you-cannot-write to what it says ──
+//
+// 🔴 The mapping lives in writeAccess.ts, not in the component, for the reason D-21's
+// seam comment gives about whyNoWrite itself: a rule kept in a component is a rule no
+// check can reach. These assertions run the SHIPPED function.
+//
+// 🔴 D-36: the sentence names the RULE, not the remedy. It does not say "Sign in" and
+// the control does not open a login form — the explainer comes after the attempt
+// (D-37). An assertion that only checked "some sentence exists" would pass on the
+// copy this phase exists to replace, so 49 and 50 pin Chris's exact strings.
+
+check(
+  49,
+  "signed-out: the sentence is Chris's, verbatim",
+  replyClosedCopy('signed-out').sentence === 'Replying is open to Connected accounts.',
+  `got ${JSON.stringify(replyClosedCopy('signed-out').sentence)} — D-36 fixed this string.\n` +
+    `          It names who may speak here. It does not name what the reader should do.`,
+)
+
+check(
+  50,
+  'signed-out offers the EXPLAINER, with the exact label, and never a login',
+  replyClosedCopy('signed-out').action === 'explainer' &&
+    replyClosedCopy('signed-out').actionLabel === 'Connect an account to reply' &&
+    !/sign in/i.test(replyClosedCopy('signed-out').sentence + replyClosedCopy('signed-out').actionLabel),
+  `${JSON.stringify(replyClosedCopy('signed-out'))}\n` +
+    `          🔴 D-37: the explainer is reached by pressing the door, never pushed. A direct\n` +
+    `          jump to the accounts hub is the thing being replaced, so "sign in" must not\n` +
+    `          appear in either string.`,
+)
+
+/**
+ * 🔴 D-04, and the plan got the MECHANISM wrong — worth writing down because the
+ * wrong version is the intuitive one.
+ *
+ * 18-04-PLAN.md says an Inform account "reaches 'signed-out' by construction (D-04)"
+ * and asserts its copy equals the signed-out copy. It does not and must not:
+ * `whyNoWrite` returns 'signed-out' only for `!isAuthenticated`, and an Inform
+ * account IS authenticated. It holds no slices, so it lands in 'other-place' (or
+ * 'no-slice' where there is no row) — exactly as `whyNoWrite`'s own comment says it
+ * will: *"including an Inform account's, which holds no slices and so would fail
+ * below anyway. First because the remedy differs."*
+ *
+ * The remedy really does differ: telling someone who is already signed in to sign in
+ * is the failure D-37 is about. So the copy SHOULD differ from the anonymous one.
+ *
+ * What D-04 actually guarantees here is narrower and is what this asserts: the
+ * mapping has no tier term, so an Inform account and a Connected non-member standing
+ * in the same place get the SAME sentence. Nothing on this surface can tell them
+ * apart, which is the property that keeps a tier badge from ever appearing (D-33).
+ */
+check(
+  51,
+  '🔴 D-04: at the same place, an Inform account and a Connected non-member get identical copy',
+  JSON.stringify(replyClosedCopy(whyNoWrite(ctx(informAccount, cityBRow)))) ===
+    JSON.stringify(replyClosedCopy(whyNoWrite(ctx(memberOfCityA, cityBRow)))) &&
+    JSON.stringify(replyClosedCopy(whyNoWrite(ctx(informAccount, cityBNoRow)))) ===
+      JSON.stringify(replyClosedCopy(whyNoWrite(ctx(unincorporatedMember, cityBNoRow)))),
+  `inform@cityB   → ${JSON.stringify(replyClosedCopy(whyNoWrite(ctx(informAccount, cityBRow))))}\n` +
+    `          member@cityB   → ${JSON.stringify(replyClosedCopy(whyNoWrite(ctx(memberOfCityA, cityBRow))))}\n` +
+    `          Both rows are checked — one where a slices row exists and one where it does not —\n` +
+    `          because the two take different branches of whyNoWrite and only one of them is\n` +
+    `          'other-place'. A difference here means a tier term crept into the mapping.`,
+)
+
+check(
+  '51b',
+  'an Inform account does NOT take the signed-out branch (the plan said it did)',
+  whyNoWrite(ctx(informAccount, cityAShard1)) !== 'signed-out' &&
+    whyNoWrite(ctx(signedOut, cityAShard1)) === 'signed-out',
+  `inform → ${whyNoWrite(ctx(informAccount, cityAShard1))}, anon → ${whyNoWrite(ctx(signedOut, cityAShard1))}\n` +
+    `          If this ever goes red, an Inform account is being offered "sign in" while already\n` +
+    `          signed in — and whyNoWrite has grown an isAuthenticated bug, not a tier term.`,
+)
+
+{
+  /**
+   * 🔴 EVERY viewer who reaches 'other-place' is signed in — `whyNoWrite` returns
+   * 'signed-out' first for `!isAuthenticated`. So nothing in this copy may tell them
+   * to get an account, in EITHER half.
+   *
+   * The first version of this assertion checked only `sentence`, and the non-answer
+   * simply moved into `actionLabel` ("Connect an account to reply"), which is what a
+   * Connected member visiting another city was shown. Both halves are checked now.
+   *
+   * It also must not claim the reader does not live here: an Inform account lands in
+   * 'other-place' in the city it DOES live in, so "belongs to the people who live
+   * under this government" names a rule it satisfies and is still refused by.
+   */
+  const c = replyClosedCopy('other-place')
+  const both = `${c.sentence} ${c.actionLabel ?? ''}`
+  check(
+    52,
+    'other-place tells a SIGNED-IN reader neither to get an account nor that they do not live here',
+    !/connect(ed)?\s+(an\s+)?account/i.test(both) &&
+      !/sign\s*in/i.test(both) &&
+      !/live/i.test(c.sentence),
+    `sentence=${JSON.stringify(c.sentence)}\n          label=${JSON.stringify(c.actionLabel)}\n` +
+      `          Both populations that reach this reason are already authenticated: a Connected\n` +
+      `          member of elsewhere, and an Inform account anywhere — including its own city.\n` +
+      `          Membership of the space is the one rule true of both, and the one the code applies.`,
+  )
+}
+
+check(
+  53,
+  'sibling-shard is its own sentence, not other-place\'s',
+  replyClosedCopy('sibling-shard').sentence !== replyClosedCopy('other-place').sentence &&
+    replyClosedCopy('sibling-shard').action === null,
+  `sibling → ${JSON.stringify(replyClosedCopy('sibling-shard'))}\n` +
+    `          other   → ${JSON.stringify(replyClosedCopy('other-place'))}\n` +
+    `          A sibling shard is the same jurisdiction, so neither the explainer nor the\n` +
+    `          accounts app is any use: the viewer already has everything they need and is\n` +
+    `          simply in the wrong room. Offering a remedy would be a lie about the cause.`,
+)
+
+check(
+  54,
+  'no-slice routes to the ACCOUNTS APP, not the explainer',
+  replyClosedCopy('no-slice').action === 'accounts-app' &&
+    !!replyClosedCopy('no-slice').actionLabel,
+  `got ${JSON.stringify(replyClosedCopy('no-slice'))}\n` +
+    `          🔴 This viewer HAS a Connected account — explaining the tiers to them is the\n` +
+    `          one case where the explainer is actively wrong. Their address resolves to no\n` +
+    `          space at this level, and the only place that can change is the accounts app.`,
+)
+
+{
+  // 🔴 Total over every reason, so a fifth NoWriteReason cannot be added and silently
+  // fall through to an empty sentence. The TS side is exhaustive with no `default`;
+  // this is the half that survives type erasure.
+  const ALL = ['signed-out', 'other-place', 'sibling-shard', 'no-slice']
+  const bad = ALL.filter((r) => {
+    const c = replyClosedCopy(r)
+    return !c || typeof c.sentence !== 'string' || c.sentence.trim().length < 10 ||
+      !(c.action === null || c.action === 'explainer' || c.action === 'accounts-app') ||
+      (c.action !== null && !c.actionLabel)
+  })
+  check(
+    55,
+    'every NoWriteReason maps to a real sentence, a valid action, and a label when it acts',
+    bad.length === 0,
+    `incomplete for: ${bad.join(', ')} — an action with no label renders a nameless button,\n` +
+      `          which check:explore-rooms goal 6 reads as a dead end.`,
+  )
+}
+
+// ── 56–59: offersReturnToOwnSpaces ───────────────────────────────────────────
+//
+// 🔴 These exist because a D-04 violation shipped and NOTHING here went red.
+// The control "Back to my spaces" was gated on the REASON alone, which excludes
+// a signed-out visitor — the intent — and does NOT exclude an Inform account,
+// because `whyNoWrite` puts it in 'other-place' by construction (row 8 of TABLE,
+// the same reason rows 3 and 4 produce for a member visiting another city). So
+// the one viewer D-04 says to treat as anonymous was the one offered a control
+// named after spaces it has not got, which on click dropped it on the welcome
+// screen. whyNoWrite was never wrong; what the answer was handed to was.
+//
+// The loop runs the SAME TABLE the reason assertions run, and derives
+// hasOwnSpaces from each viewer's real ownedSliceIds rather than a literal, so
+// it cannot pass on a hand-picked fixture.
+
+{
+  const RETURN_TABLE = [
+    [1, false, 'a member in their own shard — no notice at all, so nothing to offer'],
+    [2, true, 'a member in a sibling shard — the control it was written for'],
+    [3, true, 'a member visiting another city that has a row'],
+    [4, true, 'a member visiting another city with no row'],
+    [5, false, "no-slice: they hold spaces, but not one here, and 'Back' is not the remedy"],
+    [6, false, 'signed-out, nothing on screen'],
+    [7, false, 'signed-out, a real row'],
+    [8, false, '🔴 THE REGRESSION: Inform shares row 3/4 reason and has NO spaces'],
+    [10, false, 'a placeless type, their own row'],
+    [11, true, 'a placeless type, a sibling row'],
+  ]
+  const expected = new Map(RETURN_TABLE.map(([n, v]) => [n, v]))
+  const wrong = []
+  for (const [n, viewer, viewed] of TABLE) {
+    const reason = whyNoWrite(ctx(viewer, viewed))
+    const hasOwnSpaces = viewer.ownedSliceIds.size > 0
+    const got = offersReturnToOwnSpaces(reason, hasOwnSpaces)
+    if (got !== expected.get(n)) {
+      wrong.push(`${n} (${viewer.label}, reason ${reason === null ? 'null' : `'${reason}'`}, hasOwnSpaces=${hasOwnSpaces}) → ${got}, want ${expected.get(n)}`)
+    }
+  }
+  check(56, 'offersReturnToOwnSpaces over every viewer × slice in TABLE', wrong.length === 0, wrong.join('; '))
+
+  // The discrimination itself, stated on its own so a failure names the bug.
+  check(
+    57,
+    "D-04: the SAME reason answers differently for a viewer with no spaces — 'other-place' offers the control to a member and withholds it from Inform",
+    offersReturnToOwnSpaces('other-place', true) === true &&
+      offersReturnToOwnSpaces('other-place', false) === false,
+    'the reason alone is deciding it again — an Inform account is being offered spaces it has not got',
+  )
+
+  // No reason may offer the control to someone with nothing to return to.
+  const leaks = ['signed-out', 'no-slice', 'other-place', 'sibling-shard', null]
+    .filter((r) => offersReturnToOwnSpaces(r, false))
+  check(58, 'no reason whatsoever offers the control when hasOwnSpaces is false', leaks.length === 0,
+    `offered for: ${leaks.join(', ')}`)
+
+  // 🔴 ReadOnlyNotice does NOT call this predicate. Its control is confined to its
+  // `reason === 'sibling-shard'` branch, and that is only safe while sibling-shard
+  // cannot be reached without membership. Assert the invariant it leans on, so a
+  // change to whyNoWrite lands here rather than in production.
+  const siblingWithoutSpaces = TABLE.filter(([, viewer, viewed]) =>
+    whyNoWrite(ctx(viewer, viewed)) === 'sibling-shard' && viewer.ownedSliceIds.size === 0)
+  check(
+    59,
+    "ReadOnlyNotice's structural gate holds: 'sibling-shard' is unreachable without membership",
+    siblingWithoutSpaces.length === 0,
+    `rows ${siblingWithoutSpaces.map(([n]) => n).join(', ')} reach sibling-shard with no spaces — ` +
+      'ReadOnlyNotice would offer "Switch back" to someone with nowhere to go. Give it the predicate.',
+  )
+}
+
+// ── 60–63: SPLITTABLE_SLICE_TYPES ────────────────────────────────────────────
+//
+// Which slice types divide when they fill (design §4.2). Volunteer does not: it
+// is not a place. It is role-gated through assignVolunteerIfEligible, membership
+// is revocable when the role goes away, and its population is bounded by who
+// holds the role — so there is no small town there to protect.
+
+{
+  check(60, 'the five splittable types are exactly city, county, state, federal, unified',
+    [...SPLITTABLE_SLICE_TYPES].sort().join(',') === 'city,county,federal,state,unified',
+    `got: ${[...SPLITTABLE_SLICE_TYPES].sort().join(',')}`)
+
+  check(61, 'volunteer does not split', !isSplittableSliceType('volunteer'),
+    'volunteer is role-gated and revocable — splitting it would divide a role, not a place')
+
+  check(62, 'a type added to the DB constraint but not to this list does not split',
+    !isSplittableSliceType('school-board'),
+    'the list is an allowlist; a denylist would split the next private type silently')
+
+  // 🔴 The one most likely to be deleted as pedantic, and the only one that
+  // catches the shortcut it exists for.
+  //
+  // SPLITTABLE_SLICE_TYPES and PUBLIC_SLICE_TYPES hold the same five strings
+  // today. They are not the same rule: one is a CAPACITY decision, the other a
+  // DISCLOSURE allowlist (D-28). Writing `export const SPLITTABLE_SLICE_TYPES =
+  // PUBLIC_SLICE_TYPES` would pass 60–62 and quietly tie them together, so that
+  // a future private slice type could not be split without being published, nor
+  // published without being split. Equal contents, separate identity.
+  check(63, 'the split list and the public list are SEPARATE constants, not aliases',
+    SPLITTABLE_SLICE_TYPES !== PUBLIC_SLICE_TYPES,
+    'one is assigned from the other — a capacity rule and a disclosure rule must not share an object')
+}
 
 // ── Result ───────────────────────────────────────────────────────────────────
 

@@ -1,0 +1,48 @@
+name: Banner drift
+
+# Why this is scheduled and not a PR check
+# ----------------------------------------
+# `check:banners` diffs the live bytes of all 232 shared banner assets against
+# `src/lib/banners.manifest.json`. Essentials replaces a banner by swapping the
+# bytes behind a stable URL, so drift arrives with NO deploy and NO commit on our
+# side — there is no pull request for a PR check to hang off. The script's own
+# header asks for exactly this: "run it when touching lib/banners.ts, and
+# periodically regardless".
+#
+# 🔴 It is a licence-compliance check, not a cosmetic one. Attribution on a
+# CC BY / CC BY-SA image is a condition of the licence, and a drifted credit
+# publishes the wrong photographer's name. Treasury Tracker shipped exactly that
+# for three weeks. Weekly is chosen against that three weeks, not against how
+# often Essentials actually changes anything.
+#
+# It is deliberately NOT in `guards.yml`: it needs the network, and a flaky
+# connection or an Essentials outage must never be able to block a pull request.
+# A failure here is a notification, not a gate.
+#
+# When this goes red: look at the named assets, verify each author on its Commons
+# File: page, then re-record with `node scripts/check-banner-drift.mjs --write`.
+# 🔴 Never re-record without verifying — `--write` makes the check green by
+# believing whatever is live now, which is the one thing it exists not to do.
+# Never transcribe credits from Essentials' comment block or copy another app's
+# table; re-derive from `essentials/src/lib/buildingImages.js`.
+
+on:
+  schedule:
+    # Mondays, 14:00 UTC — mid-morning US Eastern, so a failure lands on a
+    # weekday someone is around to read it rather than overnight.
+    - cron: '0 14 * * 1'
+  workflow_dispatch:
+
+jobs:
+  drift:
+    name: Banner drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - name: check:banners
+        run: npm run check:banners

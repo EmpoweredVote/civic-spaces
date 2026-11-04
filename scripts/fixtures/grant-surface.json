@@ -1,0 +1,445 @@
+{
+  "views": {
+    "action_log": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "moderator_id",
+        "action",
+        "target_type",
+        "target_id",
+        "flag_ids",
+        "notes",
+        "created_at"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "blocks": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "blocker_id",
+        "blocked_id",
+        "created_at"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "civic_notifications": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "recipient_id",
+        "event_type",
+        "actor_id",
+        "actor_ids",
+        "reference_id",
+        "reference_excerpt",
+        "event_count",
+        "is_read",
+        "group_window",
+        "created_at",
+        "updated_at"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "connected_profiles": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "user_id",
+        "display_name",
+        "account_standing",
+        "created_at",
+        "updated_at",
+        "avatar_url",
+        "tier",
+        "is_suspended"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "flags": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "reporter_id",
+        "category",
+        "detail",
+        "status",
+        "created_at",
+        "content_id",
+        "content_type"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "follows": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "follower_id",
+        "target_id",
+        "created_at"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "friendships": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "user_low",
+        "user_high",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "geography_columns": {
+      "owner": "supabase_admin",
+      "securityInvoker": false,
+      "columns": [
+        "f_table_catalog",
+        "f_table_schema",
+        "f_table_name",
+        "f_geography_column",
+        "coord_dimension",
+        "srid",
+        "type"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "geometry_columns": {
+      "owner": "supabase_admin",
+      "securityInvoker": false,
+      "columns": [
+        "f_table_catalog",
+        "f_table_schema",
+        "f_table_name",
+        "f_geometry_column",
+        "coord_dimension",
+        "srid",
+        "type"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "moderators": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "user_id",
+        "granted_at",
+        "granted_by"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "posts": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "slice_id",
+        "user_id",
+        "title",
+        "body",
+        "created_at",
+        "updated_at",
+        "is_deleted",
+        "edit_history",
+        "reply_count"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "replies": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "post_id",
+        "parent_reply_id",
+        "user_id",
+        "body",
+        "created_at",
+        "updated_at",
+        "is_deleted"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "slice_members": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "user_id",
+        "slice_id",
+        "joined_at"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "slices": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "slice_type",
+        "geoid",
+        "sibling_index",
+        "current_member_count",
+        "created_at"
+      ],
+      "grants": {
+        "anon": [],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    },
+    "users_public": {
+      "owner": "postgres",
+      "securityInvoker": true,
+      "columns": [
+        "id",
+        "display_name",
+        "avatar_url"
+      ],
+      "grants": {
+        "anon": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "authenticated": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ]
+      }
+    }
+  },
+  "ownedByUs": [
+    "posts",
+    "replies",
+    "slices",
+    "slice_members",
+    "connected_profiles",
+    "friendships",
+    "follows",
+    "civic_notifications",
+    "flags",
+    "blocks",
+    "moderators",
+    "action_log"
+  ],
+  "foreign": [
+    "users_public",
+    "geography_columns",
+    "geometry_columns",
+    "access_requests",
+    "admin_audit_log",
+    "admin_users",
+    "calibration_lapse_runs",
+    "cta_events",
+    "notification_events",
+    "notifications",
+    "politician_id_bridge",
+    "role_audit_log",
+    "roles",
+    "source_verifications",
+    "spatial_ref_sys",
+    "user_roles",
+    "users"
+  ],
+  "foreignNotes": {
+    "access_requests": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts), not verified from this repo",
+    "admin_audit_log": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts admin), not verified from this repo",
+    "admin_users": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts admin), not verified from this repo",
+    "calibration_lapse_runs": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (Compass / ev-accounts), not verified from this repo",
+    "cta_events": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts), not verified from this repo",
+    "notification_events": "table, postgres-owned; ev-accounts notifications, not civic_notifications",
+    "notifications": "table, postgres-owned; ev-accounts notifications, not civic_notifications",
+    "politician_id_bridge": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (essentials / politician data), not verified from this repo",
+    "role_audit_log": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts roles), not verified from this repo",
+    "roles": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts roles), not verified from this repo",
+    "source_verifications": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts / essentials), not verified from this repo",
+    "spatial_ref_sys": "PostGIS extension table, supabase_admin-owned; no RLS, ships with the extension",
+    "user_roles": "table, postgres-owned; not Civic Spaces. Owning EV app is inferred from the name (ev-accounts roles), not verified from this repo",
+    "users": "table, postgres-owned; ev-accounts identity table, which users_public reads",
+    "users_public": "view over ev-accounts users; deliberately not narrowed by this app (see 18-01 migration header)",
+    "geography_columns": "PostGIS extension view, supabase_admin-owned",
+    "geometry_columns": "PostGIS extension view, supabase_admin-owned"
+  }
+}

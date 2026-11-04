@@ -27,6 +27,13 @@ async function fetchPostWithAuthor(postId: string): Promise<PostWithAuthor> {
 
   const { data: profile, error: profileError } = await supabase
     .schema('civic_spaces')
+    // 🔴 PUBLIC READER: see below. 18-02 asserts that anon cannot read
+    // connected_profiles AT ALL, so any of these that ran for a reader with no
+    // account would 403 and break its panel. The DEFAULT is "does not run" — if
+    // one of them turns out to need public data that is a new RPC and a new
+    // decision, never a new grant.
+    // REPLACED BY AN RPC IN THIS PHASE. ThreadView passes null here when
+    // isPublic, so this query does not run; usePublicThread answers instead.
     .from('connected_profiles')
     .select('user_id, display_name, avatar_url')
     .eq('user_id', post.user_id)
@@ -81,6 +88,8 @@ async function fetchRepliesPage(
 
   const { data: profiles, error: profilesError } = await supabase
     .schema('civic_spaces')
+    // REPLACED BY AN RPC IN THIS PHASE. ThreadView passes null here when
+    // isPublic, so this query does not run; usePublicThread answers instead.
     .from('connected_profiles')
     .select('user_id, display_name, avatar_url')
     .in('user_id', userIds)

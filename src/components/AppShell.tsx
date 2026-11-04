@@ -30,7 +30,7 @@ import LocationPrompt from './LocationPrompt'
 import { WelcomeScreen } from './WelcomeScreen'
 import { PlaceStrip, HomeLocationCard } from './PlaceStrip'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
-import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId } from '../lib/viewedPlace'
+import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId, placeForPublicPost } from '../lib/viewedPlace'
 import type { ResolvedPlace } from '../lib/placeResolve'
 import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
 import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
@@ -38,7 +38,7 @@ import { ExploreView } from './explore/ExploreView'
 import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
 import { canPostDraft, parseDraftKey, racesAreaFor, type CompassLevelFlags } from '../lib/exploreComposition'
-import { whyNoWrite, placeKey, isSameJurisdiction, type ViewedSlice, type NoWriteReason } from '../lib/writeAccess'
+import { whyNoWrite, canReadConversationsIn, placeKey, isSameJurisdiction, type ViewedSlice, type NoWriteReason } from '../lib/writeAccess'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
@@ -635,7 +635,7 @@ const INITIAL_SCROLL_MAP: Record<TabKey, boolean> = {
 
 export default function AppShell() {
   const { userId, isAuthenticated, isLoading: authLoading, loginUrl } = useAuth()
-  const { slices, hasJurisdiction, isLoading } = useAllSlices(userId)
+  const { slices, hasJurisdiction, isLoading, isError: slicesError } = useAllSlices(userId)
 
   // A signed-in member with no spaces is usually someone who set their address
   // after their session started, not someone without one. Ask the assigner again
@@ -995,9 +995,20 @@ export default function AppShell() {
     const found = await locatePost(postId)
 
     if (found.kind === 'unavailable') {
-      // One message for not-found, deleted and not-yours alike: saying which
-      // it was would tell someone whether a post they cannot read exists.
-      toast.error("That conversation isn't in one of your civic spaces")
+      /**
+       * One message for not-found, deleted and not-yours alike: saying which it was
+       * would tell someone whether a post they cannot read exists. 🔴 The conflation
+       * stays; the WORDING had to split. Since Phase 18 this line is also what a
+       * signed-out reader gets, and "isn't in one of your civic spaces" describes a
+       * membership relation they do not have — it is the most-seen failure string on
+       * the new public path and it was addressed to the wrong half of its audience.
+       * Both branches say exactly as little as the other.
+       */
+      toast.error(
+        isAuthenticated
+          ? "That conversation isn't in one of your civic spaces"
+          : "That conversation isn't available to read",
+      )
       navigate('/', { replace: true })
       return
     }
@@ -1018,6 +1029,85 @@ export default function AppShell() {
      * and clearing the place there would yank a visitor out of the city they
      * were reading because somebody sent them a dead link.
      */
+    /**
+     * 🔴 Phase 18: a public post the viewer holds nothing in.
+     *
+     * This branch runs BEFORE the place is cleared below, because unlike every
+     * other outcome it is the one case where a place has to be SET. A signed-out
+     * visitor following a shared link has no slices to resolve against and no
+     * place in session, so the post's own slice is the only thing that can say
+     * where to go — which is exactly what `get_public_post` returns.
+     *
+     * 🔴 It must NOT stash to `cs_pending_post` and bounce through login. That
+     * stash exists because the accounts hub is sent a fixed redirect with no
+     * path, and it was the right answer while conversations were members-only.
+     * Sending someone to sign in to read something they may already read is now
+     * just a door in front of an open room.
+     */
+    if (found.kind === 'public') {
+      const place = placeForPublicPost(found.sliceType, found.geoid)
+      if (!place) {
+        /**
+         * federal / unified — placeless, so there is no place to enter and nothing
+         * honest to invent. See placeForPublicPost.
+         *
+         * 🔴 The message cannot mention a TAB. This branch is only reachable after
+         * locateForMember gave up, and every signed-in member holds a federal and a
+         * unified slice — so a federal post resolves `own` for them and never gets
+         * here. The only readers who see this are signed-out visitors and Inform
+         * accounts, who are then sent to the welcome screen, where there is no
+         * National tab and no Unified tab to follow the instruction with. The first
+         * draft told them to do something impossible.
+         */
+        toast.error(
+          isAuthenticated
+            ? "That conversation is in the national space, which isn't one of yours yet"
+            : 'That conversation is in the national space — sign in to read it',
+        )
+        navigate('/', { replace: true })
+        return
+      }
+      // The link worked without a session, so there is nothing to replay after
+      // one. Leaving the stash would re-open this post the next time they sign
+      // in, long after they have moved on.
+      try {
+        localStorage.removeItem(PENDING_POST_KEY)
+      } catch {
+        /* blocked — nothing was ever stashed */
+      }
+      setViewedPlace(place)
+      writeViewedPlace(place)
+      const tab = found.sliceType as TabKey
+      /**
+       * 🔴 NOT `handleTabChange`. It writes `cs_active_tab` whenever
+       * `!isVisitingPlace`, and `isVisitingPlace` is `viewedPlace !== null`
+       * read from THIS render — `setViewedPlace` above has not flushed, and
+       * the callback closes over the previous value, so the guard is still
+       * `false` and the write happens. A member whose remembered tab is City,
+       * opening a shared link to a State post in another state, came back to
+       * State afterwards and `leavePlace` had nothing true left to restore.
+       * `enterPlace` avoids this the same way and says so.
+       */
+      scrollPositions.current[activeTab] = window.scrollY
+      setSearchQuery('')
+      setNavDrawerOpen(false)
+      setActiveTab(tab)
+      setForumView('conversations')
+      /**
+       * Every tab, not just the target. `clearPlaceScopedState()` is the usual
+       * reset but it also `navigate('/')`s, which would kill the deep link we
+       * are in the middle of opening. Without this, a thread left open on
+       * another tab survives into the visited place: that tab is now a `place:`
+       * sentinel, so it would re-render a post from the member's OWN slice as a
+       * public one, under the visited place's banner and with the narrow
+       * projection.
+       */
+      setViewingSlices(INITIAL_VIEWING)
+      setActivePostIds({ ...INITIAL_POST_IDS, [tab]: postId })
+      setScrollToLatestMap((prev) => ({ ...prev, [tab]: scrollToLatest }))
+      return
+    }
+
     setViewedPlace(null)
     writeViewedPlace(null)
 
@@ -1031,7 +1121,9 @@ export default function AppShell() {
     }))
     setActivePostIds((prev) => ({ ...prev, [found.tab]: postId }))
     setScrollToLatestMap((prev) => ({ ...prev, [found.tab]: scrollToLatest }))
-  }, [locatePost, handleTabChange, navigate])
+    // isAuthenticated is read by both toast branches above: the same outcome has to
+    // be worded for a member and for a visitor, who are told exactly as little.
+  }, [locatePost, handleTabChange, navigate, isAuthenticated])
 
   const handleNotificationNavigate = useCallback(
     (postId: string) => openPost(postId, true),
@@ -1070,10 +1162,42 @@ export default function AppShell() {
       return
     }
     if (handledRoutePostRef.current === routePostId) return
-    if (!isAuthenticated || isLoading || !hasAnySlices) return
+    /**
+     * 🔴 Phase 18 OPENED THIS GATE, and it was `!isAuthenticated || isLoading ||
+     * !hasAnySlices` — three conditions a signed-out visitor fails on all of.
+     * That was right while every post was members-only: resolving one meant
+     * matching its slice against the viewer's, and someone with no slices could
+     * match nothing, so the only thing left to do was stash the link and send
+     * them to sign in.
+     *
+     * `locatePost` can now answer for a reader with no slices at all: it runs the
+     * member lookup first and falls through to `get_public_post`. So the wait is
+     * only for the member half — do not resolve while a member's slices are still
+     * arriving, or a post in their OWN slice resolves as a public one and they
+     * get the narrow projection of their own neighbours.
+     *
+     * 🔴 `authLoading` is in here and `isAuthenticated` is not. Whether they have
+     * a session decides WHICH path answers; whether we have finished finding out
+     * decides whether to ask at all. Dropping authLoading would resolve every
+     * deep link as public during the first render after a reload.
+     */
+    if (authLoading) return
+    /**
+     * 🔴 `slicesError` is in here, and leaving it out was a live defect.
+     * `useAllSlices` returns `{}` both when a member holds nothing AND when its
+     * query failed — `retry: 1` gives up and `isLoading` goes false either way. A
+     * member whose slices failed to load would then resolve their OWN city's post
+     * through the public fallback: `placeForPublicPost` would seat them in their own
+     * city as a visitor, every tab a sentinel, reading their own neighbours through
+     * the narrow projection with no composer anywhere — and `handledRoutePostRef`
+     * would stop it re-resolving. Waiting is the right answer to a failed query; an
+     * Inform account, which genuinely holds nothing, is unaffected because its query
+     * SUCCEEDS with an empty result.
+     */
+    if (isAuthenticated && (isLoading || slicesError)) return
     handledRoutePostRef.current = routePostId
     void openPost(routePostId, false)
-  }, [routePostId, isAuthenticated, isLoading, hasAnySlices, openPost])
+  }, [routePostId, isAuthenticated, authLoading, isLoading, slicesError, openPost])
 
   /**
    * A signed-out visitor following a link: remember the post across login.
@@ -1142,6 +1266,21 @@ export default function AppShell() {
     () => new Set(Object.values(slices).map((s) => placeKey(s.sliceType, s.geoid))),
     [slices],
   )
+  /**
+   * 🔴 Whether "Back to my spaces" has anywhere to go. D-04 says an Inform
+   * account receives exactly what an anonymous visitor receives — and an Inform
+   * account holds no slice_members rows, so `whyNoWrite` lands it in
+   * `'other-place'` BY CONSTRUCTION, the same branch a member visiting another
+   * city lands in. `ReplyClosedNotice` gates the control on that reason, which
+   * correctly excludes the signed-out visitor and does NOT exclude Inform: the
+   * one account D-04 says must be treated as a visitor was being offered a
+   * control named after spaces it has not got, and pressing it ran `leavePlace`
+   * and dropped it on the welcome screen.
+   *
+   * Reason cannot tell those two apart — membership can, and it is data rather
+   * than a tier term, which is the distinction `whyNoWrite`'s header insists on.
+   */
+  const hasOwnSpaces = ownedSliceIds.size > 0
 
   /**
    * The shard on screen for the active tab, and WHY the viewer may not write in
@@ -1824,12 +1963,68 @@ export default function AppShell() {
                       const isShown = activeTab === tabKey
 
                       if (isPlaceSentinelId(slice.id)) {
+                        const viewedHere = { id: slice.id, sliceType: slice.sliceType, geoid: slice.geoid }
                         const reason = whyNoWrite({
-                          viewed: { id: slice.id, sliceType: slice.sliceType, geoid: slice.geoid },
+                          viewed: viewedHere,
                           ownedSliceIds,
                           ownedPlaceKeys,
                           isAuthenticated,
                         })
+
+                        /* 🔴 Phase 18. The same question the rest of the shell asks, asked
+                           by the same function: may this viewer READ here? For the five
+                           public types the answer is now yes for everyone, with or without
+                           an account, so the honest card below is replaced by the actual
+                           conversation. For volunteer — and for whatever private types
+                           follow it — nothing changed and the card still stands.
+
+                           🔴 It is canReadConversationsIn and NOT `reason === null`. Reading
+                           and writing are different questions and this is precisely where
+                           they diverge: every viewer here has a non-null `reason`, because
+                           nobody may WRITE in a place they do not live in. Keying the feed
+                           on the write gate would hide the public square from everybody. */
+                        const canRead = canReadConversationsIn({
+                          viewed: viewedHere,
+                          ownedSliceIds,
+                          ownedPlaceKeys,
+                          isAuthenticated,
+                        })
+
+                        if (canRead) {
+                          return (
+                            <div key={tabKey} className={isShown ? 'flex flex-col gap-3' : 'hidden'}>
+                              {/* 🔴 NO ReadOnlyNotice here. The panel renders one itself
+                                  whenever isViewOnly is set, and a second copy beside it
+                                  shipped two identical banners stacked — caught only by
+                                  looking at the four-way shoot, because a component that
+                                  renders correctly twice fails no assertion. The notice is
+                                  about WRITING, which this phase did not open. The way out is
+                                  passed down so the notice is rendered once, there. The gate is
+                                  `offersReturnToOwnSpaces` in writeAccess.ts, which needs BOTH
+                                  the reason and `hasOwnSpaces`: "Back to my spaces" names
+                                  spaces a signed-out visitor has not got, and an Inform account
+                                  has not got them either while sharing the visiting member's
+                                  reason. AppShell hands over the data; the notice applies the
+                                  rule, so there is one rule. */}
+                              <SliceFeedPanel
+                                sliceId={slice.id}
+                                onReturnToOwnSlice={leavePlace}
+                                hasOwnSpaces={hasOwnSpaces}
+                                publicPlace={{ sliceType: slice.sliceType, geoid: slice.geoid }}
+                                isActive={isShown}
+                                isViewOnly
+                                noWriteReason={reason}
+                                activePostId={activePostIds[tabKey]}
+                                onNavigateToThread={(postId) => handleNavigateToThread(tabKey, postId)}
+                                scrollToLatest={scrollToLatestMap[tabKey]}
+                                sort={feedModes[tabKey]}
+                                searchQuery={activeTab === tabKey ? searchQuery : ''}
+                                panelRef={panelRefs.current[tabKey]}
+                              />
+                            </div>
+                          )
+                        }
+
                         return (
                           <div key={tabKey} className={isShown ? 'flex flex-col gap-3' : 'hidden'}>
                             {/* The same way out as Explore's notice, on the surface a
@@ -1839,33 +2034,39 @@ export default function AppShell() {
                               reason={reason}
                               surface="feed"
                               loginUrl={isAuthenticated ? undefined : loginUrl}
-                              onReturnToOwnSlice={leavePlace}
+                              onReturnToOwnSlice={hasOwnSpaces ? leavePlace : undefined}
                             />
+                            {/*
+                              🔴 THE FAIL-CLOSED FALLBACK, and as of Phase 18 it is
+                              UNREACHABLE — deliberately kept, not dead weight.
+
+                              `FEED_TABS` is ['city','county','state','federal','unified'],
+                              which is exactly `PUBLIC_SLICE_TYPES`, so `canRead` above is
+                              true for every tab that can get here and the feed renders
+                              instead. This branch becomes live again the moment those two
+                              lists stop matching — a private space type added to FEED_TABS,
+                              or a type removed from the allowlist. Both are things someone
+                              will do, and on that day this is what they get: a sentence
+                              that is true, rather than an empty feed, which reads as
+                              "nobody has said anything here" and is a lie told silently.
+
+                              So the copy is written for a PRIVATE space, which is the only
+                              kind that can reach it. It no longer says "nobody has joined
+                              yet": that was Phase 17 being unable to read `slices` and
+                              refusing to pretend otherwise. The feed path can ask now, and
+                              does — see usePublicSlice.
+                            */}
                             <div className="rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 shadow-sm p-5 flex flex-col gap-3">
                               <h3 className="text-base font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                                Conversations here belong to the people who live here
+                                This space is for its members
                               </h3>
                               <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                Posting, replying and voting in a civic space belong to the people who
-                                live under that government.
+                                Most civic spaces are open to read — anyone can follow what a city,
+                                county, state or national community is discussing. This one is not:
+                                its conversations are visible to the people who belong to it.
                               </p>
-                              {/*
-                                🔴 PHASE 18 REVISES THIS PARAGRAPH, and it is worded so it is
-                                true whether or not a slices row exists — because Phase 17
-                                CANNOT TELL THE TWO APART and must not pretend to. An observer
-                                cannot read `slices` at all, and this phase makes no Supabase
-                                request for a visited place by design. Phase 18 can read the
-                                rows and can say which it is.
-
-                                🔴 And "nobody has joined yet" is the COMMON case, not an error
-                                branch: slice rows are created on demand by /assign, which only
-                                runs for a signed-in Connected member, and there are 15 `slices`
-                                rows in the entire product (research Q3.3). So the honest
-                                sentence is also the better half of the pitch.
-                              */}
                               <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                For most places nobody has joined yet — these spaces open as people
-                                arrive. An Empowered Vote account with an address set opens the ones
+                                An Empowered Vote account with an address set opens the civic spaces
                                 where you live, and you can be the first voice in them.
                               </p>
                             </div>
@@ -1897,7 +2098,6 @@ export default function AppShell() {
                         <div key={tabKey} className={isShown ? 'flex flex-col' : 'hidden'}>
                           <NamedFeedPanel
                             slice={slice}
-                            loginUrl={isAuthenticated ? undefined : loginUrl}
                             sliceId={viewing?.id ?? slice.id}
                             isViewOnly={isViewOnly}
                             noWriteReason={noWriteReason}

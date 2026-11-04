@@ -79,6 +79,52 @@ export function placeKey(sliceType: string, geoid: string | null): string {
 }
 
 /**
+ * The slice types anyone may READ without an account — Phase 18's public read path.
+ *
+ * 🔴 D-28: this is an ALLOWLIST, never a denylist. New private space types are
+ * landing in `slices.slice_type`, and a denylist ("everything except volunteer")
+ * would publish each one silently, on the day it is created, with nobody touching
+ * this file. Under an allowlist the new type stays private until someone adds it
+ * here ON PURPOSE. Volunteer, and whatever private types take that slot, are
+ * deliberately absent.
+ *
+ * 🔴 The SQL repeats this list as a literal array —
+ * supabase/migrations/20261030000100_public_read.sql — and the two must change
+ * together. Neither side can import the other; check-write-access.mjs pins this one.
+ */
+export const PUBLIC_SLICE_TYPES: readonly string[] = ['city', 'county', 'state', 'federal', 'unified']
+
+/** Is this slice type readable by a visitor with no account? Unknown types are not. */
+export function isPublicSliceType(t: string): boolean {
+  return PUBLIC_SLICE_TYPES.includes(t)
+}
+
+/**
+ * The slice types that DIVIDE when they fill (design §4.2).
+ *
+ * Volunteer is absent for a structural reason rather than a product one: it is
+ * not a place. It is role-gated through `assignVolunteerIfEligible`, membership
+ * is revocable when the role goes away, and its population is bounded by who
+ * holds the role. There is no small town there to protect.
+ *
+ * 🔴 THIS DELIBERATELY REPEATS THE FIVE STRINGS ABOVE RATHER THAN ALIASING
+ * `PUBLIC_SLICE_TYPES`, and `check-write-access` assertion 63 fails if anyone
+ * "tidies" it into an alias. The two lists are equal today by coincidence, not
+ * by rule: one is a CAPACITY decision, the other a DISCLOSURE allowlist (D-28).
+ * Share the object and a future private slice type cannot be split without
+ * being published to the whole internet, nor published without being split.
+ *
+ * 🔴 The SQL repeats it too — supabase/migrations/20261102000100 — and the two
+ * must change together. Neither side can import the other; the guard pins this.
+ */
+export const SPLITTABLE_SLICE_TYPES: readonly string[] = ['city', 'county', 'state', 'federal', 'unified']
+
+/** Does this slice type divide at the cap? Unknown types do not. */
+export function isSplittableSliceType(t: string): boolean {
+  return SPLITTABLE_SLICE_TYPES.includes(t)
+}
+
+/**
  * Is the viewer's own row at this level the SAME JURISDICTION as the one a
  * visited place presents there?
  *
@@ -191,6 +237,133 @@ export function canWriteIn(ctx: WriteContext): boolean {
   return whyNoWrite(ctx) === null
 }
 
+// ── The closed door's copy ───────────────────────────────────────────────────
+
+/** Where the control behind a closed door goes, or null when there is nowhere useful. */
+export type ReplyClosedAction = 'explainer' | 'accounts-app' | null
+
+export interface ReplyClosedCopy {
+  /** What is true about why they cannot write here. Names the rule, never the remedy. */
+  sentence: string
+  action: ReplyClosedAction
+  /** Null exactly when `action` is null; a nameless button is a dead end. */
+  actionLabel: string | null
+}
+
+/**
+ * Why the reply box is not here, in words, for each reason `whyNoWrite` can give.
+ *
+ * 🔴 It lives in this module and not in the component, for the same reason the seam
+ * comment on `whyNoWrite` gives: a rule kept at a call site is a rule no check can
+ * reach, and `check-write-access.mjs` runs this file for real.
+ *
+ * 🔴 D-36 — THE SENTENCE NAMES THE RULE, NOT THE REMEDY. Chris: *"say 'Replying is
+ * open to Connected accounts'"*. It does not say "Sign in", and the control does not
+ * open a login form: D-37 puts the explainer AFTER the attempt, reached by pressing
+ * the door rather than pushed in front of it. The copy that said "Sign in" is the
+ * thing this replaces.
+ *
+ * 🔴 Exhaustive over `NoWriteReason` with NO `default` branch, deliberately. Add a
+ * fifth reason and this stops compiling, which is the point — a `default` here would
+ * hand a new reason the signed-out copy, and the signed-out copy is a statement about
+ * accounts that would be false for whatever the new reason turns out to be.
+ *
+ * 🔴 The per-reason split is the whole value. Telling someone who already holds a
+ * Connected account that "replying is open to Connected accounts" is a non-answer,
+ * and offering the tier explainer to the unincorporated member — who has the account
+ * and simply has no space at this level — is actively wrong. Three different causes,
+ * three different true sentences, and only two of them have a remedy at all.
+ */
+/**
+ * Whether to offer "Back to my spaces".
+ *
+ * 🔴 THE REASON ALONE CANNOT ANSWER THIS, and assuming it could is how a D-04
+ * violation shipped. `whyNoWrite` puts an Inform account in `'other-place'` BY
+ * CONSTRUCTION — it holds no `slice_members` rows, so both its sets are empty —
+ * and that is the same branch a Connected member visiting another city lands in.
+ * Gating the control on `reason` therefore excluded the signed-out visitor, which
+ * was the intent, and NOT the Inform account, which D-04 says receives exactly
+ * what an anonymous visitor receives. The one visitor the rule was written for
+ * was the one visitor it missed: offered a control named after spaces it has not
+ * got, which on click ran `leavePlace` and dropped it on the welcome screen.
+ *
+ * Membership answers it and tier does not, which is the distinction this module
+ * insists on everywhere else. `hasOwnSpaces` is `ownedSliceIds.size > 0` — data.
+ *
+ * 🔴 It lives HERE, not in a component, because there are two notices —
+ * `ReplyClosedNotice` and `ReadOnlyNotice` — and before this they disagreed:
+ * one gated on the reason, the other on nothing but the callback's presence. Two
+ * shapes of the same rule is what let them drift apart in the first place, and a
+ * rule in this module is a rule `check:write-access` runs the shipped copy of.
+ */
+export function offersReturnToOwnSpaces(
+  reason: NoWriteReason | null,
+  hasOwnSpaces: boolean,
+): boolean {
+  if (!hasOwnSpaces) return false
+  return reason === 'other-place' || reason === 'sibling-shard'
+}
+
+export function replyClosedCopy(reason: NoWriteReason): ReplyClosedCopy {
+  switch (reason) {
+    case 'signed-out':
+      // 🔴 Only a viewer with NO SESSION reaches this. An Inform account does NOT —
+      // it is authenticated, holds no slices, and lands in 'other-place' below. See
+      // whyNoWrite's own note ("First because the remedy differs") and
+      // check-write-access 51b, which exists to keep that true.
+      return {
+        sentence: 'Replying is open to Connected accounts.',
+        action: 'explainer',
+        actionLabel: 'Connect an account to reply',
+      }
+
+    case 'other-place':
+      /**
+       * 🔴 EVERY VIEWER WHO REACHES THIS IS ALREADY SIGNED IN, because 'signed-out'
+       * is returned first for `!isAuthenticated`. So neither the sentence nor the
+       * label may tell them to get an account — that is a non-answer to a Connected
+       * member visiting another city, and the first draft put it in the LABEL
+       * ("Connect an account to reply") after assertion 52 had removed it from the
+       * sentence. Both halves now avoid it.
+       *
+       * 🔴 And the sentence must be true for TWO different populations, because
+       * whyNoWrite cannot tell them apart and must not grow a tier term to try:
+       *   - a Connected member of somewhere else, who does not live here;
+       *   - an Inform account ANYWHERE, including in the city it lives in.
+       * "belongs to the people who live under this government" was the first draft
+       * and is false for the second: an Inform account in its own city does live
+       * there, and still cannot reply. Membership of the space is the one rule true
+       * of both, and it is the rule the code actually applies.
+       */
+      return {
+        sentence: 'Replying here is for members of this civic space.',
+        action: 'explainer',
+        actionLabel: 'How civic spaces work',
+      }
+
+    case 'sibling-shard':
+      // The same jurisdiction, a different room. Neither the explainer nor the
+      // accounts app helps: they already have everything they need. Offering a
+      // remedy would be a lie about the cause, so there is no action at all.
+      return {
+        sentence: 'This is another slice of the same place. Your replies stay in your own slice.',
+        action: null,
+        actionLabel: null,
+      }
+
+    case 'no-slice':
+      // 🔴 The one case where the explainer is WRONG. This viewer is Connected
+      // already; their address resolves to no space at this level, which ev-accounts
+      // treats as an answer rather than an error, and the only place that can change
+      // is the accounts app.
+      return {
+        sentence: 'There is no civic space at this level for your address yet.',
+        action: 'accounts-app',
+        actionLabel: 'Check the address on your account',
+      }
+  }
+}
+
 /**
  * May this viewer READ the conversations in the slice on screen?
  *
@@ -200,17 +373,39 @@ export function canWriteIn(ctx: WriteContext): boolean {
  * viewed.id instead of placeKey and that Phase 16 behaviour regresses silently;
  * check-write-access.mjs assertion 13 is the one that catches it.
  *
- * 🔴 PHASE 18 CHANGES THIS FUNCTION'S BODY AND NOTHING ELSE. Once civic_spaces
- * grants anon schema USAGE and posts_select_public lands, every caller may read
- * every slice and this returns true unconditionally (minus whatever that phase
- * decides about deleted posts and suspended authors). Until then it is false for
- * another place and for a visitor, and the UI must say so rather than render an
- * empty feed — an empty feed returned by RLS reads as "nobody said anything here",
- * which is a lie told silently.
+ * 🔴 The gate is the SLICE TYPE, not the session and not membership. Phase 18 made
+ * the five public types readable by anyone — no account, no slice, no row — while
+ * volunteer (and whatever private types follow it) kept the old rule exactly. The
+ * two branches below are deliberately not merged into one expression: they answer
+ * different questions, and a reader who sees only the second one would conclude
+ * this function is still about membership.
+ *
+ * 🔴 The public branch returns true for a slice with `id === null`, and that is the
+ * COMMON case rather than an edge one. Slice rows are created on demand by /assign,
+ * which only runs for signed-in members, so most places a visitor names have no row
+ * at all. "Readable" here means "this conversation is public", not "there is one".
+ *
+ * 🔴 The private branch is where the session check still does work, and it must stay
+ * ahead of the membership test. A caller can hold the last member's ownedPlaceKeys
+ * for a render or two after logout — useAuth flips isAuthenticated from an effect —
+ * so membership alone would briefly admit a signed-out viewer to a private space.
+ * check-write-access.mjs assertion 41 carries a stale-sets viewer for exactly that.
+ *
+ * 🔴 What has NOT changed, and 18-04 still depends on it: where this returns false,
+ * the UI must SAY so. Rendering an empty feed instead reads as "nobody said anything
+ * here", which is a lie told silently — and the phase that made cities public is
+ * precisely the one that makes the two sentences distinguishable, because a public
+ * place with no posts can now be asked and answered honestly.
  */
 export function canReadConversationsIn(ctx: WriteContext): boolean {
-  if (!ctx.isAuthenticated) return false
   const viewed = ctx.viewed
   if (!viewed) return false
+
+  // Public: the allowlist is the whole gate. No session, no membership, no row.
+  if (isPublicSliceType(viewed.sliceType)) return true
+
+  // Private: unchanged since Phase 16. Session first, then the jurisdiction key —
+  // placeKey and not viewed.id, so a sibling shard of a private space stays readable.
+  if (!ctx.isAuthenticated) return false
   return ctx.ownedPlaceKeys.has(placeKey(viewed.sliceType, viewed.geoid))
 }

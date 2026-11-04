@@ -40,6 +40,14 @@ export function useMemberDirectory(sliceId: string | null) {
       // Step 2: Fetch profiles for those IDs
       const { data: profiles, error: profilesError } = await supabase
         .schema('civic_spaces')
+        // 🔴 PUBLIC READER: see below. 18-02 asserts that anon cannot read
+        // connected_profiles AT ALL, so any of these that ran for a reader with no
+        // account would 403 and break its panel. The DEFAULT is "does not run" — if
+        // one of them turns out to need public data that is a new RPC and a new
+        // decision, never a new grant.
+        // DOES NOT RUN. AppShell gates the whole panel on isAuthenticated AND on the
+        // member's own slices. It reads slice_members — who lives where — which D-34
+        // withholds from readers with no account outright, counts included.
         .from('connected_profiles')
         .select('user_id, display_name, avatar_url, tier')
         .in('user_id', userIds)

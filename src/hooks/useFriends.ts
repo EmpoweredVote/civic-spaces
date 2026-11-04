@@ -57,6 +57,13 @@ export function useFriendsList(): FriendsListResult {
       // Batch-fetch profiles
       const { data: profiles, error: profilesError } = await supabase
         .schema('civic_spaces')
+        // 🔴 PUBLIC READER: see below. 18-02 asserts that anon cannot read
+        // connected_profiles AT ALL, so any of these that ran for a reader with no
+        // account would 403 and break its panel. The DEFAULT is "does not run" — if
+        // one of them turns out to need public data that is a new RPC and a new
+        // decision, never a new grant.
+        // DOES NOT RUN. enabled: !!userId, and a public reader has none. Friendship
+        // is the D-49 exception and is evaluated in SQL, never fetched by the client.
         .from('connected_profiles')
         .select('user_id, display_name, avatar_url, tier')
         .in('user_id', allIds)

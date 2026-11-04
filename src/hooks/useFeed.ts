@@ -33,6 +33,14 @@ async function fetchFeedPage(
   // Step 3: Fetch profiles for those users
   const { data: profiles, error: profilesError } = await supabase
     .schema('civic_spaces')
+    // 🔴 PUBLIC READER: see below. 18-02 asserts that anon cannot read
+    // connected_profiles AT ALL, so any of these that ran for a reader with no
+    // account would 403 and break its panel. The DEFAULT is "does not run" — if
+    // one of them turns out to need public data that is a new RPC and a new
+    // decision, never a new grant.
+    // DOES NOT RUN — this hook has no caller at all. SliceFeedPanel imports
+    // useBoostedFeed and the useFeed import is commented out beside it. If it is
+    // ever given a caller, that caller needs the same publicPlace split.
     .from('connected_profiles')
     .select('user_id, display_name, avatar_url, tier')
     .in('user_id', userIds)

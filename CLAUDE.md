@@ -24,9 +24,39 @@ meetings, compass topics — from the live ev-accounts API through the `/api` pr
 real officials for the mock city (Asheville, NC), from the public by-area lookup.
 `VITE_API_PROXY_TARGET` points the proxy at a local ev-accounts.
 
-Forum content is members-only by design (every `civic_spaces` grant is `TO authenticated`), so
-it stays synthetic locally. Extend `devMockData.ts`; never hardcode posts in components, and
+Forum content is members-only to **write**, and Volunteer is members-only to read at all; the
+five public slice types became readable by anyone on 2026-11-02, through four RPCs and nothing
+else. It stays synthetic locally either way. Extend `devMockData.ts`; never hardcode posts in components, and
 never copy real members' posts or profiles into fixtures.
+
+**The public read path is APPLIED (2026-11-02).** `anon` holds schema `USAGE` on
+`civic_spaces` plus `EXECUTE` on exactly four RPCs — `get_public_slice`, `get_public_feed`,
+`get_public_post`, `get_public_replies` — and **no table, view, column or sequence grant
+anywhere**. Verified live: `/rest/v1/posts` as `anon` returns `401 permission denied for table`.
+Reading City / County / State / Federal / Unified is open to anyone; **Volunteer stays
+members-only**, and so does every future private slice type, because the gate is an allowlist
+(D-28, `PUBLIC_SLICE_TYPES` in `src/lib/writeAccess.ts` and a literal array in the SQL — the two
+are pinned against each other by `check:write-access`). Writing did not open and must not: a
+visitor gets the read-only notice and no composer.
+
+🔴 **`npm run check:anon-read` is a live-exposure test now, not a rehearsal.** 72 PASS / 0 FAIL
+against production on 2026-11-02, all four authenticated viewers included — the first time
+section 4 had ever run. A failure there means something is readable that should not be. Run it
+after any migration touching `civic_spaces`, and periodically regardless. The four viewer JWTs
+are minted from `SUPABASE_JWT_SECRET`; the fixture is synthetic and torn down after.
+
+🔴 **Any SECURITY DEFINER function added to `civic_spaces` from now on is anon-callable the
+moment it is created**, because Postgres grants EXECUTE to PUBLIC by default and `anon` now
+resolves the schema. Revoke it beside its own `CREATE FUNCTION`, the way `20261030000100` does
+for all six of its own. `check:anon-read` asserts the anon-executable DEFINER set is exactly
+those four.
+
+**`CREATE OR REPLACE` on an EXISTING function is the one case that is already safe** — it
+preserves the ACL, so replacing a pre-Phase-18 trigger function does not re-open it. Write the
+revoke anyway, as `20261102000300` does: it costs nothing, it is idempotent, and a reader
+should not have to query the catalog to know the function is shut. Note that revoking from
+`authenticated` does **not** break a trigger — Postgres checks EXECUTE on a trigger function at
+`CREATE TRIGGER` time, not on each fire.
 
 To work against the real backend instead, copy `.env.example` to `.env.local` and fill in
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; then `?dev=1` still opts into the dev id.
@@ -59,8 +89,27 @@ copy `cs_token` out of that tab's localStorage, and paste it into localhost's un
 **Member-only APIs still 401 for the dev id** (your own representatives, your compass answers).
 Those panels fall back to fixtures for the dev id only; that is expected, not a bug.
 
-**The frontend has no test framework.** No test script, no test files. `npm run build` is the
-whole safety net there — run it before you claim anything works.
+**The frontend has no test framework.** No test script, no test files. What it has instead is
+ten `check:*` guard scripts, and **seven of them now run in CI** —
+`.github/workflows/guards.yml`, two jobs: four pure Node checks that read the shipped modules,
+and three that drive the real app through Playwright against a `npm run dev` server.
+`check:banners` is the eighth and runs weekly on a schedule instead
+(`.github/workflows/banner-drift.yml`), because drift there arrives with no commit to hang a
+PR check off. `check:grants` and `check:anon-read` (ninth, tenth) run by hand only: each needs a privileged
+`SUPABASE_DB_URL` plus `psql`, which CI does not have (`db-surface.yml` is the manual-dispatch job ready for when it does).
+
+🔴 **Running in CI is not the same as being required.** "Required to merge" is a
+branch-protection setting on `main`. As of 2026-11-02 it lists **`build` and `Guards (pure)`**,
+so `Guards (browser)` is still advisory and a PR merges over a red one. Read it with
+`gh api repos/EmpoweredVote/civic-spaces/branches/main/protection`. `enforce_admins` is `false`,
+so an admin merges past all of it — which is how #139 landed, self-approval being impossible.
+
+🔴 **Still run them by hand before you claim anything works.** CI runs them on a pull request;
+it does not run them while you are working, and `npm run build` on its own has never been
+enough. It cannot see a deleted mount: PR #133 removed the `<PlaceStrip>` mount and left
+`enterPlace` with one call site that renders only when signed out, silently removing "look at
+another place" for every member while `tsc -b` stayed green. `check:place-entry` caught it,
+by hand, days later. That is what the guards are for and why they are worth the minute.
 
 🔴 **The type-check depends on `tsc -b`.** The root `tsconfig.json` is a solution file
 (`"files": []` plus `references`): plain `tsc` on it compiles zero files, and Vite transpiles
@@ -77,7 +126,8 @@ files, that is a behind-by-N branch, not lost work; check the counts
 *all* `.planning/**` or `*.md` is approved automatically by
 `.github/workflows/docs-auto-approve.yml`; one non-doc file and it is a normal review. The
 allowlist is the security boundary, so `.github/**` is excluded — a PR touching CI never
-auto-approves, including one that edits that workflow. `build` is required either way.
+auto-approves, including one that edits that workflow. `build` is required either way, and
+the `Guards` jobs run on every PR but are not yet required (see above).
 
 🔴 **Slice assignment lives in the ev-accounts engine, not in this repo.** It was folded in
 per ev-cto decision 0018 and is **canonical at `ev-accounts/backend/src/civic_spaces/`**,
@@ -228,6 +278,20 @@ and verify each author on its Commons File: page — **never copy another app's 
 
 **Every Supabase call is `.schema('civic_spaces')`** — 49 of them. The default `public` schema
 is not this app's data.
+
+🔴 **The migrations are not the grant surface; the catalog is.** `public` also carries twelve views
+over these same tables (fifteen in all; the other three are `users_public` and two PostGIS
+views), a second route in that the `civic_spaces` schema gate does not cover: `anon` has `USAGE`
+on `public`, and since 2026-11-02 `USAGE` on `civic_spaces` too — though there it reaches four
+RPCs and nothing else. Five of the views (`posts`, `replies`, `slices`, `slice_members`,
+`connected_profiles`) were in no applied migration, and `anon` held all seven privileges on every
+one, from Supabase's default privileges rather than any `GRANT` here, with only
+`security_invoker` and RLS holding them shut. `20261030000000_reconcile_public_views.sql`
+revoked all twelve from `anon` on 2026-11-02; it now reaches 3 of the 15 (`users_public` and the
+two PostGIS views, left alone on purpose), while `authenticated` is unchanged at 15.
+🔴 The default privileges that created the problem are still in place, so the NEXT view created
+in `public` arrives anon-readable exactly as these did. `npm run check:grants` reads the catalog.
+`public.users_public` is deliberately left alone: it reads a `users` table this app does not own.
 
 ## Talking to the rest of the platform
 
