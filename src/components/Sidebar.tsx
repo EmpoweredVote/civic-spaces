@@ -30,19 +30,27 @@ export function LocationCard({
   label: string
   onChange?: () => void
   expanded?: boolean
-  /** Tighter padding, for the tab bar. */
+  /**
+   * One line, for the tab bar: tighter padding, and the place name alone on screen.
+   * "Showing content for Asheville, NC · Change" does not fit one line at the
+   * sidebar's width, so the lead-in stays for screen readers and the tooltip.
+   */
   compact?: boolean
 }) {
   return (
     // The sidebar's width follows the space available, so the sentence wraps rather than
     // ellipsising the place name — the one part of it that matters. "Change" stays on
-    // the first line, pinned right.
-    <div className={`flex items-start gap-2 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 ${compact ? 'px-3 py-2' : 'px-4 py-3'} text-xs leading-snug`}>
+    // the first line, pinned right. Compact is one line, centred.
+    <div
+      title={compact ? `Showing content for ${label}` : undefined}
+      className={`flex gap-2 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 ${compact ? 'items-center px-3 py-2' : 'items-start px-4 py-3'} text-xs leading-snug`}
+    >
       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0 text-[#FF5740]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z" />
       </svg>
-      <p className="min-w-0 flex-1 break-words text-gray-600 dark:text-gray-400">
-        Showing content for <span className="font-semibold text-gray-900 dark:text-gray-100">{label}</span>
+      <p className={`min-w-0 flex-1 text-gray-600 dark:text-gray-400 ${compact ? 'truncate' : 'break-words'}`}>
+        <span className={compact ? 'sr-only' : undefined}>Showing content for </span>
+        <span className="font-semibold text-gray-900 dark:text-gray-100">{label}</span>
       </p>
       {onChange ? (
         <button
