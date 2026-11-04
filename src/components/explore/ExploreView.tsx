@@ -29,11 +29,14 @@ import {
   MIN_RANKED,
   isHttpUrl,
   migrateSignedOutDrafts,
+  nameTopic,
   shouldResume,
   type CompassLevelFlags,
   type DraftTargetSlice,
 } from '../../lib/exploreComposition'
 import type { ExploreLevel, ExploreTopic, TopicId } from '../../types/explore'
+import type { PoliticianFlatRecord } from '../../types/representatives'
+import { officialsTopics } from '../../lib/officialsTopics'
 import type { TabKey } from '../../types/database'
 
 /** How long a "post this after sign-in" marker stays good for. The round trip is minutes. */
@@ -149,6 +152,12 @@ interface ExploreViewProps {
   /** Recorded debates and forums by race id. Recordings only; nothing upcoming exists. */
   raceMedia?: ReadonlyMap<string, RaceRecording[]>
   /**
+   * The public officials for this tab's level, from the same lookup the sidebar's
+   * "Representing this community" reads. Null when unknown or when it is the dev
+   * id's fixture list — the Officials module then simply does not render.
+   */
+  officials?: PoliticianFlatRecord[] | null
+  /**
    * The VIEWING MEMBER's own answered Compass topics, which ORDER the generic
    * topics, and the catalog's level flags, which EXCLUDE a local-only topic from
    * Federal.
@@ -210,6 +219,7 @@ export function ExploreView({
   elections,
   races,
   raceMedia,
+  officials,
   answeredCompassTopicIds,
   compassLevelFlags,
   onStartConversation,
@@ -220,7 +230,7 @@ export function ExploreView({
 }: ExploreViewProps) {
   const drafts = useExploreDrafts()
   const [ui, setUi] = useExploreUiState()
-  const { composition, agendaMeeting, isLoading } = useExploreComposition({
+  const { composition: resolved, agendaMeeting, isLoading } = useExploreComposition({
     sliceType,
     geoid,
     city,
@@ -228,6 +238,27 @@ export function ExploreView({
     answeredCompassTopicIds,
     compassLevelFlags,
   })
+
+  /**
+   * The composition with the place's name in its generic starters — "What should get
+   * built in Asheville?" rather than "…in your city?". Render-time only: nameTopic
+   * keeps every id, so selection, drafts and draft keys are exactly what resolution
+   * produced. Until the name resolves (placeName null) the generic text stands.
+   */
+  const composition = useMemo(
+    () => (resolved ? { ...resolved, topics: resolved.topics.map((topic) => nameTopic(topic, placeName)) } : null),
+    [resolved, placeName],
+  )
+
+  /**
+   * Starters from the public officials list, for this tab's level only. AppShell
+   * passes null when the list is the dev id's fixtures, so a sample name is never
+   * presented as the record.
+   */
+  const officialTopics = useMemo(
+    () => (composition ? officialsTopics(officials, composition.level, composition.geoid) : []),
+    [officials, composition],
+  )
 
   /**
    * The agenda section's content, assembled from what the composition ACTUALLY
@@ -278,11 +309,12 @@ export function ExploreView({
     const map = new Map<TopicId, ExploreTopic>()
     if (!composition) return map
     for (const mod of Object.values(MODULE_REGISTRY)) {
-      for (const topic of mod.topics?.(composition) ?? []) map.set(topic.id, topic)
+      for (const topic of mod.topics?.(composition) ?? []) map.set(topic.id, nameTopic(topic, placeName))
     }
+    for (const topic of officialTopics) map.set(topic.id, topic)
     for (const topic of composition.topics) map.set(topic.id, topic)
     return map
-  }, [composition])
+  }, [composition, officialTopics, placeName])
 
   /**
    * 🔴 The one place a draft key is built. Modules keep calling
@@ -475,6 +507,7 @@ export function ExploreView({
     races,
     raceMedia,
     agenda,
+    officialTopics,
     ui,
     setUi,
     draftFor,

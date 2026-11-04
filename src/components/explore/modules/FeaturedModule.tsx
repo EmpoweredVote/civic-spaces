@@ -11,6 +11,7 @@
  *      about. Flagged for the four-way pass in 16-10.
  */
 
+import { useState } from 'react'
 import { creditParts } from '../../../lib/banners'
 import { WalkingScene } from '../NeighborhoodScene'
 import type { ExploreCtx } from '../ExploreContext'
@@ -41,7 +42,12 @@ function PhotoCredit({ credit }: { credit: string }) {
 }
 
 export function FeaturedModule({ ctx }: { ctx: ExploreCtx }) {
-  const { composition, featuredPhoto } = ctx
+  const { composition } = ctx
+  // 🔴 A borrowed photo can fail to load (a Wikipedia hotlink refused, a removed file),
+  // and a bare <img> then paints its alt text over an empty panel. Remember the URL
+  // that failed and fall back to the drawing, as if no photo had been offered.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  const featuredPhoto = ctx.featuredPhoto && ctx.featuredPhoto.url !== failedUrl ? ctx.featuredPhoto : null
   const featured = composition.featuredTopicId ? ctx.topicsById.get(composition.featuredTopicId) : undefined
   if (!featured) return null
 
@@ -61,6 +67,7 @@ export function FeaturedModule({ ctx }: { ctx: ExploreCtx }) {
               alt={featuredPhoto.alt}
               className="absolute inset-0 h-full w-full object-cover"
               loading="lazy"
+              onError={() => setFailedUrl(featuredPhoto.url)}
             />
           ) : (
             <div className="absolute inset-0"><WalkingScene /></div>

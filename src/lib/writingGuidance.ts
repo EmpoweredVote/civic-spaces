@@ -1,5 +1,6 @@
 import { TOPIC_MORE_QUESTIONS } from '../mocks/topicQuestions'
 import type { ExploreTopic } from '../types/explore'
+import { namePlaceIn } from './exploreComposition'
 
 /** At most this many questions in the picker. */
 const MAX_QUESTIONS = 10
@@ -10,9 +11,16 @@ const MAX_QUESTIONS = 10
  * none written — an agenda item — gets questions built around its own verbatim title, so
  * they are about IT without a word of local fact added. Nothing here is generated live.
  */
-export function questionsFor(topic: Pick<ExploreTopic, 'id' | 'question' | 'title' | 'sourceLabel'>): string[] {
-  const more = TOPIC_MORE_QUESTIONS[topic.id] ?? fallbackQuestions(topic.sourceLabel ?? topic.title)
-  return unique([topic.question, ...more]).slice(0, MAX_QUESTIONS)
+export function questionsFor(
+  topic: Pick<ExploreTopic, 'id' | 'question' | 'title' | 'sourceLabel' | 'level' | 'moreQuestions' | 'namedFor'>,
+): string[] {
+  // Hand-written first; then a runtime topic's own list (an officials topic, whose id
+  // no table can know); then questions built around the topic's own title.
+  const more = TOPIC_MORE_QUESTIONS[topic.id] ?? topic.moreQuestions ?? fallbackQuestions(topic.sourceLabel ?? topic.title)
+  const questions = unique([topic.question, ...more]).slice(0, MAX_QUESTIONS)
+  // The topic card already says "Asheville"; its questions should not fall back to "your city".
+  const place = topic.namedFor
+  return place ? questions.map((q) => namePlaceIn(q, topic.level, place)) : questions
 }
 
 function fallbackQuestions(subject: string): string[] {

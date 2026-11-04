@@ -22,6 +22,7 @@ export type TopicProvenance =
   | 'chapter'               // a nonpartisan local chapter (LWV, Braver Angels).
   | 'derived-from-agenda'   // built from a published agenda item. Verbatim title.
   | 'derived-from-vote'     // built from a published roll call.
+  | 'derived-from-officials' // built from the public list of who holds office here. Names only.
   | 'member'                // requested by a member of this place.
 
 /**
@@ -78,6 +79,18 @@ export interface ExploreTopic {
    * silently become no-ops and nothing fails to tell you.
    */
   compassTopicId?: string
+  /**
+   * The composer's further questions for a topic built at runtime, whose id no
+   * hand-written table can know in advance (an officials topic). questionsFor()
+   * prefers the hand-written list when one exists.
+   */
+  moreQuestions?: string[]
+  /**
+   * The place name nameTopic() wrote into this topic's text, so questionsFor()
+   * can name it in the composer's questions too. Set at render time only — the
+   * stored record stays place-neutral (geoid null), and a draft key never sees it.
+   */
+  namedFor?: string
 }
 
 /**
@@ -97,6 +110,8 @@ export type ModuleId =
   | 'races'
   | 'debates'
   | 'whats-new'
+  /** Conversation starters built from the public list of who holds office here. */
+  | 'officials'
   /**
    * The welcome for a place nobody has seeded yet. Built in 16-08, WITHOUT the
    * vote behind it (Chris, 2026-10-24: "show it without the vote for now").

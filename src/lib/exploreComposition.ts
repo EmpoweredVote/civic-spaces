@@ -304,6 +304,7 @@ export const DEFAULT_MODULES: Readonly<Record<ExploreLevel, readonly ModuleId[]>
     'featured',
     'imagine',
     'agenda',
+    'officials',
     'questions',
     'nearby',
     'coming-up',
@@ -321,6 +322,7 @@ export const DEFAULT_MODULES: Readonly<Record<ExploreLevel, readonly ModuleId[]>
     'featured',
     'imagine',
     'agenda',
+    'officials',
     'questions',
     'nearby',
     'coming-up',
@@ -338,6 +340,7 @@ export const DEFAULT_MODULES: Readonly<Record<ExploreLevel, readonly ModuleId[]>
     'featured',
     'races',
     'debates',
+    'officials',
     'questions',
     'coming-up',
     'legislator-votes',
@@ -355,6 +358,7 @@ export const DEFAULT_MODULES: Readonly<Record<ExploreLevel, readonly ModuleId[]>
     'federal-votes',
     'races',
     'debates',
+    'officials',
     'questions',
     'debate-schedule',
     'symposiums',
@@ -523,6 +527,64 @@ export function rankByCompass(
     }))
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map((entry) => entry.topic)
+}
+
+// ── Naming the place ────────────────────────────────────────────────────────
+
+/**
+ * The phrase a generic topic uses for its own level's place — "your city", "our
+ * county" — and nothing else. Matched per level, so a City topic's "your part of
+ * the city" or a County topic's "your whole county" is left alone: only the exact
+ * stand-in for the place's name is swapped.
+ *
+ * Federal and Unified are absent on purpose. Their place name is "United States of
+ * America" or nothing, and "What should United States of America do" is worse
+ * than the generic sentence (see QuestionsModule's heading note).
+ *
+ * Lives here rather than in its own module because check:composition loads this
+ * file straight into Node, which only works while it has no runtime imports.
+ */
+const PLACE_PHRASE: Partial<Record<ExploreLevel, RegExp>> = {
+  city: /\b(?:your|our) city\b/gi,
+  county: /\b(?:your|our) county\b/gi,
+  state: /\b(?:your|our) state\b/gi,
+}
+
+/**
+ * "What should get built in your city?" → "What should get built in Asheville?"
+ *
+ * 🔴 Names the place and asserts nothing about it. The sentence was already true of
+ * every city; it stays true of this one with its name in. It is also more honest for
+ * a visitor than "your city", which made a claim about the reader (D-10).
+ */
+export function namePlaceIn(text: string, level: ExploreLevel, placeName: string): string {
+  const phrase = PLACE_PHRASE[level]
+  return phrase ? text.replace(phrase, placeName) : text
+}
+
+/**
+ * A generic topic with the resolved place name in place of "your city".
+ *
+ * Staff topics only: they are the ones written with the stand-in phrase. An
+ * agenda item or an officials topic carries its source's own words and is never
+ * rewritten. Applied at RENDER time, after resolution — the record keeps
+ * `geoid: null`, so it still "applies anywhere at this level", and the draft key
+ * (sliceType, geoid, topicId) is untouched by it. `namedFor` lets the composer
+ * name the place in the topic's further questions too.
+ */
+export function nameTopic(topic: ExploreTopic, placeName: string | null | undefined): ExploreTopic {
+  if (!placeName || topic.provenance !== 'staff' || !PLACE_PHRASE[topic.level]) return topic
+  const swap = (text: string) => namePlaceIn(text, topic.level, placeName)
+  return {
+    ...topic,
+    title: swap(topic.title),
+    summary: swap(topic.summary),
+    question: swap(topic.question),
+    suggestedTitle: swap(topic.suggestedTitle),
+    ...(topic.blurb !== undefined ? { blurb: swap(topic.blurb) } : {}),
+    ...(topic.whyItMatters !== undefined ? { whyItMatters: swap(topic.whyItMatters) } : {}),
+    namedFor: placeName,
+  }
 }
 
 // ── Resolution ──────────────────────────────────────────────────────────────

@@ -95,6 +95,14 @@ export function QuestionsModule({ ctx }: { ctx: ExploreCtx }) {
         eyebrow="Start somewhere specific"
         title={ctx.isOwnPlace ? 'Questions for your community' : 'Questions for this community'}
       />
+      {/* 🔴 Said outright whenever every card here is a general one, so a place name
+          in a sentence is never mistaken for news about the place. Local starters
+          (officials, agenda items) carry their own source and their own section. */}
+      {topics.every((topic) => topic.provenance === 'staff') && (
+        <p className="px-1 -mt-3 text-sm text-gray-600 dark:text-gray-400">
+          General questions, asked in every community{ctx.placeName && ctx.composition.level !== 'federal' ? ` — not news about ${ctx.placeName}` : ''}. A place to start.
+        </p>
+      )}
       <div className="grid gap-4 @xl:grid-cols-2">
         {topics.map((topic) => (
           <button

@@ -36,6 +36,8 @@ function tagLabel(topic: ExploreTopic): string {
       return topic.sourceLabel ?? 'From a published agenda'
     case 'derived-from-vote':
       return topic.sourceLabel ?? 'From a published roll call'
+    case 'derived-from-officials':
+      return 'From the public officials list'
     case 'member':
       return 'Suggested by a member here'
   }
@@ -89,6 +91,8 @@ function linkLabel(topic: ExploreTopic): string {
       return 'View the agenda item'
     case 'derived-from-vote':
       return 'View the roll call'
+    case 'derived-from-officials':
+      return 'View their record on Essentials'
     case 'chapter':
       return topic.sourceLabel ?? 'View the source'
     default:
@@ -113,6 +117,8 @@ function sourceSentence(topic: ExploreTopic): string {
       const date = formatSourceDate(topic.sourceDate)
       return date ? `From the roll call of ${date}.` : 'From a published roll call.'
     }
+    case 'derived-from-officials':
+      return 'The names and offices are from the public record of who holds office here. The question is a prompt for discussion — it is not from them, and says nothing about what they have done.'
     case 'member':
       return 'A neighbor asked for this topic. It is not an official proposal.'
   }

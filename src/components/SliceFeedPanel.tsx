@@ -21,6 +21,7 @@ import type { SortMode } from './FeedTabs'
 import type { PostWithAuthor } from '../types/database'
 import type { NoWriteReason } from '../lib/writeAccess'
 import { getTopicOptions } from '../lib/exploreData'
+import { nameTopic } from '../lib/exploreComposition'
 import { PrimaryButton } from './explore/exploreUi'
 
 function sortPosts(posts: PostWithAuthor[], sort: SortMode): PostWithAuthor[] {
@@ -132,8 +133,11 @@ export default function SliceFeedPanel({
   hasOwnSpaces = false,
 }: SliceFeedPanelProps) {
   // Static editorial content for this level: a pure lookup, no fetch, so it is safe in a
-  // panel that is mounted six times.
-  const topicOptions = useMemo(() => (sliceType ? getTopicOptions(sliceType) : []), [sliceType])
+  // panel that is mounted six times. Named for this panel's place, as Explore names them.
+  const topicOptions = useMemo(
+    () => (sliceType ? getTopicOptions(sliceType).map((topic) => nameTopic(topic, placeName)) : []),
+    [sliceType, placeName],
+  )
 
   // Hoisted above the feed hooks: the public query is cached PER VIEWER (D-49), so
   // the reader's id is part of its key and has to exist before the key is built.
