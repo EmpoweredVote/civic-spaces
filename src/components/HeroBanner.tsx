@@ -145,8 +145,25 @@ const VOLUNTEER_ACCESS =
  * a disclosure (aria-expanded) rather than role="tooltip" because it can hold a link,
  * and it stays mounted while hidden so aria-describedby still reads it.
  */
+/**
+ * Two people, drawn in currentColor — the chip's white. Replaces the 👥 emoji on the
+ * member count: Windows draws that glyph as purple figures, which sat at low contrast
+ * on the chip's dark glass in both themes, while the number beside it was white.
+ */
+function PeopleIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="8" r="3.25" />
+      <path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" />
+      <path d="M16 4.9a3.25 3.25 0 010 6.2" />
+      <path d="M18 14.3c1.8.7 3 2.6 3 5.2" />
+    </svg>
+  )
+}
+
 function FactChip({ icon, label, details, children }: {
-  icon: string
+  /** An emoji, or an icon element for a glyph that must take the chip's own colour. */
+  icon: string | ReactNode
   /** Screen-reader completion of the chip's short value, e.g. "members in this slice". */
   label: string
   details: ReactNode
@@ -215,7 +232,7 @@ function FactChip({ icon, label, details, children }: {
         }}
         className={`${CHIP} cursor-default hover:bg-black/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition-colors`}
       >
-        <Emoji symbol={icon} className="text-sm" />
+        {typeof icon === 'string' ? <Emoji symbol={icon} className="text-sm" /> : icon}
         {children}
         <span className="sr-only"> {label}</span>
       </button>
@@ -359,7 +376,7 @@ export function HeroBanner({
                 jurisdiction is a false fact stated confidently. */}
             {memberCount !== null && (
             <FactChip
-              icon="👥"
+              icon={<PeopleIcon />}
               label={memberCount === 1 ? 'member in this slice' : 'members in this slice'}
               details={
                 <>
