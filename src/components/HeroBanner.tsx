@@ -133,6 +133,10 @@ const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', ma
 
 const SAMPLE_NOTE = 'Sample data for local preview, not a live figure.'
 
+/** The volunteer community's access, as it is today. See the 🔒 chip's comment. */
+const VOLUNTEER_ACCESS =
+  'Only Empowered.vote volunteers can see or post here. The team adds volunteers to their accounts; this space is not open to the public.'
+
 /**
  * A banner fact: icon + short value on the chip, the full explanation in a panel.
  *
@@ -248,6 +252,8 @@ export function HeroBanner({
   credit,
 }: HeroBannerProps) {
   const copy = SLICE_COPY[sliceType]
+  // The volunteer community is a team, not a place: branded, titled for the team.
+  const isTeam = sliceType === 'volunteer'
 
   // undefined = still loading — don't show defaultPhoto yet (avoids flash of wrong image)
   // null      = loaded, no wiki image — fall back to defaultPhoto
@@ -294,6 +300,15 @@ export function HeroBanner({
     >
       {/* Photo layer — clipped to the rounded corners on its own. */}
       <div className="absolute inset-0 overflow-hidden rounded-2xl" aria-hidden="true">
+        {/* The team has no photo: the brand ground is the picture, with the EV mark
+            large and quiet across the right side. Decorative, so alt="". */}
+        {isTeam && (
+          <img
+            src="/favicon.png"
+            alt=""
+            className="absolute -right-12 top-1/2 h-[150%] w-auto -translate-y-1/2 opacity-20 sm:-right-6"
+          />
+        )}
         {resolvedPhoto && (
           <img
             src={resolvedPhoto}
@@ -317,14 +332,23 @@ export function HeroBanner({
       <div className={`pointer-events-none relative z-10 flex flex-col gap-3 p-4 sm:p-5 ${showCredit ? 'pb-2 sm:pb-2 md:pb-7' : ''}`}>
         {/* Where you are, and which slice of it */}
         <div className="pointer-events-auto min-w-0">
+          {/* The team's own mark, in the flow rather than pinned to a corner, so on a
+              phone the banner grows to fit it instead of the title sliding under it.
+              On a white plate: the dark-ground logo is light teal, which is faint on
+              the teal gradient in both themes. */}
+          {isTeam && (
+            <span className="mb-3 inline-flex rounded-xl bg-white px-3 py-2 shadow-sm ring-1 ring-black/5">
+              <img src="/images/ev-logo.png" alt="Empowered.vote" className="h-6 w-auto sm:h-7" />
+            </span>
+          )}
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white [text-shadow:0_0_2px_rgb(0_0_0_/_0.9),0_1px_6px_rgb(0_0_0_/_0.8)]">
-            {levelLabel}
+            {isTeam ? 'Volunteer community' : levelLabel}
             {/* No top scrim (the photo stays clear up there), so on a phone, where the
                 copy fills the banner, these two lines carry their own heavy shadow. */}
             {stateName && <span className="text-white/85"> · {stateName}</span>}
           </p>
           <h2 className="mt-0.5 text-2xl font-bold leading-tight text-white [text-shadow:0_0_3px_rgb(0_0_0_/_0.7),0_1px_8px_rgb(0_0_0_/_0.6)] md:text-3xl">
-            {sliceName}
+            {isTeam ? 'Empowered.vote volunteer team' : sliceName}
           </h2>
 
           {/* One row of short facts: icon + value. The sentence behind each one is in its
@@ -349,6 +373,14 @@ export function HeroBanner({
             >
               <span className="font-semibold tabular-nums">{memberCount.toLocaleString()}</span>
             </FactChip>
+            )}
+            {/* 🔴 States today's access model, nothing more. If the space opens later,
+                this chip and VOLUNTEER_ACCESS change together; the database is what
+                actually keeps it closed (Volunteer is outside PUBLIC_SLICE_TYPES, D-27). */}
+            {isTeam && (
+              <FactChip icon="🔒" label="who can see this space" details={VOLUNTEER_ACCESS}>
+                <span className="font-semibold">Invite only</span>
+              </FactChip>
             )}
             {population !== undefined && (
               <FactChip

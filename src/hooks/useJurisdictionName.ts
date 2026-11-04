@@ -13,7 +13,7 @@ const cache = new Map<string, string>()
  *  - federal    → "United States of America" (sync)
  *  - state      → state name e.g. "California" (sync)
  *  - unified    → "Unified" (sync)
- *  - volunteer  → "Volunteer" (sync)
+ *  - volunteer  → "Volunteer team" (sync)
  *  - county     → "{County} County" e.g. "Los Angeles County" (offline table)
  *  - city       → place name e.g. "Del Mar" (offline table)
  *

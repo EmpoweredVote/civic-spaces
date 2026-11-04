@@ -18,7 +18,7 @@ const LEFT_TABS: { key: TabKey; label: string }[] = [
 ]
 
 const RIGHT_TABS: { key: TabKey; label: string }[] = [
-  { key: 'volunteer', label: 'Volunteer' },
+  { key: 'volunteer', label: 'Volunteer team' },
 ]
 
 /**

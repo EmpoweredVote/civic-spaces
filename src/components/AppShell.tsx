@@ -30,6 +30,7 @@ import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
 import { WelcomeScreen } from './WelcomeScreen'
 import { PlaceStrip, HomeLocationCard } from './PlaceStrip'
+import { VolunteerHub } from './VolunteerHub'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
 import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId, placeForPublicPost } from '../lib/viewedPlace'
 import type { ResolvedPlace } from '../lib/placeResolve'
@@ -597,7 +598,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   state: 'State',
   federal: 'Federal',
   unified: 'Unified',
-  volunteer: 'Volunteer',
+  volunteer: 'Volunteer team',
 }
 
 const ALL_TAB_KEYS: TabKey[] = ['city', 'county', 'state', 'federal', 'unified', 'volunteer']
@@ -2133,7 +2134,12 @@ export default function AppShell() {
 
                     {/* Volunteer feed — conditionally rendered for users with volunteer slice */}
                     {!isVisitingPlace && showVolunteerTab && slices['volunteer'] && (
-                      <div className={activeTab === 'volunteer' ? 'flex flex-col' : 'hidden'}>
+                      <div className={activeTab === 'volunteer' ? 'flex flex-col gap-3' : 'hidden'}>
+                        {/* The team's quick starts. Hidden while a thread is open, like
+                            the feed itself, so a conversation gets the whole column. */}
+                        {!activePostIds['volunteer'] && (
+                          <VolunteerHub onCompose={(request) => panelRefs.current['volunteer']?.current?.compose(request)} />
+                        )}
                         <SliceFeedPanel
                           sliceId={slices['volunteer'].id}
                           activePostId={activePostIds['volunteer']}

@@ -190,10 +190,19 @@ const NAV_EMOJI: Record<string, string> = {
   flag: '🚩',
   landmark: '🏛️',
   globe: '🌐',
-  volunteer: '❤️',
+  // volunteer: not an emoji — the row carries the EV mark itself (BRAND_ICONS below).
   friends: '👥',
   directory: '🔍',
   shield: '🛡️',
+}
+
+/**
+ * Rows that carry Empowered.vote's own mark instead of a generic icon. The volunteer
+ * community is the EV team, so it wears the EV mark — the favicon, the same asset
+ * the browser tab shows.
+ */
+const BRAND_ICONS: Record<string, string> = {
+  volunteer: '/favicon.png',
 }
 
 function NavIcon({ type }: { type: string }) {
@@ -324,7 +333,13 @@ function NavItem({
           : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200',
       ].join(' ')}
     >
-      {NAV_EMOJI[icon] ? <Emoji symbol={NAV_EMOJI[icon]} className="w-5 text-[17px]" /> : <NavIcon type={icon} />}
+      {BRAND_ICONS[icon] ? (
+        <img src={BRAND_ICONS[icon]} alt="" className="h-5 w-5 flex-shrink-0 object-contain" />
+      ) : NAV_EMOJI[icon] ? (
+        <Emoji symbol={NAV_EMOJI[icon]} className="w-5 text-[17px]" />
+      ) : (
+        <NavIcon type={icon} />
+      )}
       <span className={collapsed ? 'sr-only' : 'min-w-0 [overflow-wrap:anywhere]'}>{label}</span>
     </button>
   )
@@ -558,7 +573,7 @@ function NavSidebarContent({
         {showVolunteerTab && (
           <NavItem
             icon="volunteer"
-            label="Volunteer"
+            label="Volunteer team"
             isActive={activeTab === 'volunteer'}
             onClick={() => onTabChange('volunteer')}
             accent
