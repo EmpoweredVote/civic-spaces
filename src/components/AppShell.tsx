@@ -1568,6 +1568,7 @@ export default function AppShell() {
                     visitedFallback={visitedPlaceSlice ? TAB_LABELS[visitedPlaceSlice.sliceType] : ''}
                     homeSlice={homeSlice}
                     homeFallback={homeSlice ? TAB_LABELS[homeSlice.sliceType] : ''}
+                    sidebarCols={showSidebar ? contentGridCols : undefined}
                     isAuthenticated={isAuthenticated}
                     onResolved={enterPlace}
                     onLeave={leavePlace}

@@ -147,6 +147,8 @@ export function PlaceStrip({
   /** The member's own most local slice, named by the card when they are not visiting. */
   homeSlice,
   homeFallback = '',
+  /** The content grid's two-column template while the sidebar shows; the card sits in its second track. */
+  sidebarCols,
   isAuthenticated,
   onResolved,
   onLeave,
@@ -155,6 +157,7 @@ export function PlaceStrip({
   visitedFallback: string
   homeSlice?: SliceInfo
   homeFallback?: string
+  sidebarCols?: string
   isAuthenticated: boolean
   onResolved: (place: ResolvedPlace) => void
   onLeave: () => void
@@ -214,12 +217,18 @@ export function PlaceStrip({
         /* On their own spaces: name the place, and let Change open the picker.
            Its Change is the strip's one `aria-expanded` button, which is what
            `check:place-entry` clicks. */
-        <HomeLocationCard
-          slice={homeSlice}
-          fallback={homeFallback}
-          expanded={open}
-          onChange={() => setOpen((v) => !v)}
-        />
+        /* Sized to the sidebar track, and over it, using AppShell's own column
+           template so the two cannot drift; full width where there is no sidebar. */
+        <div className={`grid gap-3 md:gap-4 ${sidebarCols ?? 'grid-cols-1'}`}>
+          <div className={sidebarCols ? 'md:col-start-2' : undefined}>
+            <HomeLocationCard
+              slice={homeSlice}
+              fallback={homeFallback}
+              expanded={open}
+              onChange={() => setOpen((v) => !v)}
+            />
+          </div>
+        </div>
       ) : (
         /* 🔴 Quiet and SECONDARY, deliberately — and only when there is no home
            place to name (slices still loading, or a viewer with none). D-18 still holds: the picker is always
