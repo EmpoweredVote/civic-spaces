@@ -20,7 +20,7 @@ export const SECONDARY =
 // The border is always there — only its colour changes — so selecting a tab never
 // shifts the row by a pixel, which an outline added only on the active tab would.
 export const CONTROL_BASE =
-  'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors'
+  'flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors'
 
 /** The outlined, not-selected look — shared with SliceSelector's pill. */
 export const CONTROL_IDLE =
@@ -101,7 +101,7 @@ export function ForumViewTabs({ view, onChange }: { view: ForumView; onChange: (
       role="tablist"
       aria-label="Forum view"
       onKeyDown={onKeyDown}
-      className="flex items-center gap-0.5 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 p-0.5"
+      className="flex items-center gap-0.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 p-0.5"
     >
       {VIEWS.map((v) => {
         const active = v.key === view
@@ -116,7 +116,7 @@ export function ForumViewTabs({ view, onChange }: { view: ForumView; onChange: (
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(v.key)}
             className={[
-              'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:focus-visible:ring-brand-light/70',
+              'flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:focus-visible:ring-brand-light/70',
               active
                 ? 'bg-brand text-white dark:bg-brand-light dark:text-gray-950'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800',
@@ -157,7 +157,7 @@ export function FeedSearch({
         // A long place name can clip the placeholder in the inline (md) layout.
         title={placeholder}
         aria-label="Search this feed"
-        className={`h-8 w-full pl-8 pr-3 rounded-full ${SECONDARY} focus:bg-white dark:focus:bg-gray-900 text-xs font-medium placeholder:text-gray-500 dark:placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors`}
+        className={`h-8 w-full pl-8 pr-3 rounded-xl ${SECONDARY} focus:bg-white dark:focus:bg-gray-900 text-xs font-medium placeholder:text-gray-500 dark:placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors`}
       />
     </div>
   )
@@ -170,7 +170,7 @@ export function PostButton({ onClick, disabled, children = 'Post' }: { onClick: 
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-1.5 rounded-full bg-brand-yellow px-4 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-gray-900/25 dark:ring-0 hover:bg-brand-yellow-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/60"
+      className="flex items-center gap-1.5 rounded-xl bg-brand-yellow px-4 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-gray-900/25 dark:ring-0 hover:bg-brand-yellow-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/60"
     >
       <Icon d="M12 5v14M5 12h14" />
       {children}
