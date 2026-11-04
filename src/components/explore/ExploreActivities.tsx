@@ -2,7 +2,7 @@ import { useId, useRef, useState } from 'react'
 import type React from 'react'
 import { Emoji } from '../Emoji'
 import { NeighborhoodScene } from './NeighborhoodScene'
-import { BobbitImg } from '../bobbits/bobbit'
+import { BobbitIcon } from '../bobbits/bobbit'
 import {
   ADVENTURE_OPTIONS,
   IMAGINE_OPTIONS,
@@ -188,7 +188,7 @@ const SUGGESTION_ICON: Record<Exclude<SuggestionKind, '15m'>, string[]> = {
 
 function SuggestionIcon({ kind }: { kind: SuggestionKind }) {
   // A short walk is a person walking — so a strolling Bobbit, coral like the icons beside it.
-  if (kind === '15m') return <BobbitImg anim="stroll" t={0.2} tone={1} className="h-6" />
+  if (kind === '15m') return <BobbitIcon figure={{ anim: 'stroll', tone: 1 }} className="h-7 w-7" />
   return (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {SUGGESTION_ICON[kind].map((d) => <path key={d} d={d} />)}

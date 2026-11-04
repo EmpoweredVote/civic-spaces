@@ -1,152 +1,260 @@
-import { useMemo } from 'react'
-import { ANIMATIONS, CFG, computePose, draw } from './leremyRig'
-import type { Joints } from './leremyRig'
+import { useEffect, useRef } from 'react'
+import { CFG, REST, computePose, draw } from './leremyRig'
+import { ALL_ANIMATIONS, figColor } from './rigExtras'
+import { initWander, wanderAdvance, wanderAnim } from './wanderReducer'
+import type { WanderState } from './wanderReducer'
+import { greetReduce, greetClock, greetingIds, isGreeting } from './greetReducer'
+import type { GreetState } from './greetReducer'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 
 /**
- * Bobbits for Civic Spaces' illustrations: the EV figure, drawn by the shared Leremy rig
- * (./leremyRig.ts, verbatim) so its proportions and line weight are the ones every other EV
- * product uses — never a hand-drawn stick figure.
+ * Bobbits for Civic Spaces' illustrations — animated the way Civic Trivia's are.
  *
- * A Bobbit here is a still: one pose at one moment, rendered once to an offscreen canvas and
- * reused as an image, so it can sit inside an SVG scene and scale with it. Nothing animates,
- * which also keeps it quiet for reduced-motion users.
+ * Everything that decides how a Bobbit looks and moves is Civic Trivia's own code, copied
+ * verbatim into this folder: the rig (leremyRig.ts, empowered.vote's leremy-rig.js), the
+ * extra poses and the six-tone palette (rigExtras.ts), stroll/pause/turn wandering
+ * (wanderReducer.ts) and the hover greet with its linger (greetReducer.ts). This file is
+ * only the stage: one canvas, one requestAnimationFrame loop, the same rules as CTC's
+ * BobitField — a hovered Bobbit stops and greets (or plays its `hoverAnim`), walkers stroll,
+ * pause and turn at the ends, and every figure runs on its own phase so none move in
+ * lockstep.
+ *
+ * Without BobitField's game-only machinery (the collection tableau, speech bubbles, the
+ * hold-to-poof gesture, confetti): none of it has a place in a civic illustration.
+ *
+ * 🔴 prefers-reduced-motion draws ONE still frame and never starts the loop. The loop also
+ * stops while the stage is off screen or the tab is hidden, so an Explore page scrolled past
+ * its illustrations costs nothing.
  */
 
-/**
- * The brand-derived figure palette, copied from Civic-Trivia-Championships'
- * `rigExtras.ts` (FIG_COLORS / figColor) — tuned per theme for legibility.
- * 0 teal | 1 coral | 2 gold | 3 green | 4 purple | 5 orange.
- */
-export const FIG_COLORS = {
-  light: ['#007D99', '#FF5740', '#B8860B', '#2E9E5B', '#7A4FD0', '#E0641C'],
-  dark: ['#1DA8C6', '#FF6B52', '#FFD740', '#43D07E', '#B49BFF', '#FF9A4D'],
-}
-
-export function figColor(tone: number, darkMode: boolean): string {
-  const pal = darkMode ? FIG_COLORS.dark : FIG_COLORS.light
-  return pal[tone % pal.length] ?? pal[0]!
-}
-
-export interface BobbitPose {
-  /** A rig animation key — 'stroll', 'friendly', 'toddle', 'bored', … */
+export interface StageFigure {
+  id: string
+  /** Rig animation while idle — 'friendly', 'bored', 'toddle', … Ignored while wandering. */
   anim: string
-  /** The moment in that animation, in seconds. Picks the frame. */
-  t?: number
-  /** Palette tone; see FIG_COLORS. */
-  tone?: number
-  /** Face the other way. */
-  flip?: boolean
-}
-
-export interface BobbitSprite {
-  url: string
-  /** Size of the cropped figure, in rig units. */
-  width: number
-  height: number
-  /** Distance from the top of the crop to where the feet meet the ground, in rig units. */
+  /** Palette tone: 0 teal | 1 coral | 2 gold | 3 green | 4 purple | 5 orange. */
+  tone: number
+  /** Body centre, in the stage's own units. The starting point for a wanderer. */
+  x: number
+  /** The line the feet stand on, in stage units. */
   groundY: number
-  /**
-   * Distance from the top of the crop to the top of the head. Not 0 when a hand is raised
-   * above it (a wave), which is why a figure's size is measured from here, not the crop.
-   */
-  headTopY: number
-  /** Where the pelvis sits across the crop, 0–1, so a figure can be centred on its body. */
-  centerX: number
-}
-
-/** Pixels per rig unit in the bitmap. High enough to stay crisp on a 2x phone at card size. */
-const PX = 3
-
-const cache = new Map<string, BobbitSprite>()
-
-function jointPoints(j: Joints) {
-  return [j.P, j.M, j.N, j.shoulderC, j.sR, j.sL, j.eR, j.hR, j.eL, j.hL, j.hipR, j.hipL, j.kR, j.kL, j.fR, j.fL]
-}
-
-/** One posed Bobbit as an image, cropped tight to the figure. Cached by pose and colour. */
-export function renderBobbit({ anim, t = 0, tone = 0, flip = false }: BobbitPose, darkMode: boolean): BobbitSprite | null {
-  if (typeof document === 'undefined') return null
-  const color = figColor(tone, darkMode)
-  const key = `${anim}|${t}|${color}|${flip}`
-  const hit = cache.get(key)
-  if (hit) return hit
-
-  const animation = ANIMATIONS[anim]
-  if (!animation) return null
-  const j = computePose(animation.frame(t), CFG, { x: 0, y: 0 })
-
-  // Bounds: every joint padded by the thickest capsule, and the head by its radius.
-  const pad = Math.max(CFG.torsoW, CFG.legW, CFG.armW) / 2 + 1
-  let minX = j.H.x - CFG.R, maxX = j.H.x + CFG.R, minY = j.H.y - CFG.R, maxY = j.H.y + CFG.R
-  for (const p of jointPoints(j)) {
-    minX = Math.min(minX, p.x - pad); maxX = Math.max(maxX, p.x + pad)
-    minY = Math.min(minY, p.y - pad); maxY = Math.max(maxY, p.y + pad)
-  }
-  const width = maxX - minX
-  const height = maxY - minY
-  const ground = Math.max(j.fR.y, j.fL.y) + CFG.legW / 2
-
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.ceil(width * PX)
-  canvas.height = Math.ceil(height * PX)
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
-  ctx.scale(PX, PX)
-  if (flip) {
-    ctx.translate(width, 0)
-    ctx.scale(-1, 1)
-  }
-  ctx.translate(-minX, -minY)
-  draw(ctx, j, CFG, { color })
-
-  const sprite: BobbitSprite = {
-    url: canvas.toDataURL('image/png'),
-    width,
-    height,
-    groundY: ground - minY,
-    headTopY: j.H.y - CFG.R - minY,
-    centerX: flip ? (maxX - j.P.x) / width : (j.P.x - minX) / width,
-  }
-  cache.set(key, sprite)
-  return sprite
-}
-
-/** renderBobbit, re-drawn when the theme flips so each tone keeps its legible variant. */
-export function useBobbit(pose: BobbitPose): BobbitSprite | null {
-  const dark = useIsDarkMode()
-  const { anim, t, tone, flip } = pose
-  return useMemo(() => renderBobbit({ anim, t, tone, flip }, dark), [anim, t, tone, flip, dark])
+  /** Height from the top of the head to the ground, in stage units. */
+  size: number
+  flip?: boolean
+  /** Seconds added to the shared clock, so figures do not move in lockstep. */
+  phase?: number
+  /** What it plays while greeted. Defaults to the rig's `greet`, as in CTC. */
+  hoverAnim?: string
+  /** Stroll, pause and turn between these x bounds (stage units), via wanderReducer. */
+  wander?: { min: number; max: number }
+  /** For a wanderer: the gait it walks with. Defaults to wanderReducer's `stroll`. */
+  walkAnim?: string
 }
 
 /**
- * A Bobbit standing in an SVG scene. `x` is where its body is centred and `groundY` the
- * line its feet stand on, both in the scene's own viewBox units; `size` is its height from
- * the top of the head to the ground. Decorative — the scene carries the label.
+ * Pelvis height above the feet in rig units — fieldGeometry.ts's `pelvisOffset` for a
+ * standing pose (ev-figures.js's `feetY - 112 * S`). None of the poses used here sit.
  */
-export function SvgBobbit({ x, groundY, size, ...pose }: BobbitPose & { x: number; groundY: number; size: number }) {
-  const sprite = useBobbit(pose)
-  if (!sprite) return null
-  // Head to feet, whatever the hands are doing — so a waving Bobbit is as tall as a walking one.
-  const s = size / (sprite.groundY - sprite.headTopY)
-  const w = sprite.width * s
-  const h = sprite.height * s
+const PELVIS_ABOVE_GROUND = 112
+
+/** Head-top to ground at rest, in rig units: what `size` is measured against. */
+const HEAD_TO_GROUND = (() => {
+  const j = computePose(REST, CFG, { x: 0, y: 0 })
+  return PELVIS_ABOVE_GROUND - (j.H.y - CFG.R)
+})()
+
+/** Half a figure's width for hit-testing, in rig units — fieldGeometry's HALF_W. */
+const HALF_W = 34
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+}
+
+/**
+ * The loop. `pxPerUnit` says how many backing pixels one stage unit is right now — it
+ * differs between an SVG scene (scaled by its viewBox) and a plain HTML slot.
+ */
+function useStage(
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  figures: readonly StageFigure[],
+  stage: { width: number; height: number },
+  pxPerUnit: () => number,
+) {
+  const dark = useIsDarkMode()
+  // Read inside the loop through refs, so a theme flip or new props never restart it.
+  const live = useRef({ figures, dark, stage, pxPerUnit })
+  live.current = { figures, dark, stage, pxPerUnit }
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+
+    let wander: WanderState | null = null
+    let greet: GreetState = {}
+    let hovered: string | null = null
+    let clock = 0
+    let raf = 0
+    let last = 0
+    let visible = true
+
+    const scaleOf = (f: StageFigure) => f.size / HEAD_TO_GROUND
+
+    const paint = () => {
+      const { figures: figs, dark: isDark, stage: st, pxPerUnit: ppu } = live.current
+      const k = ppu()
+      const w = Math.max(1, Math.round(st.width * k))
+      const h = Math.max(1, Math.round(st.height * k))
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w
+        canvas.height = h
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, w, h)
+
+      for (const f of figs) {
+        const s = scaleOf(f)
+        const e = wander?.[f.id]
+        const greeting = isGreeting(greet, f.id)
+        const key = greeting
+          ? f.hoverAnim ?? 'greet'
+          : e
+            ? (e.phase === 'walk' ? f.walkAnim ?? wanderAnim(e) : wanderAnim(e))
+            : f.anim
+        const animation = ALL_ANIMATIONS[key] ?? ALL_ANIMATIONS[f.anim]
+        if (!animation) continue
+        const t = greeting ? greetClock(greet, f.id) : clock + (f.phase ?? 0)
+        const x = e ? e.x : f.x
+        const flip = e ? e.dir < 0 : !!f.flip
+
+        ctx.setTransform(k * s * (flip ? -1 : 1), 0, 0, k * s, x * k, (f.groundY - PELVIS_ABOVE_GROUND * s) * k)
+        draw(ctx, computePose(animation.frame(t), CFG, { x: 0, y: 0 }), CFG, { color: figColor(f.tone, isDark) })
+      }
+    }
+
+    const step = (now: number) => {
+      raf = 0
+      const dt = last ? Math.min(0.05, (now - last) / 1000) : 0
+      last = now
+      clock += dt
+      greet = greetReduce(greet, hovered, dt)
+
+      const { figures: figs } = live.current
+      const walkers = figs.filter((f) => f.wander)
+      if (walkers.length > 0) {
+        if (!wander) {
+          wander = initWander(
+            walkers.map((f, i) => ({ id: f.id, x: f.x, dir: (f.flip ? -1 : i % 2 === 0 ? 1 : -1) as 1 | -1 })),
+            Math.random,
+          )
+        }
+        // wanderReducer turns at 0..width; each walker's own bounds are applied by
+        // shifting into its range and back, so two walkers can share a sidewalk.
+        const next: WanderState = { ...wander }
+        for (const f of walkers) {
+          const range = f.wander!
+          const own = wander[f.id]
+          if (!own) continue
+          const shifted = wanderAdvance(
+            { [f.id]: { ...own, x: own.x - range.min } },
+            dt,
+            { width: range.max - range.min, scale: scaleOf(f), greeting: greetingIds(greet), rand: Math.random },
+          )[f.id]
+          if (shifted) next[f.id] = { ...shifted, x: shifted.x + range.min }
+        }
+        wander = next
+      }
+
+      paint()
+      if (visible && !document.hidden) raf = requestAnimationFrame(step)
+    }
+
+    const start = () => {
+      if (raf || !visible || document.hidden) return
+      last = 0
+      raf = requestAnimationFrame(step)
+    }
+
+    if (prefersReducedMotion()) {
+      paint()
+      const redraw = () => paint()
+      const ro = new ResizeObserver(redraw)
+      ro.observe(canvas)
+      return () => ro.disconnect()
+    }
+
+    // Hover greet, as in CTC: the figure under the pointer stops and greets.
+    const hitTest = (ev: PointerEvent): string | null => {
+      const rect = canvas.getBoundingClientRect()
+      const { stage: st, figures: figs } = live.current
+      const ux = ((ev.clientX - rect.left) / rect.width) * st.width
+      const uy = ((ev.clientY - rect.top) / rect.height) * st.height
+      for (let i = figs.length - 1; i >= 0; i--) {
+        const f = figs[i]!
+        const s = scaleOf(f)
+        const x = wander?.[f.id]?.x ?? f.x
+        if (Math.abs(ux - x) <= HALF_W * s && uy <= f.groundY + 4 * s && uy >= f.groundY - (HEAD_TO_GROUND + 30) * s) return f.id
+      }
+      return null
+    }
+    const onMove = (ev: PointerEvent) => {
+      hovered = hitTest(ev)
+      canvas.style.cursor = hovered ? 'pointer' : ''
+    }
+    const onLeave = () => {
+      hovered = null
+      canvas.style.cursor = ''
+    }
+    canvas.addEventListener('pointermove', onMove)
+    canvas.addEventListener('pointerleave', onLeave)
+
+    const io = new IntersectionObserver(([entry]) => {
+      visible = !!entry?.isIntersecting
+      if (visible) start()
+    })
+    io.observe(canvas)
+    const onVisibility = () => { if (!document.hidden) start() }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    start()
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+      io.disconnect()
+      document.removeEventListener('visibilitychange', onVisibility)
+      canvas.removeEventListener('pointermove', onMove)
+      canvas.removeEventListener('pointerleave', onLeave)
+    }
+  }, [canvasRef])
+}
+
+/**
+ * Bobbits inside an SVG scene. Covers the scene's viewBox (`width` × `height`) with one
+ * canvas in a <foreignObject>, so figures are placed in the scene's own units and scale and
+ * crop with it. Decorative: the scene carries the label.
+ */
+export function SvgBobbits({ width, height, figures }: { width: number; height: number; figures: readonly StageFigure[] }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useStage(ref, figures, { width, height }, () => {
+    // The canvas sits in a <foreignObject>, whose own CTM carries the viewBox scale.
+    const fo = ref.current?.parentElement as SVGForeignObjectElement | null | undefined
+    const ctm = fo?.getScreenCTM?.()
+    // Screen pixels per viewBox unit, times the device ratio, so the figures stay crisp.
+    return (ctm ? Math.hypot(ctm.a, ctm.b) : 1) * (window.devicePixelRatio || 1)
+  })
   return (
-    <image
-      href={sprite.url}
-      x={x - sprite.centerX * w}
-      y={groundY - sprite.groundY * s}
-      width={w}
-      height={h}
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    />
+    <foreignObject x={0} y={0} width={width} height={height} aria-hidden="true">
+      <canvas ref={ref} style={{ display: 'block', width: '100%', height: '100%' }} />
+    </foreignObject>
   )
 }
 
-/** A Bobbit as an inline image, for an icon slot. `className` sets its height. */
-export function BobbitImg({ className = '', ...pose }: BobbitPose & { className?: string }) {
-  const sprite = useBobbit(pose)
-  if (!sprite) return null
-  return <img src={sprite.url} alt="" aria-hidden="true" className={`w-auto ${className}`} />
+/** One Bobbit in an HTML slot (an icon). The slot's CSS box sets its size. */
+export function BobbitIcon({ figure, className = '' }: { figure: Omit<StageFigure, 'id' | 'x' | 'groundY' | 'size'>; className?: string }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  // A 40 × 40 unit box: feet near the bottom, room above for a raised arm.
+  const fig: StageFigure = { id: 'icon', x: 20, groundY: 38, size: 30, ...figure }
+  useStage(ref, [fig], { width: 40, height: 40 }, () => {
+    const el = ref.current
+    return ((el?.clientWidth || 24) / 40) * (window.devicePixelRatio || 1)
+  })
+  return <canvas ref={ref} aria-hidden="true" className={`block ${className}`} />
 }
