@@ -52,11 +52,11 @@ export const SLICE_COPY: Record<SliceType, SliceCopy> = {
     defaultPhoto:
       'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&h=400&fit=crop',
   },
+  // No defaultPhoto, deliberately: the team's banner is Empowered.vote's own brand
+  // (HeroBanner draws it for 'volunteer'), not a stock photo of someone else's event.
   volunteer: {
-    tagline: 'Coordinate with fellow civic volunteers to strengthen your community',
+    tagline: 'Where the Empowered.vote volunteer team plans, shares updates and asks for help',
     description:
-      'This volunteer civic space is for verified Empowered Vote volunteers to organize, share resources, and coordinate civic engagement initiatives.',
-    defaultPhoto:
-      'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=1200&h=400&fit=crop',
+      'The discussion hub for the Empowered.vote volunteer team. Only volunteers can see or post here; the team adds new volunteers.',
   },
 }

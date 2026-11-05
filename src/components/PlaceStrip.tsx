@@ -1,6 +1,8 @@
-import { useState } from 'react'
 import { PlacePicker } from './PlacePicker'
 import { useJurisdictionName } from '../hooks/useJurisdictionName'
+import { stateAbbrevFromGeoid } from '../lib/stateAbbrev'
+import { geoidToDisplayName } from '../lib/geoidToWiki'
+import { LocationCard } from './Sidebar'
 import { FOCUS } from './explore/exploreUi'
 import type { ResolvedPlace } from '../lib/placeResolve'
 import type { SliceInfo } from '../types/database'
@@ -54,7 +56,7 @@ import type { SliceInfo } from '../types/database'
  * While the name is still resolving, nothing is shown rather than the tab label:
  * `useJurisdictionName` answers "City" until its offline shard lands, and
  * *"Looking at City"* is worse than waiting a frame. That is the same
- * `name !== fallback` idiom `ActiveExplore` and `ActiveLocationCard` already
+ * `name !== fallback` idiom `ActiveExplore` and `HomeLocationCard` already
  * use.
  */
 
@@ -103,29 +105,73 @@ function VisitingLine({ slice, fallback }: { slice: SliceInfo; fallback: string 
   )
 }
 
+/**
+ * "Showing content for Asheville, NC · Change" — the member's most local slice, not
+ * the active tab. Change opens the place picker below, so it looks at another place
+ * rather than editing the address.
+ */
+export function HomeLocationCard({
+  slice,
+  fallback,
+  expanded,
+  onChange,
+  compact,
+}: {
+  slice: SliceInfo
+  fallback: string
+  expanded: boolean
+  onChange: () => void
+  /** Tighter padding, for the tab bar. */
+  compact?: boolean
+}) {
+  const name = useJurisdictionName(slice, fallback)
+  const stateName = geoidToDisplayName('state', slice.geoid.slice(0, 2))
+  const abbrev = stateAbbrevFromGeoid(slice.geoid)
+  const resolved = name !== fallback
+  const label = slice.sliceType === 'state' || !resolved
+    ? (stateName ?? name)
+    : abbrev ? `${name}, ${abbrev}` : name
+  return <LocationCard label={label} onChange={onChange} expanded={expanded} compact={compact} />
+}
+
 /** The amber pair, written light and dark together, exactly as `ReadOnlyNotice` writes it. */
 const AMBER =
   'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200'
 
 /** ≥44px touch target, visible focus, a real pointer. Both controls, both states. */
-const CONTROL = `inline-flex min-h-[2.75rem] cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold motion-safe:transition-colors ${FOCUS}`
+const CONTROL = `inline-flex min-h-[2.75rem] cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold motion-safe:transition-colors ${FOCUS}`
 
 export function PlaceStrip({
   /** The place on screen's most local slice, or undefined when the viewer is on their own spaces. */
   visitedSlice,
   /** That slice's tab label, so an unresolved name can be told from a resolved one. */
   visitedFallback,
+  /** The member's own most local slice, named by the card when they are not visiting. */
+  homeSlice,
+  homeFallback = '',
+  /**
+   * Whether the picker is open. AppShell owns it because the home card has two
+   * mounts — here below `md`, and in the tab bar beside the sidebar toggle from
+   * `md` up — and both open this one picker.
+   */
+  open,
+  onOpenChange,
   isAuthenticated,
   onResolved,
   onLeave,
 }: {
   visitedSlice?: SliceInfo
   visitedFallback: string
+  homeSlice?: SliceInfo
+  homeFallback?: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
   isAuthenticated: boolean
   onResolved: (place: ResolvedPlace) => void
   onLeave: () => void
 }) {
-  const [open, setOpen] = useState(false)
+  const setOpen = (next: boolean | ((v: boolean) => boolean)) =>
+    onOpenChange(typeof next === 'function' ? next(open) : next)
 
   const handleResolved = (place: ResolvedPlace) => {
     setOpen(false)
@@ -158,6 +204,7 @@ export function PlaceStrip({
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
+              data-place-change=""
               className={`${CONTROL} underline hover:no-underline`}
             >
               Change
@@ -176,17 +223,29 @@ export function PlaceStrip({
             </button>
           </div>
         </div>
+      ) : homeSlice ? (
+        /* On their own spaces: name the place, and let Change open the picker.
+           Phones only — from `md` the card sits in the tab bar beside the
+           sidebar toggle (AppShell), so the strip is just the picker there. */
+        <div className="md:hidden">
+          <HomeLocationCard
+            slice={homeSlice}
+            fallback={homeFallback}
+            expanded={open}
+            onChange={() => setOpen((v) => !v)}
+          />
+        </div>
       ) : (
-        /* 🔴 Quiet and SECONDARY, deliberately. For a signed-in member on their
-           own feed this is navigation they rarely want, and a prominent control
-           here would compete with the Post button two rows down. D-18 still
-           holds: it is always present, never buried. */
-        <div className="flex">
+        /* 🔴 Quiet and SECONDARY, deliberately — and only when there is no home
+           place to name (slices still loading, or a viewer with none). D-18 still holds: the picker is always
+           reachable, never buried. */
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className={`${CONTROL} -ml-3 text-gray-600 underline hover:text-gray-900 hover:no-underline dark:text-gray-400 dark:hover:text-gray-200`}
+            data-place-change=""
+            className={`${CONTROL} -mr-3 text-gray-600 underline hover:text-gray-900 hover:no-underline dark:text-gray-400 dark:hover:text-gray-200`}
           >
             <PinIcon className="h-4 w-4 flex-shrink-0" />
             Look at another place

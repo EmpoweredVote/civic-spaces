@@ -133,6 +133,10 @@ const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', ma
 
 const SAMPLE_NOTE = 'Sample data for local preview, not a live figure.'
 
+/** The volunteer community's access, as it is today. See the 🔒 chip's comment. */
+const VOLUNTEER_ACCESS =
+  'Only Empowered.vote volunteers can see or post here. The team adds volunteers to their accounts; this space is not open to the public.'
+
 /**
  * A banner fact: icon + short value on the chip, the full explanation in a panel.
  *
@@ -141,8 +145,25 @@ const SAMPLE_NOTE = 'Sample data for local preview, not a live figure.'
  * a disclosure (aria-expanded) rather than role="tooltip" because it can hold a link,
  * and it stays mounted while hidden so aria-describedby still reads it.
  */
+/**
+ * Two people, drawn in currentColor — the chip's white. Replaces the 👥 emoji on the
+ * member count: Windows draws that glyph as purple figures, which sat at low contrast
+ * on the chip's dark glass in both themes, while the number beside it was white.
+ */
+function PeopleIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="8" r="3.25" />
+      <path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" />
+      <path d="M16 4.9a3.25 3.25 0 010 6.2" />
+      <path d="M18 14.3c1.8.7 3 2.6 3 5.2" />
+    </svg>
+  )
+}
+
 function FactChip({ icon, label, details, children }: {
-  icon: string
+  /** An emoji, or an icon element for a glyph that must take the chip's own colour. */
+  icon: string | ReactNode
   /** Screen-reader completion of the chip's short value, e.g. "members in this slice". */
   label: string
   details: ReactNode
@@ -211,7 +232,7 @@ function FactChip({ icon, label, details, children }: {
         }}
         className={`${CHIP} cursor-default hover:bg-black/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition-colors`}
       >
-        <Emoji symbol={icon} className="text-sm" />
+        {typeof icon === 'string' ? <Emoji symbol={icon} className="text-sm" /> : icon}
         {children}
         <span className="sr-only"> {label}</span>
       </button>
@@ -248,6 +269,8 @@ export function HeroBanner({
   credit,
 }: HeroBannerProps) {
   const copy = SLICE_COPY[sliceType]
+  // The volunteer community is a team, not a place: branded, titled for the team.
+  const isTeam = sliceType === 'volunteer'
 
   // undefined = still loading — don't show defaultPhoto yet (avoids flash of wrong image)
   // null      = loaded, no wiki image — fall back to defaultPhoto
@@ -294,6 +317,15 @@ export function HeroBanner({
     >
       {/* Photo layer — clipped to the rounded corners on its own. */}
       <div className="absolute inset-0 overflow-hidden rounded-2xl" aria-hidden="true">
+        {/* The team has no photo: the brand ground is the picture, with the EV mark
+            large and quiet across the right side. Decorative, so alt="". */}
+        {isTeam && (
+          <img
+            src="/favicon.png"
+            alt=""
+            className="absolute -right-12 top-1/2 h-[150%] w-auto -translate-y-1/2 opacity-20 sm:-right-6"
+          />
+        )}
         {resolvedPhoto && (
           <img
             src={resolvedPhoto}
@@ -317,14 +349,23 @@ export function HeroBanner({
       <div className={`pointer-events-none relative z-10 flex flex-col gap-3 p-4 sm:p-5 ${showCredit ? 'pb-2 sm:pb-2 md:pb-7' : ''}`}>
         {/* Where you are, and which slice of it */}
         <div className="pointer-events-auto min-w-0">
+          {/* The team's own mark, in the flow rather than pinned to a corner, so on a
+              phone the banner grows to fit it instead of the title sliding under it.
+              On a white plate: the dark-ground logo is light teal, which is faint on
+              the teal gradient in both themes. */}
+          {isTeam && (
+            <span className="mb-3 inline-flex rounded-xl bg-white px-3 py-2 shadow-sm ring-1 ring-black/5">
+              <img src="/images/ev-logo.png" alt="Empowered.vote" className="h-6 w-auto sm:h-7" />
+            </span>
+          )}
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white [text-shadow:0_0_2px_rgb(0_0_0_/_0.9),0_1px_6px_rgb(0_0_0_/_0.8)]">
-            {levelLabel}
+            {isTeam ? 'Volunteer community' : levelLabel}
             {/* No top scrim (the photo stays clear up there), so on a phone, where the
                 copy fills the banner, these two lines carry their own heavy shadow. */}
             {stateName && <span className="text-white/85"> · {stateName}</span>}
           </p>
           <h2 className="mt-0.5 text-2xl font-bold leading-tight text-white [text-shadow:0_0_3px_rgb(0_0_0_/_0.7),0_1px_8px_rgb(0_0_0_/_0.6)] md:text-3xl">
-            {sliceName}
+            {isTeam ? 'Empowered.vote volunteer team' : sliceName}
           </h2>
 
           {/* One row of short facts: icon + value. The sentence behind each one is in its
@@ -335,7 +376,7 @@ export function HeroBanner({
                 jurisdiction is a false fact stated confidently. */}
             {memberCount !== null && (
             <FactChip
-              icon="👥"
+              icon={<PeopleIcon />}
               label={memberCount === 1 ? 'member in this slice' : 'members in this slice'}
               details={
                 <>
@@ -349,6 +390,14 @@ export function HeroBanner({
             >
               <span className="font-semibold tabular-nums">{memberCount.toLocaleString()}</span>
             </FactChip>
+            )}
+            {/* 🔴 States today's access model, nothing more. If the space opens later,
+                this chip and VOLUNTEER_ACCESS change together; the database is what
+                actually keeps it closed (Volunteer is outside PUBLIC_SLICE_TYPES, D-27). */}
+            {isTeam && (
+              <FactChip icon="🔒" label="who can see this space" details={VOLUNTEER_ACCESS}>
+                <span className="font-semibold">Invite only</span>
+              </FactChip>
             )}
             {population !== undefined && (
               <FactChip
@@ -396,15 +445,7 @@ export function HeroBanner({
                 <span className="font-semibold tabular-nums">{countdownLabel(electionDays)}</span>
               </FactChip>
             )}
-            {nextElection === null && (
-              <FactChip
-                icon="🗳️"
-                label="for upcoming elections"
-                details="No upcoming election is on file for this area."
-              >
-                <span className="font-medium">None on file</span>
-              </FactChip>
-            )}
+            {/* Nothing upcoming (null) renders nothing: the chip is there only while an election is. */}
             {weather && (
               <span className={`${CHIP} pr-1`}>
                 <a

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useImperativeHandle } from 'react'
+import { useRef, useEffect, useMemo, useState, useImperativeHandle } from 'react'
 import { useLocation } from 'wouter'
 import type React from 'react'
 // import { useFeed } from '../hooks/useFeed' // Fallback: chronological feed
@@ -20,6 +20,9 @@ import { ReplyClosedNotice } from './ReplyClosedNotice'
 import type { SortMode } from './FeedTabs'
 import type { PostWithAuthor } from '../types/database'
 import type { NoWriteReason } from '../lib/writeAccess'
+import { getTopicOptions } from '../lib/exploreData'
+import { nameTopic } from '../lib/exploreComposition'
+import { PrimaryButton } from './explore/exploreUi'
 
 function sortPosts(posts: PostWithAuthor[], sort: SortMode): PostWithAuthor[] {
   // 🔴 CLIENT-SIDE OVER LOADED PAGES ONLY. The feed is paginated, so this orders the
@@ -92,6 +95,10 @@ interface SliceFeedPanelProps {
   viewingSliceIndex?: number
   ownSliceIndex?: number
   onReturnToOwnSlice?: () => void
+  /** Which level this feed is, for the composer's topic picker. */
+  sliceType?: string
+  /** The place this feed belongs to, named — null while it resolves. Never the tab label. */
+  placeName?: string | null
   /** Whether the viewer has spaces to go back to. See `offersReturnToOwnSpaces`. */
   hasOwnSpaces?: boolean
   /**
@@ -121,9 +128,17 @@ export default function SliceFeedPanel({
   viewingSliceIndex,
   ownSliceIndex,
   onReturnToOwnSlice,
-
+  sliceType,
+  placeName = null,
   hasOwnSpaces = false,
 }: SliceFeedPanelProps) {
+  // Static editorial content for this level: a pure lookup, no fetch, so it is safe in a
+  // panel that is mounted six times. Named for this panel's place, as Explore names them.
+  const topicOptions = useMemo(
+    () => (sliceType ? getTopicOptions(sliceType).map((topic) => nameTopic(topic, placeName)) : []),
+    [sliceType, placeName],
+  )
+
   // Hoisted above the feed hooks: the public query is cached PER VIEWER (D-49), so
   // the reader's id is part of its key and has to exist before the key is built.
   const { userId } = useAuth()
@@ -311,17 +326,22 @@ export default function SliceFeedPanel({
             {/* 🔴 THREE sentences, and which one is true is a fact this phase can
                 finally establish. Phase 17 could not read `slices` and so wrote one
                 paragraph true of both empty cases; `usePublicSlice` asks outright.
-                "Be the first to start a conversation" is addressed to someone who
-                CAN post — never show it to a reader the write path will refuse. */}
+                "Start the first one" is addressed to someone who CAN post — never
+                show it, or its button, to a reader the write path will refuse. */}
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {searchQuery.trim()
                 ? `No posts match "${searchQuery.trim()}".`
                 : !publicPlace
-                  ? 'No posts yet. Be the first to start a conversation!'
+                  ? `No conversations${placeName ? ` in ${placeName}` : ''} yet.${!isViewOnly && userId ? ' Start the first one.' : ''}`
                   : publicSliceExists
-                    ? 'No conversations here yet.'
+                    ? `No conversations${placeName ? ` in ${placeName}` : ' here'} yet.`
                     : "This space hasn't opened yet."}
             </p>
+            {!searchQuery.trim() && !publicPlace && !isViewOnly && userId && (
+              <div className="mt-1">
+                <PrimaryButton onClick={() => handleCompose()}>Start a conversation</PrimaryButton>
+              </div>
+            )}
             {!searchQuery.trim() && publicPlace && (
               <p className="max-w-sm text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                 {publicSliceExists
@@ -373,7 +393,7 @@ export default function SliceFeedPanel({
                 type="button"
                 onClick={() => fetchNextPage()}
                 disabled={isFetchingNextPage}
-                className="rounded-full px-3 py-1.5 text-xs font-medium text-brand dark:text-brand-light bg-brand-muted dark:bg-brand/10 hover:bg-brand/15 disabled:opacity-60"
+                className="rounded-xl px-3 py-1.5 text-xs font-medium text-brand dark:text-brand-light bg-brand-muted dark:bg-brand/10 hover:bg-brand/15 disabled:opacity-60"
               >
                 {isFetchingNextPage ? 'Loading…' : 'Load more posts to search'}
               </button>
@@ -402,6 +422,8 @@ export default function SliceFeedPanel({
             userId={userId}
             editPost={editingPost ?? undefined}
             request={composeRequest}
+            topicOptions={topicOptions}
+            onCreated={(postId) => onNavigateToThread(postId)}
           />
         )}
 
@@ -424,6 +446,7 @@ export default function SliceFeedPanel({
             isPublic={!!publicPlace}
             noWriteReason={noWriteReason}
             ownSliceIndex={ownSliceIndex}
+            placeName={placeName}
           />
         </div>
       )}

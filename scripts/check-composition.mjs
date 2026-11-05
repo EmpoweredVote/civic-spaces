@@ -43,6 +43,7 @@ import {
   levelFilterReason,
   levelFor,
   migrateSignedOutDrafts,
+  nameTopic,
   parseDraftKey,
   racesAreaFor,
   rankByCompass,
@@ -1149,6 +1150,44 @@ const narrowRow = { ...wideRow, id: 'p2', author_user_id: null, author_avatar_ur
         '          on screen and the number is the one the reader believes.',
     )
   }
+}
+
+// ── Local starters: naming the place ────────────────────────────────────────
+
+{
+  console.log('\n── Local starters ──────────────────────────────────────────────')
+  const cityTopic = GENERIC_TOPICS.city.find((t) => t.id === 'city-housing-and-zoning')
+  const named = cityTopic && nameTopic(cityTopic, 'Asheville')
+
+  check(
+    91,
+    'nameTopic writes the place name in place of "your city" — and keeps the id and the null geoid',
+    !!named && named.title.includes('Asheville') && !/your city/i.test(named.title) &&
+      named.id === cityTopic.id && named.geoid === null && named.namedFor === 'Asheville',
+    `title=${JSON.stringify(named?.title)} id=${named?.id} geoid=${named?.geoid}`,
+  )
+
+  check(
+    92,
+    'nameTopic leaves Federal untouched — "United States of America" never lands mid-sentence',
+    GENERIC_TOPICS.federal.every((t) => nameTopic(t, 'United States of America') === t),
+  )
+
+  check(
+    93,
+    '🔴 nameTopic never rewrites a topic that carries its source’s own words',
+    (() => {
+      const agendaLike = { ...cityTopic, provenance: 'derived-from-agenda', title: 'What is in your city budget' }
+      return nameTopic(agendaLike, 'Asheville') === agendaLike
+    })(),
+    'an agenda item is verbatim; only staff text uses the stand-in phrase.',
+  )
+
+  check(
+    94,
+    'with no resolved name, the generic text stands (no "Welcome to City")',
+    !!cityTopic && nameTopic(cityTopic, null) === cityTopic,
+  )
 }
 
 // ── Result ───────────────────────────────────────────────────────────────────

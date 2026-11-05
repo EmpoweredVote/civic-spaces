@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react'
 import type React from 'react'
 import { Emoji } from '../Emoji'
 import { NeighborhoodScene } from './NeighborhoodScene'
+import { BobbitIcon } from '../bobbits/bobbit'
 import {
   ADVENTURE_OPTIONS,
   IMAGINE_OPTIONS,
@@ -170,10 +171,11 @@ function meetingWhen(m: UpcomingMeeting): string {
 
 type SuggestionKind = AdventureDuration | 'meeting' | 'election'
 
-/** Line icon on the suggestion's trail — it says what kind of outing this is at a glance. */
-const SUGGESTION_ICON: Record<SuggestionKind, string[]> = {
-  // A person walking
-  '15m': ['M13 4.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z', 'M9.5 21l2-6 2.5 2.5V21', 'M8 11.5l2.5-3.5 3 1.5 2 3', 'M11.5 15l-1-4.5'],
+/**
+ * Line icon on the suggestion's trail — it says what kind of outing this is at a glance.
+ * The walk has none: a person is always a Bobbit, drawn by the shared rig (SuggestionIcon).
+ */
+const SUGGESTION_ICON: Record<Exclude<SuggestionKind, '15m'>, string[]> = {
   // A tree
   '1h': ['M12 22v-6', 'M12 16c-4 0-6.5-2.3-6.5-5.2 0-2.2 1.5-3.6 3.2-4A3.9 3.9 0 0112 3a3.9 3.9 0 013.3 3.8c1.7.4 3.2 1.8 3.2 4C18.5 13.7 16 16 12 16z'],
   // A crescent moon
@@ -185,6 +187,8 @@ const SUGGESTION_ICON: Record<SuggestionKind, string[]> = {
 }
 
 function SuggestionIcon({ kind }: { kind: SuggestionKind }) {
+  // A short walk is a person walking — so a strolling Bobbit, coral like the icons beside it.
+  if (kind === '15m') return <BobbitIcon figure={{ anim: 'stroll', tone: 1 }} className="h-7 w-7" />
   return (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {SUGGESTION_ICON[kind].map((d) => <path key={d} d={d} />)}

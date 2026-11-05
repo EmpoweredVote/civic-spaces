@@ -236,7 +236,8 @@ export function geoidToDisplayName(sliceType: SliceType, geoid: string): string 
       return 'Unified'
 
     case 'volunteer':
-      return 'Volunteer'
+      // A team, not a place: the nav, the tab bar and the feed search all read this.
+      return 'Volunteer team'
 
     default:
       return null

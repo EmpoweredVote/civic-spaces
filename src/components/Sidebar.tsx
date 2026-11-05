@@ -6,8 +6,6 @@ import { RepresentativesWidget } from './widgets/RepresentativesWidget'
 interface SidebarProps {
   repsData: ReturnType<typeof useRepresentatives>
   activeTab: string
-  /** Built by AppShell, which owns the name and Census lookups these need. */
-  location?: ReactNode
   events?: ReactNode
   about?: ReactNode
   /** Explore's "What's new" card — passed only while the Explore view is showing. */
@@ -15,36 +13,70 @@ interface SidebarProps {
 }
 
 /**
- * "Showing content for {place} · Change". Address changes happen in the accounts app,
- * never here: this app does not geocode or store a location (see CLAUDE.md, "Talking
- * to the rest of the platform").
+ * "Showing content for {place} · Change". Without `onChange`, Change links to the
+ * accounts app — address changes happen there, never here: this app does not geocode
+ * or store a location (see CLAUDE.md, "Talking to the rest of the platform"). With it,
+ * Change is a disclosure button instead: `PlaceStrip` uses that to open the
+ * "look at another place" picker, which views a place without touching the address.
  */
-export function LocationCard({ label }: { label: string }) {
+export function LocationCard({
+  label,
+  onChange,
+  expanded,
+  compact,
+}: {
+  label: string
+  onChange?: () => void
+  expanded?: boolean
+  /**
+   * One line, for the tab bar: tighter padding, and the place name alone on screen.
+   * "Showing content for Asheville, NC · Change" does not fit one line at the
+   * sidebar's width, so the lead-in stays for screen readers and the tooltip.
+   */
+  compact?: boolean
+}) {
   return (
     // The sidebar's width follows the space available, so the sentence wraps rather than
     // ellipsising the place name — the one part of it that matters. "Change" stays on
-    // the first line, pinned right.
-    <div className="flex items-start gap-2 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 px-4 py-3 text-xs leading-snug">
+    // the first line, pinned right. Compact is one line, centred.
+    <div
+      title={compact ? `Showing content for ${label}` : undefined}
+      className={`flex gap-2 rounded-xl border border-gray-200/60 dark:border-white/[0.06] bg-white dark:bg-gray-900 ${compact ? 'items-center px-3 py-2' : 'items-start px-4 py-3'} text-xs leading-snug`}
+    >
       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0 text-[#FF5740]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z" />
       </svg>
-      <p className="min-w-0 flex-1 break-words text-gray-600 dark:text-gray-400">
-        Showing content for <span className="font-semibold text-gray-900 dark:text-gray-100">{label}</span>
+      <p className={`min-w-0 flex-1 text-gray-600 dark:text-gray-400 ${compact ? 'truncate' : 'break-words'}`}>
+        <span className={compact ? 'sr-only' : undefined}>Showing content for </span>
+        <span className="font-semibold text-gray-900 dark:text-gray-100">{label}</span>
       </p>
-      <a
-        href="https://app.empowered.vote/settings/location"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex-shrink-0 font-semibold text-brand dark:text-brand-light hover:underline"
-      >
-        Change
-        <span className="sr-only"> your address (opens the Empowered Vote account settings in a new tab)</span>
-      </a>
+      {onChange ? (
+        <button
+          type="button"
+          onClick={onChange}
+          aria-expanded={expanded}
+          data-place-change=""
+          className="flex-shrink-0 cursor-pointer rounded font-semibold text-brand dark:text-brand-light hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+        >
+          Change
+          <span className="sr-only"> place: look at another place</span>
+        </button>
+      ) : (
+        <a
+          href="https://app.empowered.vote/settings/location"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-shrink-0 font-semibold text-brand dark:text-brand-light hover:underline"
+        >
+          Change
+          <span className="sr-only"> your address (opens the Empowered Vote account settings in a new tab)</span>
+        </a>
+      )}
     </div>
   )
 }
 
-export function Sidebar({ repsData, activeTab, location, events, about, whatsNew }: SidebarProps) {
+export function Sidebar({ repsData, activeTab, events, about, whatsNew }: SidebarProps) {
   if (activeTab === 'volunteer') return null
 
   const filteredReps = filterRepsByTab(repsData.data ?? [], activeTab)
@@ -54,7 +86,6 @@ export function Sidebar({ repsData, activeTab, location, events, about, whatsNew
 
   return (
     <div className="flex flex-col gap-3">
-      {location}
       {events}
 
 

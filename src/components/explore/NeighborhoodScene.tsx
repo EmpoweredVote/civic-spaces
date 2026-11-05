@@ -1,4 +1,16 @@
 import type { ImagineOption } from './exploreContent'
+import { SvgBobbits, type StageFigure } from '../bobbits/bobbit'
+
+/** The Imagine scene's neighbor: strolls the sidewalk between the two houses. */
+const NEIGHBOR: StageFigure[] = [
+  { id: 'neighbor', anim: 'stroll', tone: 1, x: 250, groundY: 191, size: 50, phase: 0.6, wander: { min: 196, max: 304 } },
+]
+
+/** The featured card's drawing: a grown-up and a toddler, each on their own stretch. */
+const WALKERS: StageFigure[] = [
+  { id: 'grown-up', anim: 'stroll', tone: 0, x: 60, groundY: 112, size: 40, phase: 0.2, wander: { min: 10, max: 130 } },
+  { id: 'toddler', anim: 'toddle', tone: 1, x: 110, groundY: 112, size: 27, phase: 1.1, wander: { min: 70, max: 180 }, walkAnim: 'toddle' },
+]
 
 /**
  * A small illustrated block for "Imagine a better neighborhood": hills, two houses, a
@@ -99,11 +111,6 @@ export function NeighborhoodScene({ choice, label }: { choice: ImagineOption | n
         ))}
       </g>
 
-      {/* A neighbor on the sidewalk */}
-      <g className="stroke-[#12182A] dark:stroke-gray-200" strokeWidth="2.5" strokeLinecap="round" fill="none">
-        <path d="M262 162 V176 M262 176 L254 188 M262 176 L270 188 M254 168 H270" />
-      </g>
-      <circle cx="262" cy="155" r="6" strokeWidth="2.5" className="fill-brand-coral stroke-[#12182A] dark:stroke-gray-200" />
 
       {/* Litter — present until "Cleaner streets" is chosen */}
       <g className={`${FADE} ${clean ? 'opacity-0' : 'opacity-100'}`}>
@@ -111,6 +118,10 @@ export function NeighborhoodScene({ choice, label }: { choice: ImagineOption | n
           <rect key={`${l.x}-${l.y}`} x={l.x} y={l.y} width="7" height="7" transform={`rotate(45 ${l.x + 3.5} ${l.y + 3.5})`} className="fill-brand-coral" />
         ))}
       </g>
+
+      {/* A neighbor out on the sidewalk between the houses — a Bobbit, strolling and
+          looking around, who stops to wave when you point at them. Last, so in front. */}
+      <SvgBobbits width={480} height={240} figures={NEIGHBOR} />
     </svg>
   )
 }
@@ -135,14 +146,8 @@ export function WalkingScene() {
       <rect x="150" y="66" width="3" height="40" className="fill-gray-600 dark:fill-gray-400" />
       <path d="M151 66 h12" className="stroke-gray-600 dark:stroke-gray-400" strokeWidth="3" strokeLinecap="round" />
       <circle cx="164" cy="69" r="3.5" className="fill-brand-yellow" />
-      <g className="fill-brand-btn dark:fill-brand-light">
-        <circle cx="70" cy="80" r="5" />
-        <path d="M66 87 h8 l2 18 h-4 l-2 -9 l-2 9 h-4 Z" />
-      </g>
-      <g className="fill-brand-coral">
-        <circle cx="88" cy="84" r="4" />
-        <path d="M85 90 h6 l1.5 15 h-3 l-1.5 -7 l-1.5 7 h-3 Z" />
-      </g>
+      {/* Two Bobbits out for a walk — a grown-up strolling and a toddler toddling. */}
+      <SvgBobbits width={240} height={160} figures={WALKERS} />
       {[0, 1, 2, 3, 4].map((i) => (
         <rect key={i} x={190 + i * 8} y="120" width="4.5" height="40" className="fill-white/90 dark:fill-gray-300" />
       ))}

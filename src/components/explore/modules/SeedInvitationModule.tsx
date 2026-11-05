@@ -55,9 +55,22 @@
 import { useId } from 'react'
 import type { ExploreCtx } from '../ExploreContext'
 import { ArrowIcon, CARD, PrimaryButton } from '../exploreUi'
+import { SvgBobbits, type StageFigure } from '../../bobbits/bobbit'
 
 /**
- * An empty noticeboard: one sheet pinned up, room for the rest.
+ * The board's neighbours, in the scene's own units (viewBox x runs -40…170, the
+ * ground is y 94). A coral Bobbit stands to the board's right presenting the one
+ * sheet pinned up, and a gold one strolls up to have a look — the place is empty,
+ * but somebody has started. Same rig, poses and hover greet as every Bobbit.
+ */
+const BOARD_CAST: StageFigure[] = [
+  { id: 'presenter', anim: 'present', tone: 1, x: 134, groundY: 94, size: 44, flip: true, phase: 0.4 },
+  { id: 'passer-by', anim: 'stroll', tone: 2, x: -6, groundY: 94, size: 40, phase: 1.3, wander: { min: -38, max: 102 }, hoverAnim: 'dance' },
+]
+
+/**
+ * An empty noticeboard: one sheet pinned up, room for the rest — with two
+ * Bobbits beside it, one presenting the sheet and one strolling up to look.
  *
  * Decorative and `aria-hidden` — every word it could carry is in the prose
  * beside it, so a screen reader loses nothing. SVG, never an emoji.
@@ -65,8 +78,8 @@ import { ArrowIcon, CARD, PrimaryButton } from '../exploreUi'
 function NoticeboardScene() {
   return (
     <svg
-      viewBox="0 0 120 100"
-      className="h-24 w-32 @xl:h-44 @xl:w-60 text-brand dark:text-brand-light"
+      viewBox="-40 0 210 100"
+      className="h-24 w-52 @xl:h-44 @xl:w-[23rem] max-w-full text-brand dark:text-brand-light"
       fill="none"
       stroke="currentColor"
       strokeWidth={2.25}
@@ -79,6 +92,11 @@ function NoticeboardScene() {
       <rect x="28" y="24" width="28" height="30" rx="4" />
       <path d="M34 32h16M34 39h12M34 46h16" strokeWidth={1.75} className="opacity-70" />
       <path d="M68 30h24M68 39h18M68 48h24" strokeWidth={1.75} strokeDasharray="3 7" className="opacity-55" />
+      {/* The ground they stand on, quieter than the board. */}
+      <path d="M-36 94h202" strokeWidth={1.5} className="opacity-30" />
+      <g transform="translate(-40 0)">
+        <SvgBobbits width={210} height={100} figures={BOARD_CAST.map((f) => ({ ...f, x: f.x + 40, wander: f.wander && { min: f.wander.min + 40, max: f.wander.max + 40 } }))} />
+      </g>
     </svg>
   )
 }
