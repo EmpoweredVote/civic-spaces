@@ -1190,6 +1190,97 @@ const narrowRow = { ...wideRow, id: 'p2', author_user_id: null, author_avatar_ur
   )
 }
 
+// ── Reserved rooms: the 27 (level, room) pairs check:explore-rooms can no longer see ──
+
+/**
+ * 🔴 WHY THIS LIVES HERE NOW. check:explore-rooms asserted "every room declared for a
+ * level is actually ON it" by looking at the page. The grouped "What this space becomes"
+ * card was removed from ExploreView on 2026-10-28, so none of the nine reserved rooms
+ * reaches the DOM on any level, and that assertion went to a SKIP naming 33 unchecked
+ * pairs (33 there, 27 here: that run walks two city TABS, Asheville and Bloomington, and
+ * both map to level 'city').
+ *
+ * A SKIP is not a PASS, and the declarations never stopped being true — they stopped being
+ * VISIBLE. They were always a property of the composition rather than of the page, so the
+ * pure guard is where they belong, and it is a required check while the browser one is
+ * advisory-shaped by nature.
+ *
+ * The list below is written out rather than derived from DEFAULT_MODULES, deliberately.
+ * Deriving the expectation from the thing under test is the vacuous shape: every pair would
+ * agree with itself and a room silently dropped from a level would still pass. These 27 are
+ * the declarations as of 2026-11-05, verified against the browser guard's own wouldRequireOn
+ * before it stopped running them.
+ */
+const RESERVED_ROOMS = {
+  'ballot-measures': ['city', 'county', 'state'],
+  'federal-votes': ['federal'],
+  'debate-schedule': ['federal'],
+  'legislator-votes': ['state'],
+  symposiums: ['city', 'county', 'state', 'federal', 'unified'],
+  'civic-listening': ['city', 'county', 'state', 'federal', 'unified'],
+  'common-grounds': ['city', 'county', 'state', 'federal', 'unified'],
+  'focused-communities': ['city', 'county'],
+  'slice-action-votes': ['city', 'county', 'state', 'federal'],
+}
+
+{
+  const expected = Object.entries(RESERVED_ROOMS)
+  const pairCount = expected.reduce((a, [, levels]) => a + levels.length, 0)
+
+  // 95 — the declarations themselves, both directions.
+  const wrong = []
+  for (const [room, levels] of expected) {
+    for (const level of levels) {
+      if (!DEFAULT_MODULES[level]?.includes(room)) wrong.push(`${level}/${room} DECLARED here but missing from DEFAULT_MODULES`)
+    }
+    for (const level of Object.keys(DEFAULT_MODULES)) {
+      if (DEFAULT_MODULES[level].includes(room) && !levels.includes(level)) {
+        wrong.push(`${level}/${room} is in DEFAULT_MODULES but NOT declared here — add it above or take it out of the module list`)
+      }
+    }
+  }
+  check(
+    95,
+    `every reserved room is on exactly the levels it is declared for — ${pairCount} (level, room) pairs`,
+    wrong.length === 0,
+    wrong.join('\n          ') +
+      '\n          These are the pairs check:explore-rooms stopped being able to see when the' +
+      '\n          "What this space becomes" card left the page. If one is missing, a level quietly' +
+      '\n          lost a room nobody decided to remove.',
+  )
+
+  // 96 — the property that makes a reserved room safe to declare at all. Read from the
+  // shipped registry as TEXT: registry.tsx carries JSX, which --experimental-strip-types
+  // cannot run, so it is matched structurally rather than imported.
+  const registry = readFileSync(new URL('../src/components/explore/registry.tsx', import.meta.url), 'utf8')
+  const notReserved = expected
+    .map(([room]) => room)
+    .filter((room) => {
+      const key = /^[a-z]+$/.test(room) ? room : `'${room}'`
+      return !new RegExp(`\\n  ${key.replace(/[-']/g, (c) => '\\' + c)}: reserved\\(`).test(registry)
+    })
+  check(
+    96,
+    `all ${expected.length} reserved rooms are declared with reserved() in the registry, so none can render a control`,
+    notReserved.length === 0,
+    `not built by reserved(): ${notReserved.join(', ')}` +
+      '\n          reserved() is the one thing that sets available: () => false and Component: () => null.' +
+      '\n          A room in these module lists WITHOUT it renders, and check:explore-rooms assertions' +
+      '\n          12-17 are all "zero of the bad thing" — they would pass over it while proving nothing.',
+  )
+
+  // 97 — the control. Both assertions above iterate a list; an empty one passes either.
+  check(
+    97,
+    'CONTROL: the reserved-room list is populated and the registry was actually read',
+    expected.length === 9 && pairCount === 27 && registry.length > 1000 && registry.includes('function reserved('),
+    `rooms=${expected.length} (want 9), pairs=${pairCount} (want 27), registry=${registry.length} bytes, ` +
+      `reserved() helper found=${registry.includes('function reserved(')}` +
+      '\n          If a room is deliberately retired, change the counts here in the same commit, so that' +
+      '\n          shrinking this guard is a decision somebody made rather than something that happened.',
+  )
+}
+
 // ── Result ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${passed} PASS, ${failed} FAIL`)
