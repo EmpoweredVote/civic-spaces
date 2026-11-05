@@ -113,10 +113,31 @@ PR check off. `check:grants` and `check:anon-read` (ninth, tenth) run by hand on
 `SUPABASE_DB_URL` plus `psql`, which CI does not have (`db-surface.yml` is the manual-dispatch job ready for when it does).
 
 🔴 **Running in CI is not the same as being required.** "Required to merge" is a
-branch-protection setting on `main`. As of 2026-11-02 it lists **`build` and `Guards (pure)`**,
-so `Guards (browser)` is still advisory and a PR merges over a red one. Read it with
+branch-protection setting on `main`. Since 2026-11-05 it lists **`build`, `Guards (pure)` and
+`Guards (browser)`** — all three. Read it with
 `gh api repos/EmpoweredVote/civic-spaces/branches/main/protection`. `enforce_admins` is `false`,
 so an admin merges past all of it — which is how #139 landed, self-approval being impossible.
+
+`Guards (browser)` was promoted from advisory on 2026-11-05, after #133. The case was that
+#133 deleted the `<PlaceStrip>` mount with `tsc -b` and `build` both green, and nothing
+required could see it; `check:place-entry` found it by hand days later. Measured before the
+change, not guessed: the job runs **4–5 minutes** (not the ~10 it can appear to take while you
+watch it — that includes queue time), ~1 PR/day reaches `main`, and 40 runs held 28 success,
+0 failures, 5 cancelled-by-superseding-push. It runs in parallel with `build`, so what it costs
+is the PR's critical path, ~30s → ~5min.
+
+🔴 Promote or demote a check with the **contexts** endpoint, never a `PATCH` of the protection
+object — a PATCH replaces the whole config and silently drops anything you did not re-send
+(`require_last_push_approval`, `strict`, the review count):
+
+```bash
+gh api --method POST   .../branches/main/protection/required_status_checks/contexts -f 'contexts[]=Guards (browser)'
+gh api --method DELETE .../branches/main/protection/required_status_checks/contexts -f 'contexts[]=Guards (browser)'
+```
+
+If these three ever turn flaky, a required flaky check is worse than an advisory solid one —
+but the fix is to harden the guard, or to keep only `check:place-entry` required (it is the
+mount-deletion guard and the fastest of the three), not to demote the lot.
 
 🔴 **Still run them by hand before you claim anything works.** CI runs them on a pull request;
 it does not run them while you are working, and `npm run build` on its own has never been
