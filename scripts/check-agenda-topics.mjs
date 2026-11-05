@@ -235,6 +235,62 @@ check(
   )
 }
 
+// ── 14, 15  The other half of check 6: the branch that actually cuts ─────────
+
+// 🔴 Check 6 passes and always has, on zero evidence. The longest
+// legislationRef on this agenda is 31 characters, so the longest suggestedTitle
+// it can produce is 56 — the cap has never been approached, let alone reached,
+// and the cutting branch below it has never run in this guard's life. These two
+// synthetic references drive it. Both are invented machinery for the test, not
+// civic record: no council printed either.
+const LONG_REF =
+  'Ordinance 2026-77 concerning the appropriation of funds for the operation and maintenance of the ' +
+  'municipal stormwater utility and the related drainage easements lying within the corporate boundaries ' +
+  'of the city and the unincorporated remainder of the township'
+const UNBROKEN_REF = `Ordinance-2026-77-${'x'.repeat(400)}`
+
+{
+  const derive = (id, legislationRef) =>
+    agendaItemsToTopics([{ ...qualifying[0], id, legislationRef }], meeting, 'city', GEOID)[0]
+
+  const wordy = derive('cap-wordy', LONG_REF).suggestedTitle
+  const unbroken = derive('cap-unbroken', UNBROKEN_REF).suggestedTitle
+
+  // The cut landed on a word boundary: what survives is a prefix of the source
+  // that ends mid-nothing — the source's next character is not a word character.
+  const head = wordy.slice(0, -1)
+  const onBoundary =
+    LONG_REF.startsWith(head) && head.length > 0 && /[^\p{L}\p{N}]/u.test(LONG_REF[head.length] ?? '')
+
+  check(
+    14,
+    '🔴 a reference over the cap is elided on a word boundary and SAYS SO — not sliced mid-word',
+    wordy.length <= 200 &&
+      unbroken.length <= 200 &&
+      wordy.endsWith('…') &&
+      unbroken.endsWith('…') &&
+      onBoundary &&
+      wordy !== LONG_REF.slice(0, 200),
+    `wordy [${wordy.length}] ${JSON.stringify(wordy)}\n` +
+      `          unbroken [${unbroken.length}] ${JSON.stringify(unbroken.slice(0, 60))}…\n` +
+      `          onBoundary=${onBoundary}, hard slice(0,200) would have ended ` +
+      `${JSON.stringify(LONG_REF.slice(180, 200))}`,
+  )
+
+  check(
+    15,
+    'CONTROL: both synthetic references really do blow the cap, so 14 is not passing on a string that fits',
+    LONG_REF.length > 200 &&
+      UNBROKEN_REF.length > 200 &&
+      `What should happen with ${LONG_REF}?`.length > 200 &&
+      !UNBROKEN_REF.slice(0, 200).includes(' ') &&
+      wordy.length < LONG_REF.length,
+    `LONG_REF=${LONG_REF.length}, UNBROKEN_REF=${UNBROKEN_REF.length}, ` +
+      `first space in UNBROKEN_REF at ${UNBROKEN_REF.indexOf(' ')}, wordy=${wordy.length}` +
+      '\n          If a reference now fits, these inputs stopped testing anything — lengthen them.',
+  )
+}
+
 // ── Read these by eye ────────────────────────────────────────────────────────
 
 console.log('\n── Every derived topic, in full. Check 2 by eye as well as by script. ──')

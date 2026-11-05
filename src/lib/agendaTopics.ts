@@ -88,19 +88,54 @@ function sourceLabelFor(item: AgendaItem): string | undefined {
   return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
+/** Marks an elided reference. One UTF-16 unit, so it costs one of the 200. */
+const ELLIPSIS = '…'
+
+/**
+ * Cut `text` to at most `max` characters, on a word boundary, ending in an
+ * ellipsis.
+ *
+ * 🔴 The ellipsis is the load-bearing half, not the word boundary. A bare
+ * `slice(0, 200)` ends wherever the 200th character falls — "…for the
+ * maintenance and operation of the municipal stormwa" — and what it leaves
+ * behind still reads like a reference the council printed. It is a citation
+ * nobody can look up, which is this file's anti-goal wearing a different hat:
+ * our shortening presented as the source's own words. Ending in "…" says out
+ * loud that something was left off, and ending it at a word keeps the part
+ * that survives quotable.
+ *
+ * A reference with no space inside the budget — one long hyphenated token —
+ * has no boundary to find and is cut hard. It still ends in the ellipsis,
+ * which is the part that matters. A reference that is nothing but punctuation
+ * elides to the ellipsis alone, correctly: there was no word in it to keep,
+ * and an empty-looking title the member retypes beats 199 hyphens.
+ */
+function elide(text: string, max: number): string {
+  const trimmed = text.trim()
+  if (trimmed.length <= max) return trimmed
+  const head = trimmed.slice(0, max - ELLIPSIS.length)
+  const lastSpace = head.lastIndexOf(' ')
+  let cut = lastSpace > 0 ? head.slice(0, lastSpace) : head
+  // Never leave half a surrogate pair behind — only the no-boundary cut above
+  // can land inside one, and half a pair renders as U+FFFD.
+  if (/[\uD800-\uDBFF]$/.test(cut)) cut = cut.slice(0, -1)
+  return cut.replace(/[\s,.;:—–-]+$/u, '') + ELLIPSIS
+}
+
 /**
  * The suggested post title, trimmed to createPostSchema's 200.
  *
- * 🔴 The TEMPLATE is what gets cut, never the reference. "What should
- * Bloomington do about Ordinance 2026-2…" names nothing; a reference that
- * survives and a sentence that does not is the right way round. If even the
- * reference alone would exceed the cap it is returned truncated, because a
- * title longer than the schema allows is a post that cannot be created.
+ * 🔴 The TEMPLATE is what gets cut, never the reference. "What should happen
+ * with Ordinance 2026-2…" names nothing; a reference that survives and a
+ * sentence that does not is the right way round. If even the reference alone
+ * would exceed the cap it is elided — a post title longer than the schema
+ * allows is a post that cannot be created, and an elided one at least admits
+ * to being short.
  */
 function suggestedTitleFor(reference: string): string {
   const full = `What should happen with ${reference}?`
   if (full.length <= MAX_SUGGESTED_TITLE) return full
-  return reference.slice(0, MAX_SUGGESTED_TITLE)
+  return elide(reference, MAX_SUGGESTED_TITLE)
 }
 
 /**
