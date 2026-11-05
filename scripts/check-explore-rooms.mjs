@@ -141,11 +141,15 @@ const ROOMS = [
    * composition — they are just no longer true of the page.
    *
    * 🔴 Their `requiredOn` is therefore emptied into `wouldRequireOn` rather than
-   * DELETED, and the run prints a SKIP naming all 33 pairs. Deleting them would
-   * have turned this into a 21-PASS green run that silently covers nine fewer
-   * rooms, which is precisely the vacuous shape assertion 18 exists to catch —
-   * a guard quietly measuring less is worse than one going red. Put the card
-   * back and these move back to `requiredOn` unchanged.
+   * DELETED. Deleting them would have turned this into a green run that silently
+   * covers nine fewer rooms, which is precisely the vacuous shape assertion 18
+   * exists to catch — a guard quietly measuring less is worse than one going red.
+   *
+   * The DECLARATIONS are enforced by `check:composition` 95-97 since 2026-11-05
+   * (pure, required on main), which is where a composition property belongs.
+   * Assertion 21 below holds the half only a browser can answer: that these really
+   * are off the page. Put the card back and 21 goes red, which is the prompt to
+   * move these to `requiredOn` unchanged.
    */
   { id: 'ballot-measures', sel: roomSel('ballot-measures'), controls: 0, consequence: null,
     requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state'] },
@@ -910,27 +914,42 @@ check(
       '\n            dropped it, and the rest of this run was a green light over nothing.',
   )
 
-  // 🔴 And the other half of 18: say out loud what it is no longer measuring.
-  // The nine reserved rooms left the page on 2026-10-28, so 33 of the 35 pairs
-  // this assertion used to demand are gone with them. Reported as a SKIP — which
-  // this script's own exit code ignores but its last line always names — because
-  // the alternative is a green run that covers nine fewer rooms than it did
-  // yesterday and says nothing about it.
-  const offPage = []
+  // 🔴 The other half of 18, and it is an ASSERTION now, not a SKIP.
+  //
+  // The nine reserved rooms left the page on 2026-10-28 when the grouped "What this
+  // space becomes" card was removed from ExploreView, taking 33 of the 35 pairs above
+  // with them. That was reported here as a SKIP naming all 33 — honest, but it parked
+  // real coverage in a message nobody is required to read.
+  //
+  // Those declarations were always a property of the COMPOSITION rather than of the
+  // page, so they moved to where they can be enforced: check:composition assertions
+  // 95-97, which are pure, run in under a second, and are REQUIRED on main. 27 pairs
+  // there against 33 here, because this run walks two city TABS (Asheville and
+  // Bloomington) and both map to level 'city'.
+  //
+  // What is left for this guard is the half only a browser can answer, and it is the
+  // half that keeps that handoff honest: the rooms really are off the page. Put the
+  // card back and this goes RED, which is the prompt to move wouldRequireOn to
+  // requiredOn and let 12-17 cover them again. Without it, restoring the card would
+  // quietly resume rendering nine rooms that nothing on this page checks.
+  const backOnPage = []
+  const offPageCount = ROOMS.reduce((a, spec) => a + (spec.wouldRequireOn?.length ?? 0), 0)
   for (const spec of ROOMS) {
-    for (const want of spec.wouldRequireOn ?? []) offPage.push(`${want}/${spec.id}`)
+    for (const want of spec.wouldRequireOn ?? []) {
+      if ((byLevel[want]?.rooms ?? []).some((r) => r.id === spec.id)) backOnPage.push(`${want}/${spec.id}`)
+    }
   }
-  if (offPage.length) {
-    skip(
-      18,
-      `${offPage.length} (level, room) pairs are no longer on the page to check`,
-      'The grouped "What this space becomes" card was removed from ExploreView, so no reserved\n' +
-        '              room renders on any level. DEFAULT_MODULES and ReservedRoomGroup are unchanged, so\n' +
-        '              this is a rendering decision, not a composition one. Assertions 12-17 are now\n' +
-        `              vacuous for all nine: ${[...RESERVED_IDS].join(', ')}.\n` +
-        '              Restore the card and move `wouldRequireOn` back to `requiredOn` in one edit.',
-    )
-  }
+  check(
+    21,
+    `the ${offPageCount} reserved (level, room) pairs are genuinely off the page — their declarations are check:composition 95-97`,
+    backOnPage.length === 0,
+    `back on the page: ${backOnPage.join(', ')}` +
+      '\n            A reserved room is rendering again. That is not a failure in itself — it is the' +
+      '\n            "What this space becomes" card returning — but assertions 12-17 are all "zero of' +
+      '\n            the bad thing" and would pass over these nine while proving nothing about them.' +
+      '\n            Move wouldRequireOn back to requiredOn on the rooms listed, in the same commit that' +
+      '\n            restores the card, and delete this assertion. The composition half stays either way.',
+  )
 }
 
 {
