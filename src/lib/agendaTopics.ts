@@ -27,9 +27,15 @@
  *     the agenda already printed.
  *   - `status` and `outcome` are never read. They are not even on AgendaItem.
  *
- * 🔴 No runtime imports, same as exploreComposition.ts: every import below is
- * `import type`, so `node --experimental-strip-types` can load this file and
- * run the SHIPPED function. scripts/check-agenda-topics.mjs does exactly that.
+ * 🔴 `node --experimental-strip-types` has to be able to load this file and run
+ * the SHIPPED function, because scripts/check-agenda-topics.mjs does exactly
+ * that. Every type import below is therefore `import type`, erased before Node
+ * sees it, and the ONE runtime import names `./postTitle.ts` with its
+ * extension — Node resolves a relative TS specifier only when it is spelled in
+ * full, and only to a file as plain as that one. An extensionless import, or
+ * one reaching anything with a dependency of its own, takes the guard down
+ * with ERR_MODULE_NOT_FOUND. It fails loudly and immediately, which is the
+ * only reason this is a workable rule rather than a trap.
  *
  * 🔴 Stepping stone, not the destination. When
  * `GET /api/civic-spaces/explore?sliceType=&geoid=` lands (16-09's handoff Ask
@@ -37,6 +43,7 @@
  * and this file plus useAgendaItems.ts are deleted.
  */
 
+import { elide, POST_TITLE_MAX } from './postTitle.ts'
 import type { AgendaItem, AgendaSource } from '../hooks/useAgendaItems'
 import type { ExploreLevel, ExploreTopic } from '../types/explore'
 
@@ -55,8 +62,15 @@ const DISCUSSABLE_KINDS: ReadonlySet<string> = new Set(['ordinance', 'resolution
  */
 export const MAX_AGENDA_TOPICS = 8
 
-/** createPostSchema caps a post title at 200. */
-const MAX_SUGGESTED_TITLE = 200
+/**
+ * 🔴 BOTH strings below are destined for the title field, so both answer to
+ * createPostSchema's cap. `suggestedTitle` goes there when a member picks this
+ * topic in the composer; `question` goes there when they pick it from
+ * QuestionPicker, whose label is "Pick a question from Empowered.vote as your
+ * title". The second route is easy to miss — it reads like body copy and it is
+ * not.
+ */
+const MAX_SUGGESTED_TITLE = POST_TITLE_MAX
 
 /**
  * Our words about the shape of the thing, never about the thing. "On the
@@ -88,52 +102,18 @@ function sourceLabelFor(item: AgendaItem): string | undefined {
   return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
-/** Marks an elided reference. One UTF-16 unit, so it costs one of the 200. */
-const ELLIPSIS = '…'
-
 /**
- * Cut `text` to at most `max` characters, on a word boundary, ending in an
- * ellipsis.
+ * A sentence built around the reference, cut to the title cap if it has to be.
  *
- * 🔴 The ellipsis is the load-bearing half, not the word boundary. A bare
- * `slice(0, 200)` ends wherever the 200th character falls — "…for the
- * maintenance and operation of the municipal stormwa" — and what it leaves
- * behind still reads like a reference the council printed. It is a citation
- * nobody can look up, which is this file's anti-goal wearing a different hat:
- * our shortening presented as the source's own words. Ending in "…" says out
- * loud that something was left off, and ending it at a word keeps the part
- * that survives quotable.
- *
- * A reference with no space inside the budget — one long hyphenated token —
- * has no boundary to find and is cut hard. It still ends in the ellipsis,
- * which is the part that matters. A reference that is nothing but punctuation
- * elides to the ellipsis alone, correctly: there was no word in it to keep,
- * and an empty-looking title the member retypes beats 199 hyphens.
+ * 🔴 The TEMPLATE is what gets dropped, never the reference. "What should
+ * happen with Ordinance 2026-2…" names nothing; a reference that survives and
+ * a sentence that does not is the right way round. Only when the bare
+ * reference ALSO exceeds the cap is the reference itself elided — a title
+ * longer than the schema allows is a post that cannot be created, and an
+ * elided one at least admits to being short.
  */
-function elide(text: string, max: number): string {
-  const trimmed = text.trim()
-  if (trimmed.length <= max) return trimmed
-  const head = trimmed.slice(0, max - ELLIPSIS.length)
-  const lastSpace = head.lastIndexOf(' ')
-  let cut = lastSpace > 0 ? head.slice(0, lastSpace) : head
-  // Never leave half a surrogate pair behind — only the no-boundary cut above
-  // can land inside one, and half a pair renders as U+FFFD.
-  if (/[\uD800-\uDBFF]$/.test(cut)) cut = cut.slice(0, -1)
-  return cut.replace(/[\s,.;:—–-]+$/u, '') + ELLIPSIS
-}
-
-/**
- * The suggested post title, trimmed to createPostSchema's 200.
- *
- * 🔴 The TEMPLATE is what gets cut, never the reference. "What should happen
- * with Ordinance 2026-2…" names nothing; a reference that survives and a
- * sentence that does not is the right way round. If even the reference alone
- * would exceed the cap it is elided — a post title longer than the schema
- * allows is a post that cannot be created, and an elided one at least admits
- * to being short.
- */
-function suggestedTitleFor(reference: string): string {
-  const full = `What should happen with ${reference}?`
+function sentenceAbout(template: (reference: string) => string, reference: string): string {
+  const full = template(reference)
   if (full.length <= MAX_SUGGESTED_TITLE) return full
   return elide(reference, MAX_SUGGESTED_TITLE)
 }
@@ -172,8 +152,9 @@ export function agendaItemsToTopics(
         title: item.titleRaw,
         // 🔴 Machine-written. summaryIsGenerated below is what makes that honest.
         summary: item.summaryPlain ?? '',
-        question: `What would you want to know about ${reference}?`,
-        suggestedTitle: suggestedTitleFor(reference),
+        // 🔴 Both of these end up in the title field — see MAX_SUGGESTED_TITLE.
+        question: sentenceAbout((r) => `What would you want to know about ${r}?`, reference),
+        suggestedTitle: sentenceAbout((r) => `What should happen with ${r}?`, reference),
         level,
         geoid,
         provenance: 'derived-from-agenda',

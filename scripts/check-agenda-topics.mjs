@@ -29,6 +29,10 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { agendaItemsToTopics, bodyNameFrom, MAX_AGENDA_TOPICS } from '../src/lib/agendaTopics.ts'
+// 🔴 The SHIPPED questionsFor, for the same reason: checks 18-19 are about what
+// the composer actually offers, and a transcription of it would prove nothing.
+import { questionsFor } from '../src/lib/writingGuidance.ts'
+import { POST_TITLE_MAX } from '../src/lib/postTitle.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const fixture = JSON.parse(readFileSync(join(HERE, 'fixtures', 'bloomington-agenda.json'), 'utf8'))
@@ -288,6 +292,96 @@ const UNBROKEN_REF = `Ordinance-2026-77-${'x'.repeat(400)}`
     `LONG_REF=${LONG_REF.length}, UNBROKEN_REF=${UNBROKEN_REF.length}, ` +
       `first space in UNBROKEN_REF at ${UNBROKEN_REF.indexOf(' ')}, wordy=${wordy.length}` +
       '\n          If a reference now fits, these inputs stopped testing anything — lengthen them.',
+  )
+
+  // 16 — `question` is the OTHER string that lands in the title field, and it is
+  // the one that looks like body copy. QuestionPicker's label in the composer is
+  // "Pick a question from Empowered.vote as your title", and picking one calls
+  // setValue('title', …). Same reference, same cap, same elision.
+  const q = derive('cap-question', LONG_REF).question
+  check(
+    16,
+    '🔴 the topic QUESTION is capped and elided too — QuestionPicker offers it as the title',
+    q.length <= POST_TITLE_MAX && q.endsWith('…') && q !== LONG_REF.slice(0, POST_TITLE_MAX),
+    `question [${q.length}] ${JSON.stringify(q.slice(-50))}`,
+  )
+}
+
+// ── 17, 18  What the composer actually offers, through the shipped assembler ──
+
+{
+  // 🔴 The reachable case, and it needs no invention: this is a REAL item off the
+  // frozen agenda with its legislationRef and stage removed — the shape
+  // sourceLabelFor() and referenceFor() both explicitly support, for an agenda
+  // that printed neither. questionsFor() then builds its fallback questions around
+  // the item's own titleRaw, which on this agenda runs to 240 characters.
+  const longest = qualifying.slice().sort((a, b) => b.titleRaw.length - a.titleRaw.length)[0]
+  const unlabelled = { ...longest, id: 'no-label', legislationRef: null, stage: null }
+  const topic = agendaItemsToTopics([unlabelled], meeting, 'city', GEOID)[0]
+  const offered = questionsFor(topic)
+  const over = offered.filter((o) => o.length > POST_TITLE_MAX)
+  const quoted = offered.find((o) => o.includes('“'))
+  const naive = `What would you like to understand better about “${longest.titleRaw}”?`
+
+  check(
+    17,
+    `every question the composer offers fits the title cap — ${offered.length} for an item with no printed reference`,
+    over.length === 0 && offered.length > 1,
+    over.map((o) => `[${o.length}] ${o.slice(0, 60)}…`).join('\n          ') ||
+      `offered only ${offered.length}`,
+  )
+
+  check(
+    18,
+    'CONTROL: that item really would overflow, and the elided question still closes its quote and stays a question',
+    naive.length > POST_TITLE_MAX &&
+      longest.titleRaw.length > POST_TITLE_MAX &&
+      topic.sourceLabel === undefined &&
+      quoted !== undefined &&
+      quoted.endsWith('”?') &&
+      quoted.includes('…'),
+    `titleRaw=${longest.titleRaw.length}, naive question=${naive.length}, ` +
+      `sourceLabel=${JSON.stringify(topic.sourceLabel ?? null)}\n          quoted: ${JSON.stringify(quoted ?? null)}` +
+      '\n          If titleRaw now fits, this fixture stopped exercising the fallback — pick a longer item.',
+  )
+}
+
+// ── 19  The backstop, which the two checks above cannot reach ────────────────
+
+{
+  // 17 is satisfied by the SUBJECT cap alone, so it would pass with the final
+  // pass in questionsFor() deleted. These two routes reach that pass and nothing
+  // else does: a hand-written question over the cap, and `namePlaceIn` making a
+  // question LONGER by putting a place name where "your city" was. Every
+  // question in src/mocks/topicQuestions.ts is 92 characters or less today —
+  // which is why this is synthetic rather than read from there.
+  const OVERLONG = `What do you make of ${'the proposal '.repeat(20)}as written?`
+  const STRETCHED = `What should your city do about ${'a '.repeat(80)}this?`
+  const PLACE = 'Winchester-on-the-Severn-and-Little-Magothy-River'.repeat(3)
+
+  const offered = questionsFor({
+    id: 'synthetic-backstop',
+    question: OVERLONG,
+    title: 'T',
+    level: 'city',
+    moreQuestions: [STRETCHED],
+    namedFor: PLACE,
+  })
+  const stretched = offered.find((o) => o.includes(PLACE.slice(0, 20)))
+  const over = offered.filter((o) => o.length > POST_TITLE_MAX)
+
+  check(
+    19,
+    'a question over the cap, and one that namePlaceIn LENGTHENS past it, are both elided — the backstop is live',
+    OVERLONG.length > POST_TITLE_MAX &&
+      STRETCHED.length < POST_TITLE_MAX &&
+      stretched !== undefined &&
+      over.length === 0 &&
+      offered.every((o) => o.length < POST_TITLE_MAX || o.endsWith('…')),
+    `input question=${OVERLONG.length}, input stretched=${STRETCHED.length} (must START under the cap), ` +
+      `named=${stretched?.length ?? 'NOT FOUND'}\n          over the cap: ` +
+      (over.map((o) => o.length).join(', ') || 'none') +
+      '\n          A question is allowed to grow when the place is named; it is not allowed to arrive over the cap.',
   )
 }
 
