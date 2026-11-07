@@ -899,6 +899,20 @@ export default function AppShell() {
   // is only rewritten when the viewer is on their own spaces: another city's
   // answer must not clobber what a member chose for theirs.
   const hasAnyOnScreenSlices = Object.keys(onScreenSlices).length > 0
+
+  // Open the home place on its most LOCAL tab, the way `enterPlace` opens a named one. The
+  // effect below only moves off a tab the place lacks, and every place has Federal, so a
+  // basic account's home place used to open on Federal rather than on its own city. Once per
+  // home place, so the viewer's own tab choices afterwards stand.
+  const landedHomePlaceKey = useRef<string | null>(null)
+  useEffect(() => {
+    if (!isOnHomePlace || !homePlace) return
+    const key = `${homePlace.state}/${homePlace.county ?? ''}/${homePlace.city ?? ''}`
+    if (landedHomePlaceKey.current === key) return
+    landedHomePlaceKey.current = key
+    const landing = mostLocalTab(placeSlices(homePlace))
+    if (landing) setActiveTab(landing)
+  }, [isOnHomePlace, homePlace])
   useEffect(() => {
     if (isLoading || !hasAnyOnScreenSlices || onScreenSlices[activeTab]) return
     const firstAvailable = ALL_TAB_KEYS.find((tab) => onScreenSlices[tab])
@@ -1920,7 +1934,12 @@ export default function AppShell() {
                                still gets sign-in and nothing else, which is right:
                                "Back to my spaces" would name spaces they have not
                                got. Their way out is the strip. */
-                            onReturnToOwnSlice={isVisitingPlace ? leavePlace : () =>
+                            /* 🔴 …and only for a viewer WITH spaces to go back to. A basic
+                               account on its own home place (and one visiting a place it
+                               named) holds none: the control would name spaces it has not
+                               got, and leaving the home place lands on the same place. Same
+                               rule as `offersReturnToOwnSpaces` in writeAccess.ts. */
+                            onReturnToOwnSlice={isVisitingPlace ? (hasOwnSpaces ? leavePlace : undefined) : () =>
                               handleViewSlice(activeTab, { id: activeSlice.id, siblingIndex: activeSlice.siblingIndex, memberCount: activeSlice.memberCount ?? 0 }, activeSlice.id)
                             }
                             onStartConversation={handleStartConversation}
