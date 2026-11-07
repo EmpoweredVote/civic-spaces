@@ -465,3 +465,16 @@ fails, say so and stop; do not swap in invented data. Data no API serves yet goe
 `src/mocks/` (or `devMockData.ts` for forum content) and is listed in the PR under "Data this needs
 from the API". Account and user data is off-limits. Use `@empoweredvote/ev-ui` components instead of
 copies. The `ev-designer` skill in EmpoweredVote/ev-ui has the index of public routes.
+
+## Render settings live in ev-infra
+
+This repo's Render services (`civic-spaces-frontend` and the suspended `civic-spaces-slice-assignment`) are managed by the Render Blueprint in
+[`EmpoweredVote/ev-infra`](https://github.com/EmpoweredVote/ev-infra) (`render.yaml`).
+
+- Build and start commands, rewrites, headers, custom domains, plans, cron
+  schedules and build filters change **only through a PR to ev-infra**. Render
+  syncs its `main` branch automatically.
+- A setting changed in the Render dashboard is **undone on the next sync**.
+- Env var **values** are the exception: set them in the Render dashboard. Add a
+  new variable's name to ev-infra (with `sync: false`) so the record stays complete.
+- Do not add a `render.yaml` to this repo. Render does not read it.
