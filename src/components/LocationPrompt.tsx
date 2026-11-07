@@ -46,7 +46,7 @@ export default function LocationPrompt() {
         </span>
 
         <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-          Add your address to join your civic spaces
+          Add your address to see your civic spaces
         </h2>
 
         <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">

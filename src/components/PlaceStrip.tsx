@@ -168,7 +168,11 @@ export function PlaceStrip({
   onOpenChange: (open: boolean) => void
   isAuthenticated: boolean
   onResolved: (place: ResolvedPlace) => void
-  onLeave: () => void
+  /**
+   * Absent on a viewer's OWN home place (a signed-in viewer with a place but no spaces —
+   * AppShell's `homePlace`). Leaving it would land nowhere new, so no control renders.
+   */
+  onLeave?: () => void
 }) {
   const setOpen = (next: boolean | ((v: boolean) => boolean)) =>
     onOpenChange(typeof next === 'function' ? next(open) : next)
@@ -209,6 +213,7 @@ export function PlaceStrip({
             >
               Change
             </button>
+            {onLeave && (
             <button
               type="button"
               onClick={onLeave}
@@ -221,6 +226,7 @@ export function PlaceStrip({
                   promise something an account is for. */}
               {isAuthenticated ? 'Back to my spaces' : 'Back to the welcome screen'}
             </button>
+            )}
           </div>
         </div>
       ) : homeSlice ? (

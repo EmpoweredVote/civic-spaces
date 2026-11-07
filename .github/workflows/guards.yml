@@ -76,6 +76,8 @@ jobs:
         run: npm run check:composition
       - name: check:place-resolve
         run: npm run check:place-resolve
+      - name: check:own-place
+        run: npm run check:own-place
       - name: check:agenda-topics
         run: npm run check:agenda-topics
 

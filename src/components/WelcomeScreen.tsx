@@ -213,14 +213,16 @@ export function WelcomeScreen({
               conversation without an account at all.
             </p>
             <p>
-              {/* 🔴 BOTH walls. "Make an account" is only the first: Civic Spaces
-                  needs the Connected tier, and Connected means an address has
-                  been set, because slice assignment runs off encrypted
-                  coordinates. Copy that stops at "make an account" strands
-                  exactly the person it was written for — and D-11 asks that the
-                  ceiling be known before anything is pressed, not after. */}
-              An Empowered Vote account with an address set opens your own spaces. You cannot post
-              here yet — that is what an account is for.
+              {/* 🔴 BOTH walls. "Make an account" is only the first: your own
+                  spaces need a CONNECTED account with an address set. An address
+                  alone is not Connected — since ev-accounts CA_0368 (2026-11-07) a
+                  basic account can hold one too, and it opens that account's own
+                  city read-only, never a space it can post in. Copy that stops at
+                  "make an account" strands exactly the person it was written for —
+                  and D-11 asks that the ceiling be known before anything is
+                  pressed, not after. */}
+              A Connected account with an address set opens your own spaces. You cannot post
+              here yet — posting needs a Connected account.
             </p>
           </Block>
 
@@ -259,8 +261,8 @@ export function WelcomeScreen({
           >
             Sign in
           </a>
-          . Your spaces appear once an address is set on your account — an account without one
-          opens none yet.
+          . With an address set on your account you see your own city, county and state here;
+          posting in them needs a Connected account.
         </p>
 
         <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400">

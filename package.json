@@ -15,6 +15,7 @@
     "check:anon-read": "node scripts/check-anon-read.mjs",
     "check:write-access": "node --experimental-strip-types scripts/check-write-access.mjs",
     "check:place-resolve": "node --experimental-strip-types scripts/check-place-resolve.mjs",
+    "check:own-place": "node --experimental-strip-types scripts/check-own-place.mjs",
     "check:place-entry": "node scripts/check-place-entry.mjs",
     "check:explore-rooms": "node scripts/check-explore-rooms.mjs",
     "shoot:banners": "node scripts/shoot-banners.mjs",

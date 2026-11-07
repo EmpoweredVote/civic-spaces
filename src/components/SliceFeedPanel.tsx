@@ -346,7 +346,7 @@ export default function SliceFeedPanel({
               <p className="max-w-sm text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                 {publicSliceExists
                   ? 'Anyone can read a civic space. Posting belongs to the people who live under that government.'
-                  : 'Civic spaces open as people arrive. An Empowered Vote account with an address set opens the ones where you live.'}
+                  : 'Civic spaces open as people arrive. A Connected account with an address set opens the ones where you live.'}
               </p>
             )}
           </div>
