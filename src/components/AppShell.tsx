@@ -32,6 +32,7 @@ import { PlaceStrip, HomeLocationCard } from './PlaceStrip'
 import { VolunteerHub } from './VolunteerHub'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
 import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId, placeForPublicPost } from '../lib/viewedPlace'
+import { useOwnPlace } from '../hooks/useOwnPlace'
 import type { ResolvedPlace } from '../lib/placeResolve'
 import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
 import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
@@ -658,20 +659,43 @@ export default function AppShell() {
    * new tab is a new visitor.
    */
   const [viewedPlace, setViewedPlace] = useState<ResolvedPlace | null>(() => readViewedPlace())
-  const isVisitingPlace = viewedPlace !== null
-  /**
-   * 🔴 The one substitution. Everything that PRESENTS a place reads this;
-   * everything that answers "what is MINE" keeps reading `slices`.
-   */
-  const onScreenSlices = useMemo(
-    () => (viewedPlace ? placeSlices(viewedPlace, slices) : slices),
-    [viewedPlace, slices],
-  )
   // 🔴 useEnsureSlices is disabled without a userId — confirmed, not assumed: its
   // effect returns on `if (!userId …)` before anything else. A retry loop on the
   // welcome screen would be invisible and permanent.
   const assignmentStatus = useEnsureSlices({ userId, hasAnySlices, isLoading })
   const isAssigning = assignmentStatus === 'assigning'
+
+  /**
+   * A signed-in viewer with a place on their account but no civic spaces — today, a basic
+   * account that has added an address (ev-accounts CA_0368). They are shown their OWN place,
+   * read-only, through the visiting path below, instead of an address prompt for an address
+   * they already gave. See lib/ownPlace.ts.
+   *
+   * 🔴 Enabled only in exactly the state that used to render <LocationPrompt />, so the
+   * lookup never runs for a member who holds spaces, and a viewer with no place on their
+   * account still gets the prompt — which is right for them.
+   */
+  const wouldPromptForAddress =
+    isAuthenticated && !!userId && !isLoading && !isAssigning && !hasJurisdiction && !slices['unified']
+  const { place: ownPlace, isLoading: ownPlaceLoading } = useOwnPlace(userId, wouldPromptForAddress)
+  const homePlace = wouldPromptForAddress ? ownPlace : null
+  /**
+   * What is on screen as a PLACE: the one the viewer named, else their own home place.
+   * `viewedPlace` stays the viewer's choice alone — it is what `sessionStorage` holds and what
+   * `leavePlace` clears — so leaving a named place lands back on the home place.
+   */
+  const shownPlace = viewedPlace ?? homePlace
+  const isVisitingPlace = shownPlace !== null
+  /** On their own home place rather than one they named: there is nowhere to "go back" to. */
+  const isOnHomePlace = viewedPlace === null && homePlace !== null
+  /**
+   * 🔴 The one substitution. Everything that PRESENTS a place reads this;
+   * everything that answers "what is MINE" keeps reading `slices`.
+   */
+  const onScreenSlices = useMemo(
+    () => (shownPlace ? placeSlices(shownPlace, slices) : slices),
+    [shownPlace, slices],
+  )
   const { data: isModerator } = useIsModerator(userId)
   /**
    * 🔴 AUDIT — "on screen" is not "mine", and this is the pair that resolves it.
@@ -1624,7 +1648,7 @@ export default function AppShell() {
         {/* The member-state screens all stand down while a place is on screen:
             the place is what the viewer asked for, and "Loading your slices…"
             above another city's banner describes nothing they can see. */}
-        {isAuthenticated && isLoading && !isVisitingPlace && (
+        {isAuthenticated && (isLoading || (wouldPromptForAddress && ownPlaceLoading)) && !isVisitingPlace && (
           <div className="flex flex-1 items-center justify-center text-gray-500 text-sm">
             Loading your slices&hellip;
           </div>
@@ -1636,7 +1660,9 @@ export default function AppShell() {
           </div>
         )}
 
-        {isAuthenticated && !isLoading && !isAssigning && !hasJurisdiction && !slices['unified'] && !isVisitingPlace && (
+        {/* Only a viewer with no place on their account reaches this now: one with a place
+            is shown it through `homePlace`, which makes `isVisitingPlace` true. */}
+        {wouldPromptForAddress && !ownPlaceLoading && !isVisitingPlace && (
           <LocationPrompt />
         )}
 
@@ -1715,7 +1741,7 @@ export default function AppShell() {
                     onOpenChange={setPlacePickerOpen}
                     isAuthenticated={isAuthenticated}
                     onResolved={enterPlace}
-                    onLeave={leavePlace}
+                    onLeave={isOnHomePlace ? undefined : leavePlace}
                   />
                 )}
 
@@ -2067,7 +2093,7 @@ export default function AppShell() {
                                 its conversations are visible to the people who belong to it.
                               </p>
                               <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                An Empowered Vote account with an address set opens the civic spaces
+                                A Connected account with an address set opens the civic spaces
                                 where you live, and you can be the first voice in them.
                               </p>
                             </div>
