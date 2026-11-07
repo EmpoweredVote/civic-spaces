@@ -118,6 +118,16 @@ branch-protection setting on `main`. Since 2026-11-05 it lists **`build`, `Guard
 `gh api repos/EmpoweredVote/civic-spaces/branches/main/protection`. `enforce_admins` is `false`,
 so an admin merges past all of it — which is how #139 landed, self-approval being impossible.
 
+🔴 **None of it runs on a direct push to `main`.** Every workflow that gates a PR —
+`guards.yml` and `build-check.yml` — triggers on `pull_request` only; neither has a `push`
+or `workflow_dispatch` trigger. So a commit pushed straight to `main` skips review AND all
+seven guards, and deploys to production ~3 minutes later. `enforce_admins: false` means the
+push is accepted: the remote prints `- 3 of 3 required status checks are expected` and takes
+it anyway, which is the only warning you get and reads like noise. This happened on
+2026-11-05 — `gh pr merge --delete-branch` leaves you checked out on `main`, and the next
+commit went there. Check `git branch --show-current` before `git commit`, not before the
+push; by push time the commit exists and undoing it means force-pushing a shared branch.
+
 `Guards (browser)` was promoted from advisory on 2026-11-05, after #133. The case was that
 #133 deleted the `<PlaceStrip>` mount with `tsc -b` and `build` both green, and nothing
 required could see it; `check:place-entry` found it by hand days later. Measured before the
