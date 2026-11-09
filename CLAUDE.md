@@ -178,7 +178,8 @@ the `Guards` jobs run on every PR but are not yet required (see above).
 per ev-cto decision 0018 and is **canonical at `ev-accounts/backend/src/civic_spaces/`**,
 endpoint `POST /api/civic-spaces/assign`. Any change to slice-assignment behaviour goes there.
 The old standalone copy (`services/slice-assignment`) was deleted on 2026-10-26; it is in git
-history if you need to read it.
+history if you need to read it. Its Render service, `civic-spaces-slice-assignment`, left the
+Blueprint in ev-infra#4 (2026-11-09).
 
 **The frontend half stays active.** `src/lib/sliceAssignment.ts` builds
 `${VITE_SLICE_ASSIGNMENT_URL}/assign`; production points that env var at the engine base
@@ -478,7 +479,7 @@ copies. The `ev-designer` skill in EmpoweredVote/ev-ui has the index of public r
 
 ## Render settings live in ev-infra
 
-This repo's Render services (`civic-spaces-frontend` and the suspended `civic-spaces-slice-assignment`) are managed by the Render Blueprint in
+This repo's Render service (`civic-spaces-frontend`) is managed by the Render Blueprint in
 [`EmpoweredVote/ev-infra`](https://github.com/EmpoweredVote/ev-infra) (`render.yaml`).
 
 - Build and start commands, rewrites, headers, custom domains, plans, cron
