@@ -35,6 +35,19 @@ export function getProductUpdates() {
   return productUpdatesResponse
 }
 
+/**
+ * The topics a new conversation at this level can be about — the composer's optional
+ * topic picker. The level's generic topics, plus Imagine's and Nearby's on City and
+ * County where those modules live. Agenda topics are left out: they come and go with
+ * the meeting calendar, and they open from Explore with their own context.
+ */
+export function getTopicOptions(sliceType: string): ExploreTopic[] {
+  const level = levelFor(sliceType)
+  if (!level) return []
+  const local = level === 'city' || level === 'county' ? [...IMAGINE_TOPICS, ...ADVENTURE_TOPICS] : []
+  return [...GENERIC_TOPICS[level], ...local]
+}
+
 /** The five topics the Imagine module owns and can always open. */
 export function getImagineTopics(): ExploreTopic[] {
   return IMAGINE_TOPICS

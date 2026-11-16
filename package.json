@@ -15,6 +15,7 @@
     "check:anon-read": "node scripts/check-anon-read.mjs",
     "check:write-access": "node --experimental-strip-types scripts/check-write-access.mjs",
     "check:place-resolve": "node --experimental-strip-types scripts/check-place-resolve.mjs",
+    "check:own-place": "node --experimental-strip-types scripts/check-own-place.mjs",
     "check:place-entry": "node scripts/check-place-entry.mjs",
     "check:explore-rooms": "node scripts/check-explore-rooms.mjs",
     "shoot:banners": "node scripts/shoot-banners.mjs",
@@ -29,9 +30,9 @@
     "@empoweredvote/ev-ui": "^0.16.0",
     "@hookform/resolvers": "^5.2.2",
     "@supabase/supabase-js": "^2.100.1",
-    "@tailwindcss/vite": "^4.2.2",
+    "@tailwindcss/vite": "^4.3.5",
     "@tanstack/react-query": "^5.95.2",
-    "@vitejs/plugin-react": "^5.2.0",
+    "@vitejs/plugin-react": "^6.3.0",
     "date-fns": "^4.1.0",
     "motion": "^11.18.2",
     "react": "^19.2.4",
@@ -49,6 +50,6 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "typescript": "^5.7.3",
-    "vite": "^6.2.4"
+    "vite": "^8.3.7"
   }
 }

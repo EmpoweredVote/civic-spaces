@@ -9,7 +9,7 @@ import { useEnsureSlices } from '../hooks/useEnsureSlices'
 import { useNotificationRouting } from '../hooks/useNotificationRouting'
 import { useIsModerator } from '../hooks/useModQueue'
 import { useHeroBanner } from '../hooks/useHeroBanner'
-import { useJurisdictionName } from '../hooks/useJurisdictionName'
+import { useJurisdictionName, useSliceNavLabel } from '../hooks/useJurisdictionName'
 import { useSiblingSlices, type SiblingSlice } from '../hooks/useSiblingSlices'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import { usePlaceRepresentatives } from '../hooks/usePlaceRepresentatives'
@@ -22,16 +22,17 @@ import { useUpcomingMeetings } from '../hooks/useUpcomingMeetings'
 import { UpcomingEventsWidget } from './widgets/UpcomingEventsWidget'
 import { forecastUrlFor } from '../lib/forecastLink'
 import { stateAbbrevFromGeoid } from '../lib/stateAbbrev'
-import { geoidToDisplayName } from '../lib/geoidToWiki'
 import { usePopulation } from '../hooks/usePopulation'
 import { useCurrentWeather } from '../hooks/useCurrentWeather'
 import { useTheme } from '../hooks/useTheme'
 import SliceTabBar from './SliceTabBar'
 import LocationPrompt from './LocationPrompt'
 import { WelcomeScreen } from './WelcomeScreen'
-import { PlaceStrip } from './PlaceStrip'
+import { PlaceStrip, HomeLocationCard } from './PlaceStrip'
+import { VolunteerHub } from './VolunteerHub'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
 import { readViewedPlace, writeViewedPlace, placeSentinelId, isPlaceSentinelId, placeForPublicPost } from '../lib/viewedPlace'
+import { useOwnPlace } from '../hooks/useOwnPlace'
 import type { ResolvedPlace } from '../lib/placeResolve'
 import SliceFeedPanel, { type FeedPanelHandle } from './SliceFeedPanel'
 import { FeedTabs, FeedSearch, PostButton, ForumViewTabs, FORUM_VIEW_PANEL_ID, type SortMode, type ForumView } from './FeedTabs'
@@ -40,13 +41,12 @@ import { WhatsNewCard } from './explore/WhatsNewCard'
 import { readDrafts, writeDraft, writeResume, type ExploreDraft } from './explore/exploreStorage'
 import { canPostDraft, parseDraftKey, racesAreaFor, type CompassLevelFlags } from '../lib/exploreComposition'
 import { whyNoWrite, canReadConversationsIn, placeKey, isSameJurisdiction, type ViewedSlice, type NoWriteReason } from '../lib/writeAccess'
-import { AboutWidget, type AboutFact } from './widgets/AboutWidget'
 import { HeroBanner } from './HeroBanner'
 import FriendsList from './FriendsList'
 import MemberDirectory from './MemberDirectory'
 import NotificationBell from './NotificationBell'
 import ModeratorQueue from './ModeratorQueue'
-import { Sidebar, LocationCard } from './Sidebar'
+import { Sidebar } from './Sidebar'
 import { SidebarMobile } from './SidebarMobile'
 import NavSidebar from './NavSidebar'
 import { PanelToggle, usePersistedCollapse } from './PanelToggle'
@@ -55,6 +55,8 @@ import { ProfileMenu } from './ProfileMenu'
 import { SliceSelector } from './SliceSelector'
 import { CivicSpacesMark } from './CivicSpacesMark'
 import type { TabKey, SliceType, SliceInfo } from '../types/database'
+import type { ExploreTopic } from '../types/explore'
+import type { ComponentProps } from 'react'
 
 /**
  * The location banner for the active slice: hero image, name, member counts, and the
@@ -193,25 +195,22 @@ function ActiveFeedSearch({
 }
 
 /**
- * "Showing content for Asheville, NC". The member's most local slice, not the active
- * tab: it names where their spaces come from, which is what "Change" changes.
- */
-function ActiveLocationCard({ slice, fallbackName }: { slice: SliceInfo; fallbackName: string }) {
-  const name = useJurisdictionName(slice, fallbackName)
-  const stateName = geoidToDisplayName('state', slice.geoid.slice(0, 2))
-  const abbrev = stateAbbrevFromGeoid(slice.geoid)
-  const resolved = name !== fallbackName
-  const label = slice.sliceType === 'state' || !resolved
-    ? (stateName ?? name)
-    : abbrev ? `${name}, ${abbrev}` : name
-  return <LocationCard label={label} />
-}
-
-/**
  * Upcoming events for the active tab: that area's elections, plus — on a city tab —
  * the city's scheduled public meetings. Both queries are shared with (or as cheap as)
  * the banner's, and this renders once, for the active tab only.
  */
+/**
+ * A forum panel with its place named, for the composer ("Posting to Asheville") and the
+ * thread ("Conversation in Asheville"). The lookup runs once per tab here, the same
+ * per-row shape NavSidebar's GeoNavItem uses — never inside the panel, which is
+ * mounted six times. null while the name is still the generic tab label.
+ */
+function NamedFeedPanel({ slice, ...props }: { slice: SliceInfo } & ComponentProps<typeof SliceFeedPanel>) {
+  const fallback = TAB_LABELS[slice.sliceType]
+  const name = useSliceNavLabel(slice, fallback)
+  return <SliceFeedPanel {...props} sliceType={slice.sliceType} placeName={name !== fallback ? name : null} />
+}
+
 function ActiveEventsWidget({
   slice,
   fallbackName,
@@ -237,38 +236,6 @@ function ActiveEventsWidget({
       isLoading={electionsLoading || meetingsLoading}
     />
   )
-}
-
-/**
- * "About {place}" — only facts with a real source: 2020 Census population, and the
- * member's own county and state slices for the parent jurisdictions. No founding year
- * or elevation: nothing in the platform carries them.
- */
-function ActiveAboutWidget({
-  slice,
-  fallbackName,
-  countySlice,
-}: {
-  slice: SliceInfo
-  fallbackName: string
-  countySlice: SliceInfo | undefined
-}) {
-  const name = useJurisdictionName(slice, fallbackName)
-  const population = usePopulation(slice.sliceType, slice.geoid)
-  // Called unconditionally (rules of hooks); only used on a city tab.
-  const countyName = useJurisdictionName(countySlice ?? slice, 'County')
-  if (slice.sliceType === 'unified' || slice.sliceType === 'volunteer') return null
-
-  const facts: AboutFact[] = []
-  if (population !== undefined) facts.push({ label: 'Population', value: population.toLocaleString() })
-  if (slice.sliceType === 'city' && countySlice && countyName !== 'County') {
-    facts.push({ label: 'County', value: countyName.replace(/ County$/, '') })
-  }
-  if (slice.sliceType === 'city' || slice.sliceType === 'county') {
-    const stateName = geoidToDisplayName('state', slice.geoid.slice(0, 2))
-    if (stateName) facts.push({ label: 'State', value: stateName })
-  }
-  return <AboutWidget placeName={name} facts={facts} />
 }
 
 /**
@@ -407,7 +374,7 @@ function ActiveExplore({
   viewingSliceIndex: number | undefined
   /** Absent while visiting a place: there is no own shard to return to. 17-05 adds "Back to my spaces". */
   onReturnToOwnSlice?: () => void
-  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null) => void
+  onStartConversation: (key: string, draft: ExploreDraft, destinationName: string | null, topic?: ExploreTopic) => void
   onScrollTop: () => void
   onGoToView: (view: ForumView) => void
   /** False while the right sidebar is collapsed, so "What's new" shows inline instead. */
@@ -623,7 +590,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   state: 'State',
   federal: 'Federal',
   unified: 'Unified',
-  volunteer: 'Volunteer',
+  volunteer: 'Volunteer team',
 }
 
 const ALL_TAB_KEYS: TabKey[] = ['city', 'county', 'state', 'federal', 'unified', 'volunteer']
@@ -692,20 +659,43 @@ export default function AppShell() {
    * new tab is a new visitor.
    */
   const [viewedPlace, setViewedPlace] = useState<ResolvedPlace | null>(() => readViewedPlace())
-  const isVisitingPlace = viewedPlace !== null
-  /**
-   * 🔴 The one substitution. Everything that PRESENTS a place reads this;
-   * everything that answers "what is MINE" keeps reading `slices`.
-   */
-  const onScreenSlices = useMemo(
-    () => (viewedPlace ? placeSlices(viewedPlace, slices) : slices),
-    [viewedPlace, slices],
-  )
   // 🔴 useEnsureSlices is disabled without a userId — confirmed, not assumed: its
   // effect returns on `if (!userId …)` before anything else. A retry loop on the
   // welcome screen would be invisible and permanent.
   const assignmentStatus = useEnsureSlices({ userId, hasAnySlices, isLoading })
   const isAssigning = assignmentStatus === 'assigning'
+
+  /**
+   * A signed-in viewer with a place on their account but no civic spaces — today, a basic
+   * account that has added an address (ev-accounts CA_0368). They are shown their OWN place,
+   * read-only, through the visiting path below, instead of an address prompt for an address
+   * they already gave. See lib/ownPlace.ts.
+   *
+   * 🔴 Enabled only in exactly the state that used to render <LocationPrompt />, so the
+   * lookup never runs for a member who holds spaces, and a viewer with no place on their
+   * account still gets the prompt — which is right for them.
+   */
+  const wouldPromptForAddress =
+    isAuthenticated && !!userId && !isLoading && !isAssigning && !hasJurisdiction && !slices['unified']
+  const { place: ownPlace, isLoading: ownPlaceLoading } = useOwnPlace(userId, wouldPromptForAddress)
+  const homePlace = wouldPromptForAddress ? ownPlace : null
+  /**
+   * What is on screen as a PLACE: the one the viewer named, else their own home place.
+   * `viewedPlace` stays the viewer's choice alone — it is what `sessionStorage` holds and what
+   * `leavePlace` clears — so leaving a named place lands back on the home place.
+   */
+  const shownPlace = viewedPlace ?? homePlace
+  const isVisitingPlace = shownPlace !== null
+  /** On their own home place rather than one they named: there is nowhere to "go back" to. */
+  const isOnHomePlace = viewedPlace === null && homePlace !== null
+  /**
+   * 🔴 The one substitution. Everything that PRESENTS a place reads this;
+   * everything that answers "what is MINE" keeps reading `slices`.
+   */
+  const onScreenSlices = useMemo(
+    () => (shownPlace ? placeSlices(shownPlace, slices) : slices),
+    [shownPlace, slices],
+  )
   const { data: isModerator } = useIsModerator(userId)
   /**
    * 🔴 AUDIT — "on screen" is not "mine", and this is the pair that resolves it.
@@ -892,6 +882,9 @@ export default function AppShell() {
   const contentGridCols = showSidebar
     ? 'grid-cols-1 md:grid-cols-[minmax(0,1fr)_clamp(17rem,26%,20rem)]'
     : 'grid-cols-1'
+  // The place picker under the banner. Lifted here because its Change lives in two
+  // places: PlaceStrip below md, and the tab bar beside the sidebar toggle from md.
+  const [placePickerOpen, setPlacePickerOpen] = useState(false)
 
   // Keep the active tab on a slice the member actually has.
   //
@@ -906,6 +899,20 @@ export default function AppShell() {
   // is only rewritten when the viewer is on their own spaces: another city's
   // answer must not clobber what a member chose for theirs.
   const hasAnyOnScreenSlices = Object.keys(onScreenSlices).length > 0
+
+  // Open the home place on its most LOCAL tab, the way `enterPlace` opens a named one. The
+  // effect below only moves off a tab the place lacks, and every place has Federal, so a
+  // basic account's home place used to open on Federal rather than on its own city. Once per
+  // home place, so the viewer's own tab choices afterwards stand.
+  const landedHomePlaceKey = useRef<string | null>(null)
+  useEffect(() => {
+    if (!isOnHomePlace || !homePlace) return
+    const key = `${homePlace.state}/${homePlace.county ?? ''}/${homePlace.city ?? ''}`
+    if (landedHomePlaceKey.current === key) return
+    landedHomePlaceKey.current = key
+    const landing = mostLocalTab(placeSlices(homePlace))
+    if (landing) setActiveTab(landing)
+  }, [isOnHomePlace, homePlace])
   useEffect(() => {
     if (isLoading || !hasAnyOnScreenSlices || onScreenSlices[activeTab]) return
     const firstAvailable = ALL_TAB_KEYS.find((tab) => onScreenSlices[tab])
@@ -1377,7 +1384,7 @@ export default function AppShell() {
    * A signed-out visitor is sent through the real sign-in; ExploreView replays this
    * after they return, from a resume marker carrying the whole key.
    */
-  const handleStartConversation = useCallback((key: string, draft: ExploreDraft, destinationName: string | null) => {
+  const handleStartConversation = useCallback((key: string, draft: ExploreDraft, _destinationName: string | null, topic?: ExploreTopic) => {
     /**
      * 🔴 Defence in depth, at the far end of all three composer paths. Explore must
      * not OFFER this while view-only (16-CONTEXT locked decision 4) and RLS would
@@ -1446,13 +1453,10 @@ export default function AppShell() {
     }
     setForumView('conversations')
     scrollToContentTop()
-    // The name Explore already resolved for this key's slice, so the note says
-    // "Bloomington, your City community" rather than just "your City community".
-    const place = destinationName && destinationName !== TAB_LABELS[tab] ? destinationName : null
     panelRefs.current[tab]?.current?.compose({
       title: draft.title,
       body: draft.body,
-      contextNote: `Posting to ${place ? `${place}, your` : 'your'} ${TAB_LABELS[tab]} community. Edit anything before you post.`,
+      topic,
       onPosted: () => writeDraft(key, null),
       onDraftChange: (values) => {
         const current = readDrafts()[key]
@@ -1658,7 +1662,7 @@ export default function AppShell() {
         {/* The member-state screens all stand down while a place is on screen:
             the place is what the viewer asked for, and "Loading your slices…"
             above another city's banner describes nothing they can see. */}
-        {isAuthenticated && isLoading && !isVisitingPlace && (
+        {isAuthenticated && (isLoading || (wouldPromptForAddress && ownPlaceLoading)) && !isVisitingPlace && (
           <div className="flex flex-1 items-center justify-center text-gray-500 text-sm">
             Loading your slices&hellip;
           </div>
@@ -1670,7 +1674,9 @@ export default function AppShell() {
           </div>
         )}
 
-        {isAuthenticated && !isLoading && !isAssigning && !hasJurisdiction && !slices['unified'] && !isVisitingPlace && (
+        {/* Only a viewer with no place on their account reaches this now: one with a place
+            is shown it through `homePlace`, which makes `isVisitingPlace` true. */}
+        {wouldPromptForAddress && !ownPlaceLoading && !isVisitingPlace && (
           <LocationPrompt />
         )}
 
@@ -1728,14 +1734,28 @@ export default function AppShell() {
                     The banner names where you are; this changes it; SliceSelector
                     nests below as "which shard of it". It is absent on Volunteer,
                     which is correct — Volunteer is not a place. See
-                    PlaceStrip.tsx for the three positions this is not in. */}
+                    PlaceStrip.tsx for the three positions this is not in.
+
+                    🔴 THIS MOUNT IS THE ONLY WAY A SIGNED-IN MEMBER REACHES
+                    `enterPlace`. The welcome screen's picker is the other entry
+                    point and it renders only for `!isAuthenticated`, so deleting
+                    this mount does not merely remove a control — it removes the
+                    whole "look at another place" capability for every member,
+                    silently, while `tsc -b` and the build stay green. That is
+                    exactly what happened once already (PR #133, 2026-10-28), and
+                    `npm run check:place-entry` is what caught it. Removing the
+                    strip means giving members another door, not no door. */}
                 {hasExplore && (
                   <PlaceStrip
                     visitedSlice={visitedPlaceSlice}
                     visitedFallback={visitedPlaceSlice ? TAB_LABELS[visitedPlaceSlice.sliceType] : ''}
+                    homeSlice={homeSlice}
+                    homeFallback={homeSlice ? TAB_LABELS[homeSlice.sliceType] : ''}
+                    open={placePickerOpen}
+                    onOpenChange={setPlacePickerOpen}
                     isAuthenticated={isAuthenticated}
                     onResolved={enterPlace}
-                    onLeave={leavePlace}
+                    onLeave={isOnHomePlace ? undefined : leavePlace}
                   />
                 )}
 
@@ -1827,8 +1847,27 @@ export default function AppShell() {
                     {/* The right sidebar's toggle sits at the bar's far end, above the
                         column it controls, and stays put whether the column is open or
                         not. md up only: below that SidebarMobile collapses on its own. */}
+                    {/* "Showing content for Asheville, NC · Change", side by side with
+                        the sidebar toggle. md up; phones get it under the banner in
+                        PlaceStrip. Change opens the picker there. Absent while
+                        visiting — the amber strip says where you are then. */}
+                    {hasExplore && homeSlice && (
+                      // Card + toggle together take the sidebar track's own width rule,
+                      // so their left edge lines up with the boxes below: the track,
+                      // less the toggle (2rem) and the bar's gap (0.5rem). The bar spans
+                      // the same container as the content grid, so 26% resolves alike.
+                      <div className={`hidden md:block flex-shrink-0 md:w-[calc(clamp(17rem,26%,20rem)-2.5rem)] ${effectiveView === 'conversations' ? '' : 'md:ml-auto'}`}>
+                        <HomeLocationCard
+                          slice={homeSlice}
+                          fallback={TAB_LABELS[homeSlice.sliceType]}
+                          expanded={placePickerOpen}
+                          onChange={() => setPlacePickerOpen((v) => !v)}
+                          compact
+                        />
+                      </div>
+                    )}
                     {activeTab !== 'volunteer' && (
-                      <div className="hidden md:block md:ml-auto flex-shrink-0">
+                      <div className={`hidden md:block ${hasExplore && homeSlice ? '' : 'md:ml-auto'} flex-shrink-0`}>
                         <PanelToggle side="right" collapsed={sidebarCollapsed} onToggle={toggleSidebarCollapsed} label="sidebar" />
                       </div>
                     )}
@@ -1841,14 +1880,8 @@ export default function AppShell() {
                     <SidebarMobile
                       repsData={repsData}
                       activeTab={activeTab}
-                      location={homeSlice && (
-                        <ActiveLocationCard slice={homeSlice} fallbackName={TAB_LABELS[homeSlice.sliceType]} />
-                      )}
                       events={activeSlice && (
                         <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={onScreenSlices['state']} userId={userId} />
-                      )}
-                      about={activeSlice && (
-                        <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={onScreenSlices['county']} />
                       )}
                     />
 
@@ -1901,7 +1934,12 @@ export default function AppShell() {
                                still gets sign-in and nothing else, which is right:
                                "Back to my spaces" would name spaces they have not
                                got. Their way out is the strip. */
-                            onReturnToOwnSlice={isVisitingPlace ? leavePlace : () =>
+                            /* 🔴 …and only for a viewer WITH spaces to go back to. A basic
+                               account on its own home place (and one visiting a place it
+                               named) holds none: the control would name spaces it has not
+                               got, and leaving the home place lands on the same place. Same
+                               rule as `offersReturnToOwnSpaces` in writeAccess.ts. */
+                            onReturnToOwnSlice={isVisitingPlace ? (hasOwnSpaces ? leavePlace : undefined) : () =>
                               handleViewSlice(activeTab, { id: activeSlice.id, siblingIndex: activeSlice.siblingIndex, memberCount: activeSlice.memberCount ?? 0 }, activeSlice.id)
                             }
                             onStartConversation={handleStartConversation}
@@ -2074,7 +2112,7 @@ export default function AppShell() {
                                 its conversations are visible to the people who belong to it.
                               </p>
                               <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                An Empowered Vote account with an address set opens the civic spaces
+                                A Connected account with an address set opens the civic spaces
                                 where you live, and you can be the first voice in them.
                               </p>
                             </div>
@@ -2104,7 +2142,8 @@ export default function AppShell() {
                       const mode = feedModes[tabKey]
                       return (
                         <div key={tabKey} className={isShown ? 'flex flex-col' : 'hidden'}>
-                          <SliceFeedPanel
+                          <NamedFeedPanel
+                            slice={slice}
                             sliceId={viewing?.id ?? slice.id}
                             isViewOnly={isViewOnly}
                             noWriteReason={noWriteReason}
@@ -2126,7 +2165,12 @@ export default function AppShell() {
 
                     {/* Volunteer feed — conditionally rendered for users with volunteer slice */}
                     {!isVisitingPlace && showVolunteerTab && slices['volunteer'] && (
-                      <div className={activeTab === 'volunteer' ? 'flex flex-col' : 'hidden'}>
+                      <div className={activeTab === 'volunteer' ? 'flex flex-col gap-3' : 'hidden'}>
+                        {/* The team's quick starts. Hidden while a thread is open, like
+                            the feed itself, so a conversation gets the whole column. */}
+                        {!activePostIds['volunteer'] && (
+                          <VolunteerHub onCompose={(request) => panelRefs.current['volunteer']?.current?.compose(request)} />
+                        )}
                         <SliceFeedPanel
                           sliceId={slices['volunteer'].id}
                           activePostId={activePostIds['volunteer']}
@@ -2149,14 +2193,8 @@ export default function AppShell() {
                     <Sidebar
                       repsData={repsData}
                       activeTab={activeTab}
-                      location={homeSlice && (
-                        <ActiveLocationCard slice={homeSlice} fallbackName={TAB_LABELS[homeSlice.sliceType]} />
-                      )}
                       events={activeSlice && (
                         <ActiveEventsWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} stateSlice={onScreenSlices['state']} userId={userId} />
-                      )}
-                      about={activeSlice && (
-                        <ActiveAboutWidget slice={activeSlice} fallbackName={TAB_LABELS[activeTab]} countySlice={onScreenSlices['county']} />
                       )}
                       whatsNew={effectiveView === 'explore' && <WhatsNewCard onGoTo={handleForumViewChange} />}
                     />

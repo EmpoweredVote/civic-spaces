@@ -127,31 +127,48 @@ const ROOMS = [
   },
 
   /**
-   * ── The nine reserved rooms ────────────────────────────────────────────────
+   * ── The nine reserved rooms — OFF THE PAGE since 2026-10-28 ────────────────
    *
-   * `requiredOn` is DETERMINISTIC for every one of these: each is listed in
+   * `requiredOn` WAS deterministic for every one of these: each is listed in
    * DEFAULT_MODULES for those levels and its registry entry is `available: () =>
-   * false`, so no API, no calendar and no election cycle can take it off the
-   * page. Assertion 18 may therefore demand it outright rather than skip.
+   * false`, so no API, no calendar and no election cycle could take it off the
+   * page, and assertion 18 demanded it outright rather than skipping.
+   *
+   * 🔴 The grouped "What this space becomes" card that DREW them was removed
+   * from `ExploreView` (`if (mod.reserved) return null`), so not one of them
+   * reaches the DOM on any level now. `DEFAULT_MODULES` and `ReservedRoomGroup`
+   * are both untouched, so the declarations below are still true of the
+   * composition — they are just no longer true of the page.
+   *
+   * 🔴 Their `requiredOn` is therefore emptied into `wouldRequireOn` rather than
+   * DELETED. Deleting them would have turned this into a green run that silently
+   * covers nine fewer rooms, which is precisely the vacuous shape assertion 18
+   * exists to catch — a guard quietly measuring less is worse than one going red.
+   *
+   * The DECLARATIONS are enforced by `check:composition` 95-97 since 2026-11-05
+   * (pure, required on main), which is where a composition property belongs.
+   * Assertion 21 below holds the half only a browser can answer: that these really
+   * are off the page. Put the card back and 21 goes red, which is the prompt to
+   * move these to `requiredOn` unchanged.
    */
   { id: 'ballot-measures', sel: roomSel('ballot-measures'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county', 'state'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state'] },
   { id: 'federal-votes', sel: roomSel('federal-votes'), controls: 0, consequence: null,
-    requiredOn: ['federal'] },
+    requiredOn: [], wouldRequireOn: ['federal'] },
   { id: 'debate-schedule', sel: roomSel('debate-schedule'), controls: 0, consequence: null,
-    requiredOn: ['federal'] },
+    requiredOn: [], wouldRequireOn: ['federal'] },
   { id: 'legislator-votes', sel: roomSel('legislator-votes'), controls: 0, consequence: null,
-    requiredOn: ['state'] },
+    requiredOn: [], wouldRequireOn: ['state'] },
   { id: 'symposiums', sel: roomSel('symposiums'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
   { id: 'civic-listening', sel: roomSel('civic-listening'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
   { id: 'common-grounds', sel: roomSel('common-grounds'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state', 'federal', 'unified'] },
   { id: 'focused-communities', sel: roomSel('focused-communities'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county'] },
   { id: 'slice-action-votes', sel: roomSel('slice-action-votes'), controls: 0, consequence: null,
-    requiredOn: ['city', 'city-bloomington', 'county', 'state', 'federal'] },
+    requiredOn: [], wouldRequireOn: ['city', 'city-bloomington', 'county', 'state', 'federal'] },
 
   /**
    * ── The four empty states of real modules ──────────────────────────────────
@@ -895,6 +912,43 @@ check(
       '\n            deterministic: a reserved room is in DEFAULT_MODULES and is never available, and' +
       '\n            Asheville has zero meetings. If one is missing, the registry or the composition' +
       '\n            dropped it, and the rest of this run was a green light over nothing.',
+  )
+
+  // 🔴 The other half of 18, and it is an ASSERTION now, not a SKIP.
+  //
+  // The nine reserved rooms left the page on 2026-10-28 when the grouped "What this
+  // space becomes" card was removed from ExploreView, taking 33 of the 35 pairs above
+  // with them. That was reported here as a SKIP naming all 33 — honest, but it parked
+  // real coverage in a message nobody is required to read.
+  //
+  // Those declarations were always a property of the COMPOSITION rather than of the
+  // page, so they moved to where they can be enforced: check:composition assertions
+  // 95-97, which are pure, run in under a second, and are REQUIRED on main. 27 pairs
+  // there against 33 here, because this run walks two city TABS (Asheville and
+  // Bloomington) and both map to level 'city'.
+  //
+  // What is left for this guard is the half only a browser can answer, and it is the
+  // half that keeps that handoff honest: the rooms really are off the page. Put the
+  // card back and this goes RED, which is the prompt to move wouldRequireOn to
+  // requiredOn and let 12-17 cover them again. Without it, restoring the card would
+  // quietly resume rendering nine rooms that nothing on this page checks.
+  const backOnPage = []
+  const offPageCount = ROOMS.reduce((a, spec) => a + (spec.wouldRequireOn?.length ?? 0), 0)
+  for (const spec of ROOMS) {
+    for (const want of spec.wouldRequireOn ?? []) {
+      if ((byLevel[want]?.rooms ?? []).some((r) => r.id === spec.id)) backOnPage.push(`${want}/${spec.id}`)
+    }
+  }
+  check(
+    21,
+    `the ${offPageCount} reserved (level, room) pairs are genuinely off the page — their declarations are check:composition 95-97`,
+    backOnPage.length === 0,
+    `back on the page: ${backOnPage.join(', ')}` +
+      '\n            A reserved room is rendering again. That is not a failure in itself — it is the' +
+      '\n            "What this space becomes" card returning — but assertions 12-17 are all "zero of' +
+      '\n            the bad thing" and would pass over these nine while proving nothing about them.' +
+      '\n            Move wouldRequireOn back to requiredOn on the rooms listed, in the same commit that' +
+      '\n            restores the card, and delete this assertion. The composition half stays either way.',
   )
 }
 

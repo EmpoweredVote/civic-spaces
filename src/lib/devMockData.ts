@@ -79,6 +79,9 @@ const DEV_PLACES = {
   // jurisdictionPayload.ts), not a failure. 37 and 37021 are the same two
   // entries Asheville already reads out of public/geo/37.json.
   arden:       { city: null, county: '37021', state: '37' },
+  // A place outside North Carolina with its own state name, so a label that is
+  // secretly hardcoded to NC is caught. Both geoids resolve in public/geo/06.json.
+  losangeles:  { city: '0644000', county: '06037', state: '06' },
 } as const
 
 export type DevPlaceKey = keyof typeof DEV_PLACES

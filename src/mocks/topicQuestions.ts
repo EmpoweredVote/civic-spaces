@@ -1,0 +1,216 @@
+// Stands in for: GET /api/civic-spaces/explore/topics/:id/questions — not yet served by the API
+//
+// The composer's "Pick a question to answer" list: five more questions per topic. The
+// topic's own `question` (src/mocks/civicSpacesExplore.ts) always comes first, so each
+// topic offers six.
+//
+// 🔴 Written by hand, the same for everyone — the UI must never imply they were generated.
+// Same rules as src/mocks/writingGuidance.ts: each asks for the writer's own experience or
+// view, none assumes an answer, and none states a fact about any place.
+import type { TopicId } from '../types/explore'
+
+export const TOPIC_MORE_QUESTIONS: Partial<Record<TopicId, string[]>> = {
+  'trees-shade': [
+    'Which streets or public spaces need more shade?',
+    'Where do you wait outside on hot days, and is there any shade there?',
+    'Which park or playground gets too hot to use in summer?',
+    'Who do you think feels the heat most where you live?',
+    'Is there a shady spot you love, and what makes it work?',
+  ],
+  'safer-crossings': [
+    'Is there a crossing you avoid, or plan your route around?',
+    'Which crossing feels hardest with kids, a stroller, or a mobility aid?',
+    'What would make a crossing near you feel safer — more time, lighting, signs, something else?',
+    'Where do drivers and people walking seem to misunderstand each other?',
+    'Which crossing works well, and what could others learn from it?',
+  ],
+  'public-spaces': [
+    'Which public space do you spend the most time in, and why?',
+    'Where do you pass through but never stop?',
+    'What is missing from public spaces near you — seats, shade, toilets, something to do?',
+    'Who do you see using public spaces near you, and who is missing?',
+    'What small change would make you stay a little longer somewhere?',
+  ],
+  'clean-streets': [
+    'Where does litter seem to come back again and again?',
+    'Is there a missing bin, or an overflowing one, you keep noticing?',
+    'When do streets near you look their worst — after events, weekends, collection days?',
+    'What do you think would help most: more bins, more pickups, or something else?',
+    'Is there a street that stays clean, and why do you think that is?',
+  ],
+  'your-idea': [
+    'What is one thing you would add to your street or block?',
+    'What would make it easier to meet your neighbors?',
+    'Is there an empty or unused space that could be put to better use?',
+    'What do you wish your neighborhood had that a nearby one does?',
+    'What small fix would make your daily routine a little easier?',
+  ],
+  'safer-walking': [
+    'Where does the sidewalk run out, or become hard to use?',
+    'Which part of your walk feels different after dark?',
+    'Is there a route you would walk if one thing about it changed?',
+    'Where do cars, bikes and people on foot seem to get in each other’s way?',
+    'What would help children walk to school more safely near you?',
+  ],
+  'park-usefulness': [
+    'What do you use your nearest park for most?',
+    'What stops you from using it more often?',
+    'Is there a group of people the park seems built for — or not built for?',
+    'What would make the park work better in summer, or in winter?',
+    'If the park could add one thing, what should it be?',
+  ],
+  'local-proposal': [
+    'Which part of a proposal would you like explained?',
+    'What would you want to know before forming a view on it?',
+    'Who do you think a proposal like this would affect most?',
+    'Where did you look to learn more, and what was hard to find?',
+    'What question would you ask at the meeting where it is decided?',
+  ],
+  'city-getting-around': [
+    'Which trip around the city takes longer than it should?',
+    'What stops you from taking the bus, cycling, or walking more often?',
+    'Where is parking, traffic, or a missing connection a problem for you?',
+    'How would you get around differently if one thing changed?',
+    'Who do you think has the hardest time getting around the city?',
+  ],
+  'city-housing-and-zoning': [
+    'What kinds of homes do you think the city needs more of?',
+    'Is there a place where new homes would fit well? Why there?',
+    'What do you want to keep the same as the city grows?',
+    'Has the cost of housing changed your plans, or a neighbor’s?',
+    'What would make you welcome new building near you?',
+  ],
+  'city-public-safety': [
+    'Where do you feel safest in the city, and why?',
+    'Is there a place you avoid, and what would change that?',
+    'What does safety mean to you — lighting, traffic, people around, something else?',
+    'Does where you live feel different at night than during the day?',
+    'What have you seen make a place feel safer?',
+  ],
+  'city-upkeep': [
+    'Which spot in the city keeps getting missed?',
+    'Is there a repair you have been waiting on for a long time?',
+    'Which public place looks well cared for, and what makes it so?',
+    'How do you report a problem today, and does it get fixed?',
+    'What would you fix first if you could fix one thing?',
+  ],
+  'city-growth-and-green': [
+    'Which open space would you most want protected?',
+    'Where could new building fit without losing what you value?',
+    'How do you use green space in the city today?',
+    'What should new development give back to the neighborhood around it?',
+    'How should the city decide between building and keeping land open?',
+  ],
+  'county-budget-priorities': [
+    'Which county service do you rely on most?',
+    'What would you fund first if the county had a little more?',
+    'What could wait, if money were tight?',
+    'Is there a service that works well and should be protected?',
+    'How would you like to hear about how the county spends its money?',
+  ],
+  'county-shared-services': [
+    'Which service would work better if the whole county ran it?',
+    'Which service should stay with your town?',
+    'Have you noticed a service change when you cross a town line?',
+    'What do you lose, or gain, when a service is run from farther away?',
+    'Where could towns in the county share more?',
+  ],
+  'county-outside-the-city': [
+    'What is different about daily life outside the city limits?',
+    'What service is harder to reach where you live?',
+    'What does the county get right about your area?',
+    'What would you want people in the city to understand about where you live?',
+    'How should the county balance the needs of towns and rural areas?',
+  ],
+  'county-getting-across': [
+    'Which trip across the county is harder than it should be?',
+    'How do people without a car get around the county?',
+    'Which road or route would you improve first?',
+    'Is there a place in the county you would visit more if it were easier to reach?',
+    'What would make getting to work, school, or care easier?',
+  ],
+  'state-housing-costs': [
+    'How do housing costs affect you or people you know?',
+    'What should the state do about housing, and what should it leave to cities?',
+    'Who do you think is being priced out where you live?',
+    'What kind of help with housing would make the biggest difference?',
+    'What would you not want the state to change about housing?',
+  ],
+  'state-school-funding': [
+    'What do you see schools near you needing most?',
+    'Should funding follow the student, the school, or the district?',
+    'How fair does school funding feel between different parts of the state?',
+    'What would you protect in school budgets, even when money is tight?',
+    'What would you want to know about how schools are funded?',
+  ],
+  'state-healthcare-access': [
+    'How far do you travel for the care you need?',
+    'Is cost, waiting time, or finding a provider the biggest barrier for you?',
+    'What would make care easier to get for people near you?',
+    'What should the state do about access to care, and what should it leave to others?',
+    'Has getting care become easier or harder for you recently?',
+  ],
+  'state-energy-mix': [
+    'What matters most to you about where your power comes from?',
+    'Which trade-offs would you accept, and which would you not?',
+    'How do energy costs affect you today?',
+    'Have you noticed new energy projects near you, and what do you think of them?',
+    'What should the state’s energy look like in twenty years?',
+  ],
+  'federal-role-abroad': [
+    'How do decisions abroad affect life where you live?',
+    'What should the United States ask of its allies?',
+    'When should the United States send aid, and when not?',
+    'What would you want leaders to weigh before getting involved somewhere?',
+    'Which kind of involvement abroad matters most to you — trade, aid, alliances, or defense?',
+  ],
+  'federal-social-security': [
+    'What does Social Security mean for you or your family?',
+    'What would you change about it, if anything?',
+    'How confident are you it will be there when you need it?',
+    'What would you want younger workers to understand about it?',
+    'How should the costs be shared between generations?',
+  ],
+  'federal-trade': [
+    'How does trade show up in jobs or prices where you live?',
+    'Have tariffs or trade deals affected you or your work?',
+    'Which industries near you depend on trade?',
+    'What would you want leaders to weigh in a trade deal?',
+    'Where should the United States buy American, even if it costs more?',
+  ],
+  'federal-elections': [
+    'What was your last experience of voting like?',
+    'What makes voting easier, or harder, where you live?',
+    'How do you decide which information about elections to trust?',
+    'What would you want every voter to know before an election?',
+    'What should happen when people disagree about an election result?',
+  ],
+  'unified-news-from-here': [
+    'What do people elsewhere most often get wrong about your place?',
+    'What would you want a visitor to understand first?',
+    'What is a local story you think deserves more attention?',
+    'What does your community do well that others could learn from?',
+    'What is changing where you live right now?',
+  ],
+  'unified-ai-everyday': [
+    'Has AI made something easier, harder, or both for you?',
+    'What worries you about AI where you live or work?',
+    'What would you want AI to help with, and what should it stay out of?',
+    'How should people be told when AI is involved in a decision about them?',
+    'Where have you seen AI used well?',
+  ],
+  'unified-getting-around': [
+    'What would you change about getting around, if you could change one thing?',
+    'What works well that other places could copy?',
+    'Who has the hardest time getting around where you live?',
+    'How has getting around changed where you live in recent years?',
+    'What would make you leave the car at home more often?',
+  ],
+  'unified-energy-future': [
+    'Which trade-offs matter most to you?',
+    'How do energy costs affect people where you live?',
+    'What changes have you already seen in how energy is made or used?',
+    'What would you want leaders to weigh in planning energy for the future?',
+    'What are you willing to change in your own life about energy?',
+  ],
+}

@@ -46,7 +46,7 @@ export default function LocationPrompt() {
         </span>
 
         <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-          Add your address to join your civic spaces
+          Add your address to see your civic spaces
         </h2>
 
         <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
@@ -58,7 +58,7 @@ export default function LocationPrompt() {
           href={LOCATION_SETTINGS_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-brand-btn px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
+          className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-brand-btn px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
         >
           Add your address
         </a>

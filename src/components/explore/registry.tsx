@@ -243,15 +243,12 @@ export const MODULE_REGISTRY: Record<ModuleId, ExploreModule> = {
   'coming-up': {
     available: (ctx) => !!ctx.meetings?.[0] || !!ctx.elections?.[0],
     Component: ComingUpModule,
-    // An empty calendar is a real answer and worth saying, so this one does NOT
-    // hide. Absent from the Unified composition entirely: it is not a place.
-    // 🔴 "here", not "for your area" — D-10. An emptyState is a static string
-    // with no ctx, so a place that is not the reader's cannot be branched on;
-    // the sentence is rewritten to be true of both instead, which it is.
-    emptyState: {
-      title: 'Coming up',
-      body: 'Nothing is on the public calendar here right now. Meetings and election dates appear here as they are published.',
-    },
+    // Hidden while the calendar is empty (design call, 2026-11-04): the sidebar's
+    // Upcoming events card already says "No upcoming meetings or elections on file",
+    // so a second card saying the same at the foot of Explore was repetition. The
+    // module still renders the moment a meeting or election date is published.
+    // Absent from the Unified composition entirely: it is not a place.
+    emptyState: 'hide',
   },
 
   agenda: {

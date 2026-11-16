@@ -67,6 +67,8 @@ import {
   isPublicSliceType,
   isSameJurisdiction,
   offersReturnToOwnSpaces,
+  SPLITTABLE_SLICE_TYPES,
+  isSplittableSliceType,
   placeKey,
   PUBLIC_SLICE_TYPES,
   replyClosedCopy,
@@ -930,6 +932,39 @@ check(
     `rows ${siblingWithoutSpaces.map(([n]) => n).join(', ')} reach sibling-shard with no spaces — ` +
       'ReadOnlyNotice would offer "Switch back" to someone with nowhere to go. Give it the predicate.',
   )
+}
+
+// ── 60–63: SPLITTABLE_SLICE_TYPES ────────────────────────────────────────────
+//
+// Which slice types divide when they fill (design §4.2). Volunteer does not: it
+// is not a place. It is role-gated through assignVolunteerIfEligible, membership
+// is revocable when the role goes away, and its population is bounded by who
+// holds the role — so there is no small town there to protect.
+
+{
+  check(60, 'the five splittable types are exactly city, county, state, federal, unified',
+    [...SPLITTABLE_SLICE_TYPES].sort().join(',') === 'city,county,federal,state,unified',
+    `got: ${[...SPLITTABLE_SLICE_TYPES].sort().join(',')}`)
+
+  check(61, 'volunteer does not split', !isSplittableSliceType('volunteer'),
+    'volunteer is role-gated and revocable — splitting it would divide a role, not a place')
+
+  check(62, 'a type added to the DB constraint but not to this list does not split',
+    !isSplittableSliceType('school-board'),
+    'the list is an allowlist; a denylist would split the next private type silently')
+
+  // 🔴 The one most likely to be deleted as pedantic, and the only one that
+  // catches the shortcut it exists for.
+  //
+  // SPLITTABLE_SLICE_TYPES and PUBLIC_SLICE_TYPES hold the same five strings
+  // today. They are not the same rule: one is a CAPACITY decision, the other a
+  // DISCLOSURE allowlist (D-28). Writing `export const SPLITTABLE_SLICE_TYPES =
+  // PUBLIC_SLICE_TYPES` would pass 60–62 and quietly tie them together, so that
+  // a future private slice type could not be split without being published, nor
+  // published without being split. Equal contents, separate identity.
+  check(63, 'the split list and the public list are SEPARATE constants, not aliases',
+    SPLITTABLE_SLICE_TYPES !== PUBLIC_SLICE_TYPES,
+    'one is assigned from the other — a capacity rule and a disclosure rule must not share an object')
 }
 
 // ── Result ───────────────────────────────────────────────────────────────────

@@ -22,12 +22,16 @@ if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KE
  * signed-out member's each-and-every query into a 401, which under React Query's
  * retry + refetch is a sustained burst against the engine (the launch-day
  * concern). So when the stored token is missing, malformed, or expired we drop
- * it and return '' — the client then sends no bearer (anon), exactly as it did
- * before a member ever signed in, instead of re-presenting a dead JWT.
+ * it and return '', instead of re-presenting a dead JWT.
  *
- * '' is the same value the original callback returned for the no-token case, so
- * anon behaviour is unchanged; this only stops the expired-token case from
- * hammering. useAuth owns the actual session lifecycle (re-login on 401).
+ * 🔴 '' DOES NOT MEAN "no bearer". This comment used to say it did, and that one
+ * wrong sentence is why the public read path shipped broken: supabase-js sends the
+ * callback's value verbatim, so '' goes out as `Authorization: Bearer ` and
+ * PostgREST answers 401 PGRST301 "Empty JWT". The anon case is produced by the
+ * caller below, which coalesces '' to the anon key — the token PostgREST maps to
+ * the `anon` role. Return '' here to mean "no session"; do not return a token.
+ *
+ * useAuth owns the actual session lifecycle (re-login on 401).
  */
 function currentAccessToken(): string {
   const token = localStorage.getItem('cs_token')
@@ -51,6 +55,15 @@ function currentAccessToken(): string {
 // Supabase Third-Party Auth: accounts JWT is stored as cs_token and used directly.
 // Supabase validates it against the configured JWKS from accounts.empowered.vote.
 // Queries target public-schema views that forward to civic_spaces tables.
+//
+// 🔴 With no session the bearer is the ANON KEY, never ''. supabase-js sends the
+// callback's value as-is, so '' went out as `Authorization: Bearer ` and PostgREST
+// refused it — `401 PGRST301 Empty JWT` — on every request. That was harmless while
+// every grant was `TO authenticated`; since Phase 18 it meant a signed-out visitor
+// could not reach the four public RPCs at all, and saw "Failed to load posts" in
+// production. The anon key is the token PostgREST maps to the `anon` role, which is
+// exactly what holds EXECUTE on those four and nothing else. check:anon-read missed
+// it because it calls PostgREST directly with the anon key, not through this client.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  accessToken: async () => currentAccessToken(),
+  accessToken: async () => currentAccessToken() || supabaseAnonKey,
 })

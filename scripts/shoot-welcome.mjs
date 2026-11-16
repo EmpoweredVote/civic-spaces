@@ -453,7 +453,7 @@ async function walkMember(theme, vp, tag) {
   await assertTheme(page, theme, `${tag} (boot)`)
 
   // The strip's own entry point — D-19's second one, the SAME PlacePicker.
-  await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+  await page.locator(`[data-place-change]:visible`).first().click()
   await page.waitForTimeout(500)
   await typeInto(page, '[data-place-picker="compact"]', PLACE_QUERY)
   await page.locator('[data-place-picker="compact"] [role="option"]').first().click()
@@ -886,7 +886,7 @@ async function auditPlace(theme, vp, tag) {
 
   // The compact picker, which only exists once the strip is expanded — and is
   // the SAME component as the hero one, so a layering bug here is its own.
-  await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+  await page.locator(`[data-place-change]:visible`).first().click()
   await page.waitForTimeout(600)
   const compactHit = await page.evaluate(auditHit, {
     sels: [{ sel: '[data-place-picker="compact"] input[role="combobox"]', label: "the strip's compact picker input" }],
@@ -896,7 +896,7 @@ async function auditPlace(theme, vp, tag) {
     aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
   }
   await page.keyboard.press('Escape')
-  await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+  await page.locator(`[data-place-change]:visible`).first().click()
   await page.waitForTimeout(400)
 
   // The honest conversations state.
@@ -934,7 +934,7 @@ async function auditMemberNotices(theme, vp, tag) {
   // another's, so this is here to put the three rosters side by side.
   const own = await page.evaluate(auditRoster)
 
-  await page.locator(`${STRIP} button[aria-expanded]`).first().click()
+  await page.locator(`[data-place-change]:visible`).first().click()
   await page.waitForTimeout(500)
   await typeInto(page, '[data-place-picker="compact"]', PLACE_QUERY)
   await page.locator('[data-place-picker="compact"] [role="option"]').first().click()

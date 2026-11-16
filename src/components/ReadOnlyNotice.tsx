@@ -167,10 +167,11 @@ export function ReadOnlyNotice({
         {reason === 'signed-out' && (
           <>
             {/* 🔴 BOTH walls, deliberately. "Make an account" is only the first:
-                Civic Spaces needs the Connected tier, and Connected means an
-                address has been set — so an Inform account passes sign-in and
-                lands on the no-jurisdiction state. Copy that stops at "make an
-                account" strands exactly the person it was written for.
+                your own spaces need a CONNECTED account with an address set. An
+                address alone does not make an account Connected (ev-accounts
+                CA_0368, 2026-11-07): a basic account with one is shown its own
+                city read-only. Copy that stops at "make an account" strands
+                exactly the person it was written for.
                 🔴 The control says "Sign in" and nothing more. The longer
                 invitations that read "Sign in to <do a thing>" are write
                 affordances, and check-explore-gate matches them as such — a
@@ -180,7 +181,7 @@ export function ReadOnlyNotice({
                 assertion greps for is how a gate starts matching its own
                 documentation. */}
             {unavailable} {surface === 'thread' ? 'belongs' : 'belong'} to the people who live under
-            that government. An Empowered Vote account with an address set opens your own civic
+            that government. A Connected account with an address set opens your own civic
             spaces.
             {loginUrl && (
               <>

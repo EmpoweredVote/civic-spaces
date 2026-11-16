@@ -43,13 +43,34 @@ visitor gets the read-only notice and no composer.
 against production on 2026-11-02, all four authenticated viewers included — the first time
 section 4 had ever run. A failure there means something is readable that should not be. Run it
 after any migration touching `civic_spaces`, and periodically regardless. The four viewer JWTs
-are minted from `SUPABASE_JWT_SECRET`; the fixture is synthetic and torn down after.
+are minted from `SUPABASE_JWT_SECRET`; the fixture is synthetic and torn down after. The fixture
+is committed at `scripts/rehearsal/18-02-section4-seed.sql` (+ teardown) — section 4 cannot run
+against production data because production holds **zero friendships**, and D-49 is a claim about
+one.
+
+🔴 **Sections 1–3c are content-BLIND, and that is not a gap in the implementation — it is the
+shape of the question they ask.** They assert the projection is narrow and the door is one door,
+and every one of them is satisfied by a feed of invented people. On 2026-11-04 the guard read
+44 PASS / 0 FAIL on a `federal:US` feed where **9 of the 11 posts anon was served were demo
+personas** keyed `fake-author-N`, one making a voting claim about a named living politician.
+**3d is the half that looks at who is talking**: every author of anon-visible content must have a
+UUID-shaped `user_id`, because every `civic_spaces` row is keyed on the internal UUID. It is an
+allowlist on shape, deliberately not a denylist of known fake prefixes. A failure is either
+seeded content a visitor can read, or a WorkOS id meaning identity resolution broke for a real
+member — the two are repaired differently and the guard says which it saw.
 
 🔴 **Any SECURITY DEFINER function added to `civic_spaces` from now on is anon-callable the
 moment it is created**, because Postgres grants EXECUTE to PUBLIC by default and `anon` now
 resolves the schema. Revoke it beside its own `CREATE FUNCTION`, the way `20261030000100` does
 for all six of its own. `check:anon-read` asserts the anon-executable DEFINER set is exactly
 those four.
+
+**`CREATE OR REPLACE` on an EXISTING function is the one case that is already safe** — it
+preserves the ACL, so replacing a pre-Phase-18 trigger function does not re-open it. Write the
+revoke anyway, as `20261102000300` does: it costs nothing, it is idempotent, and a reader
+should not have to query the catalog to know the function is shut. Note that revoking from
+`authenticated` does **not** break a trigger — Postgres checks EXECUTE on a trigger function at
+`CREATE TRIGGER` time, not on each fire.
 
 To work against the real backend instead, copy `.env.example` to `.env.local` and fill in
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; then `?dev=1` still opts into the dev id.
@@ -83,19 +104,50 @@ copy `cs_token` out of that tab's localStorage, and paste it into localhost's un
 Those panels fall back to fixtures for the dev id only; that is expected, not a bug.
 
 **The frontend has no test framework.** No test script, no test files. What it has instead is
-ten `check:*` guard scripts, and **seven of them now run in CI** —
-`.github/workflows/guards.yml`, two jobs: four pure Node checks that read the shipped modules,
+eleven `check:*` guard scripts, and **eight of them now run in CI** —
+`.github/workflows/guards.yml`, two jobs: five pure Node checks that read the shipped modules,
 and three that drive the real app through Playwright against a `npm run dev` server.
-`check:banners` is the eighth and runs weekly on a schedule instead
+`check:banners` is the ninth and runs weekly on a schedule instead
 (`.github/workflows/banner-drift.yml`), because drift there arrives with no commit to hang a
-PR check off. `check:grants` and `check:anon-read` (ninth, tenth) run by hand only: each needs a privileged
+PR check off. `check:grants` and `check:anon-read` (tenth, eleventh) run by hand only: each needs a privileged
 `SUPABASE_DB_URL` plus `psql`, which CI does not have (`db-surface.yml` is the manual-dispatch job ready for when it does).
 
 🔴 **Running in CI is not the same as being required.** "Required to merge" is a
-branch-protection setting on `main`. As of 2026-11-02 it lists **`build` and `Guards (pure)`**,
-so `Guards (browser)` is still advisory and a PR merges over a red one. Read it with
+branch-protection setting on `main`. Since 2026-11-05 it lists **`build`, `Guards (pure)` and
+`Guards (browser)`** — all three. Read it with
 `gh api repos/EmpoweredVote/civic-spaces/branches/main/protection`. `enforce_admins` is `false`,
 so an admin merges past all of it — which is how #139 landed, self-approval being impossible.
+
+🔴 **None of it runs on a direct push to `main`.** Every workflow that gates a PR —
+`guards.yml` and `build-check.yml` — triggers on `pull_request` only; neither has a `push`
+or `workflow_dispatch` trigger. So a commit pushed straight to `main` skips review AND all
+seven guards, and deploys to production ~3 minutes later. `enforce_admins: false` means the
+push is accepted: the remote prints `- 3 of 3 required status checks are expected` and takes
+it anyway, which is the only warning you get and reads like noise. This happened on
+2026-11-05 — `gh pr merge --delete-branch` leaves you checked out on `main`, and the next
+commit went there. Check `git branch --show-current` before `git commit`, not before the
+push; by push time the commit exists and undoing it means force-pushing a shared branch.
+
+`Guards (browser)` was promoted from advisory on 2026-11-05, after #133. The case was that
+#133 deleted the `<PlaceStrip>` mount with `tsc -b` and `build` both green, and nothing
+required could see it; `check:place-entry` found it by hand days later. Measured before the
+change, not guessed: the job runs **4–5 minutes** (not the ~10 it can appear to take while you
+watch it — that includes queue time), ~1 PR/day reaches `main`, and 40 runs held 28 success,
+0 failures, 5 cancelled-by-superseding-push. It runs in parallel with `build`, so what it costs
+is the PR's critical path, ~30s → ~5min.
+
+🔴 Promote or demote a check with the **contexts** endpoint, never a `PATCH` of the protection
+object — a PATCH replaces the whole config and silently drops anything you did not re-send
+(`require_last_push_approval`, `strict`, the review count):
+
+```bash
+gh api --method POST   .../branches/main/protection/required_status_checks/contexts -f 'contexts[]=Guards (browser)'
+gh api --method DELETE .../branches/main/protection/required_status_checks/contexts -f 'contexts[]=Guards (browser)'
+```
+
+If these three ever turn flaky, a required flaky check is worse than an advisory solid one —
+but the fix is to harden the guard, or to keep only `check:place-entry` required (it is the
+mount-deletion guard and the fastest of the three), not to demote the lot.
 
 🔴 **Still run them by hand before you claim anything works.** CI runs them on a pull request;
 it does not run them while you are working, and `npm run build` on its own has never been
@@ -126,7 +178,8 @@ the `Guards` jobs run on every PR but are not yet required (see above).
 per ev-cto decision 0018 and is **canonical at `ev-accounts/backend/src/civic_spaces/`**,
 endpoint `POST /api/civic-spaces/assign`. Any change to slice-assignment behaviour goes there.
 The old standalone copy (`services/slice-assignment`) was deleted on 2026-10-26; it is in git
-history if you need to read it.
+history if you need to read it. Its Render service, `civic-spaces-slice-assignment`, left the
+Blueprint in ev-infra#4 (2026-11-09).
 
 **The frontend half stays active.** `src/lib/sliceAssignment.ts` builds
 `${VITE_SLICE_ASSIGNMENT_URL}/assign`; production points that env var at the engine base
@@ -423,3 +476,16 @@ fails, say so and stop; do not swap in invented data. Data no API serves yet goe
 `src/mocks/` (or `devMockData.ts` for forum content) and is listed in the PR under "Data this needs
 from the API". Account and user data is off-limits. Use `@empoweredvote/ev-ui` components instead of
 copies. The `ev-designer` skill in EmpoweredVote/ev-ui has the index of public routes.
+
+## Render settings live in ev-infra
+
+This repo's Render service (`civic-spaces-frontend`) is managed by the Render Blueprint in
+[`EmpoweredVote/ev-infra`](https://github.com/EmpoweredVote/ev-infra) (`render.yaml`).
+
+- Build and start commands, rewrites, headers, custom domains, plans, cron
+  schedules and build filters change **only through a PR to ev-infra**. Render
+  syncs its `main` branch automatically.
+- A setting changed in the Render dashboard is **undone on the next sync**.
+- Env var **values** are the exception: set them in the Render dashboard. Add a
+  new variable's name to ev-infra (with `sync: false`) so the record stays complete.
+- Do not add a `render.yaml` to this repo. Render does not read it.

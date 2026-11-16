@@ -50,7 +50,8 @@
  *                        geoid return zero. It runs get_public_post / _replies on a real volunteer post
  *                        id too, and repeats for every configured JWT viewer.
  *
- *   3 CATALOG (psql)     Three standing guards, each first verified by hand once:
+ *   3 CATALOG (psql)     Four standing guards. a-c are about the DOOR (who may read what);
+ *                        d is about the ROOM (who is already in there talking):
  *     a  The anon-executable SECURITY DEFINER set in civic_spaces EQUALS the four RPCs.
  *        Set equality, not four memberships. 🔴 Once schema USAGE is granted, any future
  *        SECURITY DEFINER function added to this schema is anon-callable from the moment
@@ -68,6 +69,21 @@
  *        contrast `public` carries anon=arwdDxtm as a table default — how 18-01's 15
  *        views and 14 tables got their anon privileges. One ALTER DEFAULT PRIVILEGES IN
  *        SCHEMA civic_spaces and every new table is anon-readable, silently.
+ *     d  Every author of anon-visible content has a UUID-shaped user_id. Sections 1-3c are
+ *        content-BLIND: they assert the projection is narrow and the door is one door, and
+ *        they are all satisfied by a feed of invented people. On 2026-11-04 this guard read
+ *        44 PASS / 0 FAIL on a federal:US feed where 9 of the 11 posts anon was served were
+ *        demo personas keyed `fake-author-N`, one of them making a voting claim about a named
+ *        living politician. Nothing here could see it, because nothing here looked at WHO was
+ *        talking. 3d is the shape allowlist that would have: every civic_spaces row is keyed
+ *        on the internal UUID (see CLAUDE.md, "A member's id is NOT the token's sub"), so an
+ *        author id that is not a UUID was not produced by a real sign-in. It is an ALLOWLIST
+ *        on purpose — a denylist of known prefixes (`fake-author-`, `dev-guest`,
+ *        `anonread-fx-`) is the same mistake 3b names, and misses the persona invented next
+ *        year. Two CONTROLS keep it from passing vacuously on a blind read or an empty feed.
+ *        🔴 A FAIL here is not always a fixture: a WorkOS id (`user_01...`) means identity
+ *        resolution broke for a real member and their rows are keyed to the wrong id. The
+ *        detail says which shape it saw. Neither is a thing to leave public.
  *
  *   4 AUTHENTICATED VIEWERS (optional)  The plan asks for five viewers: anon, Inform,
  *                        Connected non-member, Connected member, Connected friend. Four
@@ -275,6 +291,52 @@ SELECT json_build_object(
                        FROM pg_default_acl a, LATERAL aclexplode(a.defaclacl) x
                       WHERE a.defaclnamespace IN (0, 'civic_spaces'::regnamespace::oid)
                         AND (x.grantee = 0 OR pg_get_userbyid(x.grantee) = 'anon')) d),
+  -- 3d: WHO is talking in public. One row per distinct author of content an anon viewer is
+  -- actually served, with the counts and one place to go look. The WHERE clauses below mirror
+  -- get_public_feed and get_public_replies exactly — allowlist, is_deleted, is_suspended — so a
+  -- row here is content anon can read, not content that merely exists. Two deliberate omissions,
+  -- both safe for an ANON reading: public_author_is_blocked is a no-op on a NULL viewer, and
+  -- public_author_is_visible only decides whether author_user_id comes back NULL, never whether
+  -- the row does. A reply is gated on its POST being visible too (get_public_replies reaches
+  -- replies only through get_public_post), which is why the reply arm joins posts and repeats
+  -- the post author's suspension check on pa.
+  --
+  -- No post BODY and no reply body is selected, and display_name is carried only so a failure
+  -- can be recognised on sight. This query is read by a guard, printed to a terminal and
+  -- possibly pasted into a PR; it has no business copying what members wrote.
+  'public_authors', (SELECT COALESCE(json_agg(row_to_json(a) ORDER BY a.user_id), '[]'::json) FROM (
+                       SELECT c.user_id,
+                              -- The allowlist. Case-insensitive so a correctly-formed uppercase
+                              -- UUID is not reported as a fake.
+                              c.user_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AS uuid_shaped,
+                              count(*) FILTER (WHERE c.kind = 'post')  AS posts,
+                              count(*) FILTER (WHERE c.kind = 'reply') AS replies,
+                              min(c.display_name) AS display_name,
+                              min(c.place)        AS place
+                         FROM (
+                           SELECT 'post'::text AS kind, p.user_id, cp.display_name,
+                                  s.slice_type || ':' || s.geoid AS place
+                             FROM civic_spaces.posts p
+                             JOIN civic_spaces.slices s ON s.id = p.slice_id
+                             LEFT JOIN civic_spaces.connected_profiles cp ON cp.user_id = p.user_id
+                            WHERE s.slice_type = ANY (ARRAY['city','county','state','federal','unified']::text[])
+                              AND p.is_deleted = false
+                              AND cp.is_suspended IS NOT TRUE
+                           UNION ALL
+                           SELECT 'reply'::text, r.user_id, cp.display_name,
+                                  s.slice_type || ':' || s.geoid
+                             FROM civic_spaces.replies r
+                             JOIN civic_spaces.posts p ON p.id = r.post_id
+                             JOIN civic_spaces.slices s ON s.id = p.slice_id
+                             LEFT JOIN civic_spaces.connected_profiles cp ON cp.user_id = r.user_id
+                             LEFT JOIN civic_spaces.connected_profiles pa ON pa.user_id = p.user_id
+                            WHERE s.slice_type = ANY (ARRAY['city','county','state','federal','unified']::text[])
+                              AND r.is_deleted = false
+                              AND p.is_deleted = false
+                              AND cp.is_suspended IS NOT TRUE
+                              AND pa.is_suspended IS NOT TRUE
+                         ) c
+                        GROUP BY c.user_id) a),
   -- A REAL volunteer fixture, from the catalog and never guessed. The post prefers one that has replies.
   'volunteer_geoid', (SELECT s.geoid FROM civic_spaces.slices s WHERE s.slice_type = 'volunteer' ORDER BY s.geoid LIMIT 1),
   'volunteer_post',  (SELECT p.id FROM civic_spaces.posts p JOIN civic_spaces.slices s ON s.id = p.slice_id
@@ -504,8 +566,36 @@ if (catalog) {
 
   check('3c  pg_default_acl has no entry (civic_spaces OR global) granting anything to anon or PUBLIC', catalog.default_acl.length === 0,
     `${catalog.default_acl.map((d) => `${d.is_global ? 'GLOBAL' : 'civic_spaces'} default, ${d.role}: ${d.privilege_type} on objtype ${d.objtype} -> ${d.grantee}`).join('\n')}\nEvery new table in this schema would be anon-readable the moment it is created.`)
+
+  // 3d: the content check. Everything above this line is satisfied by a feed of invented people.
+  const authors = catalog.public_authors ?? []
+  const fake = authors.filter((a) => !a.uuid_shaped)
+  check(`3d  every author of anon-visible content has a UUID-shaped user_id (${authors.length} author(s) across the five public types)`,
+    authors.length > 0 && fake.length === 0,
+    authors.length === 0
+      ? 'no authors at all — see the control below; this assertion proved nothing.'
+      : `${fake.map((a) => `${JSON.stringify(a.user_id)} as ${JSON.stringify(a.display_name ?? 'Unknown')}: ${a.posts} post(s), ${a.replies} reply(ies), e.g. in ${a.place}`).join('\n')}
+An id that is not a UUID was not produced by a real sign-in: every civic_spaces row is keyed on
+the internal UUID. Two ways to get here, and they are repaired differently:
+  * SEEDED CONTENT a visitor can read. Soft-delete it (is_deleted = true on posts AND on the
+    replies underneath, including replies by these personas on REAL posts), then reconcile
+    reply_count by hand — trg_reply_count fires on INSERT/DELETE, not on an is_deleted flip.
+  * A WorkOS id (user_01...), meaning identity resolution broke and a real member's rows are
+    keyed to the wrong id. Do NOT delete those. Fix the identity and re-key them.
+3b and 3c still pass either way: nothing is over-granted. The door is one door and the wrong
+people walked through it.`)
+
+  // Two controls, because 3d can pass vacuously in two different directions: no rows at all
+  // (a blind catalog read, or a DB with no public content), and no REAL author among them
+  // (every id fake, which would still leave `fake.length === 0` false but is worth naming
+  // separately — a fixture-only database should not read as a healthy one).
+  check('3d  CONTROL: at least one real UUID-shaped author is publicly visible (a blind read or an empty feed would pass 3d vacuously)',
+    authors.some((a) => a.uuid_shaped),
+    authors.length === 0
+      ? 'the query returned zero authors. Either no public slice has an undeleted post, or the catalog read is blind. 3d asserts nothing.'
+      : 'every publicly visible author is non-UUID. 3d has already failed; this says the database holds no real public content at all, so do not read 3d as "the fixtures leaked into a live feed".')
 } else {
-  skip('3a 3b 3c (catalog half: DEFINER set, table privileges, default ACL)', catalogSkip)
+  skip('3a 3b 3c 3d (catalog half: DEFINER set, table privileges, default ACL, public authors)', catalogSkip)
 }
 
 // ── 4: the authenticated viewers ─────────────────────────────────────────────

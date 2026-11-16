@@ -7,7 +7,7 @@
  * 🔴 ILLUSTRATIVE, NOT CIVIC RECORD. Nothing here is an official proposal, a vote, or a
  * description of what any one city is doing. The UI labels it as a conversation starter
  * wherever it appears. There is no topics table in civic_spaces and posts carry no topic
- * id, so a topic is NOT linked to existing posts — "Join the conversation" always opens
+ * id, so a topic is NOT linked to existing posts — "Share your thoughts" always opens
  * the create-post composer with an editable draft. Do not "find the related post" by
  * matching titles: two posts that share words are not the same conversation.
  *
@@ -156,6 +156,11 @@ export interface ProductUpdate {
   whereToTry: string
   /** The detail page's button: back to Explore, or over to Conversations. */
   cta: { label: string; goTo: 'explore' | 'conversations' }
+  /**
+   * Optional artwork. With it, the sidebar preview is the image with the title over it;
+   * without it, a text row. No update has one yet — add a real screenshot, never stock art.
+   */
+  image?: { src: string; alt: string }
 }
 
 export const PRODUCT_UPDATES: ProductUpdate[] = getProductUpdates().updates

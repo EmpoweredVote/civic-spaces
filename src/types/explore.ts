@@ -78,6 +78,18 @@ export interface ExploreTopic {
    * silently become no-ops and nothing fails to tell you.
    */
   compassTopicId?: string
+  /**
+   * The composer's further questions for a topic built at runtime, whose id no
+   * hand-written table can know in advance (an officials topic). questionsFor()
+   * prefers the hand-written list when one exists.
+   */
+  moreQuestions?: string[]
+  /**
+   * The place name nameTopic() wrote into this topic's text, so questionsFor()
+   * can name it in the composer's questions too. Set at render time only — the
+   * stored record stays place-neutral (geoid null), and a draft key never sees it.
+   */
+  namedFor?: string
 }
 
 /**

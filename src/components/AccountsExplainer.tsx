@@ -114,7 +114,7 @@ export default function AccountsExplainer() {
         <div className="mt-8 flex flex-wrap items-center gap-4">
           <a
             href="https://app.empowered.vote"
-            className={`inline-flex items-center rounded-full border border-brand px-4 py-2 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 ${FOCUS} dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10`}
+            className={`inline-flex items-center rounded-xl border border-brand px-4 py-2 text-sm font-semibold text-brand transition-colors hover:border-brand hover:bg-brand/5 ${FOCUS} dark:border-brand-light dark:text-brand-light dark:hover:border-brand-light dark:hover:bg-brand-light/10`}
           >
             Set up an Empowered Vote account
           </a>

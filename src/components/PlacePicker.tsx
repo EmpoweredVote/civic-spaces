@@ -490,7 +490,7 @@ export function PlacePicker({
             <button
               type="submit"
               disabled={resolve.isPending || address.trim() === ''}
-              className={`h-12 flex-shrink-0 cursor-pointer rounded-full bg-brand-btn px-5 text-sm font-semibold text-white motion-safe:transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS}`}
+              className={`h-12 flex-shrink-0 cursor-pointer rounded-xl bg-brand-btn px-5 text-sm font-semibold text-white motion-safe:transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS}`}
             >
               Look up
             </button>
@@ -506,7 +506,7 @@ export function PlacePicker({
         <button
           type="button"
           onClick={onCancel}
-          className={`mt-3 cursor-pointer rounded-full px-3 py-2 text-sm font-semibold text-gray-700 underline hover:no-underline dark:text-gray-300 ${FOCUS}`}
+          className={`mt-3 cursor-pointer rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 underline hover:no-underline dark:text-gray-300 ${FOCUS}`}
         >
           Cancel
         </button>
