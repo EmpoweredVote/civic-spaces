@@ -312,12 +312,38 @@ Essentials replaces one by swapping the bytes behind a stable URL. No path chang
 it becomes the wrong person's name — and attribution on a CC BY / CC BY-SA image is a
 licence condition. Treasury Tracker published a wrong photographer for three weeks this
 way. Run `npm run check:banners` (network, not in `npm run build`) when you touch banner
-code and periodically regardless; it diffs the live bytes of all 232 assets against
+code and periodically regardless; it diffs the live bytes of all 275 assets against
 `src/lib/banners.manifest.json` (`--rebuild` re-derives that from source).
+
+🔴 **The other half of that guard is the CATALOG, and it is the half that was missing
+until 2026-11-17.** The byte check only ever looks at assets we already recorded, so a
+banner Essentials *adds* is invisible to it **by construction** — a green run proves
+nothing about coverage. This repo sat **43 places behind for two months** that way: a
+member visiting Reno got the generic Wikipedia fallback while a credited Reno banner was
+published and unused. `check:banners` now also compares Essentials' published asset paths
+against the paths `banners.generated.ts` actually references, reporting `RETIRED` (we
+point at a path Essentials dropped — a state republished at `-vN` looks exactly like
+this), `UNCREDITED` (we point at an asset with no author) and `UNUSED` (a credited banner
+we reference nowhere). Both directions join on **bucket path**, never a place name, for
+the same Portland ME/OR reason the generator does.
+
+🔴 **The two halves have different fixes, and `--write` is only ever the byte one.** Byte
+drift means verify the author on Commons, then `--write`. Catalog drift means the table
+has fallen behind: pull essentials, `npm run gen:banners`, then `--rebuild`. Using
+`--write` on a catalog finding just records that we have given up on an asset. The
+manifest's `unusedAssets.paths` is an acknowledged baseline of **6** credited banners
+(Atlanta, Boise, Jackson, Riverside, Temecula, El Paso County CO) that `coverage.json`
+publishes **no geoid** for — a geoid is the only key we are allowed to use, so those are
+an upstream ask. Shrink that list; never grow it to make the check pass.
+
 All credits and paths live in `src/lib/banners.generated.ts` — **generated**, via
 `npm run gen:banners`. It reads Essentials' `/banners.json` (credits, joined on bucket
 **path**, never on a place name — Portland OR and Portland ME share a key and differ only
-by filename) and `/coverage.json` (geoids). Never hand-edit it, never transcribe credits
+by filename) and `/coverage.json` (geoids). ⚠️ The place→path half comes from a **local
+essentials checkout on disk** (`--registry`, default
+`C:/Transparent Motivations/essentials/src/lib/buildingImages.js`), not from the network
+like the other two — so `git pull` it first or you generate against a stale registry while
+the live catalogs are current. Never hand-edit it, never transcribe credits
 from Essentials' comment block, and never copy another app's table: TT published a wrong
 photographer for three weeks that way, and our own parser did it once too. Re-derive credits from `essentials/src/lib/buildingImages.js`
 and verify each author on its Commons File: page — **never copy another app's table.**

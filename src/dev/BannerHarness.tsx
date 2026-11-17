@@ -38,12 +38,23 @@ type Case = {
 const CASES: Case[] = [
   { label: 'City — Asheville (curated) · 3,000 members, population, weather, election', sliceType: 'city', geoid: '3702140', name: 'Asheville', level: 'City', election: NC_GENERAL, members: 3000, population: 94589, weather: { tempF: 64, summary: 'Mostly Cloudy', forecastUrl: 'https://forecast.weather.gov/' } },
   { label: 'City — Santa Monica (curated) · viewing a sibling slice', sliceType: 'city', geoid: '0670000', name: 'Santa Monica', level: 'City', election: undefined, viewOnly: true, members: 980 },
+  // Still uncovered as a CITY geoid even after 2026-11-17: Essentials keys
+  // Indianapolis on 18097 (Marion County), so 1836003 resolves to nothing.
   { label: 'City — uncovered geoid · NO election on file', sliceType: 'city', geoid: '1836003', name: 'Indianapolis', level: 'City', election: null },
+  // The case the 2026-11-17 refresh was for: a place the member does not live in.
+  { label: 'City — Reno (added 2026-11-17) · a visited place, not the member’s own', sliceType: 'city', geoid: '3260600', name: 'Reno', level: 'City', election: undefined, viewOnly: true, population: 264165 },
   { label: 'State — Indiana', sliceType: 'state', geoid: '18', name: 'Indiana', level: 'State', election: NC_GENERAL },
   { label: 'State — California (v2 crop)', sliceType: 'state', geoid: '06', name: 'California', level: 'State', election: undefined },
   { label: 'Federal', sliceType: 'federal', geoid: 'US', name: 'United States of America', level: 'Federal', election: NC_GENERAL },
   { label: 'County — Palm Beach (only covered county)', sliceType: 'county', geoid: '12099', name: 'Palm Beach County', level: 'County', election: NC_GENERAL },
-  { label: 'County — uncovered, NO IMAGE (brand gradient)', sliceType: 'county', geoid: '18097', name: 'Monroe County', level: 'County', election: null },
+  // 🔴 18105 (Monroe County) is the geoid, NOT 18097. This case read 18097 until
+  // 2026-11-17, which is MARION County — Indianapolis — and has never been Monroe.
+  // The mislabel was harmless only while neither was covered. The 2026-11-17 catalog
+  // refresh gave 18097 a banner (Essentials keys consolidated Indianapolis/Unigov on
+  // the COUNTY fips, not the place fips), so this case quietly stopped exercising the
+  // brand-gradient fallback and became a second covered-county shot. Pick a geoid that
+  // is uncovered on purpose, and re-check it when the catalog grows.
+  { label: 'County — uncovered, NO IMAGE (brand gradient)', sliceType: 'county', geoid: '18105', name: 'Monroe County', level: 'County', election: null },
 ]
 
 /**

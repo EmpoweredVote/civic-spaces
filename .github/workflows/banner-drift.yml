@@ -2,12 +2,21 @@ name: Banner drift
 
 # Why this is scheduled and not a PR check
 # ----------------------------------------
-# `check:banners` diffs the live bytes of all 232 shared banner assets against
+# `check:banners` diffs the live bytes of every shared banner asset against
 # `src/lib/banners.manifest.json`. Essentials replaces a banner by swapping the
 # bytes behind a stable URL, so drift arrives with NO deploy and NO commit on our
 # side — there is no pull request for a PR check to hang off. The script's own
 # header asks for exactly this: "run it when touching lib/banners.ts, and
 # periodically regardless".
+#
+# Since 2026-11-17 it also checks the CATALOG: whether Essentials' published set of
+# assets still matches the set our generated table points at. That drift is even
+# quieter than a byte swap, because the byte check only ever looks at assets we
+# already recorded — a banner Essentials ADDS is invisible to it by construction.
+# We ran 43 places behind for two months that way, and a member visiting Reno got
+# the generic fallback while a credited Reno banner sat published and unused.
+# Deliberately the same weekly job: it is the same upstream, the same network
+# dependency, and the same "no commit to hang a check off" problem.
 #
 # 🔴 It is a licence-compliance check, not a cosmetic one. Attribution on a
 # CC BY / CC BY-SA image is a condition of the licence, and a drifted credit
@@ -19,12 +28,23 @@ name: Banner drift
 # connection or an Essentials outage must never be able to block a pull request.
 # A failure here is a notification, not a gate.
 #
-# When this goes red: look at the named assets, verify each author on its Commons
-# File: page, then re-record with `node scripts/check-banner-drift.mjs --write`.
-# 🔴 Never re-record without verifying — `--write` makes the check green by
-# believing whatever is live now, which is the one thing it exists not to do.
-# Never transcribe credits from Essentials' comment block or copy another app's
-# table; re-derive from `essentials/src/lib/buildingImages.js`.
+# When this goes red, the fix depends on WHICH half failed, and they are not the
+# same fix:
+#
+#   DRIFTED / IN FLIGHT / GONE — byte drift. Look at the named assets, verify each
+#     author on its Commons File: page, then re-record with
+#     `node scripts/check-banner-drift.mjs --write`.
+#     🔴 Never re-record without verifying — `--write` makes the check green by
+#     believing whatever is live now, which is the one thing it exists not to do.
+#     Never transcribe credits from Essentials' comment block or copy another
+#     app's table; re-derive from `essentials/src/lib/buildingImages.js`.
+#
+#   RETIRED / UNUSED / UNCREDITED — catalog drift, and `--write` is NOT the fix.
+#     Our table is a cache of Essentials' catalog and has fallen behind it. Pull
+#     essentials, run `npm run gen:banners`, then `--rebuild` the manifest. Only an
+#     asset still unused AFTER regenerating is a real baseline entry — that means
+#     coverage.json publishes no geoid for it, which is an upstream ask, not
+#     something this repo can key on.
 
 on:
   schedule:

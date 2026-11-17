@@ -3,7 +3,7 @@
  *   npm run gen:banners
  *
  * Every shared-library banner Civic Spaces displays, with its attribution, generated
- * 2026-09-12 from Essentials' /banners.json (credits, joined on
+ * 2026-11-17 from Essentials' /banners.json (credits, joined on
  * bucket PATH) and /coverage.json (geoids, joined on Essentials' own browse_label).
  *
  * 🔴 Attribution is a licence condition. Assets Essentials publishes with no author are
@@ -26,21 +26,21 @@ export const STATE_BANNERS: Record<string, Banner> = {
   CT: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/CT.jpg", credit: "KyleConstable, CC BY-SA 4.0, via Wikimedia Commons" },
   DE: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/DE.jpg", credit: "Tim Kiser, CC BY-SA 2.5, via Wikimedia Commons" },
   FL: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/FL-v2.jpg", credit: "RW at RookeryBay, CC BY-SA 4.0, via Wikimedia Commons" },
-  GA: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/GA.jpg", credit: "Marc Merlin, CC BY-SA 4.0, via Wikimedia Commons" },
+  GA: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/GA-v2.jpg", credit: "anonymouse1, CC BY-SA 3.0, via Wikimedia Commons" },
   HI: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/HI.jpg", credit: "Cristo Vlahos, CC BY-SA 3.0, via Wikimedia Commons" },
   IA: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/IA.jpg", credit: "Tony Webster, CC BY 2.0, via Wikimedia Commons" },
   ID: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/ID.jpg", credit: "Tamanoeconomico, CC BY-SA 4.0, via Wikimedia Commons" },
   IL: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/IL.jpg", credit: "King of Hearts, CC BY-SA 3.0, via Wikimedia Commons" },
-  IN: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/IN.jpg", credit: "Momoneymoproblemz, CC BY-SA 4.0, via Wikimedia Commons" },
+  IN: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/IN-v2.jpg", credit: "Diego Delso, CC BY-SA 3.0, via Wikimedia Commons" },
   KS: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/KS.jpg", credit: "Quintin Soloviev, CC BY 4.0, via Wikimedia Commons" },
   KY: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/KY.jpg", credit: "Anindya Chakraborty, CC BY-SA 3.0, via Wikimedia Commons" },
   LA: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/LA.jpg", credit: "Michael Maples (USACE), Public Domain, via Wikimedia Commons" },
   MA: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/MA.jpg", credit: "King of Hearts, CC BY-SA 4.0, via Wikimedia Commons" },
   MD: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/MD.jpg", credit: "Quintin Soloviev, CC BY 4.0, via Wikimedia Commons" },
   ME: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/ME.jpg", credit: "Kristen Wheatley, CC BY 2.0, via Wikimedia Commons" },
-  MI: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/MI.jpg", credit: "TheWxResearcher, CC0, via Wikimedia Commons" },
+  MI: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/MI-v2.jpg", credit: "Victoria Stauffenberg, Public Domain, via Wikimedia Commons" },
   MN: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/MN.jpg", credit: "w_lemay, CC BY-SA 2.0, via Wikimedia Commons" },
-  MO: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/MO.jpg", credit: "Buphoff, CC BY-SA 3.0, via Wikimedia Commons" },
+  MO: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/MO-v2.jpg", credit: "Heath Cajandig, CC BY 2.0, via Wikimedia Commons" },
   MS: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/MS.jpg", credit: "chmeredith, CC BY 2.0, via Wikimedia Commons" },
   MT: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/MT.jpg", credit: "TerryDOtt, CC BY 2.0, via Wikimedia Commons" },
   NC: { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/states/NC.jpg", credit: "Bruce Emmerling, CC BY-SA 4.0, via Wikimedia Commons" },
@@ -71,6 +71,7 @@ export const STATE_BANNERS: Record<string, Banner> = {
 
 /** Cities and counties, keyed by Census FIPS geoid — exactly what slices.geoid holds. */
 export const PLACE_BANNERS: Record<string, Banner> = {
+  '0203000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/anchorage.jpg", credit: "Luke Jones, CC BY 2.0, via Wikimedia Commons" }, // Anchorage, AK
   '04019': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/pima-county.jpg", credit: "WClarke, CC BY-SA 4.0, via Wikimedia Commons" }, // Pima County, AZ
   '0444270': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/marana.jpg", credit: "Bernard Gagnon, CC BY-SA 3.0, via Wikimedia Commons" }, // Marana, AZ
   '0451600': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/oro-valley.jpg", credit: "Djmaschek, CC BY-SA 3.0, via Wikimedia Commons" }, // Oro Valley, AZ
@@ -78,52 +79,78 @@ export const PLACE_BANNERS: Record<string, Banner> = {
   '0468850': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/south-tucson.jpg", credit: "Rgper22008 (Wikimedia Commons), Public Domain, via Wikimedia Commons" }, // South Tucson, AZ
   '0477000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/tucson.jpg", credit: "Michael Barera, CC BY-SA 4.0, via Wikimedia Commons" }, // Tucson, AZ
   '0600884': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/alhambra.jpg", credit: "Sony 1992, CC0 / Public Domain, via Wikimedia Commons" }, // Alhambra, CA
+  '0602462': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/arcadia.jpg", credit: "Rporch, CC BY-SA 3.0, via Wikimedia Commons" }, // Arcadia, CA
+  '06041': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/marin-county.jpg", credit: "Kiddo27, CC BY-SA 4.0, via Wikimedia Commons" }, // Marin County, CA
   '0604982': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/bellflower.jpg", credit: "YonderStone, CC BY-SA 4.0, via Wikimedia Commons" }, // Bellflower, CA
   '0606000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/berkeley.jpg", credit: "4300streetcar, CC BY 4.0, via Wikimedia Commons" }, // Berkeley, CA
   '0606308': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/beverly-hills.jpg", credit: "Jess Hawsor, CC BY-SA 4.0, via Wikimedia Commons" }, // Beverly Hills, CA
   '06065': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/riverside-county.jpg", credit: "Maliagould, CC BY-SA 4.0, via Wikimedia Commons" }, // Riverside County, CA
+  '06087': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/santa-cruz-county.jpg", credit: "the_tahoe_guy, CC BY 2.0, via Wikimedia Commons" }, // Santa Cruz County, CA
   '0608954': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/burbank.jpg", credit: "Natecation, CC BY-SA 4.0, via Wikimedia Commons" }, // Burbank, CA
   '0611530': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/la_county/building_photos/0611530.jpg", credit: "The Front Page Online, CC BY-SA 4.0, via Wikimedia Commons" }, // Carson, CA
+  '0613756': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/claremont.jpg", credit: "Sdkb, CC BY-SA 4.0, via Wikimedia Commons" }, // Claremont, CA
   '0615044': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/compton.jpg", credit: "Eric Polk, CC BY 3.0, via Wikimedia Commons" }, // Compton, CA
+  '0616462': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/corte-madera.jpg", credit: "Mx. Granger, CC0, via Wikimedia Commons" }, // Corte Madera, CA
   '0617568': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/culver-city.jpg", credit: "John Margolies / Library of Congress, Public Domain, via Wikimedia Commons" }, // Culver City, CA
+  '0619192': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/diamond-bar.jpg", credit: "Thebluewriter, CC BY-SA 4.0, via Wikimedia Commons" }, // Diamond Bar, CA
   '0619766': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/downey.jpg", credit: "Northwalker, CC0 / Public Domain, via Wikimedia Commons" }, // Downey, CA
+  '0619990': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/duarte.jpg", credit: "Living in Monrovia, CC BY-SA 2.0, via Wikimedia Commons" }, // Duarte, CA
   '0622230': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/el-monte.jpg", credit: "Oran Viriyincy, CC BY-SA 2.0, via Wikimedia Commons" }, // El Monte, CA
   '0622412': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/el-segundo.jpg", credit: "Caterpillar84, CC BY-SA 4.0, via Wikimedia Commons" }, // El Segundo, CA
   '0626000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/fremont.jpg", credit: "Oleg Alexandrov, CC BY-SA 3.0, via Wikimedia Commons" }, // Fremont, CA
   '0628168': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/gardena.jpg", credit: "Jengod, CC BY-SA 4.0, via Wikimedia Commons" }, // Gardena, CA
   '0630000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/glendale.jpg", credit: "KeeganProbably, CC BY 4.0, via Wikimedia Commons" }, // Glendale, CA
+  '0630014': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/glendora.jpg", credit: "jaymanuel, CC BY-SA 4.0, via Wikimedia Commons" }, // Glendora, CA
   '0632548': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/hawthorne.jpg", credit: "Juan Kulichevsky, CC BY-SA 2.0, via Wikimedia Commons" }, // Hawthorne, CA
+  '0636000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/huntington-beach.jpg", credit: "Mike Peel, CC BY-SA 4.0, via Wikimedia Commons" }, // Huntington Beach, CA
   '0636448': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/indio.jpg", credit: "Northwalker, CC0, via Wikimedia Commons" }, // Indio, CA
   '0636546': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/inglewood.jpg", credit: "Troutfarm27, CC BY-SA 4.0, via Wikimedia Commons" }, // Inglewood, CA
+  '0639892': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/lakewood.jpg", credit: "Proarte, CC BY-SA 4.0, via Wikimedia Commons" }, // Lakewood, CA
   '0640130': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/lancaster.jpg", credit: "Rennett Stowe, CC BY 2.0, via Wikimedia Commons" }, // Lancaster, CA
+  '0640830': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/la-verne.jpg", credit: "Christopher Eugene Lee, Public Domain, via Wikimedia Commons" }, // La Verne, CA
   '0643000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/long-beach.jpg", credit: "Christophe.Finot, CC BY-SA 2.5, via Wikimedia Commons" }, // Long Beach, CA
   '0644000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/la_county/building_photos/0644000-skyline.jpg", credit: "Adoramassey, CC BY-SA 4.0, via Wikimedia Commons" }, // Los Angeles, CA
+  '0644574': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/lynwood.jpg", credit: "Андрей Романенко, CC BY-SA 4.0, via Wikimedia Commons" }, // Lynwood, CA
+  '0648816': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/montebello.jpg", credit: "City of Montebello, Public Domain, via Wikimedia Commons" }, // Montebello, CA
+  '0648914': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/monterey-park.jpg", credit: "Nandaro, CC BY-SA 3.0, via Wikimedia Commons" }, // Monterey Park, CA
   '0652526': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/norwalk.jpg", credit: "Northwalker, CC0 / Public Domain, via Wikimedia Commons" }, // Norwalk, CA
   '0655156': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/palmdale.jpg", credit: "G-BDXH, CC0 / Public Domain, via Wikimedia Commons" }, // Palmdale, CA
   '0655254': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/palm-springs.jpg", credit: "R. Haupt (Renhau), CC BY-SA 3.0, via Wikimedia Commons" }, // Palm Springs, CA
   '0656000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/pasadena.jpg", credit: "RBerteig, CC BY 2.0, via Wikimedia Commons" }, // Pasadena, CA
+  '0656924': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/pico-rivera.jpg", credit: "Trackinfo, CC BY-SA 3.0, via Wikimedia Commons" }, // Pico Rivera, CA
   '0658072': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/la_county/building_photos/0658072.jpg", credit: "Cliffo, CC BY 2.5, via Wikimedia Commons" }, // Pomona, CA
+  '0660018': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/redondo-beach.jpg", credit: "Ken Lund, CC BY-SA 2.0, via Wikimedia Commons" }, // Redondo Beach, CA
   '0664000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/sacramento.jpg", credit: "Sydchrismom, CC BY-SA 4.0, via Wikimedia Commons" }, // Sacramento, CA
   '0666000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/san-diego.jpg", credit: "Mds08011, CC BY 4.0, via Wikimedia Commons" }, // San Diego, CA
   '0667000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/san-francisco.jpg", credit: "Dead.rabbit, CC BY-SA 4.0, via Wikimedia Commons" }, // San Francisco, CA
   '0668000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/san-jose.jpg", credit: "XAtsukex, CC BY 3.0, via Wikimedia Commons" }, // San Jose, CA
   '0669088': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/santa-clarita.jpg", credit: "Konrad Summers, CC BY-SA 2.0, via Wikimedia Commons" }, // Santa Clarita, CA
+  '0669112': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/santa-cruz.jpg", credit: "Josta Photo, CC BY 2.0, via Wikimedia Commons" }, // Santa Cruz, CA
   '0670000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/santa-monica.jpg", credit: "Erwin Kreijne, CC BY 3.0, via Wikimedia Commons" }, // Santa Monica, CA
   '0673080': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/south-gate.jpg", credit: "ShticktatorTal, CC BY-SA 4.0, via Wikimedia Commons" }, // South Gate, CA
+  '0673220': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/south-pasadena.jpg", credit: "Cbl62, CC BY-SA 3.0, via Wikimedia Commons" }, // South Pasadena, CA
   '0680000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/la_county/building_photos/0680000.jpg", credit: "Thurifer, CC BY-SA 4.0, via Wikimedia Commons" }, // Torrance, CA
   '0684200': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/west-covina.jpg", credit: "Wikimedia user ASDFGH, CC BY-SA 4.0, via Wikimedia Commons" }, // West Covina, CA
   '0684410': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/west-hollywood.jpg", credit: "Tony Mariotti, CC BY 2.0, via Wikimedia Commons" }, // West Hollywood, CA
   '0685292': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/whittier.jpg", credit: "Northwalker, CC0 / Public Domain, via Wikimedia Commons" }, // Whittier, CA
+  '0807850': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/boulder.jpg", credit: "joiseyshowaa, CC BY-SA 2.0, via Wikimedia Commons" }, // Boulder, CO
   '0816000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/colorado-springs.jpg", credit: "WolfmanSF, CC BY-SA 4.0, via Wikimedia Commons" }, // Colorado Springs, CO
+  '12011': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/broward-county.jpg", credit: "Russ, CC BY 2.0, via Wikimedia Commons" }, // Broward County, FL
   '1207950': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/bradenton.jpg", credit: "Ebyabe, CC BY-SA 3.0, via Wikimedia Commons" }, // Bradenton, FL
   '12099': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/counties/palm-beach-fl.jpg", credit: "Ebyabe, CC BY-SA 3.0, via Wikimedia Commons" }, // county 12099
+  '1224000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/fort-lauderdale.jpg", credit: "KeanoManu, CC BY-SA 4.0, via Wikimedia Commons" }, // Fort Lauderdale, FL
   '1245000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/miami.jpg", credit: "Euthman, CC BY 4.0, via Wikimedia Commons" }, // Miami, FL
   '1270600': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/tallahassee.jpg", credit: "Daniel Vorndran (DXR), CC BY-SA 4.0, via Wikimedia Commons" }, // Tallahassee, FL
   '1319000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/columbus.jpg", credit: "PghPhxNfk, CC BY-SA 4.0, via Wikimedia Commons" }, // Columbus, GA
   '1349008': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/macon.jpg", credit: "Bubba73, CC BY-SA 3.0, via Wikimedia Commons" }, // Macon, GA
   '1351492': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/milledgeville.jpg", credit: "Clifflandis, CC0 / Public Domain, via Wikimedia Commons" }, // Milledgeville, GA
+  '15003': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/honolulu.jpg", credit: "Joel Bradshaw, CC0 / Public Domain, via Wikimedia Commons" }, // county 15003
+  '1805860': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/bloomington.jpg", credit: "Yahala, CC BY-SA 3.0, via Wikimedia Commons" }, // Bloomington, IN
+  '18097': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/indianapolis.jpg", credit: "Prabhakar Koduri, CC BY 2.0, via Wikimedia Commons" }, // Indianapolis, IN
   '1825000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/fort-wayne.jpg", credit: "Momoneymoproblemz, CC BY-SA 3.0, via Wikimedia Commons" }, // Fort Wayne, IN
   '1827000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/gary.jpg", credit: "Nyttend, Public Domain, via Wikimedia Commons" }, // Gary, IN
+  '2079000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/wichita.jpg", credit: "FUBAR007, CC BY-SA 3.0, via Wikimedia Commons" }, // Wichita, KS
+  '2146027': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/lexington.jpg", credit: "Erin Aiken (atthepaddock.com), CC BY 2.0, via Wikimedia Commons" }, // Lexington, KY
   '2302060': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/auburn.jpg", credit: "Kenneth C. Zirkel, CC BY-SA 4.0, via Wikimedia Commons" }, // Auburn, ME
   '2302795': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/bangor.jpg", credit: "Warren LeMay, CC BY-SA 2.0, via Wikimedia Commons" }, // Bangor, ME
   '2304860': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/biddeford.jpg", credit: "Dcrjsr, CC BY 3.0, via Wikimedia Commons" }, // Biddeford, ME
@@ -144,12 +171,21 @@ export const PLACE_BANNERS: Record<string, Banner> = {
   '2567000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/springfield.jpg", credit: "Steven Polom, CC BY 2.0, via Wikimedia Commons" }, // Springfield, MA
   '2572600': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/waltham.jpg", credit: "Traveler100, CC BY-SA 3.0, via Wikimedia Commons" }, // Waltham, MA
   '2582000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/worcester.jpg", credit: "4300streetcar, CC BY 4.0, via Wikimedia Commons" }, // Worcester, MA
+  '2622000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/detroit.jpg", credit: "CyberDetroit, CC BY-SA 4.0, via Wikimedia Commons" }, // Detroit, MI
+  '2717000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/duluth.jpg", credit: "Bspor.88, CC0, via Wikimedia Commons" }, // Duluth, MN
+  '2758000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/saint-paul.jpg", credit: "August Schwerdfeger, CC BY 4.0, via Wikimedia Commons" }, // Saint Paul, MN
+  '2806220': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/biloxi.jpg", credit: "Jared, CC BY 2.0, via Wikimedia Commons" }, // Biloxi, MS
+  '2965000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/st-louis.jpg", credit: "Buphoff, CC BY-SA 3.0, via Wikimedia Commons" }, // St. Louis, MO
   '3206500': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/boulder-city.jpg", credit: "Karlis Dambrans, CC BY 2.0, via Wikimedia Commons" }, // Boulder City, NV
   '3231900': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/henderson.jpg", credit: "Coolcaesar, CC BY-SA 4.0, via Wikimedia Commons" }, // Henderson, NV
   '3240000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/las-vegas.jpg", credit: "Christian David, CC BY-SA 4.0, via Wikimedia Commons" }, // Las Vegas, NV
   '3251800': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/north-las-vegas.jpg", credit: "Kim Dung Ho, CC BY 2.0, via Wikimedia Commons" }, // North Las Vegas, NV
+  '3260600': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/reno.jpg", credit: "Trevor Bexon, CC BY 2.0, via Wikimedia Commons" }, // Reno, NV
   '3702140': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/asheville.jpg", credit: "Bill McMannis, CC BY 2.0, via Wikimedia Commons" }, // Asheville, NC
+  '3712000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/charlotte.jpg", credit: "James Willamor, CC BY-SA 3.0, via Wikimedia Commons" }, // Charlotte, NC
   '3719000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/durham.jpg", credit: "DiscoA340, CC BY-SA 4.0, via Wikimedia Commons" }, // Durham, NC
+  '3832060': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/grand-forks.jpg", credit: "Schwerdf, CC BY 4.0, via Wikimedia Commons" }, // Grand Forks, ND
+  '3901000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/akron.jpg", credit: "Dillguy9, CC0, via Wikimedia Commons" }, // Akron, OH
   '4101980': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/bend-v2.jpg", credit: "Spencer Dahl, CC BY-SA 3.0, via Wikimedia Commons" }, // Bend, OR
   '4105350': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/beaverton.jpg", credit: "M.O. Stevens, CC BY 3.0, via Wikimedia Commons" }, // Beaverton, OR
   '4105800': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/bend-v2.jpg", credit: "Spencer Dahl, CC BY-SA 3.0, via Wikimedia Commons" }, // Bend, OR
@@ -165,6 +201,11 @@ export const PLACE_BANNERS: Record<string, Banner> = {
   '4174850': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/troutdale.jpg", credit: "Another Believer, CC BY-SA 4.0, via Wikimedia Commons" }, // Troutdale, OR
   '4174950': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/tualatin.jpg", credit: "M.O. Stevens (Aboutmovies), CC BY-SA 3.0, via Wikimedia Commons" }, // Tualatin, OR
   '4183950': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/wood-village.jpg", credit: "Another Believer, CC BY-SA 4.0, via Wikimedia Commons" }, // Wood Village, OR
+  '4260000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/philadelphia.jpg", credit: "Mefman00, modifications by Maps and stuff (Brian W. Schaller), CC0, via Wikimedia Commons" }, // Philadelphia, PA
+  '4273808': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/state-college.jpg", credit: "Goonsnick, CC BY-SA 4.0, via Wikimedia Commons" }, // State College, PA
+  '4516000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/columbia.jpg", credit: "Farragutful, CC BY-SA 4.0, via Wikimedia Commons" }, // Columbia, SC
+  '4549075': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/myrtle-beach.jpg", credit: "James Willamor, CC BY-SA 3.0, via Wikimedia Commons" }, // Myrtle Beach, SC
+  '4600100': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/aberdeen.jpg", credit: "H2O2 at English Wikipedia, Public Domain, via Wikimedia Commons" }, // Aberdeen, SD
   '47037': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/nashville.jpg", credit: "Daniel Schwen, CC BY-SA 4.0, via Wikimedia Commons" }, // Nashville, TN
   '4801924': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/allen.jpg", credit: "Jphill19, CC BY-SA 4.0, via Wikimedia Commons" }, // Allen, TX
   '4803300': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/anna.jpg", credit: "Ebmrreditor, CC BY-SA 4.0, via Wikimedia Commons" }, // Anna, TX
@@ -235,6 +276,8 @@ export const PLACE_BANNERS: Record<string, Banner> = {
   '53033': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/king-county.jpg", credit: "Kpsudeep, CC BY-SA 4.0, via Wikimedia Commons" }, // King County, WA
   '53035': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/kitsap-county.jpg", credit: "Joe Mabel, CC BY-SA 4.0, via Wikimedia Commons" }, // Kitsap County, WA
   '5303736': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/bainbridge-island.jpg", credit: "Ecoscapes, CC BY-SA 4.0, via Wikimedia Commons" }, // Bainbridge Island, WA
+  '5319035': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/duvall.jpg", credit: "Joe Mabel, CC BY-SA 3.0, via Wikimedia Commons" }, // Duvall, WA
+  '5357535': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/redmond.jpg", credit: "Spicypepper999, CC0, via Wikimedia Commons" }, // Redmond, WA
   '5363000': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/seattle.jpg", credit: "Daniel Schwen, CC BY-SA 4.0, via Wikimedia Commons" }, // Seattle, WA
   '55025': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/dane-county.jpg", credit: "Corey Coyle, CC BY 3.0, via Wikimedia Commons" }, // Dane County, WI
   '5510111225': { url: "https://kxsdzaojfaibhuzmclfq.storage.supabase.co/storage/v1/object/public/politician_photos/cities/town-of-burlington.jpg", credit: "Wikideas1, CC0, via Wikimedia Commons" }, // Town of Burlington, WI
