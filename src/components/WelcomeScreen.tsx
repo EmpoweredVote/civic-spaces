@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { PlacePicker, Problem, resolveFailureCopy } from './PlacePicker'
 import { CARD, FOCUS } from './explore/exploreUi'
 import { bannerFor, creditParts } from '../lib/banners'
@@ -74,17 +74,6 @@ function Svg({ className = 'h-5 w-5', children }: { className?: string; children
   )
 }
 
-const SearchIcon = () => (
-  <Svg>
-    <circle cx="11" cy="11" r="7" />
-    <path d="m20 20-3.5-3.5" />
-  </Svg>
-)
-const BookIcon = () => (
-  <Svg>
-    <path d="M12 6.5C10.5 5.3 8.4 4.75 5 4.75v13c3.4 0 5.5.55 7 1.75 1.5-1.2 3.6-1.75 7-1.75v-13c-3.4 0-5.5.55-7 1.75zM12 6.5v13" />
-  </Svg>
-)
 const SpeechIcon = ({ className }: { className?: string }) => (
   <Svg className={className}>
     <path d="M7.5 19.5 4 20.5l1-3.4A8 8 0 1 1 7.5 19.5z" />
@@ -117,16 +106,83 @@ const ChevronIcon = () => (
   </Svg>
 )
 
-/** One of the three cards under the fold. */
-function Feature({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+const GlobeIcon = () => (
+  <Svg>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5s1.1-6.1 3.4-8.5z" />
+  </Svg>
+)
+const ShieldIcon = () => (
+  <Svg>
+    <path d="M12 3l7 2.8v5.4c0 4.3-2.9 8.1-7 9.3-4.1-1.2-7-5-7-9.3V5.8L12 3z" />
+    <path d="m9 12 2 2 4-4" />
+  </Svg>
+)
+
+/**
+ * One of the three cards under the fold.
+ *
+ * `more` is a disclosure, not a link: the long answer opens in place. 🔴 There
+ * is no "how it works" page to send anyone to, and a link to nowhere is the
+ * dead-control failure `check:explore-rooms` exists to catch.
+ */
+function Feature({
+  icon,
+  tone = 'teal',
+  title,
+  children,
+  note,
+  more,
+}: {
+  icon: React.ReactNode
+  tone?: 'teal' | 'coral'
+  title: string
+  children: React.ReactNode
+  note?: string
+  more?: { label: string; body: React.ReactNode }
+}) {
+  const [open, setOpen] = useState(false)
+  const detailsId = useId()
   return (
-    <section className={`${CARD} flex items-start gap-4 p-5`}>
-      <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-muted text-brand dark:bg-brand/20 dark:text-brand-light">
+    <section className={`${CARD} flex items-start gap-4 p-6`}>
+      <span
+        className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${
+          tone === 'coral'
+            ? 'bg-brand-coral/10 text-brand-coral-text dark:bg-brand-coral/15 dark:text-brand-coral'
+            : 'bg-brand-muted text-brand dark:bg-brand/20 dark:text-brand-light'
+        }`}
+      >
         {icon}
       </span>
-      <div className="min-w-0">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
         <p className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{children}</p>
+        {note && <p className="mt-2 text-xs font-bold text-gray-900 dark:text-gray-100">{note}</p>}
+        {more && (
+          <>
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={detailsId}
+              onClick={() => setOpen((v) => !v)}
+              className={`mt-2 inline-flex cursor-pointer items-center gap-1 rounded text-xs font-bold text-brand underline underline-offset-2 hover:no-underline dark:text-brand-light ${FOCUS}`}
+            >
+              {more.label}
+              <span className={`motion-safe:transition-transform ${open ? 'rotate-90' : ''}`}>
+                <Svg className="h-3.5 w-3.5">
+                  <path d="m9 6 6 6-6 6" />
+                </Svg>
+              </span>
+            </button>
+            <div
+              id={detailsId}
+              hidden={!open}
+              className="mt-3 flex flex-col gap-2 border-l-2 border-gray-200 pl-3 text-sm leading-relaxed text-gray-600 dark:border-white/10 dark:text-gray-400"
+            >
+              {more.body}
+            </div>
+          </>
+        )}
       </div>
     </section>
   )
@@ -338,16 +394,62 @@ export function WelcomeScreen({
         </div>
 
         {/* ── Three cards, and no more ────────────────────────────────────── */}
-        <div className="grid gap-4 pb-10 md:grid-cols-3 md:pb-14">
-          <Feature icon={<SearchIcon />} title="Explore any place">
-            Look up a city and see what matters locally.
+        <div className="grid gap-4 pt-10 pb-10 md:grid-cols-3 md:pt-14 md:pb-14">
+          <Feature icon={<GlobeIcon />} title="Explore anywhere">
+            Read what&rsquo;s happening in any community&mdash;no account needed.
           </Feature>
-          <Feature icon={<BookIcon />} title="Understand the context">
-            Get clear topic summaries before joining in.
-          </Feature>
-          <Feature icon={<SpeechIcon className="h-5 w-5" />} title="Join where you live">
+
+          <Feature
+            icon={<SpeechIcon className="h-5 w-5" />}
+            tone="coral"
+            title="Speak where you live"
+            note="One person. One voice."
+            more={{
+              label: 'How participation works',
+              body: (
+                <>
+                  <p>
+                    Posting, replying and voting belong to the people who live under that
+                    government. Each person gets one voice in their own civic spaces, which is
+                    also what keeps bots out of them.
+                  </p>
+                  {/* 🔴 BOTH walls (D-11): an account with an address opens your own
+                      spaces read-only; posting needs a CONNECTED account. */}
+                  <p>
+                    A Connected account with an address set opens your own spaces &mdash; your
+                    city, county, state and the country. Signing in alone is not enough to post.
+                  </p>
+                </>
+              ),
+            }}
+          >
             {/* 🔴 BOTH walls, as D-11 asks: signing in is not enough to post. */}
-            Sign in when you&rsquo;re ready to take part. Posting needs a Connected account.
+            Post, reply, and vote in your own civic spaces with a Connected account.
+          </Feature>
+
+          <Feature
+            icon={<ShieldIcon />}
+            title="Your privacy matters"
+            more={{
+              label: 'How your privacy works',
+              body: (
+                <>
+                  {/* 🔴 Never "it never leaves your browser" (Q1.8 — the geocoder
+                      sees it), never "anonymous" (D-17, D-02). Geocoded once and
+                      never kept is the claim, and it is true. */}
+                  <p>
+                    An address is geocoded once, to work out which boundaries it falls inside.
+                    Civic Spaces keeps only those boundaries &mdash; never the address itself.
+                  </p>
+                  <p>
+                    Members post under a handle, which keeps your name private from other
+                    members.
+                  </p>
+                </>
+              ),
+            }}
+          >
+            Your address identifies your civic spaces. Other members see your handle.
           </Feature>
         </div>
 
