@@ -265,13 +265,19 @@ export function WelcomeScreen({
     <div data-welcome-screen="" className="flex flex-1 flex-col px-4 md:px-8">
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col">
         {/* ── Hero: the pitch and the picker | one real place ─────────────── */}
-        <div className="grid items-center gap-10 py-10 md:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16 lg:py-20">
+        {/* The first fold, exactly: one viewport less the h-20 header, from lg up,
+            so the three cards below start on the second. `dvh`, not `vh` — mobile
+            browser chrome. Below lg the two columns stack and cannot share one
+            screen, so the section takes its natural height there. */}
+        <div className="grid items-center gap-10 py-10 md:py-16 lg:min-h-[calc(100dvh-5rem)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16 lg:py-8">
           <div className="flex min-w-0 flex-col">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand dark:text-brand-light">
               Your community, made clearer
             </p>
             {/* Wraps cleanly at 390px: no fixed width, sizes step up from sm. */}
-            <h2 className="mt-4 text-5xl font-bold leading-[0.98] tracking-tight text-gray-900 sm:text-6xl xl:text-7xl dark:text-gray-100">
+            {/* The largest step only on a TALL wide screen: at 1366x768 a 7xl
+                headline alone pushes the picker out of the first fold. */}
+            <h2 className="mt-4 text-5xl font-bold leading-[0.98] tracking-tight text-gray-900 sm:text-6xl xl:[@media(min-height:860px)]:text-7xl dark:text-gray-100">
               See what&rsquo;s happening where you live.
             </h2>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-600 md:text-xl dark:text-gray-300">
