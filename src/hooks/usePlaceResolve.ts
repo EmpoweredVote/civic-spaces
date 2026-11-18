@@ -1,8 +1,10 @@
 import { useMutation } from '@tanstack/react-query'
 import { EV_API_ORIGIN } from '../lib/evApi'
-import { lookupGeoName } from '../lib/geoNames'
+import { loadStateNames, lookupGeoName } from '../lib/geoNames'
 import {
   countyFromCoordinateLookup,
+  countyGeoidByName,
+  countyNameFromCoordinateLookup,
   placeFromResolveResponse,
   placeFromSearchRow,
   withCounty,
@@ -119,9 +121,32 @@ export async function resolveChosenPlace(row: PlaceSearchRow): Promise<ResolvedP
     throw new PlaceResolveError('service-unavailable')
   }
 
-  const county = countyFromCoordinateLookup(body)
+  // 🔴 TWO legs, and the second one carries most of the country.
+  //
+  // `county.geoid` is the authoritative answer and stays first, so every place
+  // that resolved before 2026-11-17 resolves identically. It is also null for
+  // MOST places: measured against the two largest places in every state, 71 of
+  // 102 came back `county: null` — Reno, Boston, Denver, Portland, San
+  // Francisco, New Orleans, Richmond. Asheville is one of the 31 that answer,
+  // which is why one fixture made this leg look sound and "switch to another
+  // city" was broken for roughly 70% of the country.
+  //
+  // All 71 carried `locality.county_name`, so the recovery is a state-scoped
+  // exact join against the gazetteer we already shipped and already loaded for
+  // the centroid — no request, no key, no guess. Where upstream DID answer, the
+  // join agreed 31 times out of 31.
+  const county =
+    countyFromCoordinateLookup(body) ??
+    countyGeoidByName(
+      await loadStateNames(fromRow.partial.state),
+      countyNameFromCoordinateLookup(body),
+      fromRow.partial.state,
+    )
   if (!county) throw new PlaceResolveError('no-county')
 
+  // Still the arbiter. `countyGeoidByName` already pins the state on the key,
+  // so this cannot disagree via that path — it is here for `county.geoid`,
+  // which comes from an origin we do not control, and it costs nothing.
   const place = withCounty(fromRow.partial, county)
   if (!place) throw new PlaceResolveError('no-county')
   return place

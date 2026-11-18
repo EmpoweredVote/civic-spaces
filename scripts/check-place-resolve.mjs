@@ -11,7 +11,7 @@
  * while the shipped code is wrong — which is the failure class this phase was told to
  * expect. If you are tempted to paste a function in here, don't; make it importable.
  *
- * What it covers (42 assertions):
+ * What it covers (49 assertions):
  *
  *   1–7    normalisePlaceQuery — ASVS V5 at the edge. Trim, collapse, cap, reject
  *          control characters, and the two boundaries (three characters in, 120 out).
@@ -32,6 +32,18 @@
  *          name field cannot pass by being "unused".
  *   39–42  viewedPlace — the round trip, the corrupt entry, and that nothing the
  *          visitor typed is anywhere in what gets stored.
+ *   43–49  🔴 the county RECOVERY leg, added 2026-11-17. `coordinate-lookup` returns
+ *          `county: null` for MOST of the country — 71 of the 102 largest places,
+ *          measured across every state — while always carrying
+ *          `locality.county_name`. Asheville is one of the 31 that DO answer, so
+ *          30–33 above were passing on the one case that works and "switch to
+ *          another city" was broken for ~70% of the country. 46 and 47 are the ones
+ *          that matter: Richmond city / Richmond County, Baltimore city / Baltimore
+ *          County and St. Louis city / St. Louis County are real same-state pairs,
+ *          and a join that normalised away "city"/"County" would return a REAL
+ *          county for the WRONG jurisdiction — worse than the bug it replaced. 49
+ *          re-checks the uniqueness the whole join rests on against the shipped
+ *          shards rather than asserting it in a comment.
  *
  * 🔴 Why searchRowKind reads the MTFCC as well as the geoid's length.
  * The plan said length only, so that this repo would not have to keep an MTFCC list in
@@ -48,12 +60,14 @@
  * A FAIL is a bug in the shipped modules. There is nothing else here for it to be.
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import {
   countyFromCoordinateLookup,
+  countyGeoidByName,
+  countyNameFromCoordinateLookup,
   normalisePlaceQuery,
   placeFromResolveResponse,
   placeFromSearchRow,
@@ -570,6 +584,118 @@ const FORBIDDEN_KEYS = ['name', 'label', 'address', 'matchedAddress', 'query', '
   )
 }
 
+// ── 43–49  the county RECOVERY leg ───────────────────────────────────────────
+/*
+ * 🔴 Added 2026-11-17, after "switching to another city never works" turned out to be
+ * true for roughly 70% of the country. `coordinate-lookup` answers 200 with
+ * `county: null` for most places — 71 of the 102 largest, measured across every state —
+ * while always carrying `locality.county_name`. Asheville is one of the 31 that DO
+ * answer, so assertions 30–33 and the single fixture behind them passed on the one case
+ * that works, which is the exact failure shape this repo already keeps a memory about.
+ *
+ * These seven run over the Reno fixture (the common shape) and over real shards, and the
+ * three adjacency cases are the point: a near-miss join here would return a real county
+ * for the wrong jurisdiction, which is worse than the bug it replaces.
+ */
+{
+  const renoBody = fixture('coordinate-lookup-reno.json').body
+  const nv = JSON.parse(readFileSync(join(HERE, '../public/geo/32.json'), 'utf8')).names
+
+  check(
+    43,
+    'the COMMON shape: Reno has no county.geoid at all — the old path could only fail',
+    countyFromCoordinateLookup(renoBody) === null,
+    `got ${JSON.stringify(countyFromCoordinateLookup(renoBody))}`,
+  )
+
+  check(
+    44,
+    'countyNameFromCoordinateLookup reads locality.county_name, NOT place_name',
+    countyNameFromCoordinateLookup(renoBody) === 'Washoe County' &&
+      countyNameFromCoordinateLookup({ locality: { place_name: 'Reno city' } }) === null,
+    `got ${JSON.stringify(countyNameFromCoordinateLookup(renoBody))}`,
+  )
+
+  check(
+    45,
+    'Reno recovers to Washoe County (32031) from the committed gazetteer',
+    countyGeoidByName(nv, countyNameFromCoordinateLookup(renoBody), '32') === '32031',
+    `got ${JSON.stringify(countyGeoidByName(nv, countyNameFromCoordinateLookup(renoBody), '32'))}`,
+  )
+
+  // 🔴 The three adjacency traps, each a real pair in one state. If a future
+  // "helpful" normalisation strips "city"/"County" these flip to the WRONG
+  // county and nothing else in the suite would notice.
+  const va = JSON.parse(readFileSync(join(HERE, '../public/geo/51.json'), 'utf8')).names
+  const md = JSON.parse(readFileSync(join(HERE, '../public/geo/24.json'), 'utf8')).names
+  const mo = JSON.parse(readFileSync(join(HERE, '../public/geo/29.json'), 'utf8')).names
+  const adjacency = [
+    ['Richmond city', '51760', 'Richmond County', '51159', va, '51'],
+    ['Baltimore city', '24510', 'Baltimore County', '24005', md, '24'],
+    ['St. Louis city', '29510', 'St. Louis County', '29189', mo, '29'],
+  ]
+  const adjacencyOk = adjacency.every(
+    ([cityName, cityGeoid, countyName, countyGeoid, names, st]) =>
+      countyGeoidByName(names, cityName, st) === cityGeoid &&
+      countyGeoidByName(names, countyName, st) === countyGeoid,
+  )
+  check(
+    46,
+    'the independent city and the same-named county stay distinct (Richmond, Baltimore, St. Louis)',
+    adjacencyOk,
+    adjacency
+      .map(
+        ([c, cg, k, kg, n, st]) =>
+          `${c} -> ${countyGeoidByName(n, c, st)} (want ${cg}); ${k} -> ${countyGeoidByName(n, k, st)} (want ${kg})`,
+      )
+      .join('\n          '),
+  )
+
+  check(
+    47,
+    'the join is EXACT — no case folding, no suffix stripping, no trimming of the name itself',
+    countyGeoidByName(nv, 'washoe county', '32') === null &&
+      countyGeoidByName(nv, 'Washoe', '32') === null &&
+      countyGeoidByName(nv, 'Washoe County ', '32') === null,
+    `got ${[
+      countyGeoidByName(nv, 'washoe county', '32'),
+      countyGeoidByName(nv, 'Washoe', '32'),
+      countyGeoidByName(nv, 'Washoe County ', '32'),
+    ]
+      .map((v) => JSON.stringify(v))
+      .join(', ')}`,
+  )
+
+  check(
+    48,
+    'a right name in the wrong state is null, never a confident answer about elsewhere',
+    countyGeoidByName(nv, 'Buncombe County', '32') === null &&
+      countyGeoidByName(nv, 'Washoe County', '37') === null,
+  )
+
+  // The structural claim the whole join rests on, re-checked against the shipped
+  // data rather than asserted in a comment: if a state ever carried two counties
+  // of one name, the join would be a coin flip and this must go red first.
+  let countyEntries = 0
+  const repeated = []
+  for (const file of readdirSync(join(HERE, '../public/geo')).filter((f) => /^\d{2}\.json$/.test(f))) {
+    const names = JSON.parse(readFileSync(join(HERE, '../public/geo', file), 'utf8')).names
+    const seen = new Map()
+    for (const [geoid, entry] of Object.entries(names)) {
+      if (geoid.length !== 5) continue
+      countyEntries += 1
+      if (seen.has(entry.name)) repeated.push(`${file} ${entry.name}`)
+      seen.set(entry.name, geoid)
+    }
+  }
+  check(
+    49,
+    `county names are unique within their state — ${countyEntries} entries, the join's whole basis`,
+    repeated.length === 0 && countyEntries > 3000,
+    `repeated: ${repeated.join(', ') || 'none'}; entries: ${countyEntries}`,
+  )
+}
+
 // ── --live: contract drift against the real API ──────────────────────────────
 /*
  * 🔴 Opt-in, and NOT part of `npm run check:place-resolve`. It needs the network, and it
@@ -654,6 +780,33 @@ async function live() {
       'coordinate-lookup county.geoid still parses',
       '37021',
       String(countyFromCoordinateLookup(body)),
+    )
+
+    // 🔴 The other half of the contract, and the one that moves. Asheville is in
+    // the 30% that carry a county geoid; Reno is in the 70% that do not, and the
+    // recovery leg exists for them. Drift here is news either way: a geoid
+    // appearing means ev-accounts has widened its county coverage (good — the
+    // fallback simply stops being reached), and `county_name` going missing means
+    // the recovery leg has lost its only input and most of the country stops
+    // resolving again. Neither shows up in the Asheville checks above.
+    const nvShard = await fetch(`${origin}/geo/32.json`)
+    const reno = (await nvShard.json()).names['3260600']
+    const renoRes = await fetch(`${origin}/api/essentials/coordinate-lookup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: reno.lat, lng: reno.lon }),
+    })
+    if (!renoRes.ok) throw new Error(`coordinate-lookup (Reno): HTTP ${renoRes.status}`)
+    const renoBody = await renoRes.json()
+    report(
+      'coordinate-lookup (Reno) .county — null in the fixture; a geoid here is WIDER coverage, not a break',
+      keyShape(fixture('coordinate-lookup-reno.json').body.county),
+      keyShape(renoBody.county),
+    )
+    report(
+      'coordinate-lookup (Reno) locality.county_name — the recovery leg\'s only input',
+      'Washoe County',
+      String(countyNameFromCoordinateLookup(renoBody)),
     )
   } catch (err) {
     drift += 1

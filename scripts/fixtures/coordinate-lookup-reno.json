@@ -1,0 +1,46 @@
+{
+  "_README": [
+    "FROZEN FIXTURE — POST /api/essentials/coordinate-lookup with Reno's gazetteer centroid",
+    "{lat: 39.549097, lng: -119.849907}, read out of public/geo/32.json. Captured 2026-11-17.",
+    "",
+    "🔴 THIS IS THE FAILING SHAPE, and it is the COMMON one. `county` is NULL while",
+    "`locality.county_name` says \"Washoe County\". ev-accounts answers 200 with no county",
+    "GEOID for most of the country — measured 2026-11-17 across the two largest places in",
+    "every state: 71 of 102 came back `county: null`, and all 71 carried a county_name.",
+    "Reno's own geoid resolves, its state resolves, its banner resolves; only the county",
+    "geoid is missing, and until 2026-11-17 that refused the whole place switch.",
+    "",
+    "🔴 Why this fixture has to exist beside the Asheville one. Asheville is one of the 30%",
+    "where `county.geoid` is populated, so every pure assertion about the county leg passed",
+    "on the single case that works. A second fixture is the only thing that makes the",
+    "recovery path testable without the network — see check-place-resolve.mjs 43–49.",
+    "",
+    "TRIMMED to the keys the parsers read, same as the Asheville fixture: the live body is",
+    "~100 KB of politician records. Dropped keys are `politicians`, `jurisdiction` and",
+    "`tribal_land`.",
+    "",
+    "🔴 `locality.incorporated` is TRUE here where Asheville's is null — NV is one of",
+    "ev-accounts' PLACE_LOADED_STATES and NC is not. That asymmetry is exactly why no",
+    "parser may read it. Keep both fixtures so the contrast stays visible.",
+    "",
+    "`body` is the trimmed response body.",
+    "",
+    "Captured: 2026-11-17"
+  ],
+  "body": {
+    "matchedAddress": "",
+    "county": null,
+    "jurisdictionGeoIds": {
+      "congressional": "3202",
+      "state_senate": "32015",
+      "state_house": "32027",
+      "county": null,
+      "school_district": null
+    },
+    "locality": {
+      "incorporated": true,
+      "place_name": "Reno city",
+      "county_name": "Washoe County"
+    }
+  }
+}
