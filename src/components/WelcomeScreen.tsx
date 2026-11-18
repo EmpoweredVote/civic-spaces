@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { PlacePicker, Problem, resolveFailureCopy } from './PlacePicker'
 import { CARD, FOCUS } from './explore/exploreUi'
 import { bannerFor, creditParts } from '../lib/banners'
@@ -119,12 +119,121 @@ const ShieldIcon = () => (
   </Svg>
 )
 
+type Tone = 'teal' | 'coral'
+
+function IconTile({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+  return (
+    <span
+      className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${
+        tone === 'coral'
+          ? 'bg-brand-coral/10 text-brand-coral-text dark:bg-brand-coral/15 dark:text-brand-coral'
+          : 'bg-brand-muted text-brand dark:bg-brand/20 dark:text-brand-light'
+      }`}
+    >
+      {children}
+    </span>
+  )
+}
+
+/** What a card's "How … works" popup says. */
+interface InfoContent {
+  eyebrow: string
+  title: string
+  lead: string
+  points: string[]
+  /** An optional real destination, rendered as the primary button. */
+  action?: { label: string; href: string }
+}
+
 /**
- * One of the three cards under the fold.
- *
- * `more` is a disclosure, not a link: the long answer opens in place. 🔴 There
- * is no "how it works" page to send anyone to, and a link to nowhere is the
- * dead-control failure `check:explore-rooms` exists to catch.
+ * The "How … works" popup — the same native <dialog> Explore's Coming-up and
+ * What's-new details use (ExploreActivities.tsx), so Escape, focus trapping and
+ * a click on the backdrop all close it the way they do there.
+ */
+function InfoDialog({
+  dialogRef,
+  icon,
+  tone,
+  content,
+}: {
+  dialogRef: React.RefObject<HTMLDialogElement | null>
+  icon: React.ReactNode
+  tone: Tone
+  content: InfoContent
+}) {
+  const id = useId()
+  const close = () => dialogRef.current?.close()
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={`${id}-t`}
+      onClick={(e) => e.target === e.currentTarget && close()}
+      className="m-auto w-[min(44rem,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200/60 bg-gray-50 p-0 shadow-2xl backdrop:bg-black/50 dark:border-white/[0.08] dark:bg-gray-950"
+    >
+      <div className="relative px-6 py-7 sm:px-10 sm:py-10">
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close"
+          className={`absolute right-5 top-5 flex h-12 w-12 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 ${FOCUS}`}
+        >
+          <Svg>
+            <path d="M6 18 18 6M6 6l12 12" />
+          </Svg>
+        </button>
+
+        <IconTile tone={tone}>{icon}</IconTile>
+        <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
+          {content.eyebrow}
+        </p>
+        <h2
+          id={`${id}-t`}
+          className="mt-2 pr-14 text-3xl font-medium leading-[1.1] tracking-tight text-gray-900 sm:text-4xl dark:text-gray-100"
+        >
+          {content.title}
+        </h2>
+        <p className="mt-3 text-base leading-relaxed text-gray-600 sm:text-lg dark:text-gray-400">{content.lead}</p>
+
+        <ul className="mt-6 flex flex-col gap-3 rounded-2xl bg-gray-100 px-5 py-5 sm:px-6 dark:bg-white/[0.04]">
+          {content.points.map((point) => (
+            <li key={point} className="flex items-start gap-3 text-sm leading-relaxed text-gray-800 sm:text-base dark:text-gray-200">
+              <span className="mt-0.5 flex-shrink-0 text-brand dark:text-brand-light">
+                <CheckIcon />
+              </span>
+              {point}
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          {content.action && (
+            <a
+              href={content.action.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`inline-flex items-center justify-center rounded-xl bg-brand-yellow px-5 py-3 text-base font-bold text-gray-900 shadow-[0_4px_0_rgb(0_0_0_/_0.12)] ring-1 ring-gray-900/25 hover:bg-brand-yellow-hover motion-safe:transition-colors dark:shadow-[0_4px_0_rgb(0_0_0_/_0.45)] dark:ring-0 ${FOCUS}`}
+            >
+              {content.action.label}
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={close}
+            className={`inline-flex cursor-pointer items-center rounded-xl border border-gray-300 bg-white px-5 py-3 text-base font-bold text-gray-900 hover:bg-gray-50 dark:border-white/15 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 ${FOCUS}`}
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </dialog>
+  )
+}
+
+/**
+ * One of the three cards under the fold. `more` opens an InfoDialog — 🔴 never a
+ * link to a "how it works" page, because there is no such page, and a link to
+ * nowhere is the dead-control failure `check:explore-rooms` exists to catch.
  */
 function Feature({
   icon,
@@ -135,25 +244,16 @@ function Feature({
   more,
 }: {
   icon: React.ReactNode
-  tone?: 'teal' | 'coral'
+  tone?: Tone
   title: string
   children: React.ReactNode
   note?: string
-  more?: { label: string; body: React.ReactNode }
+  more?: { label: string; content: InfoContent }
 }) {
-  const [open, setOpen] = useState(false)
-  const detailsId = useId()
+  const dialogRef = useRef<HTMLDialogElement>(null)
   return (
     <section className={`${CARD} flex items-start gap-4 p-6`}>
-      <span
-        className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${
-          tone === 'coral'
-            ? 'bg-brand-coral/10 text-brand-coral-text dark:bg-brand-coral/15 dark:text-brand-coral'
-            : 'bg-brand-muted text-brand dark:bg-brand/20 dark:text-brand-light'
-        }`}
-      >
-        {icon}
-      </span>
+      <IconTile tone={tone}>{icon}</IconTile>
       <div className="min-w-0 flex-1">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
         <p className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{children}</p>
@@ -162,25 +262,16 @@ function Feature({
           <>
             <button
               type="button"
-              aria-expanded={open}
-              aria-controls={detailsId}
-              onClick={() => setOpen((v) => !v)}
+              aria-haspopup="dialog"
+              onClick={() => dialogRef.current?.showModal()}
               className={`mt-2 inline-flex cursor-pointer items-center gap-1 rounded text-xs font-bold text-brand underline underline-offset-2 hover:no-underline dark:text-brand-light ${FOCUS}`}
             >
               {more.label}
-              <span className={`motion-safe:transition-transform ${open ? 'rotate-90' : ''}`}>
-                <Svg className="h-3.5 w-3.5">
-                  <path d="m9 6 6 6-6 6" />
-                </Svg>
-              </span>
+              <Svg className="h-3.5 w-3.5">
+                <path d="m9 6 6 6-6 6" />
+              </Svg>
             </button>
-            <div
-              id={detailsId}
-              hidden={!open}
-              className="mt-3 flex flex-col gap-2 border-l-2 border-gray-200 pl-3 text-sm leading-relaxed text-gray-600 dark:border-white/10 dark:text-gray-400"
-            >
-              {more.body}
-            </div>
+            <InfoDialog dialogRef={dialogRef} icon={icon} tone="teal" content={more.content} />
           </>
         )}
       </div>
@@ -406,21 +497,22 @@ export function WelcomeScreen({
             note="One person. One voice."
             more={{
               label: 'How participation works',
-              body: (
-                <>
-                  <p>
-                    Posting, replying and voting belong to the people who live under that
-                    government. Each person gets one voice in their own civic spaces, which is
-                    also what keeps bots out of them.
-                  </p>
-                  {/* 🔴 BOTH walls (D-11): an account with an address opens your own
-                      spaces read-only; posting needs a CONNECTED account. */}
-                  <p>
-                    A Connected account with an address set opens your own spaces &mdash; your
-                    city, county, state and the country. Signing in alone is not enough to post.
-                  </p>
-                </>
-              ),
+              content: {
+                eyebrow: 'Connected participation',
+                title: 'How participation works',
+                lead: 'Reading is open to everyone. Participation stays rooted in the communities people call home.',
+                points: [
+                  // 🔴 "public conversations", not "Civic Spaces": Volunteer did not
+                  // open (D-28), so "anyone can browse Civic Spaces" is not true.
+                  'Anyone can browse the public conversations in Civic Spaces.',
+                  'Posting, replying, and voting belong to residents of that civic space.',
+                  // 🔴 BOTH walls (D-11): an address alone is not Connected.
+                  'Participation requires a Connected account with an address set.',
+                  'Each person gets one voice.',
+                ],
+                // The destination InformUpgradePrompt already uses for the same ask.
+                action: { label: 'Create a Connected account', href: 'https://accounts.empowered.vote' },
+              },
             }}
           >
             {/* 🔴 BOTH walls, as D-11 asks: signing in is not enough to post. */}
@@ -432,21 +524,20 @@ export function WelcomeScreen({
             title="Your privacy matters"
             more={{
               label: 'How your privacy works',
-              body: (
-                <>
-                  {/* 🔴 Never "it never leaves your browser" (Q1.8 — the geocoder
-                      sees it), never "anonymous" (D-17, D-02). Geocoded once and
-                      never kept is the claim, and it is true. */}
-                  <p>
-                    An address is geocoded once, to work out which boundaries it falls inside.
-                    Civic Spaces keeps only those boundaries &mdash; never the address itself.
-                  </p>
-                  <p>
-                    Members post under a handle, which keeps your name private from other
-                    members.
-                  </p>
-                </>
-              ),
+              content: {
+                eyebrow: 'Your address and identity',
+                title: 'How your privacy works',
+                lead: 'Your address connects you to the civic spaces where you live.',
+                // 🔴 Never "it never leaves your browser" (Q1.8 — the geocoder sees
+                // it), never "anonymous" (D-17, D-02). Geocoded once and never kept
+                // is the claim, and it is true.
+                points: [
+                  'Your address is used once to identify the government boundaries it falls inside.',
+                  'The address is not retained by Civic Spaces.',
+                  'Civic Spaces receives boundary identifiers.',
+                  'Members post under a handle, which keeps your name private from other members.',
+                ],
+              },
             }}
           >
             Your address identifies your civic spaces. Other members see your handle.
