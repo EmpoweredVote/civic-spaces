@@ -11,7 +11,7 @@
  * while the shipped code is wrong — which is the failure class this phase was told to
  * expect. If you are tempted to paste a function in here, don't; make it importable.
  *
- * What it covers (49 assertions):
+ * What it covers (53 assertions):
  *
  *   1–7    normalisePlaceQuery — ASVS V5 at the edge. Trim, collapse, cap, reject
  *          control characters, and the two boundaries (three characters in, 120 out).
@@ -44,6 +44,15 @@
  *          county for the WRONG jurisdiction — worse than the bug it replaced. 49
  *          re-checks the uniqueness the whole join rests on against the shipped
  *          shards rather than asserting it in a comment.
+ *   50–53  🔴 `locality.county_geoid` — the upstream fix, shipped by ev-accounts on
+ *          2026-11-18 after we reported the gap and verified live the same day.
+ *          Both committed fixtures PREDATE it, which is why 50 asserts that a body
+ *          without the field still falls through instead of failing: that is the
+ *          rollback behaviour, not an accident of stale fixtures. 52 is the one
+ *          with teeth — with the field present Reno resolves with NO name join at
+ *          all. 53 pins the hook's three-leg ORDER, which is the whole safety
+ *          argument and is not otherwise guarded anywhere, the hook being
+ *          unimportable here.
  *
  * 🔴 Why searchRowKind reads the MTFCC as well as the geoid's length.
  * The plan said length only, so that this repo would not have to keep an MTFCC list in
@@ -67,6 +76,7 @@ import { dirname, join } from 'node:path'
 import {
   countyFromCoordinateLookup,
   countyGeoidByName,
+  countyGeoidFromLocality,
   countyNameFromCoordinateLookup,
   normalisePlaceQuery,
   placeFromResolveResponse,
@@ -696,6 +706,97 @@ const FORBIDDEN_KEYS = ['name', 'label', 'address', 'matchedAddress', 'query', '
   )
 }
 
+// ── 50–53  locality.county_geoid — the leg that does not exist yet ───────────
+/*
+ * 🔴 These cover the field ev-accounts shipped on 2026-11-18, in answer to the gap
+ * 43–49 were written for. Verified live against api.empowered.vote the same day:
+ * Reno, Boston, Denver, Portland, San Francisco, New Orleans, Baltimore, St. Louis,
+ * Anchorage, DC, Las Cruces, Honolulu and Carson City all carry it, and every one
+ * agrees with the `county.geoid` that the same change populated.
+ *
+ * Both committed fixtures predate the change and are LEFT that way on purpose. They
+ * are the shape that broke, they are what the fallback legs are tested against, and
+ * 50 asserting that a body without the field falls through rather than fails is the
+ * behaviour we would need if the field were ever rolled back.
+ *
+ * Why it is a separate field from `county` and not a widened one: `county` was meant
+ * to keep meaning "a county we seat officials for", which other consumers lean on,
+ * while this means "a county exists at this point". Upstream populated both in the
+ * end, so they agree today — but they answer different questions and the chain
+ * prefers them in that order.
+ *
+ * 53 is a SOURCE-TEXT assertion, which this file otherwise avoids. Precedence is a
+ * property of the hook's composition, and the hook is not importable here (React,
+ * fetch). The order is the whole safety argument — authoritative geoid, then the
+ * agreed geoid, then the name join — so it is pinned the only way available rather
+ * than left unguarded. If this goes red because the expression was reformatted, read
+ * the expression and re-pin it; do not delete the check.
+ */
+{
+  const renoBody = fixture('coordinate-lookup-reno.json').body
+  const ashevilleBody = fixture('coordinate-lookup-asheville.json').body
+  const future = { ...renoBody, locality: { ...renoBody.locality, county_geoid: '32031' } }
+
+  check(
+    50,
+    'countyGeoidFromLocality reads locality.county_geoid ONLY — and a body without it falls through, not fails',
+    countyGeoidFromLocality(renoBody) === null &&
+      countyGeoidFromLocality(ashevilleBody) === null &&
+      countyGeoidFromLocality(future) === '32031' &&
+      countyGeoidFromLocality({ county: { geoid: '32031' } }) === null &&
+      countyGeoidFromLocality({ locality: { county_name: 'Washoe County' } }) === null,
+    `reno ${JSON.stringify(countyGeoidFromLocality(renoBody))}, future ${JSON.stringify(countyGeoidFromLocality(future))}`,
+  )
+
+  check(
+    51,
+    'it is five digits or null — a place geoid, a state, a number and an empty string are all refused',
+    [
+      { locality: { county_geoid: '3202000' } },
+      { locality: { county_geoid: '32' } },
+      { locality: { county_geoid: '3203' } },
+      { locality: { county_geoid: 32031 } },
+      { locality: { county_geoid: '' } },
+      { locality: { county_geoid: null } },
+      { locality: { county_geoid: ' 32031' } },
+    ].every((body) => countyGeoidFromLocality(body) === null),
+  )
+
+  // The point of the whole exchange: once this field is live, Reno resolves with no
+  // gazetteer, no shard load and no name join at all.
+  const wrongState = { ...renoBody, locality: { ...renoBody.locality, county_geoid: '37021' } }
+  check(
+    52,
+    'with the field present, Reno resolves WITHOUT the name join — and a wrong-state value is still refused',
+    same(withCounty({ city: '3260600', state: '32' }, countyGeoidFromLocality(future)), {
+      city: '3260600',
+      county: '32031',
+      state: '32',
+      nation: 'US',
+      unified: 'UNIFIED',
+    }) && withCounty({ city: '3260600', state: '32' }, countyGeoidFromLocality(wrongState)) === null,
+    `got ${JSON.stringify(withCounty({ city: '3260600', state: '32' }, countyGeoidFromLocality(future)))}`,
+  )
+
+  const hookSrc = readFileSync(join(HERE, '../src/hooks/usePlaceResolve.ts'), 'utf8')
+  const chain = hookSrc.match(/const county =([\s\S]*?)\n\s*if \(!county\)/)
+  const order = chain
+    ? [...chain[1].matchAll(/county(?:FromCoordinateLookup|GeoidFromLocality|GeoidByName)/g)].map(
+        (m) => m[0],
+      )
+    : []
+  check(
+    53,
+    'the hook tries the three legs in order: county.geoid, then locality.county_geoid, then the name join',
+    same(order, [
+      'countyFromCoordinateLookup',
+      'countyGeoidFromLocality',
+      'countyGeoidByName',
+    ]),
+    `found ${JSON.stringify(order)}`,
+  )
+}
+
 // ── --live: contract drift against the real API ──────────────────────────────
 /*
  * 🔴 Opt-in, and NOT part of `npm run check:place-resolve`. It needs the network, and it
@@ -775,20 +876,29 @@ async function live() {
     if (!res.ok) throw new Error(`coordinate-lookup: HTTP ${res.status}`)
     const body = await res.json()
     report('coordinate-lookup .county', keyShape(COORDINATE_LOOKUP.county), keyShape(body.county))
-    report('coordinate-lookup .locality', keyShape(COORDINATE_LOOKUP.locality), keyShape(body.locality))
+    // 🔴 The expectation is the fixture's locality PLUS `county_geoid`, written out
+    // rather than re-captured. The fixture is the 2026-10-26 shape and is deliberately
+    // left at it (see 50–53); the live contract gained the field on 2026-11-18. If this
+    // reports the fixture's three keys again, the upstream fix has been rolled back and
+    // the name join is load-bearing once more.
+    report(
+      'coordinate-lookup .locality — fixture shape + county_geoid, added upstream 2026-11-18',
+      keyShape({ ...COORDINATE_LOOKUP.locality, county_geoid: '' }),
+      keyShape(body.locality),
+    )
     report(
       'coordinate-lookup county.geoid still parses',
       '37021',
       String(countyFromCoordinateLookup(body)),
     )
 
-    // 🔴 The other half of the contract, and the one that moves. Asheville is in
-    // the 30% that carry a county geoid; Reno is in the 70% that do not, and the
-    // recovery leg exists for them. Drift here is news either way: a geoid
-    // appearing means ev-accounts has widened its county coverage (good — the
-    // fallback simply stops being reached), and `county_name` going missing means
-    // the recovery leg has lost its only input and most of the country stops
-    // resolving again. Neither shows up in the Asheville checks above.
+    // 🔴 The other half of the contract, and the one that moved. Asheville was in
+    // the 30% that carried a county geoid; Reno was in the 70% that did not, and
+    // the recovery leg was built for them. On 2026-11-18 ev-accounts closed it:
+    // Reno now answers on BOTH `county.geoid` and `locality.county_geoid`, so the
+    // expectations below are the post-fix contract and a null here is a REGRESSION,
+    // not the old normal. `county_name` going missing would still mean the recovery
+    // leg has lost its only input. None of this shows up in the Asheville checks.
     const nvShard = await fetch(`${origin}/geo/32.json`)
     const reno = (await nvShard.json()).names['3260600']
     const renoRes = await fetch(`${origin}/api/essentials/coordinate-lookup`, {
@@ -799,12 +909,25 @@ async function live() {
     if (!renoRes.ok) throw new Error(`coordinate-lookup (Reno): HTTP ${renoRes.status}`)
     const renoBody = await renoRes.json()
     report(
-      'coordinate-lookup (Reno) .county — null in the fixture; a geoid here is WIDER coverage, not a break',
-      keyShape(fixture('coordinate-lookup-reno.json').body.county),
-      keyShape(renoBody.county),
+      'coordinate-lookup (Reno) county.geoid — null until 2026-11-18; a null here now is a REGRESSION',
+      '32031',
+      String(countyFromCoordinateLookup(renoBody)),
     )
     report(
-      'coordinate-lookup (Reno) locality.county_name — the recovery leg\'s only input',
+      'coordinate-lookup (Reno) locality.county_geoid — the field we asked for, leg 2 of the chain',
+      '32031',
+      String(countyGeoidFromLocality(renoBody)),
+    )
+    // Two fields, two questions, and upstream says they may diverge. They have not
+    // yet. If they ever do, the chain prefers `county.geoid` and this says so out loud
+    // rather than leaving it to be discovered in a slice header.
+    report(
+      'coordinate-lookup (Reno) the two county geoids still agree',
+      String(countyFromCoordinateLookup(renoBody)),
+      String(countyGeoidFromLocality(renoBody)),
+    )
+    report(
+      'coordinate-lookup (Reno) locality.county_name — leg 3\'s only input, still present',
       'Washoe County',
       String(countyNameFromCoordinateLookup(renoBody)),
     )

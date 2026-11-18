@@ -377,6 +377,45 @@ export function countyFromCoordinateLookup(body: unknown): string | null {
 }
 
 /**
+ * The county geoid out of `locality` — the field ev-accounts added on
+ * 2026-11-18 in answer to our report, verified live on `api.empowered.vote`
+ * the same day.
+ *
+ * 🔴 It is a SEPARATE field from `county.geoid` on purpose, and the reason
+ * governs which one you reach for. `county` was meant to keep meaning *a county
+ * we seat officials for*, a signal other consumers lean on, while this means
+ * *a county exists at this point*, which is true everywhere. Upstream also
+ * populated `county` in the same change, so today the two agree everywhere we
+ * have measured — but they are not the same question, and if they ever diverge
+ * this one is the geometric answer.
+ *
+ * It is also emitted from a different place in their code. `buildLocality` is
+ * called ABOVE the early return that fires when a point has no district rows at
+ * all — which is exactly the no-officials case this whole fallback exists for —
+ * so a value placed in `county` would have missed those points and a value in
+ * `locality` does not. That is their finding, not ours; our proposed patch sat
+ * below that return and would not have run.
+ *
+ * 🔴 Absence is not an error here. It was wired up before the field shipped and
+ * the two committed fixtures predate it, so a body without it must still fall
+ * through to the name join rather than fail — that is the behaviour assertion
+ * 50 pins, and it is what protects us if the field is ever rolled back.
+ *
+ * Shape only, like `countyFromCoordinateLookup` — the state is not checked
+ * here. `withCounty` is the arbiter for that and rejects any geoid whose first
+ * two digits are not the state we asked about, whichever leg produced it.
+ */
+export function countyGeoidFromLocality(body: unknown): string | null {
+  const root = asRecord(body)
+  if (!root) return null
+  const locality = asRecord(root['locality'])
+  if (!locality) return null
+  const geoid = locality['county_geoid']
+  if (typeof geoid !== 'string' || !/^\d{5}$/.test(geoid)) return null
+  return geoid
+}
+
+/**
  * The county NAME out of the same body — the recovery leg's only input.
  *
  * 🔴 This exists because `county.geoid` is null for MOST of the country, and
