@@ -432,6 +432,20 @@ shipped in `public/geo/`, already loaded for the centroid, scoped to one state. 
 stays first where it exists, so nothing that resolved before changed; where both answered they
 agreed 31/31. 103 of 103 cities now resolve.
 
+🔴 **ev-accounts closed the gap at the source on 2026-11-18**, a day after we reported it, and
+`resolveChosenPlace` now tries **three** legs: `county.geoid`, then `locality.county_geoid`,
+then the name join. They added `locality.county_geoid` *and* populated `county` in the same
+change; verified live on `api.empowered.vote` across thirteen previously-null cities, both
+fields present and agreeing every time, the three independent cities included (Baltimore
+24510, St. Louis 29510, Richmond 51760). **Keep all three legs.** `county` was documented as
+officials-scoped — *a county we seat officials for* — and `locality.county_geoid` as the
+geometric fact; they agree today but answer different questions, and `jurisdictionGeoIds.county`
+is **still** null where officials are absent (3 of 12 sampled), so that field is the one that
+did not move. The name join is dormant, not dead: it is the only leg needing nothing from
+ev-accounts but a county NAME. The order is pinned by `check:place-resolve` **53**, a
+source-text assertion on the hook, because the hook is not importable into the guard and the
+order is the entire safety argument. `--live` now treats a null Reno county as a regression.
+
 🔴 **That join is allowed HERE and nowhere else, and never loosened.** It is safe because a
 county name is unique within its state — 3,222 entries across all 53 shards, 0 repeats,
 asserted by `check:place-resolve` 49 — and because both sides come from the same Census

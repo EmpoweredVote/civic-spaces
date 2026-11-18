@@ -4,6 +4,7 @@ import { loadStateNames, lookupGeoName } from '../lib/geoNames'
 import {
   countyFromCoordinateLookup,
   countyGeoidByName,
+  countyGeoidFromLocality,
   countyNameFromCoordinateLookup,
   placeFromResolveResponse,
   placeFromSearchRow,
@@ -121,22 +122,36 @@ export async function resolveChosenPlace(row: PlaceSearchRow): Promise<ResolvedP
     throw new PlaceResolveError('service-unavailable')
   }
 
-  // 🔴 TWO legs, and the second one carries most of the country.
+  // 🔴 THREE legs, in descending order of authority. Keep all three, and read
+  // why before deleting the ones that look dead.
   //
-  // `county.geoid` is the authoritative answer and stays first, so every place
-  // that resolved before 2026-11-17 resolves identically. It is also null for
-  // MOST places: measured against the two largest places in every state, 71 of
-  // 102 came back `county: null` — Reno, Boston, Denver, Portland, San
-  // Francisco, New Orleans, Richmond. Asheville is one of the 31 that answer,
-  // which is why one fixture made this leg look sound and "switch to another
-  // city" was broken for roughly 70% of the country.
+  // 1. `county.geoid` — the authoritative answer, and first so that every place
+  //    which resolved before 2026-11-17 resolves identically. It used to be null
+  //    for MOST places: measured against the two largest places in every state,
+  //    71 of 102 came back `county: null` — Reno, Boston, Denver, Portland, San
+  //    Francisco, New Orleans, Richmond. Asheville was one of the 31 that
+  //    answered, which is why one fixture made this leg look sound while "switch
+  //    to another city" was broken for roughly 70% of the country.
   //
-  // All 71 carried `locality.county_name`, so the recovery is a state-scoped
-  // exact join against the gazetteer we already shipped and already loaded for
-  // the centroid — no request, no key, no guess. Where upstream DID answer, the
-  // join agreed 31 times out of 31.
+  // 2. `locality.county_geoid` — ev-accounts added this on 2026-11-18 in answer
+  //    to that report, and populated `county` in the same change, so leg 1 now
+  //    answers nationwide and this rarely decides anything. It stays because the
+  //    two fields answer different questions: `county` is scoped to counties
+  //    they seat officials for, this one is the geometric fact. If `county` ever
+  //    narrows back to its documented meaning, this is what keeps us whole.
+  //
+  // 3. The name join — the recovery that shipped in #165 and carried the whole
+  //    country between 2026-11-17 and the upstream fix: a state-scoped exact
+  //    join against the gazetteer we already loaded for the centroid. Dormant
+  //    now, and 🔴 NOT dead code — it is the only leg that needs nothing from
+  //    ev-accounts beyond a county NAME, and it is what the regression story
+  //    above would fall back to. Where upstream answered, it agreed 31/31.
+  //
+  // 🔴 The order is load-bearing and is pinned by `check:place-resolve` 53,
+  // because it is the one thing here no behavioural assertion can see.
   const county =
     countyFromCoordinateLookup(body) ??
+    countyGeoidFromLocality(body) ??
     countyGeoidByName(
       await loadStateNames(fromRow.partial.state),
       countyNameFromCoordinateLookup(body),
