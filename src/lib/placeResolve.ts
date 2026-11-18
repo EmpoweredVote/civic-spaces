@@ -377,6 +377,99 @@ export function countyFromCoordinateLookup(body: unknown): string | null {
 }
 
 /**
+ * The county NAME out of the same body — the recovery leg's only input.
+ *
+ * 🔴 This exists because `county.geoid` is null for MOST of the country, and
+ * that was not known when this module was written. Measured 2026-11-17 against
+ * the two largest places in every state: **71 of 102 came back `county: null`**,
+ * and every one of those 71 carried a `locality.county_name`. Reno, Boston,
+ * Denver, Portland, San Francisco, New Orleans, Richmond — all of them. Only
+ * 31 answered with a geoid, and Asheville is one of them, which is why the
+ * original fixture made the county leg look sound.
+ *
+ * So the geoid is the first answer and this is the second: the name, joined
+ * against the committed gazetteer by `countyGeoidByName` below. Read ONLY as a
+ * fallback, never in preference to `county.geoid` — where upstream answers it
+ * is the authoritative geometric result, and keeping it first means nothing
+ * that resolves today changes.
+ *
+ * 🔴 NOT `locality.place_name`, which is the same trap `locality.incorporated`
+ * is: NV sets it and NC does not, because ev-accounts loads place geofences
+ * only for `PLACE_LOADED_STATES`. County names are nationwide. Compare the two
+ * committed fixtures — `coordinate-lookup-reno.json` and
+ * `coordinate-lookup-asheville.json` — which differ on exactly that field.
+ */
+export function countyNameFromCoordinateLookup(body: unknown): string | null {
+  const root = asRecord(body)
+  if (!root) return null
+  const locality = asRecord(root['locality'])
+  if (!locality) return null
+  const name = locality['county_name']
+  if (typeof name !== 'string') return null
+  const trimmed = name.trim()
+  return trimmed === '' ? null : trimmed
+}
+
+/**
+ * A county geoid from its name, WITHIN ONE STATE, against the committed
+ * gazetteer — exact string, unique match, or null.
+ *
+ * 🔴 This is a name join, which this codebase bans in the banner library, so
+ * read why it is sound HERE and do not generalise it. The banner rule exists
+ * because `CURATED_LOCAL` keys Portland ME and Portland OR identically and only
+ * the filename separates them — the key is not unique in the space it is joined
+ * over. This join is over ONE state's counties, where the name IS unique by
+ * construction: verified across all 53 shards, **3,222 county-level entries, 0
+ * names repeated within their state.** Both sides also derive from the same
+ * Census gazetteer, so they agree byte for byte, diacritics included — "Doña
+ * Ana County" matches with a precomposed U+00F1 on both sides, checked
+ * 2026-11-17.
+ *
+ * 🔴 Exactly one hit, or null. Not the first hit, not the closest, no
+ * normalising, no fuzzy fallback. "Never invent a place" — Treasury Tracker
+ * resolving an unknown slug to Bloomington, IN's budget is the precedent, and
+ * the near-misses here are real and adjacent: Richmond **city** (51760) sits in
+ * the same state as Richmond **County** (51159), Baltimore city (24510) beside
+ * Baltimore County (24005), St. Louis city (29510) beside St. Louis County
+ * (29189). All three were probed live through the whole pipeline and land on
+ * the independent city, which is the correct county-equivalent. They land there
+ * because the strings differ, not because anything here is clever — so a
+ * "helpful" normalisation that stripped "city"/"County" would break precisely
+ * these and nothing would fail loudly.
+ *
+ * The state prefix is re-asserted on the KEY rather than trusted from the
+ * caller's choice of shard, so a mis-wired call gets null instead of a
+ * confident answer about another state.
+ *
+ * `names` is the gazetteer shard as plain data — `Record<geoid, {name}>`. It is
+ * passed in rather than imported because this module must stay free of runtime
+ * imports (see the header); `geoNames.ts` owns the loading.
+ */
+export function countyGeoidByName(
+  names: Record<string, { name?: unknown }> | null | undefined,
+  countyName: string | null | undefined,
+  state: string,
+): string | null {
+  if (!names || typeof names !== 'object') return null
+  if (typeof countyName !== 'string' || countyName === '') return null
+  if (!/^\d{2}$/.test(state)) return null
+
+  let found: string | null = null
+  for (const [geoid, entry] of Object.entries(names)) {
+    if (geoid.length !== 5) continue
+    if (!geoid.startsWith(state)) continue
+    if (!/^\d{5}$/.test(geoid)) continue
+    if ((entry as { name?: unknown })?.name !== countyName) continue
+    // A second match means the assumption this join rests on is false for this
+    // state. Refuse both rather than take the first — one wrong county is the
+    // outcome this whole module is built to avoid.
+    if (found !== null) return null
+    found = geoid
+  }
+  return found
+}
+
+/**
  * The whole answer out of `POST /api/civic-spaces/resolve` — the endpoint
  * `ACCOUNTS-HANDOFF.md` asks for, which does not exist yet.
  *

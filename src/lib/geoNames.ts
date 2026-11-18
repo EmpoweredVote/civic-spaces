@@ -76,6 +76,24 @@ function loadShard(stateFips: string): Promise<Record<string, GeoName> | null> {
 }
 
 /**
+ * One whole state shard, as plain data.
+ *
+ * Exposed for the one caller that needs to search the shard rather than index
+ * it: `resolveChosenPlace` recovering a county GEOID from the county NAME that
+ * `coordinate-lookup` returns when it has no geoid of its own (most of the
+ * country — see `countyGeoidByName`). Shares the same per-state promise as
+ * `lookupGeoName`, so that recovery costs no extra request; the shard is
+ * already loaded by then, because the centroid leg just read it.
+ *
+ * Returns the gazetteer's own map, NOT a copy. Treat it as read-only — the
+ * cache hands the same object to every caller.
+ */
+export function loadStateNames(stateFips: string): Promise<Record<string, GeoName> | null> {
+  if (!/^\d{2}$/.test(stateFips)) return Promise.resolve(null)
+  return loadShard(stateFips)
+}
+
+/**
  * Resolves a geoid to its entry, or null if it is not a shape we carry.
  *
  * Four shapes resolve, all verified against the production slices table:

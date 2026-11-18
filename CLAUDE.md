@@ -418,6 +418,33 @@ address regardless** — `onelineaddress` is a GET on every path. The member pat
 property. So the claim is *"geocoded once and never kept"*, never *"it never leaves your
 browser"*.
 
+🔴 **`coordinate-lookup` returns no county GEOID for most of the country, and that broke
+switching places until 2026-11-17.** It answers `200` with `county: null` while
+`locality.county_name` still names the county — measured against the two largest places in
+every state, **71 of 102** came back null, Reno, Boston, Denver, Portland, San Francisco,
+New Orleans and Richmond among them. `resolveChosenPlace` treated that as a hard failure, so
+~70% of cities could not be entered at all. **Asheville is one of the 31 that DO answer**,
+and it was the only county fixture, so every assertion about the county leg passed on the
+one case that works.
+
+The recovery is `countyGeoidByName` — the county name joined against the gazetteer already
+shipped in `public/geo/`, already loaded for the centroid, scoped to one state. `county.geoid`
+stays first where it exists, so nothing that resolved before changed; where both answered they
+agreed 31/31. 103 of 103 cities now resolve.
+
+🔴 **That join is allowed HERE and nowhere else, and never loosened.** It is safe because a
+county name is unique within its state — 3,222 entries across all 53 shards, 0 repeats,
+asserted by `check:place-resolve` 49 — and because both sides come from the same Census
+gazetteer, so they match byte for byte including "Doña Ana County". It must stay an **exact,
+unique-match** join: Richmond **city** (51760) sits in the same state as Richmond **County**
+(51159), Baltimore city beside Baltimore County, St. Louis city beside St. Louis County. A
+"helpful" normalisation that case-folded or stripped `city`/`County` returns a real county
+for the wrong jurisdiction — assertions 46 and 47 exist to go red for exactly that, and they
+do: a deliberately sabotaged join was run against them, and 45 (Reno) still passed while 46
+and 47 caught it. Never read `locality.place_name` or `locality.incorporated` instead; both
+are set only for ev-accounts' `PLACE_LOADED_STATES` (NV yes, NC no — the two committed
+fixtures differ on exactly that field).
+
 ## Design rules
 
 **Beautiful is not optional.** The v3.0 redesign is the standard, and every change is judged on
