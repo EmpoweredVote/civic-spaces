@@ -1,53 +1,38 @@
-import { CivicSpacesMark } from './CivicSpacesMark'
-import { PlacePicker } from './PlacePicker'
+import { useState } from 'react'
+import { PlacePicker, Problem, resolveFailureCopy } from './PlacePicker'
 import { CARD, FOCUS } from './explore/exploreUi'
-import type { ResolvedPlace } from '../lib/placeResolve'
+import { bannerFor, creditParts } from '../lib/banners'
+import { usePlaceResolve } from '../hooks/usePlaceResolve'
+import { useCurrentWeather } from '../hooks/useCurrentWeather'
+import type { PlaceSearchRow, ResolvedPlace } from '../lib/placeResolve'
 
 /**
  * The first screen a visitor with no session sees.
  *
- * It replaces one grey sentence, one button, and 580 words of `geoid: null`
- * Explore addressed to a community nobody is in (D-06, D-09).
+ * Laid out as a landing page (2026-11-18): the headline and the place picker on
+ * the left, a live preview of one real civic space on the right, three short
+ * cards and a footer line beneath. It keeps the app's own colours and type.
  *
  * ── 🔴 Every word here must be true on the day it ships ──────────────────────
  *
- * In Phase 17 conversations are still members-only: every `civic_spaces` grant
- * is `TO authenticated`, and `posts_select_sibling_slice` requires `geoid`
- * equality, so an observer reads zero forum rows and so does a signed-in member
- * looking at another city. D-07's "observation covers Explore AND conversations"
- * and D-08's "fully public, and scrapable" are **Phase 18**.
+ * Reading the five public slice types is open to anyone since Phase 18
+ * (2026-11-02); WRITING is not, and Volunteer is members-only to read at all.
+ * So the copy may say a visitor can look and read, and must name the wall in
+ * front of posting: a Connected account (D-11 — the ceiling is known before
+ * anything is pressed). It never says *anonymous* or *untraceable* (D-17, D-02),
+ * never implies a post will be findable by a search engine (D-25 — this is a
+ * client-rendered SPA with no SSR), and the address line says only what is true
+ * on every path: Civic Spaces never STORES one. Not "it never leaves your
+ * browser" — the geocoder's host sees it (research Q1.8).
  *
- * So the copy below never says conversations are public, open or readable by
- * anyone; never implies a post will be findable (🔴 D-25 and Pitfall 11 — this
- * is a client-rendered Vite SPA with no SSR, no prerender, no `robots.txt` and
- * one static set of `og:` tags, so crawlable is not indexed even after Phase 18,
- * and the exposure that phase creates is the PostgREST endpoint, not these
- * pages); and never says *anonymous* or *untraceable* (🔴 D-17, D-02 — Connect
- * privacy is not protection from consequence, there is a paper trail, and that
- * is how mis- and disinformation sources are identified). The honest words are
- * **private from other members**.
+ * ── 🔴 The preview is a real place, not a mock-up ────────────────────────────
  *
- * D-05's target feeling — a town square rather than an anonymous internet forum
- * — is aimed at rather than stated, which is also why "4chan" is nowhere near
- * this file: it is Chris's shorthand for the anti-goal, not public copy.
- *
- * ── The pillar copy is QUOTED, not invented ──────────────────────────────────
- *
- * Research Q5 searched `ev-ui`, the landing site and the accounts app and found
- * no shipped pillar copy anywhere. The canonical source is
- * `empowered-vote-primer.md` § The Three Pillars, committed in this repo, and it
- * already carries Chris's line:
- *
- *   > **Philosophy:** Authenticated, pseudonymous community. We don't need to
- *   > know who users are — we need to ensure each person has exactly one voice
- *   > and lives where they claim.
- *
- * It is below in the second person with nothing else changed. 🔴 The second half
- * is not decoration: *lives where they claim* is the entire reason an address is
- * asked for, and it is the bridge into the privacy block.
- *
- * 🔴 Terminology, from the primer: the PILLAR is *Connect*; the TIER is
- * *Connected* (`tier: 'connected'` in `database.ts`). Never "Connect account".
+ * The preview card shows Los Angeles' real shared-library banner with its
+ * licence credit (CC BY-SA — the credit is a licence condition, see
+ * `banners.ts`), and live conditions from weather.gov through the same hook
+ * `HeroBanner` uses, hidden when they do not answer. Nothing on it is invented:
+ * no sample topic, no member count. The whole card opens that place through the
+ * same resolver the picker uses, so nothing on it is a dead control.
  *
  * ── The primary action is the picker, not sign-in ────────────────────────────
  *
@@ -58,54 +43,197 @@ import type { ResolvedPlace } from '../lib/placeResolve'
  * ProfileMenu, which already renders for a signed-out visitor.
  */
 
-/** One block of the three. SVG marks only — 🔴 never an emoji as a UI icon. */
-function Block({
-  icon,
-  title,
-  children,
-}: {
-  icon: React.ReactNode
-  title: string
-  children: React.ReactNode
-}) {
+interface QuickPlace {
+  geoid: string
+  name: string
+}
+
+/**
+ * Real incorporated places (MTFCC G4110), each with a curated banner in the
+ * shared library. They resolve through `resolveChosenPlace` exactly as a picked
+ * search row does — the chip carries a geoid, never a typed string.
+ */
+const FEATURED: QuickPlace & { state: string } = { geoid: '0644000', name: 'Los Angeles', state: 'California' }
+const POPULAR: QuickPlace[] = [
+  { geoid: '0644000', name: 'Los Angeles' },
+  { geoid: '0643000', name: 'Long Beach' },
+  { geoid: '0656000', name: 'Pasadena' },
+]
+
+function rowFor(place: QuickPlace): PlaceSearchRow {
+  return { geo_id: place.geoid, mtfcc: 'G4110' }
+}
+
+// ── Icons. SVG only — 🔴 never an emoji as a UI icon. ─────────────────────────
+
+function Svg({ className = 'h-5 w-5', children }: { className?: string; children: React.ReactNode }) {
   return (
-    <section className={`${CARD} flex flex-col gap-3 p-5`}>
-      <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-muted text-brand dark:bg-brand/20 dark:text-brand-light">
-          {icon}
-        </span>
-        <h3 className="text-base font-bold tracking-tight text-gray-900 dark:text-gray-100">{title}</h3>
-      </div>
-      <div className="flex flex-col gap-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-        {children}
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  )
+}
+
+const SearchIcon = () => (
+  <Svg>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5" />
+  </Svg>
+)
+const BookIcon = () => (
+  <Svg>
+    <path d="M12 6.5C10.5 5.3 8.4 4.75 5 4.75v13c3.4 0 5.5.55 7 1.75 1.5-1.2 3.6-1.75 7-1.75v-13c-3.4 0-5.5.55-7 1.75zM12 6.5v13" />
+  </Svg>
+)
+const SpeechIcon = ({ className }: { className?: string }) => (
+  <Svg className={className}>
+    <path d="M7.5 19.5 4 20.5l1-3.4A8 8 0 1 1 7.5 19.5z" />
+  </Svg>
+)
+const CheckIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
+  <Svg className={className}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </Svg>
+)
+const PersonIcon = () => (
+  <Svg className="h-4 w-4">
+    <circle cx="12" cy="8" r="3.5" />
+    <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
+  </Svg>
+)
+const CivicIcon = () => (
+  <Svg className="h-4 w-4">
+    <path d="M3 9.5 12 4l9 5.5M5 10v8m4.67-8v8m4.66-8v8M19 10v8M3.5 20.5h17" />
+  </Svg>
+)
+const CloudIcon = () => (
+  <Svg className="h-4 w-4">
+    <path d="M7 18.5a4.5 4.5 0 0 1-.5-8.97 6 6 0 0 1 11.6 1.47A3.75 3.75 0 0 1 17.25 18.5z" />
+  </Svg>
+)
+const ChevronIcon = () => (
+  <Svg className="h-5 w-5">
+    <path d="m9 6 6 6-6 6" />
+  </Svg>
+)
+
+/** One of the three cards under the fold. */
+function Feature({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  return (
+    <section className={`${CARD} flex items-start gap-4 p-5`}>
+      <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-muted text-brand dark:bg-brand/20 dark:text-brand-light">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{children}</p>
       </div>
     </section>
   )
 }
 
-function EyeIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  )
-}
+/** The right-hand card: one real civic space, opened with a click. */
+function PlacePreview({ onOpen, pending }: { onOpen: () => void; pending: boolean }) {
+  const banner = bannerFor('city', FEATURED.geoid)
+  const credit = banner ? creditParts(banner.credit) : null
+  const weather = useCurrentWeather('city', FEATURED.geoid)
 
-function SpeechIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5m-9 6l3-3h11a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v14z" />
-    </svg>
-  )
-}
+    <div className={`${CARD} relative overflow-hidden shadow-xl lg:rotate-[0.6deg] motion-safe:transition-transform lg:hover:rotate-0`}>
+      {/* ── Photo ── */}
+      <div className="relative flex min-h-56 flex-col justify-end bg-gradient-to-br from-brand to-brand-hover p-6 sm:min-h-64 dark:from-brand-hover dark:to-[#00212B]">
+        {banner && (
+          <img
+            src={banner.url}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            loading="eager"
+            decoding="async"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-black/10" aria-hidden="true" />
 
-function ShieldPinIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2.7l7 2.8v5.1c0 4.4-2.9 8.4-7 9.7-4.1-1.3-7-5.3-7-9.7V5.5l7-2.8z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 14.2s-2.6-2.1-2.6-3.9a2.6 2.6 0 115.2 0c0 1.8-2.6 3.9-2.6 3.9z" />
-    </svg>
+        <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-lg bg-brand-yellow px-3 py-1.5 text-xs font-bold text-gray-900 shadow-sm">
+          <CheckIcon className="h-3.5 w-3.5" />
+          No account needed to explore
+        </span>
+
+        <div className="relative">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/90">
+            City &middot; {FEATURED.state}
+          </p>
+          <p className="mt-1 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">{FEATURED.name}</p>
+          {weather && (
+            <p className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/30 bg-black/25 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+              <CloudIcon />
+              {Math.round(weather.tempF)}°F &middot; {weather.summary}
+            </p>
+          )}
+        </div>
+
+        {/* 🔴 z-20, above the stretched button's z-10 overlay: the licence link must
+            stay clickable (PR #92's credit sat under a z-10 layer and could not be). */}
+        {banner && (
+          <p className="absolute bottom-2 right-3 z-20 text-[10px] text-white/80">
+            {credit ? (
+              <>
+                Photo: {credit.author} &middot;{' '}
+                {credit.licenseUrl ? (
+                  <a href={credit.licenseUrl} target="_blank" rel="noopener noreferrer" className={`rounded underline hover:no-underline ${FOCUS}`}>
+                    {credit.license}
+                  </a>
+                ) : (
+                  credit.license
+                )}
+              </>
+            ) : (
+              banner.credit
+            )}
+          </p>
+        )}
+      </div>
+
+      {/* ── The two tabs every civic space has — labels here, the card is the control ── */}
+      <div className="flex gap-6 border-b border-gray-200 px-6 dark:border-white/10" aria-hidden="true">
+        <span className="border-b-[3px] border-brand py-3 text-sm font-semibold text-brand dark:border-brand-light dark:text-brand-light">
+          Explore
+        </span>
+        <span className="py-3 text-sm font-semibold text-gray-600 dark:text-gray-400">Conversations</span>
+      </div>
+
+      <div className="flex flex-col gap-4 p-6">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
+            Inside every civic space
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+            Discover what&rsquo;s happening nearby.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onOpen}
+          disabled={pending}
+          className={`flex w-full cursor-pointer items-center gap-4 rounded-xl border border-brand/20 bg-brand-muted p-4 text-left motion-safe:transition-colors hover:border-brand/40 disabled:cursor-wait disabled:opacity-70 dark:border-brand-light/20 dark:bg-brand/15 dark:hover:border-brand-light/40 after:absolute after:inset-0 after:z-10 after:content-[''] ${FOCUS}`}
+        >
+          <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-white text-brand shadow-sm dark:bg-gray-900 dark:text-brand-light">
+            <SpeechIcon />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-gray-600 dark:text-gray-400">
+              {pending ? 'Opening…' : `Open ${FEATURED.name}`}
+            </span>
+            <span className="mt-0.5 block text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100">
+              Who represents it, what&rsquo;s on its calendar, and when it votes next.
+            </span>
+          </span>
+          <span className="text-gray-600 dark:text-gray-400">
+            <ChevronIcon />
+          </span>
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -117,157 +245,117 @@ export function WelcomeScreen({
   /** The geoids of the place the visitor named. AppShell holds them from here. */
   onResolved: (place: ResolvedPlace) => void
 }) {
+  // One resolver behind the chips and the preview card, so one pending state.
+  const quick = usePlaceResolve()
+  const [pendingGeoid, setPendingGeoid] = useState<string | null>(null)
+
+  function openQuick(place: QuickPlace) {
+    if (quick.isPending) return
+    setPendingGeoid(place.geoid)
+    quick.mutate(
+      { kind: 'place', row: rowFor(place) },
+      {
+        onSuccess: (resolved) => onResolved(resolved),
+        onSettled: () => setPendingGeoid(null),
+      },
+    )
+  }
+
   return (
-    <div data-welcome-screen="" className="flex flex-1 justify-center px-4 py-8 md:py-14">
-      {/* Capped around 65–75 characters at desktop width, not the full grid: a
-          line of body copy the width of a 1440px page is unreadable. */}
-      <div className="flex w-full max-w-2xl flex-col gap-8 md:gap-10">
-        {/* ── 1. The mark, the name, and one sentence of what this is ──────── */}
-        <header className="flex flex-col gap-3">
-          <div className="flex items-center gap-2.5">
-            <CivicSpacesMark className="h-8 w-8 flex-shrink-0" />
-            {/* The base colour is written even though both spans carry their own:
-                without it the fallback is the browser's black, which on the dark
-                default is black on near-black. A colour that is only ever
-                correct because a child overrides it is a colour waiting to be
-                wrong. */}
-            <p className="text-lg font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
-              <span className="text-brand dark:text-brand-light">Civic</span>{' '}
-              <span className="text-brand-coral-text dark:text-brand-coral">Spaces</span>
+    <div data-welcome-screen="" className="flex flex-1 flex-col px-4 md:px-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col">
+        {/* ── Hero: the pitch and the picker | one real place ─────────────── */}
+        <div className="grid items-center gap-10 py-10 md:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16 lg:py-20">
+          <div className="flex min-w-0 flex-col">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand dark:text-brand-light">
+              Your community, made clearer
+            </p>
+            {/* Wraps cleanly at 390px: no fixed width, sizes step up from sm. */}
+            <h2 className="mt-4 text-5xl font-bold leading-[0.98] tracking-tight text-gray-900 sm:text-6xl xl:text-7xl dark:text-gray-100">
+              See what&rsquo;s happening where you live.
+            </h2>
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-600 md:text-xl dark:text-gray-300">
+              Explore local topics, events, and conversations&mdash;all in one welcoming place.
+            </p>
+
+            {/* ── The primary action, above the fold at 390x844 ── */}
+            <div className={`${CARD} mt-8 max-w-xl p-5 sm:p-6`}>
+              <PlacePicker
+                size="hero"
+                onResolved={onResolved}
+                label="Find your Civic Space"
+                placeholder="Search a city or county"
+                submitLabel="Explore"
+                hideHelp
+              />
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Popular:</span>
+                {POPULAR.map((place) => {
+                  const featured = place.geoid === FEATURED.geoid
+                  return (
+                    <button
+                      key={place.geoid}
+                      type="button"
+                      onClick={() => openQuick(place)}
+                      disabled={quick.isPending}
+                      className={[
+                        'cursor-pointer rounded-full border px-3 py-1.5 text-xs font-medium motion-safe:transition-colors disabled:cursor-wait',
+                        featured
+                          ? 'border-brand/40 bg-brand-muted text-brand dark:border-brand-light/40 dark:bg-brand/20 dark:text-brand-light'
+                          : 'border-gray-300 text-gray-700 hover:border-gray-400 dark:border-white/15 dark:text-gray-300 dark:hover:border-white/30',
+                        pendingGeoid === place.geoid ? 'opacity-60' : '',
+                        FOCUS,
+                      ].join(' ')}
+                    >
+                      {pendingGeoid === place.geoid ? 'Opening…' : place.name}
+                    </button>
+                  )
+                })}
+              </div>
+              {quick.isError && quick.error && <Problem>{resolveFailureCopy(quick.error.code)}</Problem>}
+            </div>
+
+            <p className="mt-5 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <PersonIcon />
+              <span>
+                Already a member?{' '}
+                <a href={loginUrl} className={`rounded font-semibold text-brand underline hover:no-underline dark:text-brand-light ${FOCUS}`}>
+                  Sign in to your Civic Spaces
+                </a>
+              </span>
             </p>
           </div>
-          <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            A civic space for every government you live under — your city, your county, your
-            state, and the country. Part of Empowered Vote&rsquo;s Connect pillar.
-          </p>
-        </header>
 
-        {/* ── 2. The headline, and the invitation to look ──────────────────── */}
-        <div className="flex flex-col gap-3">
-          {/* Wraps cleanly at 390px: no fixed width, and the largest step only
-              from md up. */}
-          <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-gray-900 md:text-4xl dark:text-gray-100">
-            Look at any place.
-            <br />
-            Speak where you live.
-          </h2>
-          <p className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
-            Name a city, town or county and its civic spaces open: what its government is working
-            on, who represents it, what is on its calendar, and when it votes next. No account
-            needed to look.
-          </p>
+          <div className="min-w-0">
+            <PlacePreview onOpen={() => openQuick(FEATURED)} pending={pendingGeoid === FEATURED.geoid} />
+          </div>
         </div>
 
-        {/* ── 3. The primary action, above the fold at 390x844 ─────────────── */}
-        <div className={`${CARD} p-5`}>
-          <PlacePicker size="hero" onResolved={onResolved} />
+        {/* ── Three cards, and no more ────────────────────────────────────── */}
+        <div className="grid gap-4 pb-10 md:grid-cols-3 md:pb-14">
+          <Feature icon={<SearchIcon />} title="Explore any place">
+            Look up a city and see what matters locally.
+          </Feature>
+          <Feature icon={<BookIcon />} title="Understand the context">
+            Get clear topic summaries before joining in.
+          </Feature>
+          <Feature icon={<SpeechIcon className="h-5 w-5" />} title="Join where you live">
+            {/* 🔴 BOTH walls, as D-11 asks: signing in is not enough to post. */}
+            Sign in when you&rsquo;re ready to take part. Posting needs a Connected account.
+          </Feature>
         </div>
 
-        {/* ── The Connect pillar, quoted from the primer ───────────────────── */}
-        <blockquote className="border-l-4 border-brand/40 pl-4 dark:border-brand-light/40">
-          <p className="text-base leading-relaxed text-gray-700 md:text-lg dark:text-gray-200">
-            &ldquo;We don&rsquo;t need to know who you are. We need to be sure that{' '}
-            <strong className="font-bold text-gray-900 dark:text-gray-100">
-              each person has exactly one voice
-            </strong>{' '}
-            — and lives where they claim.&rdquo;
+        {/* ── Footer line ─────────────────────────────────────────────────── */}
+        <div className="mt-auto flex flex-col gap-3 border-t border-gray-200 py-6 text-xs text-gray-600 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:text-gray-400">
+          <p className="flex items-center gap-2">
+            <CivicIcon />
+            Shared facts. Shared values. Shared solutions.
           </p>
-          <footer className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-brand dark:text-brand-light">
-            Connect &middot; Unpacking Shared Values
-          </footer>
-        </blockquote>
-
-        {/* ── 4. Three blocks, and no more ─────────────────────────────────── */}
-        <div className="flex flex-col gap-4">
-          <Block icon={<EyeIcon />} title="Look anywhere">
-            <p>
-              Any city, town or county in the country — not only the ones you live in. What its
-              government has on the agenda, who represents it, what is on its calendar, and when
-              it votes next.
-            </p>
-            <p>
-              Looking somewhere you do not live is normal use, not an edge case.
-            </p>
-          </Block>
-
-          <Block icon={<SpeechIcon />} title="Speak where you live">
-            <p>
-              Posting, replying and voting belong to the people who live under that government.
-              Each person gets one voice in their own civic spaces, which is also what keeps bots
-              out of them.
-            </p>
-            {/*
-              🔴 This paragraph said "Conversations are for members right now, and
-              reading them needs an account too" — true while every civic_spaces
-              grant was TO authenticated, and false from the moment 18-02's grants
-              are applied. Phase 18 split the two halves apart: READING is open to
-              everyone, WRITING still belongs to the people who live there.
-
-              🔴 It must stay accurate about VOLUNTEER, which did not open and is
-              not a civic space in the sense this screen means — so the sentence
-              talks about what a visitor can do here, not about every space that
-              exists.
-            */}
-            <p>
-              Reading is open to everyone. You can follow any city, county, state or national
-              conversation without an account at all.
-            </p>
-            <p>
-              {/* 🔴 BOTH walls. "Make an account" is only the first: your own
-                  spaces need a CONNECTED account with an address set. An address
-                  alone is not Connected — since ev-accounts CA_0368 (2026-11-07) a
-                  basic account can hold one too, and it opens that account's own
-                  city read-only, never a space it can post in. Copy that stops at
-                  "make an account" strands exactly the person it was written for —
-                  and D-11 asks that the ceiling be known before anything is
-                  pressed, not after. */}
-              A Connected account with an address set opens your own spaces. You cannot post
-              here yet — posting needs a Connected account.
-            </p>
-          </Block>
-
-          <Block icon={<ShieldPinIcon />} title="What happens to an address">
-            {/*
-              🔴 The three things this block must not say, each already decided:
-              not "your address never leaves your browser" (research Q1.8 — the
-              geocoder's host sees it on every path, GET or POST, and the member
-              path has the same property); not "anonymous" or "untraceable"
-              (D-17, D-02); and nothing about conversations being public or
-              findable (D-25, the phase boundary). D-16's claim as written —
-              geocoded once and never kept — is true, and must not be allowed to
-              grow into any of those.
-            */}
-            <p>
-              An address is geocoded <strong className="font-semibold text-gray-900 dark:text-gray-100">once</strong>, to
-              work out which boundaries it falls inside, and then it is gone: not stored, not
-              shown back to you, and not in any profile Civic Spaces holds.
-            </p>
-            <p>
-              Civic Spaces only ever learns the boundary geoids. A boundary geoid is a category;
-              an address is not.
-            </p>
-            <p>
-              Members post under a handle, which keeps your name private from other members.
-            </p>
-          </Block>
+          <p className="flex items-center gap-2">
+            <CheckIcon />
+            Civic Spaces never stores your address &mdash; only the civic boundaries it falls inside.
+          </p>
         </div>
-
-        {/* ── 5. The secondary action, naming both walls again ─────────────── */}
-        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-          Already have an Empowered Vote account?{' '}
-          <a
-            href={loginUrl}
-            className={`rounded font-semibold text-brand underline hover:no-underline dark:text-brand-light ${FOCUS}`}
-          >
-            Sign in
-          </a>
-          . With an address set on your account you see your own city, county and state here;
-          posting in them needs a Connected account.
-        </p>
-
-        <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400">
-          Empowered Vote: Shared Facts &middot; Shared Values &middot; Shared Solutions.
-        </p>
       </div>
     </div>
   )
