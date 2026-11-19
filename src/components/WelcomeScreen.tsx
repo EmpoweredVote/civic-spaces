@@ -49,16 +49,18 @@ interface QuickPlace {
 }
 
 /**
- * Real incorporated places (MTFCC G4110), each with a curated banner in the
- * shared library. They resolve through `resolveChosenPlace` exactly as a picked
- * search row does — the chip carries a geoid, never a typed string.
+ * A real incorporated place (MTFCC G4110) with a curated banner in the shared
+ * library. It resolves through `resolveChosenPlace` exactly as a picked search
+ * row does — the card carries a geoid, never a typed string.
+ *
+ * 🔴 ONE, and it is the place the preview card is already showing. A "Popular:"
+ * row of shortcut chips shipped here on 2026-11-18 and came out the same week:
+ * three cities is an editorial claim this repo cannot source, and the three it
+ * named were Los Angeles, Long Beach and Pasadena — one county, on a national
+ * landing page. If a shortcut row comes back it needs a rule for what goes in
+ * it, not a hand-picked list.
  */
 const FEATURED: QuickPlace & { state: string } = { geoid: '0644000', name: 'Los Angeles', state: 'California' }
-const POPULAR: QuickPlace[] = [
-  { geoid: '0644000', name: 'Los Angeles' },
-  { geoid: '0643000', name: 'Long Beach' },
-  { geoid: '0656000', name: 'Pasadena' },
-]
 
 function rowFor(place: QuickPlace): PlaceSearchRow {
   return { geo_id: place.geoid, mtfcc: 'G4110' }
@@ -441,30 +443,11 @@ export function WelcomeScreen({
                 submitLabel="Explore"
                 hideHelp
               />
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Popular:</span>
-                {POPULAR.map((place) => {
-                  const featured = place.geoid === FEATURED.geoid
-                  return (
-                    <button
-                      key={place.geoid}
-                      type="button"
-                      onClick={() => openQuick(place)}
-                      disabled={quick.isPending}
-                      className={[
-                        'cursor-pointer rounded-full border px-3 py-1.5 text-xs font-medium motion-safe:transition-colors disabled:cursor-wait',
-                        featured
-                          ? 'border-brand/40 bg-brand-muted text-brand dark:border-brand-light/40 dark:bg-brand/20 dark:text-brand-light'
-                          : 'border-gray-300 text-gray-700 hover:border-gray-400 dark:border-white/15 dark:text-gray-300 dark:hover:border-white/30',
-                        pendingGeoid === place.geoid ? 'opacity-60' : '',
-                        FOCUS,
-                      ].join(' ')}
-                    >
-                      {pendingGeoid === place.geoid ? 'Opening…' : place.name}
-                    </button>
-                  )
-                })}
-              </div>
+              {/* 🔴 `quick` is the preview card's resolver, and this is where its
+                  failure is said out loud. The card itself is a photo with a
+                  stretched link — there is nowhere inside it to put a sentence,
+                  and a click that does nothing and says nothing is the worst of
+                  the two. Keep them together if the card ever grows a body. */}
               {quick.isError && quick.error && <Problem>{resolveFailureCopy(quick.error.code)}</Problem>}
             </div>
 
