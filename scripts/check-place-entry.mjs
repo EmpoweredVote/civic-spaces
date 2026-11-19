@@ -24,10 +24,19 @@
  *
  * ── The fixtures, and how they go stale ─────────────────────────────────────
  *
- * The two place legs are served by Playwright route interception from the
- * committed fixtures in `scripts/fixtures/`, so this check is deterministic and
- * offline and goes red on OUR behaviour rather than on a ranking change at
- * ev-accounts.
+ * The two place legs AND the two public reads are served by Playwright route
+ * interception from the committed fixtures in `scripts/fixtures/`, so this
+ * check is deterministic and offline and goes red on OUR behaviour rather than
+ * on a ranking change at ev-accounts or on what production happens to hold.
+ *
+ * 🔴 The public reads were added to that list on 2026-11-18, and the reason is
+ * worth keeping: without them this check's COLOUR depended on whether the
+ * person running it had a `.env.local`. Unset — a fresh clone, and CI — the
+ * hooks serve their own dev fixtures and signed-out 3 passes. Set, the real
+ * `get_public_feed` runs against production, which holds no public posts in
+ * Asheville's city slice, and 3 reads `postCards: 0` and goes red. Everyone
+ * here has that file, so everyone here learned to run this and discount one
+ * failure by name. See `stubPublicReads`.
  *
  * 🔴 They are a contract snapshot and they go stale SILENTLY. The thing that
  * notices is:
@@ -348,15 +357,18 @@ async function readFixtures() {
     buncombe: (await load('place-search-buncombe.json')).rows,
     none: (await load('place-search-no-results.json')).rows,
     coordinates: (await load('coordinate-lookup-asheville.json')).body,
+    publicReads: await load('public-reads-visited.json'),
   }
 }
 
 /**
  * Serve the two place legs, keyed on the typed query.
  *
- * Only these two. Banners, meetings, elections and Compass topics reach the
- * network exactly as they do for a real visitor; what is pinned is the
- * RESOLUTION, which is what decides whether the run is about a place at all.
+ * Banners, meetings, elections and Compass topics still reach the network
+ * exactly as they do for a real visitor; what is pinned is the RESOLUTION,
+ * which is what decides whether the run is about a place at all — and, below,
+ * the public READS, which decide whether it is about a place with anything in
+ * it.
  */
 async function stubPlaceLegs(page, fx, counters) {
   await page.route('**/api/essentials/location-search*', (route) => {
@@ -368,6 +380,64 @@ async function stubPlaceLegs(page, fx, counters) {
   await page.route('**/api/essentials/coordinate-lookup', (route) => {
     counters.coordinate += 1
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx.coordinates) })
+  })
+}
+
+/**
+ * Serve the two public RPCs a visited place reads.
+ *
+ * 🔴 This exists because the check's VERDICT used to depend on an untracked
+ * file. `usePublicFeed` and `usePublicSlice` each branch on
+ * `import.meta.env.VITE_SUPABASE_URL`: unset, they return their own dev
+ * fixtures and signed-out 3 passes; set, the real RPC runs against whatever
+ * that URL names — production, for everyone working here — where Asheville's
+ * city slice holds no public posts, so `postCards` is 0 and 3 goes red. Same
+ * commit, same browser, opposite colour, decided by `.env.local`. Reproduced
+ * 2026-11-18 by running one tree twice with the variable cleared and set.
+ *
+ * That is worse than a flaky check. The red was real every time and meant
+ * nothing every time, so reading it became a ritual — stash, re-run on main,
+ * confirm it is "the known one" — and a ritual is exactly how the FIRST honest
+ * red gets waved through. The fix is to make the answer the same in all three
+ * situations rather than to teach people which reds to ignore.
+ *
+ * 🔴 It does NOT weaken assertion 3. The thing 3 is for is our own rendering:
+ * that a visited place shows a real conversation and offers no way to write in
+ * it. `postCards > 0` was always satisfied by fixtures in CI — the NET comment
+ * below says so in as many words — so this changes nothing about what 3 proves
+ * and only makes it prove the same thing locally. Whether the RPCs themselves
+ * are reachable, and by whom, is `check:anon-read`'s subject, and it is a live
+ * test against production with four viewers. Do not move that question here.
+ *
+ * Both are still ALLOWED to be called: `publicRpcHits` reports them and
+ * `postgrestHits` exempts exactly these four. Stubbing the answer does not stop
+ * the request being logged, so the allowlist assertion is unaffected.
+ */
+async function stubPublicReads(page, fx, counters) {
+  await page.route('**/rest/v1/rpc/get_public_slice*', (route) => {
+    counters.publicSlice += 1
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([fx.publicReads.slice]),
+    })
+  })
+  await page.route('**/rest/v1/rpc/get_public_feed*', (route) => {
+    counters.publicFeed += 1
+    // A cursor means "the next page", and the fixture is one page long. Answering
+    // the same two rows again would make the feed scroll forever.
+    let cursored = false
+    try {
+      const body = JSON.parse(route.request().postData() ?? '{}')
+      cursored = body.p_cursor_at != null || body.p_cursor_id != null
+    } catch {
+      cursored = false
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(cursored ? [] : fx.publicReads.feed),
+    })
   })
 }
 
@@ -395,7 +465,7 @@ async function freshContext(theme, viewport, init) {
     const t = m.text()
     ;(EXPECTED_NOISE.some((re) => re.test(t)) ? errors.noise : errors.console).push(t)
   })
-  const counters = { search: 0, coordinate: 0 }
+  const counters = { search: 0, coordinate: 0, publicSlice: 0, publicFeed: 0 }
   /**
    * 🔴 The BODY is recorded, not only the URL, and that is not belt-and-braces.
    *
@@ -412,6 +482,7 @@ async function freshContext(theme, viewport, init) {
   })
   if (init) await page.addInitScript(init)
   await stubPlaceLegs(page, fx, counters)
+  await stubPublicReads(page, fx, counters)
   return { ctx, page, errors, counters, requests }
 }
 
@@ -831,10 +902,13 @@ async function runSignedOutWalk() {
       `offending=${JSON.stringify(hits.slice(0, 5))} publicRpcs=${JSON.stringify([...new Set(publicHits)])} requests=${sawRequests} ` +
         '\n              🔴 publicRpcs is REPORTED, not asserted, and that is not an oversight.' +
         '\n              CI runs this against `npm run dev` on a fresh checkout with no .env, where' +
-        '\n              usePublicFeed and usePublicSlice both return fixtures BEFORE touching' +
-        '\n              supabase — so zero PostgREST requests are issued and requiring one here' +
-        '\n              would be permanently red for everyone. The positive half of the public path' +
-        '\n              is assertion 3 (`postCards > 0`), which the fixtures DO satisfy.' +
+        '\n              usePublicFeed and usePublicSlice both return their own fixtures BEFORE' +
+        '\n              touching supabase — so zero PostgREST requests are issued and requiring one' +
+        '\n              here would be permanently red for everyone. With a .env.local the requests' +
+        '\n              ARE issued and are answered by stubPublicReads, so this number is 0 or 2' +
+        '\n              depending on an untracked file and must never be asserted on. The positive' +
+        '\n              half of the public path is assertion 3 (`postCards > 0`), which both the' +
+        '\n              hooks\' own fixtures and the stub satisfy — which is the point of the stub.' +
         `location-search=${counters.search} coordinate-lookup=${counters.coordinate}` +
         '\n              🔴 The three numbers after the hits are the POSITIVE half, and without them' +
         '\n              "no PostgREST request" is also true of a page that never loaded.' +

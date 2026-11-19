@@ -134,11 +134,12 @@ export async function resolveChosenPlace(row: PlaceSearchRow): Promise<ResolvedP
   //    to another city" was broken for roughly 70% of the country.
   //
   // 2. `locality.county_geoid` — ev-accounts added this on 2026-11-18 in answer
-  //    to that report, and populated `county` in the same change, so leg 1 now
-  //    answers nationwide and this rarely decides anything. It stays because the
-  //    two fields answer different questions: `county` is scoped to counties
-  //    they seat officials for, this one is the geometric fact. If `county` ever
-  //    narrows back to its documented meaning, this is what keeps us whole.
+  //    to that report, and populated `county` from the SAME G4020 row in the
+  //    same change (confirmed by them 2026-11-19). So this leg cannot currently
+  //    fire: leg 1 is null only when this one is too. It stays as insurance
+  //    against `county` narrowing back to officials coverage — which is worth
+  //    one property read, because the meaning of that field moved twice inside
+  //    48 hours. See `countyGeoidFromLocality` for the mechanism.
   //
   // 3. The name join — the recovery that shipped in #165 and carried the whole
   //    country between 2026-11-17 and the upstream fix: a state-scoped exact

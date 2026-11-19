@@ -918,11 +918,14 @@ async function live() {
       '32031',
       String(countyGeoidFromLocality(renoBody)),
     )
-    // Two fields, two questions, and upstream says they may diverge. They have not
-    // yet. If they ever do, the chain prefers `county.geoid` and this says so out loud
-    // rather than leaving it to be discovered in a slice header.
+    // 🔴 NOT corroboration — a TRIPWIRE, and the difference matters. Upstream
+    // confirmed 2026-11-19 that both fields are read from the same G4020 row, so
+    // their agreeing is structural and proves nothing about either one. What it
+    // would catch is the two sources being SEPARATED by a future refactor, which is
+    // the only circumstance in which the chain's leg 2 can ever fire. Do not cite a
+    // green here as evidence that the geoid is right.
     report(
-      'coordinate-lookup (Reno) the two county geoids still agree',
+      'coordinate-lookup (Reno) the two county geoids still agree — a tripwire, not evidence',
       String(countyFromCoordinateLookup(renoBody)),
       String(countyGeoidFromLocality(renoBody)),
     )

@@ -381,13 +381,26 @@ export function countyFromCoordinateLookup(body: unknown): string | null {
  * 2026-11-18 in answer to our report, verified live on `api.empowered.vote`
  * the same day.
  *
- * 🔴 It is a SEPARATE field from `county.geoid` on purpose, and the reason
- * governs which one you reach for. `county` was meant to keep meaning *a county
- * we seat officials for*, a signal other consumers lean on, while this means
- * *a county exists at this point*, which is true everywhere. Upstream also
- * populated `county` in the same change, so today the two agree everywhere we
- * have measured — but they are not the same question, and if they ever diverge
- * this one is the geometric answer.
+ * 🔴 THIS LEG CANNOT CURRENTLY FIRE, and the reason is worth knowing before you
+ * either delete it or trust it. Upstream confirmed on 2026-11-19 that `county`
+ * is now `pickCountyFromDistrictRows(...) ?? countyFromProbeRow(row)` where
+ * `row` is **the same G4020 row object `locality` is built from**, in the same
+ * `Promise.all`, from one `ST_Covers` query. Not an equivalent query — the same
+ * row. So below their officials line the two fields are one value read twice,
+ * and above it `pickCountyFromDistrictRows` requires a 5-digit county FIPS, so
+ * the GEOID is identical there too and only the NAME differs (the officials
+ * label, versus the Census `NAMELSAD` — which is why Richmond VA comes back as
+ * "Richmond city"). `county.geoid` null therefore implies this is null.
+ *
+ * It stays anyway, and not out of superstition: it costs one property read, and
+ * it is the only thing standing between us and `county` narrowing back to
+ * officials coverage. That is not hypothetical. Upstream wrote "we are not
+ * changing `county`" and changed it within hours, then said so plainly — "the
+ * reply went out while the decision was still moving". The meaning of this
+ * field moved twice in 48 hours. One property read is a fair price.
+ *
+ * 🔴 It also means the two fields AGREEING proves nothing. They are the same
+ * row. Do not cite that agreement as corroboration anywhere.
  *
  * It is also emitted from a different place in their code. `buildLocality` is
  * called ABOVE the early return that fires when a point has no district rows at

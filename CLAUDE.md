@@ -440,8 +440,13 @@ fields present and agreeing every time, the three independent cities included (B
 24510, St. Louis 29510, Richmond 51760). **Keep all three legs.** `county` was documented as
 officials-scoped — *a county we seat officials for* — and `locality.county_geoid` as the
 geometric fact; they agree today but answer different questions, and `jurisdictionGeoIds.county`
-is **still** null where officials are absent (3 of 12 sampled), so that field is the one that
-did not move. The name join is dormant, not dead: it is the only leg needing nothing from
+is **still** null where officials are absent (7 of 20 sampled carry it), and upstream confirmed
+on 2026-11-19 that this is deliberate and documented in their own code: `county` means *a county
+exists here*, `jurisdictionGeoIds.county` means *we seat county officials here*, and the latter is
+never given the fallback. 🔴 They also confirmed that `county` falls back to **the same G4020 row
+`locality` is built from** — one `ST_Covers` query, read twice — so leg 2 of our chain cannot
+currently fire, and the two fields agreeing is **structural and proves nothing**. Never cite that
+agreement as corroboration. Leg 2 stays as insurance only. The name join is dormant, not dead: it is the only leg needing nothing from
 ev-accounts but a county NAME. The order is pinned by `check:place-resolve` **53**, a
 source-text assertion on the hook, because the hook is not importable into the guard and the
 order is the entire safety argument. `--live` now treats a null Reno county as a regression.

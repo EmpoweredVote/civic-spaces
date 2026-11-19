@@ -1,0 +1,63 @@
+{
+  "_README": [
+    "Wire-shaped answers for the two public RPCs a VISITED place calls:",
+    "civic_spaces.get_public_slice and civic_spaces.get_public_feed.",
+    "",
+    "Why this file exists. check-place-entry.mjs route-stubs the two place legs so the",
+    "run is deterministic, but left the public reads to the network. That made the",
+    "check's verdict depend on the developer's .env.local: with no VITE_SUPABASE_URL",
+    "(a fresh clone, and CI) the hooks return their own dev fixtures and signed-out",
+    "assertion 3 passes; with one set, the real RPC runs against whatever that URL",
+    "points at — production, for everyone here — and assertion 3 reads postCards: 0,",
+    "because production has no public posts in Asheville's city slice. Red locally,",
+    "green in CI, same commit. Reproduced 2026-11-18 by running the same tree twice,",
+    "once with VITE_SUPABASE_URL cleared.",
+    "",
+    "A guard whose colour depends on an untracked file is a guard whose red has to be",
+    "re-argued every time, which is how a REAL red gets waved through. These rows make",
+    "the answer the same in all three situations.",
+    "",
+    "SHAPE: rows are the RPC's own RETURNS TABLE, pre-mapper — publicProjection.ts's",
+    "PUBLIC_FEED_COLUMNS, in that order. author_user_id is null on purpose: that is the",
+    "narrow projection (D-48/D-49), not a missing value, and it is what a signed-out",
+    "reader is served. Do not put a UUID here to make it look more real.",
+    "",
+    "CONTENT: deliberately, visibly synthetic and about nothing. On 2026-11-04 nine of",
+    "eleven posts anon was served in federal:US were demo personas, one making a voting",
+    "claim about a named living politician. These are a fixture for a browser check and",
+    "are never served to anyone, but the rule is the rule: no invented person, no claim",
+    "about a real one, nothing that reads as a real member's words."
+  ],
+  "slice": {
+    "slice_id": "00000000-0000-4000-8000-00000000f1x7",
+    "slice_type": "city",
+    "geoid": "3702140",
+    "sibling_index": 1
+  },
+  "feed": [
+    {
+      "id": "00000000-0000-4000-8000-00000000p0s1",
+      "slice_id": "00000000-0000-4000-8000-00000000f1x7",
+      "title": "Fixture post",
+      "body": "This is fixture text for a browser check. It is not a real post and nobody wrote it.",
+      "created_at": "2026-11-01T12:00:00.000Z",
+      "updated_at": "2026-11-01T12:00:00.000Z",
+      "reply_count": 0,
+      "author_display_name": "Fixture Reader",
+      "author_user_id": null,
+      "author_avatar_url": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000p0s2",
+      "slice_id": "00000000-0000-4000-8000-00000000f1x7",
+      "title": null,
+      "body": "A second fixture row, so the feed renders more than one card.",
+      "created_at": "2026-11-01T11:00:00.000Z",
+      "updated_at": "2026-11-01T11:00:00.000Z",
+      "reply_count": 2,
+      "author_display_name": "Fixture Reader",
+      "author_user_id": null,
+      "author_avatar_url": null
+    }
+  ]
+}
