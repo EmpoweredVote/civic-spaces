@@ -32,16 +32,20 @@ Two things close that, and both matter:
   obstacle to route around — it is the signal that a server is already up, so reuse it.
 - **`scripts/with-dev-server.mjs` owns the lifecycle.** It reuses a server that is already
   running, starts one only when there is none, and stops what it started in a `finally`,
-  including on Ctrl-C or a failed command. It will **not** run against a server belonging to
-  another project (ev-landing's Vite also wants 5173): it probes
-  `/src/lib/writeAccess.ts` and requires `text/javascript`, because Vite's SPA fallback
-  answers `200 text/html` for that path on any other app, and a guard pointed at the wrong
+  including on Ctrl-C or a failed command. It will **not** run against a server that is not
+  this checkout — ev-landing's Vite also wants 5173, and so does a second **worktree of this
+  repo**, which is the sharper case because the only reason to have one is to hold a
+  different branch. It probes `/@fs/<ABSOLUTE ROOT>/src/lib/writeAccess.ts` and requires
+  `text/javascript`. The absolute path is the point: a bare path proves only that the server
+  is *this app*, while Vite serves `/@fs/` solely inside its own workspace root, so a server
+  rooted elsewhere 403s or falls through to the SPA fallback. A guard pointed at the wrong
   server reports nonsense that reads exactly like a real failure.
 
 ```bash
 npm run guards:browser   # the 3 browser guards, ONE server, torn down after
 npm run dev:status       # what is listening on 5173-5199, and whose it is
-npm run dev:stop         # stop this checkout's strays (leaves other projects alone)
+npm run dev:stop         # stop this checkout's strays — leaves other projects AND other
+                         # worktrees of this repo alone; non-zero if one survives
 npm run with-dev -- "npm run shoot:welcome -- --port {port}"   # anything else
 ```
 
