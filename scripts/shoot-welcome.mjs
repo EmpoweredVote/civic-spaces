@@ -94,6 +94,11 @@ const HERO_PICKER = '[data-place-picker="hero"]'
 const PROBLEM = '[data-place-picker-problem]'
 const STRIP = '[data-place-strip]'
 const LEAVE = '[data-place-strip-leave]'
+/** 🔴 The place-change control, and the thing to WAIT on for a signed-in
+ *  member — never `STRIP`. See the comment in `walkMember`. There are two of
+ *  these in the tree and exactly one is visible per breakpoint, so every use
+ *  is `:visible`-filtered. */
+const CHANGE = '[data-place-change]'
 const PANEL = '#forum-view-explore'
 const FEED_PANEL = '#forum-view-conversations'
 
@@ -448,7 +453,21 @@ async function walkMember(theme, vp, tag) {
     try { localStorage.setItem('cs_active_tab', 'city') } catch { /* blocked storage is item 1 */ }
   })
   await page.goto(`${ORIGIN}/?dev=1&place=bloomington`, { waitUntil: 'domcontentloaded' })
-  await page.waitForSelector(STRIP, { timeout: 25000 })
+  // 🔴 Wait for the CONTROL, not the strip container. Waiting on the container
+  // hung every run of this script at cell 6 of 24, so presentations 6 and the
+  // ENTIRE audit pass never ran, in any theme or viewport — a tool that looked
+  // like it was failing on the branch under test when it fails on main too.
+  //
+  // A member booting on their OWN place renders `data-place-strip="own"`, whose
+  // only child is `md:hidden`. At 1440 that is a zero-height box, which
+  // Playwright correctly reports as hidden. The capability is NOT missing:
+  // measured on this tree, there are two `[data-place-change]` controls and
+  // exactly one is visible per breakpoint — at 1440 the one OUTSIDE the strip
+  // is 45x17 while the strip's is 0x0, at 390 they swap, and clicking the
+  // visible one opens the picker at both. That is why `check:place-entry` is
+  // green on the same commit: it waits on `[data-place-change]:visible`, which
+  // is what actually proves a member can reach `enterPlace`. Match it.
+  await page.waitForSelector(`${CHANGE}:visible`, { timeout: 25000 })
   await page.waitForTimeout(3000)
   await assertTheme(page, theme, `${tag} (boot)`)
 
@@ -925,7 +944,10 @@ async function auditMemberNotices(theme, vp, tag) {
   const { ctx, page } = await freshContext(theme, vp)
   await page.addInitScript(() => { try { localStorage.setItem('cs_active_tab', 'city') } catch { /* guarded */ } })
   await page.goto(`${ORIGIN}/?dev=1&place=bloomington`, { waitUntil: 'domcontentloaded' })
-  await page.waitForSelector(STRIP, { timeout: 25000 })
+  // The same wait, for the same reason — see `walkMember`. This one is why the
+  // audit pass hung too, so fixing only the other would have moved the hang
+  // rather than removed it.
+  await page.waitForSelector(`${CHANGE}:visible`, { timeout: 25000 })
   await page.waitForTimeout(3000)
   await assertTheme(page, theme, `audit member ${tag}`)
 
