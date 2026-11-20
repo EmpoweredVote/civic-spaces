@@ -8,7 +8,7 @@ import {
   usePlaceResolve,
   type PlaceResolveFailure,
 } from '../hooks/usePlaceResolve'
-import type { PlaceSearchRow, ResolvedPlace } from '../lib/placeResolve'
+import { normalisePlaceQuery, type PlaceSearchRow, type ResolvedPlace } from '../lib/placeResolve'
 import { FOCUS } from './explore/exploreUi'
 
 /**
@@ -295,8 +295,30 @@ export function PlacePicker({
 
   const labelText = label ?? 'Look up a city, town or county'
 
+  /**
+   * The submit button, and the one rule it must not break: **it never guesses
+   * a place.**
+   *
+   * 🔴 It used to read `activeRow ?? rows[0]`, and `rows[0]` is a guess twice
+   * over. `onChange` resets `activeIndex` to -1 on every keystroke, so
+   * `activeRow` is undefined for anyone who types rather than arrows, and
+   * `rows` trails the box by `usePlaceSearch`'s 250ms debounce. Both were
+   * reproduced on this branch: replacing "asheville" with "reno" and clicking
+   * Explore inside that window opened **Asheville**; clicking it on "portland"
+   * opened **Portland, ME** while "Portland, OR · City" sat as the second row —
+   * the exact pair the row labels exist to tell apart. Enter, meanwhile,
+   * requires `activeIndex >= 0` and does nothing in the same state, so the
+   * mouse was guessing where the keyboard refused.
+   *
+   * So a row is only an answer when it is BOTH current and unambiguous:
+   * settled, fetched for what is in the box right now, and the only candidate.
+   * Anything else opens the list and puts the cursor back, which is the same
+   * answer Enter gives. "Never a nearest match" is this repo's rule for the
+   * resolver; a primary call-to-action does not get an exemption from it.
+   */
   function submit() {
-    const row = activeRow ?? rows[0]
+    const fresh = !search.isFetching && normalisePlaceQuery(query) === search.normalisedQuery
+    const row = activeRow ?? (fresh && rows.length === 1 ? rows[0] : undefined)
     if (row) {
       choose(row)
       return
