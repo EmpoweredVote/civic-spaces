@@ -577,7 +577,7 @@ async function guarded(label, fn) {
  * and the element's effective background is built by compositing every ancestor
  * background from the document down, which is what a browser actually does.
  */
-function auditProbe({ items, big }) {
+function auditProbe({ items, big, strict }) {
   // One canvas, reused. willReadFrequently keeps getImageData off the GPU path.
   const cv = document.createElement('canvas')
   cv.width = 2
@@ -672,9 +672,13 @@ function auditProbe({ items, big }) {
       out.push({ ...item, found: false, matched: matches.length })
       continue
     }
-    if (visible.length > 1) {
-      // Ambiguous is NOT a pass. A selector that resolves to several visible
-      // elements measures one of them and names all of them.
+    // 🔴 `strict` is opt-in, and only WELCOME_ITEMS passes it. Several visible
+    // matches is a BUG there — the header's rule is one element per label — but
+    // it is the normal case elsewhere: "an option row's label" matches every
+    // row in the picker, and measuring the first is the intent. Enforcing
+    // uniqueness everywhere turned those rows red on the first run of this
+    // change, which is how this flag came to exist.
+    if (strict && visible.length > 1) {
       out.push({ ...item, found: true, ambiguous: visible.length })
       continue
     }
@@ -799,20 +803,54 @@ function auditRoster() {
  * When you add a line here, confirm what it resolves to on the live page before
  * trusting the PASS — `document.querySelectorAll(sel).length` must be 1.
  */
+/**
+ * 🔴 RE-POINTED for the landing-page welcome screen. The list above described
+ * the screen this one replaced, and five of its selectors matched nothing
+ * afterwards. They did not go red — they went SILENT, printing SKIP, while the
+ * summary line still read `0 FAIL`. Measured: 136 PASS / 10 SKIP before the
+ * rewrite, 116 PASS / 30 SKIP after, so twenty live contrast assertions stopped
+ * existing and the run still looked clean. A guard that reports a skip as part
+ * of a green total is worse than one that was never written.
+ *
+ * What changed, and why each is what it is:
+ *   · there is no `<header>` and no wordmark strapline — the line above the
+ *     headline is now the eyebrow, so that is what the old slot measures.
+ *   · the blockquote is GONE. Chris's line and its attribution are not in this
+ *     design at all, so both entries are REMOVED rather than re-pointed.
+ *     Re-pointing a deleted element at the nearest survivor is how a label
+ *     starts naming something it never measured.
+ *   · the sign-in sentence and the EV footer still exist, one level deeper.
+ *   · the three cards used to be covered by `section:last-of-type`, which is
+ *     the PRIVACY card only. Cards 1 and 2 — and card 2's "One person. One
+ *     voice." kicker — were never measured by anything. They are now.
+ *
+ * The icon entry is dropped. Its old shape resolves to six visible nodes here
+ * (every card carries list icons), and the probe now fails an ambiguous
+ * selector instead of measuring an arbitrary one. Restoring it means giving
+ * the icon its own `data-*` hook in WelcomeScreen.tsx — a component change,
+ * deliberately not made from the script side.
+ *
+ * Every selector below was verified live at 1440 AND 390, in dark, to resolve
+ * to exactly ONE VISIBLE element holding the text its label names. That check
+ * is not optional — see the header above.
+ */
 const WELCOME_ITEMS = [
   { sel: '[data-welcome-screen] h2', what: 'the headline' },
-  { sel: '[data-welcome-screen] header > p:last-of-type', what: 'the strapline under the mark' },
+  { sel: '[data-welcome-screen] div:has(> h2) > p:first-of-type', what: 'the eyebrow above the headline' },
   { sel: '[data-welcome-screen] h2 + p', what: 'the lead body copy' },
   { sel: '[data-place-picker="hero"] label', what: "the picker's visible label" },
   { sel: '[data-place-picker="hero"] input[role="combobox"]', what: "the picker's input text" },
   { sel: '[data-place-picker="hero"] p[id]', what: "the picker's help line" },
-  { sel: '[data-welcome-screen] blockquote p', what: "Chris's line" },
-  { sel: '[data-welcome-screen] blockquote footer', what: 'its attribution' },
-  { sel: '[data-welcome-screen] section:last-of-type h3', what: 'the privacy block heading' },
-  { sel: '[data-welcome-screen] section:last-of-type p', what: 'the privacy block body' },
-  { sel: '[data-welcome-screen] section:last-of-type span svg', what: 'the privacy block icon', icon: true },
-  { sel: '[data-welcome-screen] > div > p:first-of-type', what: 'the sign-in sentence, which carries both walls' },
-  { sel: '[data-welcome-screen] > div > p:last-of-type', what: 'the EV strapline footer' },
+  { sel: '[data-welcome-screen] div:has(> h2) > p:last-of-type', what: 'the sign-in sentence, which carries both walls' },
+  { sel: '[data-welcome-screen] section:nth-of-type(1) h3', what: 'the explore card heading' },
+  { sel: '[data-welcome-screen] section:nth-of-type(1) > div:last-of-type > p:first-of-type', what: 'the explore card body' },
+  { sel: '[data-welcome-screen] section:nth-of-type(2) h3', what: 'the speak card heading' },
+  { sel: '[data-welcome-screen] section:nth-of-type(2) > div:last-of-type > p:first-of-type', what: 'the speak card body' },
+  { sel: '[data-welcome-screen] section:nth-of-type(2) > div:last-of-type > p:nth-of-type(2)', what: 'the one-person-one-voice kicker' },
+  { sel: '[data-welcome-screen] section:nth-of-type(3) h3', what: 'the privacy card heading' },
+  { sel: '[data-welcome-screen] section:nth-of-type(3) > div:last-of-type > p:first-of-type', what: 'the privacy card body' },
+  { sel: '[data-welcome-screen] > div:first-of-type > div:last-of-type > p:first-of-type', what: 'the EV strapline footer' },
+  { sel: '[data-welcome-screen] > div:first-of-type > div:last-of-type > p:last-of-type', what: 'the never-stores-your-address line' },
 ]
 
 async function auditWelcome(theme, vp, tag) {
@@ -823,7 +861,7 @@ async function auditWelcome(theme, vp, tag) {
   await assertTheme(page, theme, `audit ${tag}`)
 
   // ── Contrast, the welcome screen ──
-  const items = await page.evaluate(auditProbe, { items: WELCOME_ITEMS, big: true })
+  const items = await page.evaluate(auditProbe, { items: WELCOME_ITEMS, big: true, strict: true })
   for (const r of items) {
     if (!r.found) {
       aSkip(
