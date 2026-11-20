@@ -642,13 +642,43 @@ function auditProbe({ items, big }) {
     return acc
   }
 
+  /** Visible = it paints a box. Deliberately NOT `offsetParent === null`:
+   *  that is null for a `position: fixed` element and `undefined` for an
+   *  `<svg>`, so the old test called a fixed element hidden and an invisible
+   *  icon visible. A bounding box is true for both. */
+  const paints = (n) => {
+    const r = n.getBoundingClientRect()
+    return r.width > 0 && r.height > 0
+  }
+
   const out = []
   for (const item of items) {
-    const el = document.querySelector(item.sel)
-    if (!el || el.offsetParent === null) {
-      out.push({ ...item, found: false })
+    // 🔴 The FIRST VISIBLE match, not the first match — and the count of
+    // visible matches, because the header's rule ("must be 1") was only ever a
+    // comment and nothing enforced it.
+    //
+    // This screen renders its "How … works" popups as CLOSED `<dialog>`s that
+    // sit in the DOM the whole time, each with its own h2, sections and list
+    // icons. So `[data-welcome-screen] h2` resolves to three nodes, two of them
+    // hidden. Taking the first match meant a selector was correct only by luck
+    // of document order; a dialog moved earlier in the tree would have silently
+    // re-pointed the headline assertion at "How your privacy works" and still
+    // printed PASS. Taking the first match AND bailing when it is hidden was
+    // worse still: it reported `found: false`, which prints as a SKIP, so a
+    // live element behind a hidden duplicate looked like missing markup.
+    const matches = [...document.querySelectorAll(item.sel)]
+    const visible = matches.filter(paints)
+    if (visible.length === 0) {
+      out.push({ ...item, found: false, matched: matches.length })
       continue
     }
+    if (visible.length > 1) {
+      // Ambiguous is NOT a pass. A selector that resolves to several visible
+      // elements measures one of them and names all of them.
+      out.push({ ...item, found: true, ambiguous: visible.length })
+      continue
+    }
+    const el = visible[0]
     const cs = getComputedStyle(el)
     const fgRaw = item.icon ? (cs.stroke !== 'none' && cs.stroke ? cs.stroke : cs.color) : cs.color
     const fg = resolve(fgRaw)
@@ -796,7 +826,23 @@ async function auditWelcome(theme, vp, tag) {
   const items = await page.evaluate(auditProbe, { items: WELCOME_ITEMS, big: true })
   for (const r of items) {
     if (!r.found) {
-      aSkip(`contrast ${tag} · ${r.what}`, `no visible element matched ${r.sel}`)
+      aSkip(
+        `contrast ${tag} · ${r.what}`,
+        `no visible element matched ${r.sel}` +
+          (r.matched ? ` (${r.matched} hidden match${r.matched === 1 ? '' : 'es'})` : ''),
+      )
+      continue
+    }
+    if (r.ambiguous) {
+      // Red, not a skip. The header's rule is that a selector resolves to ONE
+      // element; several visible matches means the label names something the
+      // probe did not necessarily measure, and a PASS there is a lie.
+      aCheck(
+        `contrast ${tag} · ${r.what} — selector is ambiguous`,
+        false,
+        `${r.sel} resolves to ${r.ambiguous} VISIBLE elements; it must resolve to 1. ` +
+          'Narrow it, or give the element its own data-* hook.',
+      )
       continue
     }
     aCheck(
