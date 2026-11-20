@@ -150,6 +150,15 @@ failed` against a server that was not this checkout. `--origin http://localhost:
 that one, `--port <n>` for the rest. A live check pointed at the wrong port looks exactly
 like contract drift.
 
+🔴 **Superseded, 2026-11-20 — read the paragraph above as the symptom, not the recipe.**
+"5173 was busy so use another port" is exactly how this checkout ended up with twelve
+abandoned dev servers: every session stepped around the previous one and stopped none of
+them. `vite.config.ts` now sets `strictPort`, so a second `npm run dev` fails loudly rather
+than drifting to 5174 unannounced, and `scripts/with-dev-server.mjs` reuses a running
+server or stops the one it started. Use `npm run guards:browser` (all three, one server) or
+`npm run with-dev -- "<command with {port}>"`. Reach for `--port <n>` only when you
+genuinely want a second server, and stop it yourself.
+
 Playwright is a **global install, not a dependency** — `node_modules` is the wrong place to
 look. Every script resolves it the way `scripts/check-explore-gate.mjs:98-118` does:
 `'playwright'`, then `npm root -g`, reading `mod.chromium ?? mod.default?.chromium`, because

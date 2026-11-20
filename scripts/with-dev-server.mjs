@@ -90,7 +90,22 @@ function parseArgs(argv) {
  * Returns 'ours' | 'foreign' | 'none'.
  */
 async function probe(port) {
-  const url = `http://localhost:${port}/${PROBE_MODULE}`
+  // 🔴 `/@fs/<ABSOLUTE ROOT>/…`, and the absolute part is the whole point. A
+  // bare `/src/lib/writeAccess.ts` only proves the server is THIS APP; it
+  // cannot tell one worktree of this repo from another. That is not an edge
+  // case — holding two branches is the only reason to make a second worktree,
+  // and `strictPort` aims both at the same 5173. Measured with the bare probe:
+  // another worktree's server was reported "THIS checkout", reused for a guard
+  // run against the wrong branch, and killed by `--stop` from here. That is
+  // exactly the failure this script exists to prevent, a check pointed at the
+  // wrong server reporting nonsense that reads like a real failure.
+  //
+  // Vite serves `/@fs/` only for paths inside its own `server.fs.allow`, which
+  // defaults to its workspace root, so a server rooted elsewhere will not
+  // transform OUR absolute path: it 403s or falls through to the SPA fallback.
+  // Either way the answer is not JavaScript.
+  const abs = ROOT.replace(/\\/g, '/')
+  const url = `http://localhost:${port}/@fs/${encodeURI(abs)}/${PROBE_MODULE}`
   let res
   try {
     res = await fetch(url, {
@@ -100,10 +115,15 @@ async function probe(port) {
   } catch {
     return 'none'
   }
+  // A 5xx is OUR server having a bad moment — a syntax error mid-edit, or Vite
+  // re-optimising deps — not someone else's server. Calling that `foreign`
+  // printed "held by a server that is NOT this checkout" and sent you hunting
+  // for a port conflict that did not exist.
+  if (res.status >= 500) return 'ours'
   if (!res.ok) return 'foreign'
   const type = (res.headers.get('content-type') || '').toLowerCase()
-  // text/javascript (or application/javascript) means Vite transformed a real
-  // module at that path. text/html means the SPA fallback — someone else's app.
+  // text/javascript means Vite transformed a real module at OUR absolute path.
+  // text/html is the SPA fallback — a Vite rooted somewhere else.
   return type.includes('javascript') ? 'ours' : 'foreign'
 }
 
@@ -208,7 +228,10 @@ function runAll(commands, port) {
   const results = []
   for (const c of commands) {
     const status = runCommand([c], port)
-    results.push({ c, status })
+    // Record the SUBSTITUTED line. Recording the raw one printed a summary
+    // saying `-- --port {port}`, which cannot be copied and re-run — the one
+    // thing you want from a failure summary.
+    results.push({ c: c.replaceAll('{port}', String(port)).replaceAll('{origin}', `http://localhost:${port}`), status })
   }
   console.log('\n[dev-server] ── suite ──')
   for (const r of results) {
@@ -218,6 +241,7 @@ function runAll(commands, port) {
 }
 
 async function sweep(kill) {
+  let failed = false
   const found = []
   for (let port = SWEEP_FROM; port <= SWEEP_TO; port++) {
     const what = await probe(port)
@@ -232,14 +256,33 @@ async function sweep(kill) {
     const who = f.what === 'ours' ? 'THIS checkout' : 'another project (left alone)'
     console.log(`[dev-server] ${f.port}  ${who}  pid ${f.pids.join(', ') || '?'}`)
     if (kill && f.what === 'ours') {
+      // 🔴 Only claim it stopped if we had something to kill AND it is gone.
+      // `listenersOn` returns [] whenever the lookup itself fails — no `lsof`
+      // on a minimal image, a blocked `Get-NetTCPConnection` — and the kill
+      // loop is then a no-op. Printing "stopped." there is the one lie this
+      // script must not tell: a `dev:stop` that says stopped while the server
+      // runs on is the bug it was written to kill.
+      if (f.pids.length === 0) {
+        console.log(`[dev-server] ${f.port}  could NOT find the owning pid — still running.`)
+        failed = true
+        continue
+      }
       for (const pid of f.pids) killTree(pid)
-      console.log(`[dev-server] ${f.port}  stopped.`)
+      const after = await probe(f.port)
+      if (after === 'none') {
+        console.log(`[dev-server] ${f.port}  stopped.`)
+      } else {
+        console.log(`[dev-server] ${f.port}  STILL ANSWERING after kill — stop it by hand.`)
+        failed = true
+      }
     }
   }
   if (!kill && found.some((f) => f.what === 'ours')) {
     console.log('[dev-server] run with --stop to shut the ones belonging to this checkout.')
   }
-  return 0
+  // Non-zero when a --stop could not actually stop something, so a script that
+  // chains off `npm run dev:stop` does not sail on believing the port is free.
+  return failed ? 1 : 0
 }
 
 async function main() {

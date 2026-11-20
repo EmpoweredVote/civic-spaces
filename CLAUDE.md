@@ -16,6 +16,48 @@ npm run dev      # http://localhost:5173
 npm run build    # tsc -b && vite build — the frontend's only real check
 ```
 
+🔴 **Stop the dev server you started, and never step around one that is already
+running.** This checkout accumulated **twelve live dev servers over about two days** in
+November 2026 — one session alone left 5181 through 5187 — and they were found only
+because an unrelated session in another repo went looking. The shape was always the same:
+the session found 5173 busy, Vite **silently** moved to the next port, the guards ran, and
+the session ended without stopping anything. A background process outlives the session
+that started it, so nothing ever cleaned up and the next attempt stepped around the pile
+rather than clearing it.
+
+Two things close that, and both matter:
+
+- **`server.strictPort` is now set in `vite.config.ts`.** A second `npm run dev` fails with
+  `Port 5173 is already in use` instead of quietly taking 5174. That error is not an
+  obstacle to route around — it is the signal that a server is already up, so reuse it.
+- **`scripts/with-dev-server.mjs` owns the lifecycle.** It reuses a server that is already
+  running, starts one only when there is none, and stops what it started in a `finally`,
+  including on Ctrl-C or a failed command. It will **not** run against a server that is not
+  this checkout — ev-landing's Vite also wants 5173, and so does a second **worktree of this
+  repo**, which is the sharper case because the only reason to have one is to hold a
+  different branch. It probes `/@fs/<ABSOLUTE ROOT>/src/lib/writeAccess.ts` and requires
+  `text/javascript`. The absolute path is the point: a bare path proves only that the server
+  is *this app*, while Vite serves `/@fs/` solely inside its own workspace root, so a server
+  rooted elsewhere 403s or falls through to the SPA fallback. A guard pointed at the wrong
+  server reports nonsense that reads exactly like a real failure.
+
+```bash
+npm run guards:browser   # the 3 browser guards, ONE server, torn down after
+npm run dev:status       # what is listening on 5173-5199, and whose it is
+npm run dev:stop         # stop this checkout's strays — leaves other projects AND other
+                         # worktrees of this repo alone; non-zero if one survives
+npm run with-dev -- "npm run shoot:welcome -- --port {port}"   # anything else
+```
+
+`guards:browser` runs **all three even after one goes red** and exits non-zero if any did —
+`&&` once let a known-red `check:place-entry` silently skip the other two. Per-guard
+runtimes are in `.planning/phases/17-the-signed-out-arrival/17-VALIDATION.md`; budget
+several minutes.
+
+`{port}` and `{origin}` are substituted into the command. Prefer these over a bare
+`npm run dev` in a second terminal whenever you are running a check rather than looking at
+the app yourself — and if you do start one by hand, `npm run dev:stop` before you finish.
+
 **A fresh clone needs no `.env`.** With no `VITE_SUPABASE_URL`, `npm run dev` opens straight
 into local dev mode: a reserved `dev-guest` id, forum content (slices, posts, replies, friends)
 from the fixtures in `src/lib/devMockData.ts`, and **real public data** — officials, elections,
