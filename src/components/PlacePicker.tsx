@@ -8,7 +8,7 @@ import {
   usePlaceResolve,
   type PlaceResolveFailure,
 } from '../hooks/usePlaceResolve'
-import type { PlaceSearchRow, ResolvedPlace } from '../lib/placeResolve'
+import { normalisePlaceQuery, type PlaceSearchRow, type ResolvedPlace } from '../lib/placeResolve'
 import { FOCUS } from './explore/exploreUi'
 
 /**
@@ -72,7 +72,7 @@ const MAX_VISIBLE = 8
  * else. Never a nearby county, never a state-level guess — "never invent a
  * place", with Treasury Tracker's Bloomington as the precedent.
  */
-function resolveFailureCopy(code: PlaceResolveFailure): string {
+export function resolveFailureCopy(code: PlaceResolveFailure): string {
   switch (code) {
     case 'unusable-choice':
       return 'That result is not a civic space we can open. Try a city, town or county.'
@@ -123,7 +123,7 @@ function PinIcon({ className }: { className: string }) {
 }
 
 /** The one message line, in the one colour pair, so light and dark cannot drift. */
-function Problem({ children }: { children: React.ReactNode }) {
+export function Problem({ children }: { children: React.ReactNode }) {
   return (
     <p
       data-place-picker-problem=""
@@ -139,6 +139,10 @@ export function PlacePicker({
   onResolved,
   onCancel,
   autoFocus = false,
+  label,
+  placeholder = 'Asheville, Buncombe County…',
+  submitLabel,
+  hideHelp = false,
 }: {
   size?: PlacePickerSize
   /** The geoids, once a real place has been chosen and resolved. */
@@ -146,6 +150,17 @@ export function PlacePicker({
   /** 17-05's compact mount closes its popover with this. Absent on the welcome screen. */
   onCancel?: () => void
   autoFocus?: boolean
+  /** The visible label. Still a real <label>, whatever it says. */
+  label?: string
+  placeholder?: string
+  /**
+   * Renders a button beside the input that opens the highlighted row, or the
+   * first one. It never resolves free text: with no row to open it only puts
+   * focus back in the box, because a typed string is not a place (D-13).
+   */
+  submitLabel?: string
+  /** Keeps the help line for screen readers only. It stays `aria-describedby`. */
+  hideHelp?: boolean
 }) {
   const hero = size === 'hero'
   const isDark = useIsDarkMode()
@@ -163,6 +178,7 @@ export function PlacePicker({
   const [chosenGeoid, setChosenGeoid] = useState<string | null>(null)
 
   const wrapRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const search = usePlaceSearch(query)
   const resolve = usePlaceResolve()
@@ -277,10 +293,43 @@ export function PlacePicker({
           ? `${rows.length} ${rows.length === 1 ? 'place' : 'places'} to choose from.`
           : ''
 
-  const labelText = 'Look up a city, town or county'
+  const labelText = label ?? 'Look up a city, town or county'
+
+  /**
+   * The submit button, and the one rule it must not break: **it never guesses
+   * a place.**
+   *
+   * 🔴 It used to read `activeRow ?? rows[0]`, and `rows[0]` is a guess twice
+   * over. `onChange` resets `activeIndex` to -1 on every keystroke, so
+   * `activeRow` is undefined for anyone who types rather than arrows, and
+   * `rows` trails the box by `usePlaceSearch`'s 250ms debounce. Both were
+   * reproduced on this branch: replacing "asheville" with "reno" and clicking
+   * Explore inside that window opened **Asheville**; clicking it on "portland"
+   * opened **Portland, ME** while "Portland, OR · City" sat as the second row —
+   * the exact pair the row labels exist to tell apart. Enter, meanwhile,
+   * requires `activeIndex >= 0` and does nothing in the same state, so the
+   * mouse was guessing where the keyboard refused.
+   *
+   * So a row is only an answer when it is BOTH current and unambiguous:
+   * settled, fetched for what is in the box right now, and the only candidate.
+   * Anything else opens the list and puts the cursor back, which is the same
+   * answer Enter gives. "Never a nearest match" is this repo's rule for the
+   * resolver; a primary call-to-action does not get an exemption from it.
+   */
+  function submit() {
+    const fresh = !search.isFetching && normalisePlaceQuery(query) === search.normalisedQuery
+    const row = activeRow ?? (fresh && rows.length === 1 ? rows[0] : undefined)
+    if (row) {
+      choose(row)
+      return
+    }
+    setOpen(true)
+    inputRef.current?.focus()
+  }
 
   const inputClass = [
-    'w-full rounded-full border bg-white text-gray-900 placeholder:text-gray-500',
+    'w-full border bg-white text-gray-900 placeholder:text-gray-500',
+    submitLabel ? 'rounded-xl' : 'rounded-full',
     'dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-400',
     'border-gray-300 dark:border-white/15',
     // 🔴 At least 16px on a phone, or iOS Safari zooms the page on focus and does
@@ -305,7 +354,8 @@ export function PlacePicker({
         {labelText}
       </label>
 
-      <div className={`relative ${hero ? 'mt-2' : ''}`}>
+      <div className={`flex gap-3 ${submitLabel ? 'flex-col sm:flex-row' : ''} ${hero ? 'mt-3' : ''}`}>
+      <div className="relative min-w-0 flex-1">
         <SearchIcon
           className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 ${
             hero ? 'left-4 h-5 w-5' : 'left-3 h-4 w-4'
@@ -326,9 +376,10 @@ export function PlacePicker({
           // autofill token for a place search, so there is nothing useful to
           // suppress in exchange.
           autoComplete="off"
+          ref={inputRef}
           autoFocus={autoFocus}
           value={query}
-          placeholder="Asheville, Buncombe County…"
+          placeholder={placeholder}
           onChange={(event) => {
             setQuery(event.target.value)
             setOpen(true)
@@ -432,8 +483,24 @@ export function PlacePicker({
           </ul>
         )}
       </div>
+        {submitLabel && (
+          <button
+            type="button"
+            onClick={submit}
+            disabled={resolve.isPending}
+            className={`inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-yellow px-5 text-base font-bold text-gray-900 shadow-[0_4px_0_rgb(0_0_0_/_0.12)] ring-1 ring-gray-900/25 hover:bg-brand-yellow-hover disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition-colors dark:shadow-[0_4px_0_rgb(0_0_0_/_0.45)] dark:ring-0 ${
+              hero ? 'h-14' : 'h-11'
+            } ${FOCUS}`}
+          >
+            {resolve.isPending ? 'Opening…' : submitLabel}
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6 6 6-6 6" />
+            </svg>
+          </button>
+        )}
+      </div>
 
-      <p id={helpId} className={`mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400 ${hero ? '' : 'sr-only'}`}>
+      <p id={helpId} className={`mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400 ${hero && !hideHelp ? '' : 'sr-only'}`}>
         {/* 🔴 With PLACE_RESOLVE_ENABLED false this names ONE accepted input,
             because only one works. No "coming soon", and no disabled field. */}
         {PLACE_RESOLVE_ENABLED

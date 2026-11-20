@@ -70,7 +70,7 @@ export function usePlaceSearch(query: string) {
   const debounced = useDebounced(query, DEBOUNCE_MS)
   const normalised = normalisePlaceQuery(debounced)
 
-  return useQuery<PlaceSearchRow[], Error>({
+  const result = useQuery<PlaceSearchRow[], Error>({
     queryKey: ['place-search', normalised ?? ''],
     queryFn: () => fetchPlaceSearch(normalised ?? ''),
     // `normalisePlaceQuery` returns null below three characters and for input
@@ -79,4 +79,16 @@ export function usePlaceSearch(query: string) {
     staleTime: STALE_MS,
     retry: 1,
   })
+
+  // 🔴 `normalisedQuery` is the string these rows ARE FOR, and a caller that
+  // acts on a row without it can act on the wrong place.
+  //
+  // `isFetching` is not enough on its own. For DEBOUNCE_MS after a keystroke
+  // the query key has not changed yet, so React Query is idle and still
+  // holding the PREVIOUS query's rows: `isFetching` is false, `isSuccess` is
+  // true, and `rows` describes a place the visitor has already typed over.
+  // Replacing "asheville" with "reno" and acting inside that window opened
+  // Asheville. Compare this against `normalisePlaceQuery(<live input>)` before
+  // treating a row as an answer to what is on screen now.
+  return { ...result, normalisedQuery: normalised }
 }
