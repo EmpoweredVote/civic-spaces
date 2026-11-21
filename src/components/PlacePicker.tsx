@@ -315,6 +315,17 @@ export function PlacePicker({
    * Anything else opens the list and puts the cursor back, which is the same
    * answer Enter gives. "Never a nearest match" is this repo's rule for the
    * resolver; a primary call-to-action does not get an exemption from it.
+   *
+   * 🔴 The softener HIGHLIGHTS the first row; it never chooses it. The common
+   * case is not ambiguity, it is a city name that simply returns several real
+   * rows — "asheville" returns five — so landing on an open list with nothing
+   * selected makes the button feel inert. `activeIndex = 0` puts the cursor
+   * one Enter away from the top row and is announced through
+   * `aria-activedescendant`, which is exactly where ArrowDown would have put
+   * it. It is gated on `fresh` for the reason the paragraph above exists:
+   * highlighting a STALE row 0 would re-arm the "reno" → Asheville bug one
+   * keypress later. `onChange` resets it to -1 on the next keystroke, so the
+   * highlight never outlives the rows it was chosen from.
    */
   function submit() {
     const fresh = !search.isFetching && normalisePlaceQuery(query) === search.normalisedQuery
@@ -324,6 +335,7 @@ export function PlacePicker({
       return
     }
     setOpen(true)
+    if (fresh && rows.length > 1) setActiveIndex(0)
     inputRef.current?.focus()
   }
 
