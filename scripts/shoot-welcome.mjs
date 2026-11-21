@@ -642,13 +642,61 @@ function auditProbe({ items, big, strict }) {
     return acc
   }
 
-  /** Visible = it paints a box. Deliberately NOT `offsetParent === null`:
-   *  that is null for a `position: fixed` element and `undefined` for an
-   *  `<svg>`, so the old test called a fixed element hidden and an invisible
-   *  icon visible. A bounding box is true for both. */
+  /**
+   * Visible = a sighted reader can actually read it.
+   *
+   * Deliberately NOT `offsetParent === null`: that is null for a
+   * `position: fixed` element and `undefined` for an `<svg>`, so the old test
+   * called a fixed element hidden and an invisible icon visible. A bounding
+   * box is true for both.
+   *
+   * 🔴 But a bounding box is necessary and NOT sufficient, which is what this
+   * function got wrong. `sr-only` is a REAL box. Measured in this build's own
+   * CSS, Tailwind v4 emits:
+   *
+   *     .sr-only{clip-path:inset(50%);white-space:nowrap;border-width:0;
+   *              width:1px;height:1px;margin:-1px;padding:0;
+   *              position:absolute;overflow:hidden}
+   *
+   * — 1×1 and clipped to nothing, so `width > 0 && height > 0` is **true** for
+   * it. The welcome screen passes `hideHelp`, which puts the picker's help
+   * line in exactly that state, and this probe contrast-measured it anyway and
+   * printed `7.56:1 … PASS` four times a run. A ratio for text nobody can see
+   * is not a finding in either direction; it is an assertion about nothing,
+   * and it is the same shape of lie as measuring the first of three matches.
+   *
+   * Four ways to be unreadable, and the walk up the tree is the point of three
+   * of them — `sr-only` is as often on a WRAPPER as on the text, and a child
+   * of a clipped 1×1 box still reports its own full-size layout rect:
+   *
+   *   1. no box at all — covers `display: none` and a detached node
+   *   2. `visibility: hidden|collapse` — inherited, so the element's own
+   *      computed value already answers for its ancestors
+   *   3. clipped away — `clip-path: inset(50%)` (v4) or the older
+   *      `clip: rect(0px, 0px, 0px, 0px)`, both of which still mean "nothing"
+   *   4. a hairline box that hides its overflow, which is the generic
+   *      `sr-only` recipe with or without the clip, plus `opacity: 0`, which
+   *      does NOT inherit and so has to be asked of every ancestor
+   */
+  const clippedToNothing = (cs) =>
+    /inset\(\s*50%/.test(cs.clipPath || '') ||
+    /rect\(\s*0px,?\s*0px,?\s*0px,?\s*0px\s*\)/.test(cs.clip || '')
+
   const paints = (n) => {
     const r = n.getBoundingClientRect()
-    return r.width > 0 && r.height > 0
+    if (r.width <= 0 || r.height <= 0) return false
+    const own = getComputedStyle(n)
+    if (own.visibility === 'hidden' || own.visibility === 'collapse') return false
+    for (let a = n; a; a = a.parentElement) {
+      const cs = a === n ? own : getComputedStyle(a)
+      if (parseFloat(cs.opacity) === 0) return false
+      if (clippedToNothing(cs)) return false
+      // A 1px box only hides what is inside it when it clips. `overflow` is
+      // `visible` on ordinary layout boxes, so this does not catch thin rules.
+      const box = a === n ? r : a.getBoundingClientRect()
+      if (cs.overflow !== 'visible' && (box.width <= 2 || box.height <= 2)) return false
+    }
+    return true
   }
 
   const out = []
@@ -840,7 +888,15 @@ const WELCOME_ITEMS = [
   { sel: '[data-welcome-screen] h2 + p', what: 'the lead body copy' },
   { sel: '[data-place-picker="hero"] label', what: "the picker's visible label" },
   { sel: '[data-place-picker="hero"] input[role="combobox"]', what: "the picker's input text" },
-  { sel: '[data-place-picker="hero"] p[id]', what: "the picker's help line" },
+  // 🔴 "the picker's help line" is GONE, and not because the line is gone.
+  // `WelcomeScreen` passes `hideHelp`, so `PlacePicker` renders that `<p>` with
+  // `sr-only` — it is on the page for a screen reader and invisible to everyone
+  // else, by design. The old `paints()` called its 1×1 clipped box visible and
+  // reported `7.56:1 PASS` (light) / `6.82:1` (dark) for text nobody can see,
+  // four times a run. Measuring it is not a weaker check than measuring it
+  // correctly; it is a check of nothing wearing a PASS. Nothing re-points at
+  // the compact picker's visible help line, because no probe reaches that
+  // screen — that is an honest gap, not something this entry was covering.
   { sel: '[data-welcome-screen] div:has(> h2) > p:last-of-type', what: 'the sign-in sentence, which carries both walls' },
   { sel: '[data-welcome-screen] section:nth-of-type(1) h3', what: 'the explore card heading' },
   { sel: '[data-welcome-screen] section:nth-of-type(1) > div:last-of-type > p:first-of-type', what: 'the explore card body' },
