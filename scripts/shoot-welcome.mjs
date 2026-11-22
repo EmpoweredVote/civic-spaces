@@ -91,6 +91,7 @@ const WANT_SHOTS = !process.argv.includes('--audit-only')
 const WELCOME = '[data-welcome-screen]'
 const PICKER = '[data-place-picker]'
 const HERO_PICKER = '[data-place-picker="hero"]'
+const COMPACT_PICKER = '[data-place-picker="compact"]'
 const PROBLEM = '[data-place-picker-problem]'
 const STRIP = '[data-place-strip]'
 const LEAVE = '[data-place-strip-leave]'
@@ -541,8 +542,8 @@ async function walkMember(theme, vp, tag) {
   // The strip's own entry point — D-19's second one, the SAME PlacePicker.
   await page.locator(`[data-place-change]:visible`).first().click()
   await page.waitForTimeout(500)
-  await typeInto(page, '[data-place-picker="compact"]', PLACE_QUERY)
-  await page.locator('[data-place-picker="compact"] [role="option"]').first().click()
+  await typeInto(page, COMPACT_PICKER, PLACE_QUERY)
+  await page.locator(`${COMPACT_PICKER} [role="option"]`).first().click()
   await page.waitForTimeout(3000)
   const visiting = await page.evaluate((s) => document.querySelector(s)?.getAttribute('data-place-strip'), STRIP)
   if (visiting !== 'visiting') throw new Error(`${tag}: the member never entered the place (strip="${visiting}")`)
@@ -873,6 +874,147 @@ function auditHit({ sels }) {
   })
 }
 
+/**
+ * 🔴 THE HELP LINE IS INVISIBLE IN BOTH MOUNTS, AND THAT IS THE WHOLE POINT.
+ *
+ * This file used to say, in the WELCOME_ITEMS note #172 left behind, that
+ * nothing measured "the compact picker's visible help line". There is no such
+ * thing. `PlacePicker` renders that `<p>` with `sr-only` unless
+ * `hero && !hideHelp`, and the app has exactly two mounts:
+ *
+ *   WelcomeScreen   size="hero"     hideHelp        -> sr-only
+ *   PlaceStrip      size="compact"  (hero is false) -> sr-only
+ *
+ * So the visible branch of that ternary is dead code as the app ships, and
+ * measured live in all four cells the line is 1x1, `position: absolute`,
+ * `clip-path: inset(50%)`, in the compact picker exactly as in the hero one.
+ * The earlier note was wrong in both halves: there was no visible line to
+ * re-point at, and a probe does reach that screen — `auditPlace` opens the
+ * compact picker already.
+ *
+ * ── What that leaves, which is a real check and not a consolation ───────────
+ *
+ * A line nobody can see is a line whose only reader is a screen reader, and
+ * every way it can break is silent. #172 established that `sr-only` text must
+ * not be contrast-measured, because a ratio for text nobody sees is an
+ * assertion about nothing. This is the other half of the same fact: the line
+ * still has to WORK for the reader it is for.
+ *
+ *   · `aria-describedby` has to resolve. An id that names nothing is not an
+ *     error anywhere — the attribute is simply ignored, the field is left with
+ *     no description, and nothing on screen changes.
+ *   · it has to still say something.
+ *   · it has to stay IN the accessibility tree. `sr-only` keeps it there;
+ *     `display: none`, `visibility: hidden` and `aria-hidden="true"` do not,
+ *     and all three look identical to a sighted reader and to every screenshot
+ *     in this repo. "Hidden" is the trap: one kind of hidden is the design and
+ *     three are the bug.
+ *
+ * And if the visible branch is ever turned on, the contrast check that #172
+ * removed comes back by itself — the probe runs only when the line paints, so
+ * nobody has to remember to re-add it.
+ */
+function auditDescribedBy({ picker }) {
+  const root = document.querySelector(picker)
+  if (!root) return { found: false, why: `no element matched ${picker}` }
+  const input = root.querySelector('input[role="combobox"]')
+  if (!input) return { found: false, why: `${picker} has no input[role="combobox"]` }
+  const id = input.getAttribute('aria-describedby')
+  const help = id ? document.getElementById(id) : null
+  if (!help) return { found: true, wired: false, id: id ?? '(no aria-describedby at all)' }
+
+  const where = (n) => n.tagName.toLowerCase() + (n.id ? `#${n.id}` : '')
+  let removed = null
+  for (let n = help; n; n = n.parentElement) {
+    const cs = getComputedStyle(n)
+    if (cs.display === 'none') { removed = `display:none on ${where(n)}`; break }
+    // 🔴 Only on the element itself: `visibility` INHERITS, so its own computed
+    // value already answers for its ancestors — and a descendant is allowed to
+    // declare `visible` again, which would make an ancestor walk lie.
+    if (n === help && (cs.visibility === 'hidden' || cs.visibility === 'collapse')) {
+      removed = `visibility:${cs.visibility} on ${where(n)}`
+      break
+    }
+    if (n.getAttribute('aria-hidden') === 'true') { removed = `aria-hidden="true" on ${where(n)}`; break }
+  }
+
+  const paints = window.__csVisible
+  return {
+    found: true,
+    wired: true,
+    id,
+    text: (help.textContent || '').replace(/\s+/g, ' ').trim(),
+    removed,
+    visible: typeof paints === 'function' ? paints(help) : null,
+  }
+}
+
+/**
+ * The same three assertions for either mount, plus the contrast check that
+ * only exists while the line is visible — which, today, is never.
+ */
+async function auditHelpLine(page, picker, which, tag) {
+  const r = await page.evaluate(auditDescribedBy, { picker })
+  if (!r.found) {
+    aSkip(`a11y ${tag} · ${which} help line`, r.why)
+    return
+  }
+  // The state is in the LABEL, because `aCheck` prints a detail only on FAIL
+  // and "which kind of hidden is this" is the one thing a reader wants here.
+  const state = r.visible === true ? 'visible' : 'sr-only'
+  aCheck(
+    `a11y ${tag} · ${which} help line is wired to the input (${state})`,
+    r.wired,
+    `aria-describedby is ${r.id} and nothing in the document has that id — the attribute is ` +
+      'silently ignored, the field keeps no description, and the screen looks exactly the same',
+  )
+  if (!r.wired) return
+  aCheck(
+    `a11y ${tag} · ${which} help line still says what the field accepts`,
+    r.text.length > 0,
+    'the element resolves and is empty',
+  )
+  aCheck(
+    `a11y ${tag} · ${which} help line is still in the accessibility tree`,
+    r.removed === null,
+    `${r.removed} — sr-only hides it from sight and KEEPS it for a screen reader; this does neither`,
+  )
+  if (r.visible) {
+    // Dead today. It costs one probe and it means the removed assertion comes
+    // back on its own the day `hideHelp` or `size` changes.
+    const seen = await page.evaluate(auditProbe, {
+      items: [{ sel: `[id="${r.id}"]`, what: `${which} help line` }],
+      big: true,
+    })
+    for (const h of seen) {
+      if (!h.found) continue
+      aCheck(
+        `contrast ${tag} · ${h.what} — ${h.ratio}:1 (needs ${h.need}) ${h.size}px`,
+        h.ratio >= h.need,
+        `computed "${h.raw}" over its composited backdrop · "${h.text}"`,
+      )
+    }
+  }
+}
+
+/**
+ * The compact picker's VISIBLE surface, which until now was one hit-test on
+ * its input and nothing else — on a control that is the only way to change
+ * place at every breakpoint, on every tab.
+ *
+ * 🔴 The search pin is measured with the list CLOSED and under `strict`,
+ * because `[data-place-picker="compact"] svg` resolves to ONE node closed and
+ * SIX with five rows showing — the pin plus one per row. Measured in that
+ * state it would be an arbitrary row's pin wearing the search pin's label,
+ * which is the failure this file has now written down three times. `strict`
+ * turns that into a red line rather than a plausible number.
+ */
+const COMPACT_CLOSED_ITEMS = [
+  { sel: `${COMPACT_PICKER} input[role="combobox"]`, what: "the compact picker's input text" },
+  { sel: `${COMPACT_PICKER} svg`, what: "the compact picker's search pin", icon: true },
+  { sel: `${COMPACT_PICKER} button`, what: "the compact picker's Cancel" },
+]
+
 /** Is anything on this screen animating, and does the app see the preference? */
 function auditMotion() {
   const running = document
@@ -980,9 +1122,15 @@ const WELCOME_ITEMS = [
   // else, by design. The old `paints()` called its 1×1 clipped box visible and
   // reported `7.56:1 PASS` (light) / `6.82:1` (dark) for text nobody can see,
   // four times a run. Measuring it is not a weaker check than measuring it
-  // correctly; it is a check of nothing wearing a PASS. Nothing re-points at
-  // the compact picker's visible help line, because no probe reaches that
-  // screen — that is an honest gap, not something this entry was covering.
+  // correctly; it is a check of nothing wearing a PASS.
+  //
+  // 🔴 The note that stood here was WRONG, twice. It said nothing re-pointed at
+  // "the compact picker's visible help line, because no probe reaches that
+  // screen". There is no visible help line anywhere — the compact mount has
+  // `hero === false`, so it gets `sr-only` too, measured 1x1 and clipped in all
+  // four cells — and `auditPlace` opens the compact picker already. What the
+  // line actually needed was an assertion aimed at its real reader, which is
+  // `auditDescribedBy`, run against BOTH mounts.
   { sel: '[data-welcome-screen] div:has(> h2) > p:last-of-type', what: 'the sign-in sentence, which carries both walls' },
   { sel: '[data-welcome-screen] section:nth-of-type(1) h3', what: 'the explore card heading' },
   { sel: '[data-welcome-screen] section:nth-of-type(1) > div:last-of-type > p:first-of-type', what: 'the explore card body' },
@@ -1031,6 +1179,11 @@ async function auditWelcome(theme, vp, tag) {
       `computed "${r.raw}" over its composited backdrop · "${r.text}"`,
     )
   }
+
+  // The hero picker's help line: sr-only here because WelcomeScreen passes
+  // `hideHelp`, so what is asserted is that it still works for the reader it
+  // is for. See `auditDescribedBy`.
+  await auditHelpLine(page, HERO_PICKER, 'the hero picker’s', tag)
 
   // ── Hit-test the PRIMARY action FIRST, before anything has to click it ──
   // 🔴 Order matters and this is the second lesson the revert matrix taught.
@@ -1360,17 +1513,81 @@ async function auditPlace(theme, vp, tag) {
     aCheck(`hit ${tag} · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
   }
 
-  // The compact picker, which only exists once the strip is expanded — and is
-  // the SAME component as the hero one, so a layering bug here is its own.
+  // ── The compact picker ──
+  // 🔴 It is the SAME component as the hero one, so a layering bug here is its
+  // own — and until now the only thing measured on it was one hit-test on its
+  // input. It is the only way to change place at every breakpoint and on every
+  // tab, and the rest of it was as unmeasured as the popups were.
   await page.locator(`[data-place-change]:visible`).first().click()
   await page.waitForTimeout(600)
-  const compactHit = await page.evaluate(auditHit, {
-    sels: [{ sel: '[data-place-picker="compact"] input[role="combobox"]', label: "the strip's compact picker input" }],
+  await guarded(`the compact picker group ${tag}`, async () => {
+    await auditHelpLine(page, COMPACT_PICKER, 'the compact picker’s', tag)
+
+    const closed = await page.evaluate(auditProbe, { items: COMPACT_CLOSED_ITEMS, big: true, strict: true })
+    for (const r of closed) {
+      if (!r.found) { aSkip(`contrast ${tag} · ${r.what}`, `no visible element matched ${r.sel}`); continue }
+      if (r.ambiguous) {
+        aCheck(
+          `contrast ${tag} · ${r.what} — selector is ambiguous`,
+          false,
+          `${r.sel} resolves to ${r.ambiguous} VISIBLE elements; it must resolve to 1. ` +
+            'The search pin is measured with the list CLOSED for exactly this reason.',
+        )
+        continue
+      }
+      aCheck(
+        `contrast ${tag} · ${r.what} — ${r.ratio}:1 (needs ${r.need})`,
+        r.ratio >= r.need,
+        `"${r.raw}" · "${r.text}"`,
+      )
+    }
+
+    const compactHit = await page.evaluate(auditHit, {
+      sels: [
+        { sel: `${COMPACT_PICKER} input[role="combobox"]`, label: "the strip's compact picker input" },
+        { sel: `${COMPACT_PICKER} button`, label: "the compact picker's Cancel" },
+      ],
+    })
+    for (const h of compactHit) {
+      if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, hitSkip(h)); continue }
+      aCheck(`hit ${tag} · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
+    }
+
+    // Its own list, which is a different container from the hero one: the rows
+    // sit on the strip's white card rather than inside the welcome screen's.
+    await typeInto(page, COMPACT_PICKER, PLACE_QUERY)
+    const open = await page.evaluate(auditProbe, {
+      items: [
+        { sel: `${COMPACT_PICKER} [role="option"]`, what: "the compact picker's option row" },
+        { sel: `${COMPACT_PICKER} [role="option"] svg`, what: "the compact picker's option pin", icon: true },
+      ],
+      big: true,
+    })
+    for (const r of open) {
+      if (!r.found) { aSkip(`contrast ${tag} · ${r.what}`, `no visible element matched ${r.sel}`); continue }
+      aCheck(`contrast ${tag} · ${r.what} — ${r.ratio}:1 (needs ${r.need})`, r.ratio >= r.need, `"${r.raw}" · "${r.text}"`)
+    }
+    const rowHit = await page.evaluate(auditHit, {
+      sels: [{ sel: `${COMPACT_PICKER} [role="option"]`, label: "the compact picker's first option row" }],
+    })
+    for (const h of rowHit) {
+      if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, hitSkip(h)); continue }
+      aCheck(`hit ${tag} · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
+    }
+
+    // 🔴 Nothing is CLICKED in that list. A row click navigates, and this walk
+    // has four more things to measure on the page it is standing on.
+    await typeInto(page, COMPACT_PICKER, NO_MATCH, { expectOptions: false })
+    await page.waitForSelector(PROBLEM, { timeout: 15000 })
+    const honest = await page.evaluate(auditProbe, {
+      items: [{ sel: PROBLEM, what: "the compact picker's \"nothing matched\" line" }],
+      big: true,
+    })
+    for (const r of honest) {
+      if (!r.found) { aSkip(`contrast ${tag} · ${r.what}`, 'not rendered'); continue }
+      aCheck(`contrast ${tag} · ${r.what} — ${r.ratio}:1 (needs ${r.need})`, r.ratio >= r.need, `"${r.raw}" · "${r.text}"`)
+    }
   })
-  for (const h of compactHit) {
-    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, hitSkip(h)); continue }
-    aCheck(`hit ${tag} · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
-  }
   await page.keyboard.press('Escape')
   await page.locator(`[data-place-change]:visible`).first().click()
   await page.waitForTimeout(400)
@@ -1415,8 +1632,8 @@ async function auditMemberNotices(theme, vp, tag) {
 
   await page.locator(`[data-place-change]:visible`).first().click()
   await page.waitForTimeout(500)
-  await typeInto(page, '[data-place-picker="compact"]', PLACE_QUERY)
-  await page.locator('[data-place-picker="compact"] [role="option"]').first().click()
+  await typeInto(page, COMPACT_PICKER, PLACE_QUERY)
+  await page.locator(`${COMPACT_PICKER} [role="option"]`).first().click()
   await page.waitForTimeout(3000)
   await goToView(page, 'explore')
 
