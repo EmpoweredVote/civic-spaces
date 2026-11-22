@@ -107,6 +107,17 @@ const FEED_PANEL = '#forum-view-conversations'
 const PLACE_QUERY = 'asheville'
 const NO_MATCH = 'zzzqqqxnotaplace'
 
+/**
+ * The two geoids the member walk's rosters belong to. MEASURED, by logging the
+ * by-area POST bodies through a pass-through route, not read off a map: the
+ * whole walk makes exactly TWO requests — `1805860` at boot and `3702140` when
+ * the place changes. Federal and the return home are served from React Query's
+ * cache and the widget's tab filter with no second call, so these two responses
+ * decide all FOUR roster positions.
+ */
+const HOME_GEOID = '1805860' // Bloomington, IN — the dev id's own place
+const VISITED_GEOID = '3702140' // Asheville, NC — what PLACE_QUERY resolves to
+
 const DESKTOP = { width: 1440, height: 1000 }
 const MOBILE = { width: 390, height: 844 }
 const VIEWPORTS = [DESKTOP, MOBILE]
@@ -163,10 +174,18 @@ async function readFixtures() {
 }
 
 /**
- * Only the two RESOLUTION legs are stubbed. Banners, meetings, elections,
+ * Only the two RESOLUTION legs are stubbed here. Banners, meetings, elections,
  * compass topics and the by-area officials reach the network exactly as they do
  * for a real visitor — they are what these images are of, and faking them would
  * be shooting the fixtures rather than the page.
+ *
+ * 🔴 The AUDIT is the other case, and takes `stubOfficials` on top. A
+ * measurement is not a photograph. With `/api` pointed at a dead port the audit
+ * read 356 PASS / 4 FAIL — the two VISITING roster positions in both desktop
+ * cells — while the two own-spaces positions stayed green on the dev id's
+ * fixture fallback. Those four reds are a true statement about ev-accounts and
+ * a useless one about the branch under test, which is the same reason
+ * `check:place-resolve` runs WITHOUT `--live` in CI.
  */
 async function stubPlaceLegs(page, fx) {
   await page.route('**/api/essentials/location-search*', (route) => {
@@ -177,6 +196,60 @@ async function stubPlaceLegs(page, fx) {
   await page.route('**/api/essentials/coordinate-lookup', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx.coordinates) }),
   )
+}
+
+/**
+ * A roster whose NAMES CARRY THE GEOID, copied from `check-explore-gate.mjs`
+ * rather than re-derived — including the `GEOID-<id>` prefix, so the two
+ * scripts stay readable against each other.
+ *
+ * 🔴 The tag is the whole reason this stub is safe to add. A stub that answered
+ * with plausible officials would turn "the roster renders" into a check that
+ * CANNOT FAIL — the stub always answers, so the widget always fills — and would
+ * quietly retire the only thing the printed read was ever for: that the roster
+ * FOLLOWS THE PLACE. Tagged, the script can tell Asheville's roster from
+ * Bloomington's, which is precisely what "no script can tell one real person's
+ * name from another's" said it could not do. The note was right about names and
+ * wrong about identity, the same shape as the three #176 corrected.
+ *
+ * Three district types, because the widget filters by tab: the City tab reads
+ * LOCAL and the Federal tab NATIONAL_LOWER off the SAME response.
+ */
+function taggedRoster(geoId) {
+  const one = (district_type, office_title) => ({
+    id: `${geoId}-${district_type}`,
+    full_name: `GEOID-${geoId} ${office_title}`,
+    office_title,
+    photo_origin_url: '',
+    district_type,
+    government_type: 'CHECK_FIXTURE',
+    is_vacant: false,
+    is_elected: true,
+    images: [],
+  })
+  return [one('LOCAL', 'Mayor'), one('COUNTY', 'County Commissioner'), one('NATIONAL_LOWER', 'U.S. Representative')]
+}
+
+/**
+ * 🔴 by-area is a POST and the geoid is in the BODY, not the query string — a
+ * stub keyed on the URL would serve every place the same roster and the
+ * identity assertions below would pass on a walk that never changed place.
+ * That mistake is recorded in 17-VALIDATION against `check-place-entry`.
+ */
+async function stubOfficials(page) {
+  await page.route('**/api/essentials/browse/by-area', (route) => {
+    let geoId = 'UNKNOWN'
+    try {
+      geoId = JSON.parse(route.request().postData() ?? '').geo_id ?? 'UNKNOWN'
+    } catch {
+      /* an unparseable body should reach the assertion as UNKNOWN, not as a throw */
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(taggedRoster(geoId)),
+    })
+  })
 }
 
 // ── Page-side readers (one serialisable argument each) ───────────────────────
@@ -1681,6 +1754,10 @@ async function auditPlace(theme, vp, tag) {
  */
 async function auditMemberNotices(theme, vp, tag) {
   const { ctx, page } = await freshContext(theme, vp)
+  // 🔴 Only the AUDIT stubs the officials, and only here — `walkMember` shoots
+  // the real roster, because a screenshot of a fixture is a screenshot of a
+  // fixture. See the note on `stubPlaceLegs`.
+  await stubOfficials(page)
   await page.addInitScript(() => { try { localStorage.setItem('cs_active_tab', 'city') } catch { /* guarded */ } })
   await page.goto(`${ORIGIN}/?dev=1&place=bloomington`, { waitUntil: 'domcontentloaded' })
   // The same wait, for the same reason — see `walkMember`. This one is why the
@@ -1690,9 +1767,8 @@ async function auditMemberNotices(theme, vp, tag) {
   await page.waitForTimeout(3000)
   await assertTheme(page, theme, `audit member ${tag}`)
 
-  // 🔴 The officials read line 2 of the verification bar needs a HUMAN for.
-  // Printed, never asserted: no script can tell one real person's name from
-  // another's, so this is here to put the three rosters side by side.
+  // The four roster positions. Each is read here and asserted at the end of
+  // this walk, for presence AND for whose roster it is — see `taggedRoster`.
   const own = await page.evaluate(auditRoster)
 
   await page.locator(`[data-place-change]:visible`).first().click()
@@ -1750,17 +1826,35 @@ async function auditMemberNotices(theme, vp, tag) {
    */
   if (vp.width >= 768) {
     rosters.push({ tag, own, visitedCity, visitedFederal, backHome })
-    for (const [where, r] of [
-      ['on their own spaces', own],
-      ['visiting Asheville · City', visitedCity],
-      ['visiting Asheville · Federal', visitedFederal],
-      ['back on their own spaces', backHome],
+    for (const [where, r, geo] of [
+      ['on their own spaces', own, HOME_GEOID],
+      ['visiting Asheville · City', visitedCity, VISITED_GEOID],
+      ['visiting Asheville · Federal', visitedFederal, VISITED_GEOID],
+      ['back on their own spaces', backHome, HOME_GEOID],
     ]) {
       aCheck(
         `officials ${tag} · the roster renders ${where}`,
         r.present,
         'no "Representing This Community" widget on the page — the names below it are not a weaker ' +
           'check than this one, they are a check of nothing',
+      )
+      /**
+       * 🔴 WHOSE roster, not merely a roster. Presence alone passes on a widget
+       * that renders the previous place's officials forever, which is the bug
+       * a reader of the printed names was being asked to catch by eye. The
+       * stub tags every name with the geoid it was asked for, so the two
+       * questions separate: one red line means the widget is gone, the other
+       * means it is showing the wrong place.
+       */
+      if (!r.present) {
+        aSkip(`officials ${tag} · whose roster it is ${where}`, 'no roster widget to read')
+        continue
+      }
+      aCheck(
+        `officials ${tag} · it is GEOID-${geo}'s roster ${where}`,
+        r.text.includes(`GEOID-${geo}`),
+        `the roster names no GEOID-${geo} — it reads "${r.text.slice(0, 160)}". The walk is at the ` +
+          'wrong place, or the widget kept the roster it had before the place changed',
       )
     }
   }
@@ -1820,8 +1914,11 @@ async function runAudit() {
     }
   }
 
-  console.log('── THE OFFICIALS READ — PRINTED FOR A HUMAN, NEVER ASSERTED ─────')
-  console.log('   No script can tell one real person\'s name from another\'s. Read these.\n')
+  console.log('── THE FOUR ROSTER POSITIONS, AS THE STUB TAGGED THEM ───────────')
+  console.log('   Every name carries the geoid it was asked for, so WHOSE roster each')
+  console.log('   position shows is asserted above rather than left to a reader\'s eye.')
+  console.log('   The REAL officials are in the shots run, which does not stub by-area —')
+  console.log('   drop --audit-only to see them.\n')
   for (const r of rosters) {
     console.log(`  ${r.tag}`)
     console.log(`    own spaces (Bloomington, IN)  ${r.own.present ? r.own.text.slice(0, 300) : '(no roster widget)'}`)
