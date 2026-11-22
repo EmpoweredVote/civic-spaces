@@ -1100,11 +1100,21 @@ function auditRoster() {
  *     the PRIVACY card only. Cards 1 and 2 — and card 2's "One person. One
  *     voice." kicker — were never measured by anything. They are now.
  *
- * The icon entry is dropped. Its old shape resolves to six visible nodes here
- * (every card carries list icons), and the probe now fails an ambiguous
- * selector instead of measuring an arbitrary one. Restoring it means giving
- * the icon its own `data-*` hook in WelcomeScreen.tsx — a component change,
- * deliberately not made from the script side.
+ * 🔴 The icon entry is BACK, and the note that dropped it was wrong on both
+ * counts. It said the old shape — `section:last-of-type span svg` — "resolves
+ * to six visible nodes" and that restoring it "means giving the icon its own
+ * `data-*` hook in WelcomeScreen.tsx — a component change". Measured: six
+ * MATCHED and exactly ONE visible, because five of the six live in a closed
+ * `<dialog>`; and `section:nth-of-type(N) > span svg` is 1/1 in every cell,
+ * popup open or shut, with no component change at all.
+ *
+ * The child combinator is the whole fix, and this file had already written
+ * that lesson down two paragraphs above for `header > p`. A card's icon tile
+ * is a direct child of its `<section>`; the popup's copy of the same tile is
+ * several levels down inside the `<dialog>`. Dropping an entry because a
+ * DESCENDANT selector was ambiguous, and blaming the component for it, is how
+ * three icons stayed unmeasured — the privacy one that was there before, and
+ * the two that never had an entry at all.
  *
  * Every selector below was verified live at 1440 AND 390, in dark, to resolve
  * to exactly ONE VISIBLE element holding the text its label names. That check
@@ -1132,6 +1142,15 @@ const WELCOME_ITEMS = [
   // line actually needed was an assertion aimed at its real reader, which is
   // `auditDescribedBy`, run against BOTH mounts.
   { sel: '[data-welcome-screen] div:has(> h2) > p:last-of-type', what: 'the sign-in sentence, which carries both walls' },
+  // 🔴 `>` is insurance, not today's load-bearing fix, and the difference is
+  // worth being exact about. With nothing open the descendant form is 6
+  // matched and 1 visible, so it would measure the right node anyway. The
+  // child combinator makes the selector mean "this card's own tile" whatever
+  // else is on screen — and under `strict` the descendant form goes RED, not
+  // wrong, if anything ever opens a popup before this probe runs.
+  { sel: '[data-welcome-screen] section:nth-of-type(1) > span svg', what: "the explore card's icon", icon: true },
+  { sel: '[data-welcome-screen] section:nth-of-type(2) > span svg', what: "the speak card's icon", icon: true },
+  { sel: '[data-welcome-screen] section:nth-of-type(3) > span svg', what: "the privacy card's icon", icon: true },
   { sel: '[data-welcome-screen] section:nth-of-type(1) h3', what: 'the explore card heading' },
   { sel: '[data-welcome-screen] section:nth-of-type(1) > div:last-of-type > p:first-of-type', what: 'the explore card body' },
   { sel: '[data-welcome-screen] section:nth-of-type(2) h3', what: 'the speak card heading' },
@@ -1320,11 +1339,22 @@ const countOpen = () => document.querySelectorAll('dialog[open]').length
  *
  * 🔴 A popup that cannot be dismissed is a trap, and a hit-test cannot see
  * that: it proves a click LANDS on the button, never that the button does
- * anything. So each popup is closed twice for real — once with the ×, once
- * with "Got it" — and reopened in between. The backdrop click is the third way
- * out and is NOT asserted: `e.target === e.currentTarget` makes it the one
- * close path with no visible control to name, and a click on the backdrop of
- * a modal that failed to open would pass it trivially.
+ * anything. So each popup is closed for real, by every way out it has, and
+ * reopened in between.
+ *
+ * 🔴 ALL FOUR, and the note that stopped at two was wrong. It said the
+ * backdrop click "is NOT asserted" because "a click on the backdrop of a modal
+ * that failed to open would pass it trivially". It would not: this walk
+ * asserts the popup opened before it touches anything, and a check that cannot
+ * be reached cannot pass. Measured in all four cells, a click outside the
+ * dialog's own rect closes it, and `elementFromPoint` there returns the
+ * `<dialog>` itself — which is precisely why `e.target === e.currentTarget`
+ * fires, and the only reason that handler works at all.
+ *
+ * Escape is the fourth. It is UA behaviour rather than ours, which is a reason
+ * to expect it to pass, not a reason not to look: `dialog` has a `cancel`
+ * event any component may intercept, and a popup that swallowed it would be a
+ * keyboard trap no screenshot and no hit-test could see.
  */
 async function auditDialogs(theme, vp, tag) {
   const { ctx, page } = await freshContext(theme, vp)
@@ -1451,9 +1481,13 @@ async function auditDialogs(theme, vp, tag) {
       // broken on no evidence at all.
       if (afterX !== 0) await page.evaluate(closeAnyOpen)
 
-      await trigger.first().click()
-      await page.waitForSelector('dialog[open]', { timeout: 10000 })
-      await page.waitForTimeout(250)
+      const reopen = async () => {
+        await trigger.first().click()
+        await page.waitForSelector('dialog[open]', { timeout: 10000 })
+        await page.waitForTimeout(250)
+      }
+
+      await reopen()
       await page.locator('dialog[open] ul + div button').click()
       await page.waitForTimeout(250)
       const afterGotIt = await page.evaluate(countOpen)
@@ -1461,6 +1495,37 @@ async function auditDialogs(theme, vp, tag) {
         `dialogs ${tag} · "${name}" · "Got it" dismisses it`,
         afterGotIt === 0,
         'the button was clicked and a <dialog> is still open — the control is reachable but does nothing',
+      )
+      if (afterGotIt !== 0) await page.evaluate(closeAnyOpen)
+
+      // 🔴 A point inside the viewport and OUTSIDE the dialog's own rect. Half
+      // way to its top-left corner is backdrop by construction, and clamped
+      // off the very edge so the click lands on the page rather than the
+      // window chrome.
+      await reopen()
+      const spot = await page.evaluate(() => {
+        const r = document.querySelector('dialog[open]').getBoundingClientRect()
+        return { x: Math.max(4, Math.round(r.left / 2)), y: Math.max(4, Math.round(r.top / 2)) }
+      })
+      await page.mouse.click(spot.x, spot.y)
+      await page.waitForTimeout(250)
+      const afterBackdrop = await page.evaluate(countOpen)
+      aCheck(
+        `dialogs ${tag} · "${name}" · a click on the backdrop dismisses it`,
+        afterBackdrop === 0,
+        `clicked ${spot.x},${spot.y}, outside the dialog's rect, and it is still open — ` +
+          'the onClick target test no longer matches, so the only way out is a button',
+      )
+      if (afterBackdrop !== 0) await page.evaluate(closeAnyOpen)
+
+      await reopen()
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(250)
+      const afterEscape = await page.evaluate(countOpen)
+      aCheck(
+        `dialogs ${tag} · "${name}" · Escape dismisses it`,
+        afterEscape === 0,
+        'Escape left it open — something is intercepting the dialog cancel event, which is a keyboard trap',
       )
       await page.evaluate(closeAnyOpen)
     })
@@ -1674,7 +1739,31 @@ async function auditMemberNotices(theme, vp, tag) {
   await page.waitForTimeout(3000)
   const backHome = await page.evaluate(auditRoster)
 
-  if (vp.width >= 768) rosters.push({ tag, own, visitedCity, visitedFederal, backHome })
+  /**
+   * 🔴 PRESENCE is asserted even though the NAMES cannot be. "Printed, never
+   * asserted" was right about the content and wrong about the widget: no
+   * script can tell one real person's name from another's, but every script
+   * can tell whether the roster rendered at all — and without this, deleting
+   * the widget printed "(no roster widget)" four times inside a run that still
+   * summarised as 0 FAIL. That is the #133 mount-deletion shape exactly, which
+   * is the reason `Guards (browser)` is required in the first place.
+   */
+  if (vp.width >= 768) {
+    rosters.push({ tag, own, visitedCity, visitedFederal, backHome })
+    for (const [where, r] of [
+      ['on their own spaces', own],
+      ['visiting Asheville · City', visitedCity],
+      ['visiting Asheville · Federal', visitedFederal],
+      ['back on their own spaces', backHome],
+    ]) {
+      aCheck(
+        `officials ${tag} · the roster renders ${where}`,
+        r.present,
+        'no "Representing This Community" widget on the page — the names below it are not a weaker ' +
+          'check than this one, they are a check of nothing',
+      )
+    }
+  }
 
   await ctx.close()
 }
