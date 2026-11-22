@@ -911,8 +911,10 @@ function auditRoster() {
 /**
  * The welcome screen's probe list. Every line the plan names, by selector.
  *
- * 🔴 EACH SELECTOR MUST RESOLVE TO THE ELEMENT ITS LABEL NAMES, and the probe
- * reads `querySelector` — the FIRST match, not all of them. A descendant
+ * 🔴 EACH SELECTOR MUST RESOLVE TO THE ELEMENT ITS LABEL NAMES. The probe
+ * measures the first VISIBLE match and, because this list passes `strict`,
+ * goes red rather than choosing when there is more than one — but neither
+ * guard can tell a legible wrong element from the right one. A descendant
  * selector plus `:last-of-type` is the trap, because `:last-of-type` is scoped
  * to each element's own SIBLINGS rather than to the match set: `header
  * p:last-of-type` matched two nodes here, and the first was the 18px "Civic
@@ -1079,6 +1081,237 @@ async function auditWelcome(theme, vp, tag) {
       aCheck(`contrast ${tag} · ${r.what} — ${r.ratio}:1 (needs ${r.need})`, r.ratio >= r.need, `"${r.raw}" · "${r.text}"`)
     }
   })
+
+  await ctx.close()
+}
+
+/**
+ * 🔴 THE TWO "HOW … WORKS" POPUPS, WHICH NOTHING HAD EVER MEASURED.
+ *
+ * Every probe in this file already SAW them. They are closed `<dialog>`s that
+ * sit in the DOM from first paint, each with its own `h2`, its own paragraphs
+ * and its own links, and half the visibility rules in `installVisible` plus
+ * the whole of `auditProbe`'s `strict` flag exist because of the trouble that
+ * caused: `[data-welcome-screen] h2` resolves to three nodes, two of them
+ * theirs, and `[data-welcome-screen] a[href]` to three anchors, one of them
+ * theirs. Seen and correctly skipped is not the same as audited. What is
+ * INSIDE them had never been contrast-checked in either theme, and the
+ * controls that open and close them had never been hit-tested — the PR #92
+ * shape exactly, a control that renders perfectly and cannot be clicked.
+ *
+ * It is also the screen's most load-bearing copy. The privacy popup is where
+ * the address claim is actually made — "used once", "not retained" (Q1.8,
+ * D-17) — and the participation popup is where both walls are stated (D-11).
+ * The cards outside them say far less. Unreadable here is worse than
+ * unreadable anywhere else on this page.
+ *
+ * 🔴 `dialog[open]` is the scope, deliberately NOT a `data-*` hook. Exactly
+ * one popup is modal at a time, so the selector means "the popup the reader is
+ * looking at" without this file having to know which one that is, and the walk
+ * asserts that `open === 1` before it measures anything — if that ever stops
+ * being true the scope is ambiguous and every item below is measuring an
+ * arbitrary popup. A closed `<dialog>` has no box at all, so all nine resolve
+ * to nothing when none is open, which is why they can be this short.
+ *
+ * Verified live at 1440 AND 390, light AND dark, in BOTH popups: every
+ * selector resolves to exactly ONE VISIBLE element holding the text its label
+ * names. `strict` is on, so a future layout that breaks that goes red rather
+ * than quietly measuring the wrong node.
+ */
+const DIALOG_ITEMS = [
+  { sel: 'dialog[open] p:first-of-type', what: 'the eyebrow' },
+  { sel: 'dialog[open] h2', what: 'the title' },
+  { sel: 'dialog[open] h2 + p', what: 'the lead' },
+  // One point, not four: they are one `map` over one `li` class, so the fourth
+  // cannot differ from the first in anything this probe can measure. The text
+  // is printed, so a reader can see WHICH claim was measured.
+  { sel: 'dialog[open] li:first-of-type', what: 'the first point' },
+  { sel: 'dialog[open] li:first-of-type svg', what: "the first point's check", icon: true },
+  { sel: 'dialog[open] ul + div button', what: 'the "Got it" button' },
+  // 🔴 Only the participation popup has an action. A SKIP on the privacy popup
+  // is the correct reading of a popup that offers no destination, not a gap.
+  { sel: 'dialog[open] ul + div a[href]', what: 'the action button' },
+  { sel: 'dialog[open] button[aria-label="Close"] svg', what: "the close button's ×", icon: true },
+]
+
+/** The controls inside an open popup. The action button skips where there is none. */
+const DIALOG_HITS = [
+  { sel: 'dialog[open] button[aria-label="Close"]', label: 'the close button' },
+  { sel: 'dialog[open] ul + div button', label: 'the "Got it" button' },
+  { sel: 'dialog[open] ul + div a[href]', label: 'the action button' },
+]
+
+/**
+ * Which cards carry a popup. Two of the three — "Explore anywhere" has no
+ * `more`, so it has no trigger and no `<dialog>`.
+ *
+ * 🔴 This list is checked against the page rather than trusted, because a list
+ * of what to audit is blind to anything added after it was written — the exact
+ * shape that left `check:banners` reporting green while 43 banners went
+ * unreferenced for two months. A third popup appears, the count check goes
+ * red, and whoever added it is told to name it here.
+ */
+const INFO_CARDS = [
+  { n: 2, what: 'the speak card', action: true },
+  { n: 3, what: 'the privacy card', action: false },
+]
+const infoTrigger = (n) => `[data-welcome-screen] section:nth-of-type(${n}) button[aria-haspopup="dialog"]`
+
+/** Everything open, and nothing left open for the next card. */
+const closeAnyOpen = () => document.querySelectorAll('dialog[open]').forEach((d) => d.close())
+const countOpen = () => document.querySelectorAll('dialog[open]').length
+
+/**
+ * The popups: they open, what they say is legible, their controls can be
+ * clicked, and they can be dismissed by both of the two ways out.
+ *
+ * 🔴 A popup that cannot be dismissed is a trap, and a hit-test cannot see
+ * that: it proves a click LANDS on the button, never that the button does
+ * anything. So each popup is closed twice for real — once with the ×, once
+ * with "Got it" — and reopened in between. The backdrop click is the third way
+ * out and is NOT asserted: `e.target === e.currentTarget` makes it the one
+ * close path with no visible control to name, and a click on the backdrop of
+ * a modal that failed to open would pass it trivially.
+ */
+async function auditDialogs(theme, vp, tag) {
+  const { ctx, page } = await freshContext(theme, vp)
+  await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector(WELCOME, { timeout: 25000 })
+  await page.waitForTimeout(2200)
+  await assertTheme(page, theme, `audit ${tag}`)
+
+  const counts = await page.evaluate(() => ({
+    triggers: document.querySelectorAll('[data-welcome-screen] button[aria-haspopup="dialog"]').length,
+    dialogs: document.querySelectorAll('[data-welcome-screen] dialog').length,
+  }))
+  aCheck(
+    `dialogs ${tag} · this walk reaches every popup on the screen`,
+    counts.triggers === INFO_CARDS.length && counts.dialogs === INFO_CARDS.length,
+    `${counts.triggers} trigger(s) and ${counts.dialogs} <dialog>(s) are on the screen; this walk names ` +
+      `${INFO_CARDS.length}. A popup nobody opens is a popup nobody measures — add it to INFO_CARDS.`,
+  )
+
+  // 🔴 The triggers are hit-tested BEFORE anything clicks one, for the reason
+  // on `auditWelcome`'s first hit group: make the trigger unclickable and the
+  // click below times out, so the assertion that exists for that bug never
+  // runs. They are also the smallest controls on this screen — 12px underlined
+  // text — which is where a stray overlay shows up first.
+  const triggerHits = await page.evaluate(auditHit, {
+    sels: INFO_CARDS.map((c) => ({ sel: infoTrigger(c.n), label: `${c.what}'s popup trigger` })),
+  })
+  for (const h of triggerHits) {
+    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, hitSkip(h)); continue }
+    aCheck(`hit ${tag} · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
+  }
+
+  for (const card of INFO_CARDS) {
+    await guarded(`the ${card.what} popup ${tag}`, async () => {
+      const trigger = page.locator(infoTrigger(card.n))
+      if ((await trigger.count()) === 0) {
+        aSkip(`dialogs ${tag} · ${card.what}`, `no trigger matched ${infoTrigger(card.n)}`)
+        return
+      }
+      // The trigger's own words, so the label is the page's and not this file's.
+      const label = (await trigger.first().innerText()).replace(/\s+/g, ' ').trim()
+
+      await trigger.first().click()
+      const opened = await page
+        .waitForSelector('dialog[open]', { timeout: 10000 })
+        .then(() => true)
+        .catch(() => false)
+      const open = await page.evaluate(countOpen)
+      aCheck(
+        `dialogs ${tag} · "${label}" opens exactly one popup`,
+        opened && open === 1,
+        `${open} <dialog>(s) reported open ${opened ? 'after the click' : 'and none appeared within 10s of the click'}`,
+      )
+      if (!opened || open !== 1) {
+        await page.evaluate(closeAnyOpen)
+        return
+      }
+      await page.waitForTimeout(350)
+
+      // Its own title, which is what the popup calls itself.
+      const name = await page.evaluate(
+        () => document.querySelector('dialog[open] h2')?.textContent?.replace(/\s+/g, ' ').trim() ?? '(untitled)',
+      )
+
+      // 🔴 ASSERTED, so that the two SKIPs below are not the only record of it.
+      // One popup has an action button and one does not, and a SKIP on a
+      // missing element is the same line whether that is the design or a
+      // regression — which is this file's own complaint about a green total
+      // carrying thirty skips. The participation popup is the screen's one
+      // route to a Connected account; if its button goes, something has to go
+      // red rather than quietly become a skip that reads like the other one.
+      const actions = await page.evaluate(() => document.querySelectorAll('dialog[open] ul + div a[href]').length)
+      aCheck(
+        `dialogs ${tag} · "${name}" ${card.action ? 'offers its destination' : 'offers no destination, by design'}`,
+        (actions > 0) === card.action,
+        card.action
+          ? 'no action button in the one popup that is the route to a Connected account'
+          : `${actions} action button(s) in a popup that is meant to offer none — it now sends the reader somewhere`,
+      )
+
+      const items = await page.evaluate(auditProbe, { items: DIALOG_ITEMS, big: true, strict: true })
+      for (const r of items) {
+        if (!r.found) {
+          aSkip(
+            `contrast ${tag} · "${name}" · ${r.what}`,
+            `no visible element matched ${r.sel}` +
+              (r.matched ? ` (${r.matched} hidden match${r.matched === 1 ? '' : 'es'})` : ''),
+          )
+          continue
+        }
+        if (r.ambiguous) {
+          aCheck(
+            `contrast ${tag} · "${name}" · ${r.what} — selector is ambiguous`,
+            false,
+            `${r.sel} resolves to ${r.ambiguous} VISIBLE elements; it must resolve to 1. ` +
+              'Narrow it, or give the element its own data-* hook.',
+          )
+          continue
+        }
+        aCheck(
+          `contrast ${tag} · "${name}" · ${r.what} — ${r.ratio}:1 (needs ${r.need}) ${r.size}px${r.big ? ' large' : ''}`,
+          r.ratio >= r.need,
+          `computed "${r.raw}" over its composited backdrop · "${r.text}"`,
+        )
+      }
+
+      const hits = await page.evaluate(auditHit, { sels: DIALOG_HITS })
+      for (const h of hits) {
+        if (!h.found) { aSkip(`hit ${tag} · "${name}" · ${h.label}`, hitSkip(h)); continue }
+        aCheck(`hit ${tag} · "${name}" · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
+      }
+
+      // ── Both ways out, clicked for real ──
+      await page.locator('dialog[open] button[aria-label="Close"]').click()
+      await page.waitForTimeout(250)
+      const afterX = await page.evaluate(countOpen)
+      aCheck(
+        `dialogs ${tag} · "${name}" · the × dismisses it`,
+        afterX === 0,
+        'the × was clicked and a <dialog> is still open — the control is reachable but does nothing',
+      )
+      // 🔴 Force it shut rather than let one failure hide the next: a popup
+      // still open here would block the reopen, and "Got it" would be reported
+      // broken on no evidence at all.
+      if (afterX !== 0) await page.evaluate(closeAnyOpen)
+
+      await trigger.first().click()
+      await page.waitForSelector('dialog[open]', { timeout: 10000 })
+      await page.waitForTimeout(250)
+      await page.locator('dialog[open] ul + div button').click()
+      await page.waitForTimeout(250)
+      const afterGotIt = await page.evaluate(countOpen)
+      aCheck(
+        `dialogs ${tag} · "${name}" · "Got it" dismisses it`,
+        afterGotIt === 0,
+        'the button was clicked and a <dialog> is still open — the control is reachable but does nothing',
+      )
+      await page.evaluate(closeAnyOpen)
+    })
+  }
 
   await ctx.close()
 }
@@ -1269,6 +1502,11 @@ async function runAudit() {
       // run has to produce a FAIL line naming itself, not a stack trace that
       // takes the other three walks with it.
       await guarded(`the welcome walk ${tag}`, () => auditWelcome(theme, vp, tag))
+      // 🔴 Its own walk, and its own context, rather than a group inside
+      // `auditWelcome`: a modal left open swallows every click after it, so a
+      // popup that failed to close would report the picker as broken too. A
+      // page load is the cheap way to make one walk's failure stay there.
+      await guarded(`the popup walk ${tag}`, () => auditDialogs(theme, vp, tag))
       await guarded(`the visited-place walk ${tag}`, () => auditPlace(theme, vp, tag))
       await guarded(`the member walk ${tag}`, () => auditMemberNotices(theme, vp, tag))
       await guarded(`the reduced-motion walk ${tag}`, () => auditReducedMotion(theme, vp, tag))
