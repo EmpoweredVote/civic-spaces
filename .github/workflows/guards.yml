@@ -146,14 +146,24 @@ jobs:
   #
   # 🔴 Its OWN job rather than three more steps on `browser`, and the reason is
   # a measurement, not a preference. Five runs of `Guards (browser)`: 286-293s,
-  # of which ~40s is setup and ~250s the three guards. The audit takes 186s
-  # locally, and those same three guards take 99.6 / 112.6 / 59.5s on that
-  # machine against 91.6 / 106.8 / 55.4s here — a CI/local ratio of 0.933, so
-  # ~174s is what to expect. APPENDED to `browser` that is 464s on the PR's
-  # critical path, +60%. BESIDE it, this job is ~214s and finishes about 76s
-  # before `browser` does, so the critical path stays ~290s and this costs
-  # nothing anyone waits for. The repo is public; the extra runner minutes are
-  # free.
+  # of which ~40s is setup and ~250s the three guards. APPENDED to `browser`
+  # this job's work lands on the PR's critical path; BESIDE it, it finishes
+  # well before `browser` does and costs nothing anyone waits for. The repo is
+  # public, so the extra runner minutes are free.
+  #
+  # The numbers it was argued from, and what replaced them:
+  #
+  #   the audit, locally, with fixed sleeps      189s
+  #   its FIRST CI run (#177), measured          182s   job 212s
+  #   the audit, locally, condition waits         83s / 85s, two runs
+  #   so expect, in CI                           ~80s   job ~110s
+  #
+  # The CI/local ratio is 0.933 — runners are ~7% FASTER than the machine this
+  # was written on, measured on the three guards that run in both places
+  # (99.6 / 112.6 / 59.5s locally against 91.6 / 106.8 / 55.4s here). Applied to
+  # the old 186s it predicted 174s and the real step was 182s, 4.6% optimistic,
+  # so read ~80s as a floor rather than a promise. 🔴 That whole last row is
+  # CALCULATED, not observed; this PR's own run is where it gets measured.
   #
   # 🔴 `--audit-only` is not an optimisation. Without it the script writes 24
   # cells of PNGs whose whole purpose is for a human to LOOK at them, and nobody
