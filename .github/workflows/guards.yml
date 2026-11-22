@@ -17,14 +17,23 @@ name: Guards
 # until these job names are added there, a red run here is advisory and a PR can
 # still merge over it.
 #
-# Two jobs, split by what they need
-# ---------------------------------
+# Three jobs, split by what they need
+# -----------------------------------
 # `pure` runs the four guards that are just Node reading shipped modules: no
 # browser, no network, no server. They finish in seconds, so they are the ones
 # worth making required first.
 #
 # `browser` runs the three that drive the real app through Playwright. They need
 # a dev server and a Chromium, which is most of this file's length.
+#
+# `welcome` runs the signed-out arrival's audit, which needs the same browser
+# and server but is kept separate so it does not lengthen `browser`. The
+# measurements behind that choice are on the job itself.
+#
+# 🔴 All three run in PARALLEL, so what a job costs is not its own runtime but
+# whether it is the longest one. `build` is 14-18s and `pure` 9-19s; `browser`
+# is 286-293s and is the PR's critical path on its own. A job shorter than
+# `browser` is free on the clock.
 #
 # 🔴 They need `npm run dev`, NOT `vite preview`. The guards reach the signed-out
 # and dev-guest states through `?signedout=1` and `?dev=1`, both of which are
@@ -126,6 +135,77 @@ jobs:
 
       # Only on failure, and only then: the Vite log is where a 500 on a route
       # or a missing fixture actually shows up, and it is invisible otherwise.
+      - name: Dev server log
+        if: failure()
+        run: cat /tmp/vite.log
+
+  # The 376-assertion audit over the signed-out arrival: contrast resolved
+  # through a canvas, hit-tests, the four ways out of a popup, aria-describedby
+  # wiring, roster presence AND identity, reduced motion — four cells, light and
+  # dark at 1440 and 390.
+  #
+  # 🔴 Its OWN job rather than three more steps on `browser`, and the reason is
+  # a measurement, not a preference. Five runs of `Guards (browser)`: 286-293s,
+  # of which ~40s is setup and ~250s the three guards. The audit takes 186s
+  # locally, and those same three guards take 99.6 / 112.6 / 59.5s on that
+  # machine against 91.6 / 106.8 / 55.4s here — a CI/local ratio of 0.933, so
+  # ~174s is what to expect. APPENDED to `browser` that is 464s on the PR's
+  # critical path, +60%. BESIDE it, this job is ~214s and finishes about 76s
+  # before `browser` does, so the critical path stays ~290s and this costs
+  # nothing anyone waits for. The repo is public; the extra runner minutes are
+  # free.
+  #
+  # 🔴 `--audit-only` is not an optimisation. Without it the script writes 24
+  # cells of PNGs whose whole purpose is for a human to LOOK at them, and nobody
+  # looks at an artifact nobody downloads. The flag drops the shoot and keeps
+  # the assertions, which are the half a machine can judge. The script already
+  # exits non-zero on any FAIL or page error, so there is no wrapper here.
+  #
+  # 🔴 Advisory until it has a week of green — see this file's header. A job in
+  # a workflow is not a requirement until its NAME is in branch protection.
+  welcome:
+    name: Guards (welcome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Install Playwright (not a repo dependency — see header)
+        run: |
+          npm i --no-save playwright@${{ env.PLAYWRIGHT_VERSION }}
+          npx playwright install --with-deps chromium
+
+      - name: Start the dev server
+        run: |
+          npm run dev > /tmp/vite.log 2>&1 &
+          echo $! > /tmp/vite.pid
+
+      - name: Wait for the dev server
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:5173 > /dev/null; then
+              echo "dev server up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::dev server never came up on :5173"
+          cat /tmp/vite.log
+          exit 1
+
+      # 🔴 This runs on a FRESH CLONE, which is not the environment it was
+      # developed in, and the difference is measurable in the right direction:
+      # with no .env.local there is no VITE_SUPABASE_URL, the app serves
+      # devMockData, and the signed-out Conversations view renders its honest
+      # unavailable state. Eight contrast assertions on that state SKIP on a
+      # checkout pointed at production Supabase and RUN here — 376 against 368.
+      # Two fresh-clone runs were byte-identical, every ratio included.
+      - name: shoot:welcome --audit-only
+        run: npm run shoot:welcome -- --audit-only
+
       - name: Dev server log
         if: failure()
         run: cat /tmp/vite.log
