@@ -253,12 +253,79 @@ function attachErrorSinks(page) {
   })
 }
 
+/**
+ * `window.__csVisible(node)` — the ONE answer to "can a sighted reader see
+ * this?", installed into every page before any of its own script runs.
+ *
+ * 🔴 It lives here, and not inside a probe, because there are two probes.
+ * `auditProbe` measures contrast and `auditHit` hit-tests controls, each is
+ * serialised into the page separately, and for a while only one of them
+ * filtered its matches at all — so a selector could resolve to a hidden
+ * element in one and the live one in the other, and both printed PASS. One
+ * definition, one place, both callers.
+ *
+ * Visible is deliberately NOT `offsetParent === null`: that is null for a
+ * `position: fixed` element and `undefined` for an `<svg>`, so the old test
+ * called a fixed element hidden and an invisible icon visible. A bounding box
+ * is true for both.
+ *
+ * 🔴 But a bounding box is necessary and NOT sufficient. `sr-only` is a REAL
+ * box. Measured in this build's own CSS, Tailwind v4 emits:
+ *
+ *     .sr-only{clip-path:inset(50%);white-space:nowrap;border-width:0;
+ *              width:1px;height:1px;margin:-1px;padding:0;
+ *              position:absolute;overflow:hidden}
+ *
+ * — 1×1 and clipped to nothing, so `width > 0 && height > 0` is **true** for
+ * it. The welcome screen passes `hideHelp`, which puts the picker's help line
+ * in exactly that state, and the contrast probe measured it anyway and printed
+ * `7.56:1 … PASS` four times a run. A ratio for text nobody can see is not a
+ * finding in either direction; it is an assertion about nothing.
+ *
+ * Four ways to be unreadable, and the walk up the tree is the point of three
+ * of them — `sr-only` is as often on a WRAPPER as on the text, and a child of
+ * a clipped 1×1 box still reports its own full-size layout rect:
+ *
+ *   1. no box at all — covers `display: none` and a detached node
+ *   2. `visibility: hidden|collapse` — inherited, so the element's own
+ *      computed value already answers for its ancestors
+ *   3. clipped away — `clip-path: inset(50%)` (v4) or the older
+ *      `clip: rect(0px, 0px, 0px, 0px)`, both of which still mean "nothing"
+ *   4. a hairline box that hides its overflow, which is the generic `sr-only`
+ *      recipe with or without the clip, plus `opacity: 0`, which does NOT
+ *      inherit and so has to be asked of every ancestor
+ */
+function installVisible() {
+  const clippedToNothing = (cs) =>
+    /inset\(\s*50%/.test(cs.clipPath || '') ||
+    /rect\(\s*0px,?\s*0px,?\s*0px,?\s*0px\s*\)/.test(cs.clip || '')
+
+  window.__csVisible = (n) => {
+    const r = n.getBoundingClientRect()
+    if (r.width <= 0 || r.height <= 0) return false
+    const own = getComputedStyle(n)
+    if (own.visibility === 'hidden' || own.visibility === 'collapse') return false
+    for (let a = n; a; a = a.parentElement) {
+      const cs = a === n ? own : getComputedStyle(a)
+      if (parseFloat(cs.opacity) === 0) return false
+      if (clippedToNothing(cs)) return false
+      // A 1px box only hides what is inside it when it clips. `overflow` is
+      // `visible` on ordinary layout boxes, so this does not catch thin rules.
+      const box = a === n ? r : a.getBoundingClientRect()
+      if (cs.overflow !== 'visible' && (box.width <= 2 || box.height <= 2)) return false
+    }
+    return true
+  }
+}
+
 async function freshContext(theme, viewport, { reducedMotion } = {}) {
   const ctx = await browser.newContext({
     viewport,
     deviceScaleFactor: 2,
     ...(reducedMotion ? { reducedMotion: 'reduce' } : {}),
   })
+  // Before any page script: both probes assume it is already there.
+  await ctx.addInitScript(installVisible)
   await ctx.addCookies([{ name: 'ev_theme', value: theme, domain: 'localhost', path: '/' }])
   const page = await ctx.newPage()
   attachErrorSinks(page)
@@ -524,6 +591,47 @@ function aSkip(label, why) {
 }
 
 /**
+ * The one place an `auditHit` result turns into words, so all five call sites
+ * say the same thing.
+ *
+ * 🔴 It prints `why` when there is one. The call sites used to hard-code
+ * "elementFromPoint landed on ${blockedBy}", which is the wrong sentence for
+ * the two results that never get as far as a hit-test — a zero-size box and an
+ * off-screen control both reported `landed on undefined`, a FAIL whose detail
+ * line described a measurement that did not happen.
+ *
+ * `visible > 1` is reported rather than judged: several live matches is the
+ * intent for `[role="option"]` and a flaw in a selector meant to name one
+ * control, and this function cannot tell which it is looking at.
+ */
+function hitDetail(h) {
+  const where = h.why ?? `elementFromPoint landed on ${h.blockedBy}`
+  return `${where} · ${h.visible} of ${h.matched} matches visible`
+}
+
+/**
+ * 🔴 In the LABEL, not the detail, because `aCheck` prints a detail only on
+ * FAIL — so anything that belongs on a PASS has to go here or it is written
+ * for nobody. A selector that names one control and finds several live ones is
+ * exactly the sort of thing a green run should still say out loud:
+ * `[data-welcome-screen] a[href]` resolves to three anchors, TWO of them
+ * visible, because the EV photo credit is a link too. The sign-in link happens
+ * to be first today. Nothing enforces that, and when it changes the label will
+ * name the credit link and the check will still be green.
+ */
+function hitWhich(h) {
+  if (!(h.visible > 1)) return ''
+  return ` · 1 of ${h.visible} visible: "${h.text}"`
+}
+
+/** A selector that matched only hidden nodes is a different fact from one that matched nothing. */
+function hitSkip(h) {
+  return h.matched
+    ? `no VISIBLE element matched — ${h.matched} hidden match${h.matched === 1 ? '' : 'es'} in the DOM`
+    : 'not in the DOM'
+}
+
+/**
  * 🔴 A GROUP THAT CANNOT RUN MUST FAIL, NOT CRASH.
  *
  * 17-06 paid for this one: hiding the control `readNotOverGated` exists to
@@ -642,62 +750,11 @@ function auditProbe({ items, big, strict }) {
     return acc
   }
 
-  /**
-   * Visible = a sighted reader can actually read it.
-   *
-   * Deliberately NOT `offsetParent === null`: that is null for a
-   * `position: fixed` element and `undefined` for an `<svg>`, so the old test
-   * called a fixed element hidden and an invisible icon visible. A bounding
-   * box is true for both.
-   *
-   * 🔴 But a bounding box is necessary and NOT sufficient, which is what this
-   * function got wrong. `sr-only` is a REAL box. Measured in this build's own
-   * CSS, Tailwind v4 emits:
-   *
-   *     .sr-only{clip-path:inset(50%);white-space:nowrap;border-width:0;
-   *              width:1px;height:1px;margin:-1px;padding:0;
-   *              position:absolute;overflow:hidden}
-   *
-   * — 1×1 and clipped to nothing, so `width > 0 && height > 0` is **true** for
-   * it. The welcome screen passes `hideHelp`, which puts the picker's help
-   * line in exactly that state, and this probe contrast-measured it anyway and
-   * printed `7.56:1 … PASS` four times a run. A ratio for text nobody can see
-   * is not a finding in either direction; it is an assertion about nothing,
-   * and it is the same shape of lie as measuring the first of three matches.
-   *
-   * Four ways to be unreadable, and the walk up the tree is the point of three
-   * of them — `sr-only` is as often on a WRAPPER as on the text, and a child
-   * of a clipped 1×1 box still reports its own full-size layout rect:
-   *
-   *   1. no box at all — covers `display: none` and a detached node
-   *   2. `visibility: hidden|collapse` — inherited, so the element's own
-   *      computed value already answers for its ancestors
-   *   3. clipped away — `clip-path: inset(50%)` (v4) or the older
-   *      `clip: rect(0px, 0px, 0px, 0px)`, both of which still mean "nothing"
-   *   4. a hairline box that hides its overflow, which is the generic
-   *      `sr-only` recipe with or without the clip, plus `opacity: 0`, which
-   *      does NOT inherit and so has to be asked of every ancestor
-   */
-  const clippedToNothing = (cs) =>
-    /inset\(\s*50%/.test(cs.clipPath || '') ||
-    /rect\(\s*0px,?\s*0px,?\s*0px,?\s*0px\s*\)/.test(cs.clip || '')
-
-  const paints = (n) => {
-    const r = n.getBoundingClientRect()
-    if (r.width <= 0 || r.height <= 0) return false
-    const own = getComputedStyle(n)
-    if (own.visibility === 'hidden' || own.visibility === 'collapse') return false
-    for (let a = n; a; a = a.parentElement) {
-      const cs = a === n ? own : getComputedStyle(a)
-      if (parseFloat(cs.opacity) === 0) return false
-      if (clippedToNothing(cs)) return false
-      // A 1px box only hides what is inside it when it clips. `overflow` is
-      // `visible` on ordinary layout boxes, so this does not catch thin rules.
-      const box = a === n ? r : a.getBoundingClientRect()
-      if (cs.overflow !== 'visible' && (box.width <= 2 || box.height <= 2)) return false
-    }
-    return true
-  }
+  // 🔴 ONE definition of visible — `installVisible`, shared with `auditHit`.
+  // Not a local copy: the two probes holding their own ideas of "visible" is
+  // the exact drift this file already lived through once.
+  const paints = window.__csVisible
+  if (typeof paints !== 'function') throw new Error('__csVisible is missing — see installVisible()')
 
   const out = []
   for (const item of items) {
@@ -753,24 +810,47 @@ function auditProbe({ items, big, strict }) {
   return out
 }
 
-/** elementFromPoint at a control's centre: does a click actually land on it? */
+/**
+ * elementFromPoint at a control's centre: does a click actually land on it?
+ *
+ * 🔴 The FIRST VISIBLE match, not `document.querySelector`. This function kept
+ * the naive version after `auditProbe` had already been fixed, and the two
+ * disagreeing is how a selector ends up correct by luck of document order:
+ * `[data-welcome-screen] a[href]` resolves to three anchors here, because the
+ * two "How … works" popups are CLOSED `<dialog>`s that sit in the DOM the
+ * whole time and carry links of their own. Pick a hidden one and the result is
+ * a `zero-size box` FAIL that reads exactly like a broken control — or, worse,
+ * a hidden element that happens to have a box, hit-tested at a point nobody
+ * can click, reporting whatever is painted there instead.
+ *
+ * `visible` is reported back so a reader can see when a label names one of
+ * several live controls. That is legitimate for `[role="option"]` — five rows,
+ * and the first is the intent — and a flaw in a selector that means to name
+ * exactly one, so it is printed either way rather than judged here.
+ */
 function auditHit({ sels }) {
+  const paints = window.__csVisible
+  if (typeof paints !== 'function') throw new Error('__csVisible is missing — see installVisible()')
   return sels.map(({ sel, label }) => {
-    const el = document.querySelector(sel)
-    if (!el) return { label, found: false }
+    const matches = [...document.querySelectorAll(sel)]
+    const shown = matches.filter(paints)
+    const counts = { matched: matches.length, visible: shown.length }
+    if (shown.length === 0) return { label, found: false, ...counts }
+    const el = shown[0]
     const r = el.getBoundingClientRect()
-    if (r.width === 0 || r.height === 0) return { label, found: true, ok: false, why: 'zero-size box' }
+    if (r.width === 0 || r.height === 0) return { label, found: true, ok: false, why: 'zero-size box', ...counts }
     if (r.bottom < 0 || r.top > window.innerHeight) {
       el.scrollIntoView({ block: 'center' })
     }
     const r2 = el.getBoundingClientRect()
     const cx = r2.left + r2.width / 2
     const cy = r2.top + r2.height / 2
-    if (cy < 0 || cy > window.innerHeight) return { label, found: true, ok: false, why: `off-screen (top ${Math.round(r2.top)})` }
+    if (cy < 0 || cy > window.innerHeight) return { label, found: true, ok: false, why: `off-screen (top ${Math.round(r2.top)})`, ...counts }
     const at = document.elementFromPoint(cx, cy)
     return {
       label,
       found: true,
+      ...counts,
       /**
        * 🔴 `at === el || el.contains(at)` — and NOT `at.contains(el)`, which a
        * first draft of this function also allowed and which quietly made the
@@ -784,6 +864,10 @@ function auditHit({ sels }) {
        */
       ok: !!at && (at === el || el.contains(at)),
       size: `${Math.round(r2.width)}x${Math.round(r2.height)}`,
+      // 🔴 WHICH element was hit, in its own words. A size alone cannot settle
+      // that, and a label like "the sign-in link" is this file's own wording,
+      // not the page's.
+      text: (el.innerText || el.textContent || el.value || '').replace(/\s+/g, ' ').trim().slice(0, 40),
       blockedBy: at ? `${at.tagName.toLowerCase()}.${String(at.className || '').split(' ')[0]}` : 'nothing',
     }
   })
@@ -958,8 +1042,8 @@ async function auditWelcome(theme, vp, tag) {
     ],
   })
   for (const h of firstHits) {
-    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, 'not in the DOM'); continue }
-    aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
+    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, hitSkip(h)); continue }
+    aCheck(`hit ${tag} · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
   }
 
   // ── Contrast, the picker with a list open, plus the option row's hit-test ──
@@ -980,8 +1064,8 @@ async function auditWelcome(theme, vp, tag) {
       sels: [{ sel: `${HERO_PICKER} [role="option"]`, label: 'the first option row' }],
     })
     for (const h of rowHit) {
-      if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, 'not in the DOM'); continue }
-      aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
+      if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, hitSkip(h)); continue }
+      aCheck(`hit ${tag} · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
     }
   })
 
@@ -1039,8 +1123,8 @@ async function auditPlace(theme, vp, tag) {
     ],
   })
   for (const h of hits) {
-    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, 'not in the DOM'); continue }
-    aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
+    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, hitSkip(h)); continue }
+    aCheck(`hit ${tag} · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
   }
 
   // The compact picker, which only exists once the strip is expanded — and is
@@ -1051,8 +1135,8 @@ async function auditPlace(theme, vp, tag) {
     sels: [{ sel: '[data-place-picker="compact"] input[role="combobox"]', label: "the strip's compact picker input" }],
   })
   for (const h of compactHit) {
-    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, 'not in the DOM'); continue }
-    aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
+    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, hitSkip(h)); continue }
+    aCheck(`hit ${tag} · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
   }
   await page.keyboard.press('Escape')
   await page.locator(`[data-place-change]:visible`).first().click()
@@ -1116,8 +1200,8 @@ async function auditMemberNotices(theme, vp, tag) {
     sels: [{ sel: '[data-read-only-notice] button, [data-read-only-notice] a', label: "the other-place notice's way out" }],
   })
   for (const h of hit) {
-    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, 'not in the DOM'); continue }
-    aCheck(`hit ${tag} · ${h.label} (${h.size})`, h.ok, `elementFromPoint landed on ${h.blockedBy}`)
+    if (!h.found) { aSkip(`hit ${tag} · ${h.label}`, hitSkip(h)); continue }
+    aCheck(`hit ${tag} · ${h.label} (${h.size})${hitWhich(h)}`, h.ok, hitDetail(h))
   }
 
   /**
