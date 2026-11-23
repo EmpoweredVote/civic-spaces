@@ -434,7 +434,7 @@ async function assertTheme(page, theme, where) {
 async function shootCell(page, cell, theme, vp) {
   await assertTheme(page, theme, cell)
   await page.evaluate(() => window.scrollTo(0, 0))
-  await page.waitForTimeout(400)
+  await untilSettled(page, scrollSig, null, 3000)
 
   const seen = await page.evaluate(readCell, {
     picker: PICKER, panel: PANEL, feed: FEED_PANEL, strip: STRIP, welcome: WELCOME,
@@ -446,12 +446,12 @@ async function shootCell(page, cell, theme, vp) {
     const frames = Math.min(12, Math.max(1, Math.ceil(seen.docHeight / vp.height)))
     for (let i = 0; i < frames; i += 1) {
       await page.evaluate((y) => window.scrollTo(0, y), i * vp.height)
-      await page.waitForTimeout(350)
+      await untilSettled(page, scrollSig, null, 2000)
       await page.screenshot({ path: `${OUT}/${cell}-f${i + 1}.png` })
       written.push(`${cell}-f${i + 1}.png`)
     }
     await page.evaluate(() => window.scrollTo(0, 0))
-    await page.waitForTimeout(250)
+    await untilSettled(page, scrollSig, null, 2000)
     seen.frames = frames
   }
 
@@ -484,18 +484,172 @@ function reportCell(cell, seen) {
 
 // ── The walks ────────────────────────────────────────────────────────────────
 
+/**
+ * ── Waiting for the condition, not for a guess at how long it takes ─────────
+ *
+ * 🔴 These replaced 30 fixed `waitForTimeout` calls — 40.9s of literal sleeping
+ * in the source, and about 103s of a 186s run once the four cells are counted.
+ * A fixed sleep is wrong in both directions at once: too long on this machine
+ * (the run is mostly idle) and too short on a loaded CI runner, where it fails
+ * as a product bug rather than as a slow page. Every one of them was followed
+ * by a read of some condition, which is the condition to wait for.
+ *
+ * 🔴 `until` and `untilSettled` DO NOT THROW on timeout, and that is the whole
+ * safety argument for this change. Each call site used to sleep and then
+ * assert; it now waits for the condition and then makes the SAME assertion. If
+ * the condition never arrives we have waited the cap and the assertion reports
+ * it, with its own message, exactly as a too-short sleep would have. Throwing
+ * here would convert soft, well-described failures into an aborted walk.
+ *
+ * The caps are therefore budgets, not expectations: they are what the run
+ * spends when something is broken, and they should never be reached otherwise.
+ */
+const POLL_MS = 40
+
+/** Poll `probe` in the page until it returns true, or `cap` ms pass. */
+async function until(page, probe, arg, cap) {
+  const deadline = Date.now() + cap
+  for (;;) {
+    let ok = false
+    // An `evaluate` that lands mid-navigation rejects. That is a "not yet",
+    // not a failure, and a run must not die of one.
+    try { ok = await page.evaluate(probe, arg) } catch { ok = false }
+    if (ok === true) return true
+    if (Date.now() >= deadline) return false
+    await page.waitForTimeout(POLL_MS)
+  }
+}
+
+/**
+ * Poll a SIGNATURE and return once it reads the same twice in a row.
+ *
+ * `probe` returns a string once the page is ready, or `null` while it is not.
+ * Two equal readings is what separates "finished" from "still growing": a page
+ * whose fonts are still swapping or whose list is still filling reports a
+ * different height or child count each time, and a single truthy reading would
+ * accept it mid-flight. That is the failure a sleep was hiding.
+ */
+async function untilSettled(page, probe, arg, cap) {
+  const deadline = Date.now() + cap
+  let last = null
+  for (;;) {
+    let now = null
+    try { now = await page.evaluate(probe, arg) } catch { now = null }
+    if (now !== null && now === last) return true
+    last = now
+    if (Date.now() >= deadline) return false
+    await page.waitForTimeout(POLL_MS)
+  }
+}
+
+/**
+ * The welcome screen is mounted, laid out, and using its REAL fonts.
+ *
+ * 🔴 `document.fonts.ready` is not decoration here. Half this script measures
+ * contrast and element rects; a probe that runs while the fallback font is
+ * still in place measures a box that is about to change size. The old 2200ms
+ * sleep was buying this and not saying so.
+ */
+const welcomeSig = async () => {
+  if (document.readyState !== 'complete') return null
+  await document.fonts.ready
+  const w = document.querySelector('[data-welcome-screen]')
+  if (!w) return null
+  if (!w.querySelector('input[role="combobox"]')) return null
+  const cards = w.querySelectorAll('button[aria-haspopup="dialog"]').length
+  if (cards === 0) return null
+  return `${Math.round(document.documentElement.scrollHeight)}|${cards}`
+}
+
+/** The shell is up, the named panel is the visible one, and it has stopped moving. */
+const panelSig = async (sel) => {
+  if (document.readyState !== 'complete') return null
+  await document.fonts.ready
+  const el = document.querySelector(sel)
+  if (!el || el.offsetParent === null) return null
+  return `${Math.round(document.documentElement.scrollHeight)}|${Math.round(el.getBoundingClientRect().height)}`
+}
+
+/**
+ * Nothing in particular — the page simply stopped changing.
+ *
+ * For the two moves whose own completion has no attribute to read: height plus
+ * element count moves while React re-renders and is still when it is done.
+ */
+const quietSig = async () => {
+  if (document.readyState !== 'complete') return null
+  await document.fonts.ready
+  return `${Math.round(document.documentElement.scrollHeight)}|${document.querySelectorAll('*').length}`
+}
+
+/** Scroll position and document height together, for a cell about to be read. */
+const scrollSig = () =>
+  `${Math.round(window.scrollY)}|${Math.round(document.documentElement.scrollHeight)}`
+
+/** An open dialog's rect, so an entrance animation is waited out rather than slept through. */
+const dialogSig = () => {
+  const d = document.querySelector('dialog[open]')
+  if (!d) return null
+  const r = d.getBoundingClientRect()
+  if (r.width === 0 || r.height === 0) return null
+  return `${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`
+}
+
+/** No dialog is open. The condition the four dismissal assertions each read next. */
+const noneOpen = () => document.querySelectorAll('dialog[open]').length === 0
+
+/** A picker's input is on screen and can be typed into. */
+const pickerReady = (scope) => {
+  const el = document.querySelector(`${scope} input[role="combobox"]`)
+  return !!el && el.offsetParent !== null
+}
+
+/** What a picker's list currently holds, plus whether the honest line is up. */
+const pickerState = (scope) => {
+  const root = document.querySelector(scope)
+  const opts = root ? [...root.querySelectorAll('[role="option"]')] : []
+  return {
+    count: opts.length,
+    sig: opts.map((o) => (o.textContent || '').replace(/\s+/g, ' ').trim()).join('|'),
+    problem: !!document.querySelector('[data-place-picker-problem]'),
+  }
+}
+
 /** Type into a picker, from empty, and wait for the list (or the honest line). */
 async function typeInto(page, scope, text, { expectOptions = true } = {}) {
   const input = page.locator(`${scope} input[role="combobox"]`)
   await input.click()
   await input.fill('')
+  // 🔴 What the list held BEFORE this query. `usePlaceSearch` debounces at
+  // 250ms and the stub answers every query, so a run that waited only for
+  // `[role="option"]` would be satisfied by the PREVIOUS query's list and read
+  // the wrong one. The old guard was a 900ms sleep, which is that hazard
+  // restated as a hope; this waits for the list to actually CHANGE, which is
+  // what the sleep was approximating.
+  const before = await page.evaluate(pickerState, scope)
   await input.fill(text)
-  // 🔴 Not padding. `usePlaceSearch` debounces at 250ms and the stub answers
-  // every query, so a run that waited only for `[role="option"]` would be
-  // satisfied by the PREVIOUS query's list and shoot the wrong one.
-  await page.waitForTimeout(900)
-  if (expectOptions) await page.waitForSelector(`${scope} [role="option"]`, { timeout: 15000 })
-  else await page.waitForTimeout(700)
+
+  // The one justified floor in this file, and it is a known interval rather
+  // than a guess: nothing the debounce produces can arrive before 250ms, so a
+  // list seen sooner is necessarily the old one. 300 rounds it up.
+  const floor = Date.now() + 300
+  const deadline = Date.now() + 15000
+  for (;;) {
+    const now = await page.evaluate(pickerState, scope)
+    const arrived = expectOptions
+      ? now.count > 0 && now.sig !== before.sig
+      : now.count === 0 && now.problem
+    if (Date.now() >= floor && arrived) return
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `${scope}: typed "${text}" and ` +
+          (expectOptions
+            ? `no NEW list arrived within 15s (${now.count} option(s), unchanged from before the keystroke)`
+            : `the honest no-results line never replaced the list within 15s (${now.count} option(s) still up)`),
+      )
+    }
+    await page.waitForTimeout(POLL_MS)
+  }
 }
 
 /** Wait until the shell replaced the welcome screen. Never a bare selector wait. */
@@ -512,14 +666,20 @@ async function settle(page, timeout = 25000) {
       { p: PANEL, w: WELCOME },
     )
     if (state === 'shell') return 'shell'
-    await page.waitForTimeout(400)
+    // A poll interval, not a settle — this loop was already condition-based.
+    // 400ms just meant up to 400ms of waiting after the shell was already up.
+    await page.waitForTimeout(POLL_MS * 3)
   }
   return 'stuck'
 }
 
 async function goToView(page, view) {
   await page.getByRole('tab', { name: view === 'explore' ? /Explore/i : /Conversations/i }).click()
-  await page.waitForTimeout(1000)
+  // Every feed panel is mounted at once and the inactive ones are hidden with
+  // CSS (CLAUDE.md, "Every feed panel is mounted at once"), so "the tab
+  // switched" is exactly "this panel became the visible one, and then stopped
+  // resizing".
+  await untilSettled(page, panelSig, view === 'explore' ? PANEL : FEED_PANEL, 10000)
 }
 
 /**
@@ -536,7 +696,7 @@ async function walkSignedOut(theme, vp, tag) {
   const { ctx, page } = await freshContext(theme, vp)
   await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
   await page.waitForSelector(WELCOME, { timeout: 25000 })
-  await page.waitForTimeout(2200)
+  await untilSettled(page, welcomeSig, null, 10000)
   await assertTheme(page, theme, `${tag} (boot)`)
 
   // 1 — nothing chosen
@@ -556,7 +716,7 @@ async function walkSignedOut(theme, vp, tag) {
   await page.locator(`${HERO_PICKER} [role="option"]`).first().click()
   const state = await settle(page)
   if (state !== 'shell') throw new Error(`${tag}: the place never resolved — settled on "${state}"`)
-  await page.waitForTimeout(2500)
+  await untilSettled(page, panelSig, PANEL, 10000)
   await goToView(page, 'explore')
   reportCell(`4-explore-${tag}`, await shootCell(page, `4-explore-${tag}`, theme, vp))
 
@@ -609,15 +769,18 @@ async function walkMember(theme, vp, tag) {
   // green on the same commit: it waits on `[data-place-change]:visible`, which
   // is what actually proves a member can reach `enterPlace`. Match it.
   await page.waitForSelector(`${CHANGE}:visible`, { timeout: 25000 })
-  await page.waitForTimeout(3000)
+  await untilSettled(page, quietSig, null, 12000)
   await assertTheme(page, theme, `${tag} (boot)`)
 
   // The strip's own entry point — D-19's second one, the SAME PlacePicker.
   await page.locator(`[data-place-change]:visible`).first().click()
-  await page.waitForTimeout(500)
+  await until(page, pickerReady, COMPACT_PICKER, 10000)
   await typeInto(page, COMPACT_PICKER, PLACE_QUERY)
   await page.locator(`${COMPACT_PICKER} [role="option"]`).first().click()
-  await page.waitForTimeout(3000)
+  // The next line reads the strip's own attribute, so wait for that attribute.
+  // On timeout we fall through and the throw below reports what it actually
+  // says, which is a better message than this wait could produce.
+  await until(page, (s) => document.querySelector(s)?.getAttribute('data-place-strip') === 'visiting', STRIP, 15000)
   const visiting = await page.evaluate((s) => document.querySelector(s)?.getAttribute('data-place-strip'), STRIP)
   if (visiting !== 'visiting') throw new Error(`${tag}: the member never entered the place (strip="${visiting}")`)
   await goToView(page, 'explore')
@@ -1239,7 +1402,7 @@ async function auditWelcome(theme, vp, tag) {
   const { ctx, page } = await freshContext(theme, vp)
   await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
   await page.waitForSelector(WELCOME, { timeout: 25000 })
-  await page.waitForTimeout(2200)
+  await untilSettled(page, welcomeSig, null, 10000)
   await assertTheme(page, theme, `audit ${tag}`)
 
   // ── Contrast, the welcome screen ──
@@ -1433,7 +1596,7 @@ async function auditDialogs(theme, vp, tag) {
   const { ctx, page } = await freshContext(theme, vp)
   await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
   await page.waitForSelector(WELCOME, { timeout: 25000 })
-  await page.waitForTimeout(2200)
+  await untilSettled(page, welcomeSig, null, 10000)
   await assertTheme(page, theme, `audit ${tag}`)
 
   const counts = await page.evaluate(() => ({
@@ -1485,7 +1648,7 @@ async function auditDialogs(theme, vp, tag) {
         await page.evaluate(closeAnyOpen)
         return
       }
-      await page.waitForTimeout(350)
+      await untilSettled(page, dialogSig, null, 3000)
 
       // Its own title, which is what the popup calls itself.
       const name = await page.evaluate(
@@ -1542,7 +1705,7 @@ async function auditDialogs(theme, vp, tag) {
 
       // ── Both ways out, clicked for real ──
       await page.locator('dialog[open] button[aria-label="Close"]').click()
-      await page.waitForTimeout(250)
+      await until(page, noneOpen, null, 3000)
       const afterX = await page.evaluate(countOpen)
       aCheck(
         `dialogs ${tag} · "${name}" · the × dismisses it`,
@@ -1557,12 +1720,12 @@ async function auditDialogs(theme, vp, tag) {
       const reopen = async () => {
         await trigger.first().click()
         await page.waitForSelector('dialog[open]', { timeout: 10000 })
-        await page.waitForTimeout(250)
+        await untilSettled(page, dialogSig, null, 3000)
       }
 
       await reopen()
       await page.locator('dialog[open] ul + div button').click()
-      await page.waitForTimeout(250)
+      await until(page, noneOpen, null, 3000)
       const afterGotIt = await page.evaluate(countOpen)
       aCheck(
         `dialogs ${tag} · "${name}" · "Got it" dismisses it`,
@@ -1581,7 +1744,7 @@ async function auditDialogs(theme, vp, tag) {
         return { x: Math.max(4, Math.round(r.left / 2)), y: Math.max(4, Math.round(r.top / 2)) }
       })
       await page.mouse.click(spot.x, spot.y)
-      await page.waitForTimeout(250)
+      await until(page, noneOpen, null, 3000)
       const afterBackdrop = await page.evaluate(countOpen)
       aCheck(
         `dialogs ${tag} · "${name}" · a click on the backdrop dismisses it`,
@@ -1593,7 +1756,7 @@ async function auditDialogs(theme, vp, tag) {
 
       await reopen()
       await page.keyboard.press('Escape')
-      await page.waitForTimeout(250)
+      await until(page, noneOpen, null, 3000)
       const afterEscape = await page.evaluate(countOpen)
       aCheck(
         `dialogs ${tag} · "${name}" · Escape dismisses it`,
@@ -1615,11 +1778,11 @@ async function auditPlace(theme, vp, tag) {
   const { ctx, page } = await freshContext(theme, vp)
   await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
   await page.waitForSelector(WELCOME, { timeout: 25000 })
-  await page.waitForTimeout(2000)
+  await untilSettled(page, welcomeSig, null, 10000)
   await typeInto(page, HERO_PICKER, PLACE_QUERY)
   await page.locator(`${HERO_PICKER} [role="option"]`).first().click()
   if ((await settle(page)) !== 'shell') throw new Error(`audit ${tag}: the place never resolved`)
-  await page.waitForTimeout(2500)
+  await untilSettled(page, panelSig, PANEL, 10000)
   await assertTheme(page, theme, `audit place ${tag}`)
 
   await goToView(page, 'explore')
@@ -1657,7 +1820,7 @@ async function auditPlace(theme, vp, tag) {
   // input. It is the only way to change place at every breakpoint and on every
   // tab, and the rest of it was as unmeasured as the popups were.
   await page.locator(`[data-place-change]:visible`).first().click()
-  await page.waitForTimeout(600)
+  await until(page, pickerReady, COMPACT_PICKER, 10000)
   await guarded(`the compact picker group ${tag}`, async () => {
     await auditHelpLine(page, COMPACT_PICKER, 'the compact picker’s', tag)
 
@@ -1728,7 +1891,7 @@ async function auditPlace(theme, vp, tag) {
   })
   await page.keyboard.press('Escape')
   await page.locator(`[data-place-change]:visible`).first().click()
-  await page.waitForTimeout(400)
+  await until(page, pickerReady, COMPACT_PICKER, 10000)
 
   // The honest conversations state.
   await goToView(page, 'conversations')
@@ -1764,7 +1927,7 @@ async function auditMemberNotices(theme, vp, tag) {
   // audit pass hung too, so fixing only the other would have moved the hang
   // rather than removed it.
   await page.waitForSelector(`${CHANGE}:visible`, { timeout: 25000 })
-  await page.waitForTimeout(3000)
+  await untilSettled(page, quietSig, null, 12000)
   await assertTheme(page, theme, `audit member ${tag}`)
 
   // The four roster positions. Each is read here and asserted at the end of
@@ -1772,10 +1935,10 @@ async function auditMemberNotices(theme, vp, tag) {
   const own = await page.evaluate(auditRoster)
 
   await page.locator(`[data-place-change]:visible`).first().click()
-  await page.waitForTimeout(500)
+  await until(page, pickerReady, COMPACT_PICKER, 10000)
   await typeInto(page, COMPACT_PICKER, PLACE_QUERY)
   await page.locator(`${COMPACT_PICKER} [role="option"]`).first().click()
-  await page.waitForTimeout(3000)
+  await until(page, (s) => document.querySelector(s)?.getAttribute('data-place-strip') === 'visiting', STRIP, 15000)
   await goToView(page, 'explore')
 
   const visitedCity = await page.evaluate(auditRoster)
@@ -1809,10 +1972,17 @@ async function auditMemberNotices(theme, vp, tag) {
   // Federal, at the same place, then back to the member's own spaces.
   const fedSel = vp.width >= 1024 ? `${RAIL_SEL} [data-nav-tab="federal"]` : `${TABBAR_SEL} [data-slice-tab="federal"]`
   await page.locator(fedSel).first().click()
-  await page.waitForTimeout(2500)
+  // No attribute of this tab says "the roster below me has caught up", so the
+  // condition is the generic one: the page stopped changing. Deliberately NOT
+  // "the roster is present" — that is what the assertions below decide, and
+  // waiting for it would make them unfalsifiable.
+  await untilSettled(page, quietSig, null, 8000)
   const visitedFederal = await page.evaluate(auditRoster)
   await page.locator(LEAVE).first().click()
-  await page.waitForTimeout(3000)
+  // Leaving is done when the strip stops saying "visiting"; then let the
+  // re-render finish before the roster is read.
+  await until(page, (s) => document.querySelector(s)?.getAttribute('data-place-strip') !== 'visiting', STRIP, 15000)
+  await untilSettled(page, quietSig, null, 8000)
   const backHome = await page.evaluate(auditRoster)
 
   /**
@@ -1876,7 +2046,7 @@ async function auditReducedMotion(theme, vp, tag) {
   const { ctx, page } = await freshContext(theme, vp, { reducedMotion: true })
   await page.goto(`${ORIGIN}/?signedout=1`, { waitUntil: 'domcontentloaded' })
   await page.waitForSelector(WELCOME, { timeout: 25000 })
-  await page.waitForTimeout(2200)
+  await untilSettled(page, welcomeSig, null, 10000)
   await typeInto(page, HERO_PICKER, PLACE_QUERY)
   const m = await page.evaluate(auditMotion)
   aCheck(`reduced-motion ${tag} · the page SEES the preference`, m.matched,
