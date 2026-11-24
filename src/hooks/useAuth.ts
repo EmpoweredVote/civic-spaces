@@ -183,12 +183,39 @@ type SessionCheck =
  */
 let sessionCheckInFlight: Promise<SessionCheck> | null = null
 
+/**
+ * Ceiling on the session check, because this request GATES FIRST PAINT.
+ *
+ * `resolveAuth` awaits it on step 3, and `isLoading` stays true until it answers,
+ * so an accounts-api that is slow rather than down holds the member on the loading
+ * screen for exactly as long as it takes — with no bound at all before this.
+ * Nothing in the app was watching that: a hung fetch is not an error, so no retry,
+ * no timeout and no log ever fired.
+ *
+ * 8s is deliberately generous. Measured against production on 2026-11-23, this
+ * endpoint answered in 173–520ms across a dozen samples, so the ceiling is ~15x
+ * the slowest observed call. It is a budget for when something is broken, not an
+ * expectation — a healthy check is never anywhere near it, and a bad mobile
+ * connection should still be allowed to finish.
+ */
+const SESSION_CHECK_TIMEOUT_MS = 8_000
+
 async function checkSession(): Promise<SessionCheck> {
   if (sessionCheckInFlight) return sessionCheckInFlight
 
   sessionCheckInFlight = (async (): Promise<SessionCheck> => {
     try {
-      const res = await fetch(ACCOUNTS_SESSION_URL, { credentials: 'include' })
+      // 🔴 The timeout MUST surface as status 0, never 401. `AbortSignal.timeout`
+      // rejects with a TimeoutError DOMException, which the catch below already
+      // folds into the indeterminate `status: 0` — and that is the whole safety
+      // argument, not an accident of control flow. The 60s poll calls
+      // `redirectToLogin()` on 401 and only on 401, so a timeout reported as "signed
+      // out" would log a member out of a working session because their network was
+      // slow for eight seconds. Indeterminate means the next tick simply retries.
+      const res = await fetch(ACCOUNTS_SESSION_URL, {
+        credentials: 'include',
+        signal: AbortSignal.timeout(SESSION_CHECK_TIMEOUT_MS),
+      })
       if (res.ok) {
         const { access_token } = (await res.json()) as { access_token: string }
         return { ok: true, accessToken: access_token }
