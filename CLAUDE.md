@@ -155,8 +155,8 @@ PR check off. `check:grants` and `check:anon-read` (tenth, eleventh) run by hand
 `SUPABASE_DB_URL` plus `psql`, which CI does not have (`db-surface.yml` is the manual-dispatch job ready for when it does).
 
 🔴 **Running in CI is not the same as being required.** "Required to merge" is a
-branch-protection setting on `main`. Since 2026-11-05 it lists **`build`, `Guards (pure)` and
-`Guards (browser)`** — all three. Read it with
+branch-protection setting on `main`. Since 2026-11-25 it lists **`build`, `Guards (pure)`,
+`Guards (browser)` and `Guards (welcome)`** — all four. Read it with
 `gh api repos/EmpoweredVote/civic-spaces/branches/main/protection`. `enforce_admins` is `false`,
 so an admin merges past all of it — which is how #139 landed, self-approval being impossible.
 
@@ -164,8 +164,8 @@ so an admin merges past all of it — which is how #139 landed, self-approval be
 `guards.yml` and `build-check.yml` — triggers on `pull_request` only; neither has a `push`
 or `workflow_dispatch` trigger. So a commit pushed straight to `main` skips review AND all
 seven guards, and deploys to production ~3 minutes later. `enforce_admins: false` means the
-push is accepted: the remote prints `- 3 of 3 required status checks are expected` and takes
-it anyway, which is the only warning you get and reads like noise. This happened on
+push is accepted: the remote prints `- N of N required status checks are expected` (N is 4
+since 2026-11-25) and takes it anyway, which is the only warning you get and reads like noise. This happened on
 2026-11-05 — `gh pr merge --delete-branch` leaves you checked out on `main`, and the next
 commit went there. Check `git branch --show-current` before `git commit`, not before the
 push; by push time the commit exists and undoing it means force-pushing a shared branch.
@@ -187,9 +187,16 @@ gh api --method POST   .../branches/main/protection/required_status_checks/conte
 gh api --method DELETE .../branches/main/protection/required_status_checks/contexts -f 'contexts[]=Guards (browser)'
 ```
 
-If these three ever turn flaky, a required flaky check is worse than an advisory solid one —
+`Guards (welcome)` followed on 2026-11-25, and on a thinner case: **5 runs, 2026-11-22 to
+2026-11-25, 5 success / 0 failures / 0 cancelled** — three days, not the week originally
+planned. What carried it is that the cost is provably zero rather than small: it is a parallel
+job in the same `guards.yml` run as `Guards (browser)` and finishes in **2m00s** against that
+job's 4m49s, so it cannot extend a PR's critical path while browser stays required. The only
+exposure it adds is flakiness, and the sample backing it is 5 runs, not 40.
+
+If these ever turn flaky, a required flaky check is worse than an advisory solid one —
 but the fix is to harden the guard, or to keep only `check:place-entry` required (it is the
-mount-deletion guard and the fastest of the three), not to demote the lot.
+mount-deletion guard and the fastest of the three browser guards), not to demote the lot.
 
 🔴 **Still run them by hand before you claim anything works.** CI runs them on a pull request;
 it does not run them while you are working, and `npm run build` on its own has never been
@@ -214,7 +221,8 @@ files, that is a behind-by-N branch, not lost work; check the counts
 `.github/workflows/docs-auto-approve.yml`; one non-doc file and it is a normal review. The
 allowlist is the security boundary, so `.github/**` is excluded — a PR touching CI never
 auto-approves, including one that edits that workflow. `build` is required either way, and
-the `Guards` jobs run on every PR but are not yet required (see above).
+since 2026-11-25 so are all three `Guards` jobs (see above) — so an auto-approved docs PR
+still waits out `Guards (browser)`'s ~5 minutes.
 
 🔴 **Slice assignment lives in the ev-accounts engine, not in this repo.** It was folded in
 per ev-cto decision 0018 and is **canonical at `ev-accounts/backend/src/civic_spaces/`**,
