@@ -66,9 +66,22 @@ function assetsFromSource() {
     assets['state:' + m[1]] = { path: m[2].split('/politician_photos/')[1], credit: m[3] }
   }
 
+  // 🔴 `(?:, focus: "[^"]+")?` IS LOAD-BEARING. Place entries may carry a focus since
+  // 2026-11-28. When this pattern required the line to END after the credit, every entry
+  // with a focus (23 at the time) silently fell out of the asset list and the check still
+  // printed "All N banners match" — green, and blind to those 23. The count assertion
+  // below is what makes that failure loud instead of silent.
   const placeBlock = gen.slice(gen.indexOf('PLACE_BANNERS'))
-  for (const m of placeBlock.matchAll(/^ {2}'(\d+)': \{ url: "([^"]+)", credit: "([^"]+)" \}/gm)) {
+  for (const m of placeBlock.matchAll(/^ {2}'(\d+)': \{ url: "([^"]+)", credit: "([^"]+)"(?:, focus: "[^"]+")? \}/gm)) {
     assets['place:' + m[1]] = { path: m[2].split('/politician_photos/')[1], credit: m[3] }
+  }
+
+  // Every banner line in the table must have been read. A line the patterns above do not
+  // understand is a banner this check would otherwise skip without a word.
+  const lines = gen.split(/\r?\n/).filter((l) => /^ {2}(?:[A-Z]{2}|'\d+'): \{ url: "/.test(l)).length
+  const read = Object.keys(assets).length - (assets['federal'] ? 1 : 0)
+  if (read !== lines) {
+    throw new Error(`read ${read} state/place banners from banners.generated.ts but it has ${lines} — the parser has fallen behind the generator`)
   }
   return assets
 }

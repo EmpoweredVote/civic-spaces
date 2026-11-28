@@ -8,6 +8,8 @@ import { bannerFor } from '../lib/banners'
 export interface HeroImage {
   url: string
   credit: string | null
+  /** object-position from the shared library (see Banner.focus). Wikipedia images have none. */
+  focus?: string
 }
 
 /**

@@ -43,6 +43,11 @@ const CASES: Case[] = [
   { label: 'City — uncovered geoid · NO election on file', sliceType: 'city', geoid: '1836003', name: 'Indianapolis', level: 'City', election: null },
   // The case the 2026-11-17 refresh was for: a place the member does not live in.
   { label: 'City — Reno (added 2026-11-17) · a visited place, not the member’s own', sliceType: 'city', geoid: '3260600', name: 'Reno', level: 'City', election: undefined, viewOnly: true, population: 264165 },
+  // FOCUS cases (2026-11-28). Indio's band sits at the TOP ('50% 0%') so the word "Indio" on
+  // the sign stays in view; Palm Desert's sits LOW ('50% 74%') to keep the street. If either
+  // renders centred, the focus is not reaching the <img>.
+  { label: 'City — Indio · focus 50% 0% (band at the top: the "Indio" lettering must show)', sliceType: 'city', geoid: '0636448', name: 'Indio', level: 'City', election: undefined },
+  { label: 'City — Palm Desert · focus 50% 74% (band low: the street must show)', sliceType: 'city', geoid: '0655184', name: 'Palm Desert', level: 'City', election: undefined },
   { label: 'State — Indiana', sliceType: 'state', geoid: '18', name: 'Indiana', level: 'State', election: NC_GENERAL },
   { label: 'State — California (v2 crop)', sliceType: 'state', geoid: '06', name: 'California', level: 'State', election: undefined },
   { label: 'Federal', sliceType: 'federal', geoid: 'US', name: 'United States of America', level: 'Federal', election: NC_GENERAL },
@@ -124,6 +129,7 @@ function Harness() {
               forecastUrl={forecastUrlFor(c.sliceType, c.geoid, c.name)}
               photoUrl={banner ? banner.url : null}
               credit={banner ? banner.credit : null}
+              photoFocus={banner?.focus ?? null}
             />
           </section>
         )

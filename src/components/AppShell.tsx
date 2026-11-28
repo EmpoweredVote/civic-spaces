@@ -103,6 +103,8 @@ function ActiveHeroBanner({
   // uses it to hold the gradient rather than flash a fallback photo it will replace.
   const photoUrl = slice.photoUrl ?? (hero === undefined ? undefined : (hero?.url ?? null))
   const credit = slice.photoUrl ? null : (hero?.credit ?? null)
+  // The focus belongs to the shared-library crop, so an override photo never inherits it.
+  const photoFocus = slice.photoUrl ? null : (hero?.focus ?? null)
 
   // Counts come straight from slices.current_member_count (trigger-maintained). Only
   // the shard on screen: a jurisdiction-wide total read as an unexplained second count
@@ -127,6 +129,7 @@ function ActiveHeroBanner({
       forecastUrl={forecastUrlFor(slice.sliceType, slice.geoid, resolvedName)}
       photoUrl={photoUrl}
       credit={credit}
+      photoFocus={photoFocus}
     />
   )
 }

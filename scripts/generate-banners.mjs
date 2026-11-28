@@ -75,35 +75,69 @@ const localBody = src.slice(src.indexOf('const CURATED_LOCAL = {'), src.indexOf(
 // Each entry is bounded by the NEXT entry. A fixed-width window overruns into following
 // entries and, because a later match overwrites an earlier one, silently gives a place
 // its neighbour's image.
+//
+// Each value is { src, focus }. `focus` is the CSS object-position Essentials stores per
+// banner: where the desktop band sits inside the 1700x540 asset (0% = top, 100% = bottom).
+// 🔴 IT IS PART OF THE CROP, NOT DECORATION. Essentials' registry says so in capitals: "THE
+// `focus` MUST BE COPIED, NOT JUST THE `src`", because a table that carries the filename and
+// drops the focus silently re-centres every banner an operator cropped. Indio's band sits at
+// '50% 0%' to keep the word "Indio" on the sign; centred, it is mostly sky.
 const byName = new Map()
+
+// Same rule as Essentials' SectionBanner resolveImageFocus: two space-separated tokens, each
+// a percentage, a px length, or a keyword. A bad value FAILS the run rather than being
+// dropped -- dropping it is the silent re-centre this field exists to prevent.
+const FOCUS_TOKEN = /^(-?\d+(\.\d+)?(%|px)|left|right|top|bottom|center)$/
+function fieldsOf(body) {
+  const st = body.match(/state:\s*'([A-Z]{2})'/)
+  const sr = body.match(/src:\s*'([^']+)'/)
+  const fo = body.match(/focus:\s*'([^']+)'/)
+  let focus = null
+  if (fo) {
+    const parts = fo[1].trim().split(/\s+/)
+    if (parts.length !== 2 || !parts.every((p) => FOCUS_TOKEN.test(p))) {
+      throw new Error(`registry focus "${fo[1]}" is not a valid object-position -- fix it in Essentials`)
+    }
+    focus = parts.join(' ')
+  }
+  return { state: st ? st[1] : null, src: sr ? sr[1] : null, focus }
+}
+
 const keyRe = /^ {2}(?:'([^']+)'|([a-z0-9-]+)):\s*(\[|\{)/gm
 const starts = []
 let m
 while ((m = keyRe.exec(localBody))) starts.push({ name: m[1] || m[2], index: m.index })
 for (let i = 0; i < starts.length; i++) {
   const entry = localBody.slice(starts[i].index, i + 1 < starts.length ? starts[i + 1].index : localBody.length)
-  for (const v of entry.matchAll(/state:\s*'([A-Z]{2})'[^}]*?src:\s*'([^']+)'/g)) {
-    byName.set(starts[i].name.toLowerCase().trim() + '|' + v[1], v[2])
+  // One {...} per variant (an array entry holds one per state). Every field is read out of
+  // its OWN object, so a focus can never be paired with a neighbouring variant's src.
+  for (const obj of entry.matchAll(/\{([^{}]*)\}/g)) {
+    const f = fieldsOf(obj[1])
+    if (f.state && f.src) byName.set(starts[i].name.toLowerCase().trim() + '|' + f.state, { src: f.src, focus: f.focus })
   }
 }
 
+// ⚠ The old pattern here required `src` to follow `state` directly, so any county entry
+// carrying a focus ('06087' Santa Cruz County, '50% 30%') silently fell out of this map.
 const countyBody = src.slice(src.indexOf('const CURATED_COUNTY = {'))
 const countyByGeoid = new Map()
-for (const c of countyBody.matchAll(/'(\d{5})':\s*\{\s*state:\s*'([A-Z]{2})',\s*src:\s*'([^']+)'/g)) {
-  countyByGeoid.set(c[1], c[3])
+for (const c of countyBody.matchAll(/'(\d{5})':\s*\{([^{}]*)\}/g)) {
+  const f = fieldsOf(c[2])
+  if (f.src) countyByGeoid.set(c[1], { src: f.src, focus: f.focus })
 }
 
 /* ---- build the tables ---- */
 const places = new Map()
 const skipped = { noBanner: [], uncredited: [], unknown: [] }
 
-function add(geoids, url, label) {
-  if (!url) return 'noBanner'
-  const path = url.replace(BASE + '/', '')
+// `entry` is a { src, focus } from the registry maps above, or undefined.
+function add(geoids, entry, label) {
+  if (!entry?.src) return 'noBanner'
+  const path = entry.src.replace(BASE + '/', '')
   if (uncredited.has(path)) return 'uncredited'
   const asset = byPath.get(path)
   if (!asset) return 'unknown'
-  for (const g of geoids) places.set(g, { url: urlOf(path), credit: creditOf(asset), label })
+  for (const g of geoids) places.set(g, { url: urlOf(path), credit: creditOf(asset), focus: entry.focus, label })
   return 'ok'
 }
 
@@ -113,17 +147,17 @@ for (const c of cov.cities || []) {
 }
 
 for (const c of cov.counties || []) {
-  let url = null
-  for (const g of c.geoids || []) if (countyByGeoid.has(g)) url = countyByGeoid.get(g)
-  if (!url) url = byName.get((c.label || '').toLowerCase().trim() + '|' + c.state)
-  const r = add(c.geoids || [], url, `${c.label}, ${c.state}`)
+  let entry = null
+  for (const g of c.geoids || []) if (countyByGeoid.has(g)) entry = countyByGeoid.get(g)
+  if (!entry) entry = byName.get((c.label || '').toLowerCase().trim() + '|' + c.state)
+  const r = add(c.geoids || [], entry, `${c.label}, ${c.state}`)
   if (r !== 'ok') skipped[r].push(`${c.label}, ${c.state}`)
 }
 
 // Counties Essentials curates but does NOT publish in coverage.json (Palm Beach is one),
 // so they are reachable only through the registry's own geoid-keyed map.
-for (const [geoid, url] of countyByGeoid) {
-  if (!places.has(geoid)) add([geoid], url, `county ${geoid}`)
+for (const [geoid, entry] of countyByGeoid) {
+  if (!places.has(geoid)) add([geoid], entry, `county ${geoid}`)
 }
 
 const states = {}
@@ -165,14 +199,15 @@ const lines = [
   'export const PLACE_BANNERS: Record<string, Banner> = {',
   ...[...places.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([g, v]) => `  '${g}': { url: ${q(v.url)}, credit: ${q(v.credit)} }, // ${v.label}`),
+    .map(([g, v]) => `  '${g}': { url: ${q(v.url)}, credit: ${q(v.credit)}${v.focus ? `, focus: ${q(v.focus)}` : ''} }, // ${v.label}`),
   '}',
   '',
 ]
 writeFileSync(OUT, lines.join('\n'))
 
 console.log(`wrote ${OUT}`)
-console.log(`  federal: 1   states: ${Object.keys(states).length}   places: ${places.size} geoids`)
+console.log(`  federal: 1   states: ${Object.keys(states).length}   places: ${places.size} geoids` +
+  `   with focus: ${[...places.values()].filter((v) => v.focus).length}`)
 console.log(
   `  skipped — no banner: ${skipped.noBanner.length}, uncredited by Essentials: ${skipped.uncredited.length}` +
     `, not in banners.json: ${skipped.unknown.length}`
