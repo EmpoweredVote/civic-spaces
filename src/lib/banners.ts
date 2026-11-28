@@ -31,6 +31,32 @@ import { FEDERAL_BANNER, STATE_BANNERS, PLACE_BANNERS } from './banners.generate
 export interface Banner {
   url: string
   credit: string
+  /**
+   * CSS object-position for the image, copied from Essentials' registry: where the visible
+   * band sits inside the 1700x540 asset (0% = top, 100% = bottom). Absent = centre.
+   * 🔴 Part of the crop an operator chose, not decoration. Render it through
+   * resolveImageFocus, never raw.
+   */
+  focus?: string
+}
+
+/** The centre — what `object-fit: cover` shows with no position, and every banner's default. */
+export const BANNER_FOCUS_DEFAULT = '50% 50%'
+
+/**
+ * A safe object-position for a banner's `focus`. Mirrors Essentials' SectionBanner rule:
+ * two space-separated tokens, each a percentage, a px length, or a keyword. Anything else
+ * falls back to the centre, because an invalid value makes the browser drop the whole
+ * declaration -- which looks like "the focus did nothing" and gets debugged in the wrong file.
+ */
+export function resolveImageFocus(focus: string | null | undefined): string {
+  if (typeof focus !== 'string') return BANNER_FOCUS_DEFAULT
+  const value = focus.trim()
+  if (!value) return BANNER_FOCUS_DEFAULT
+  const TOKEN = /^(-?\d+(\.\d+)?(%|px)|left|right|top|bottom|center)$/
+  const parts = value.split(/\s+/)
+  if (parts.length !== 2 || !parts.every((p) => TOKEN.test(p))) return BANNER_FOCUS_DEFAULT
+  return value
 }
 
 /** A credit line split for display: who took it, under what licence, and that licence's deed. */

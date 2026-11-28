@@ -7,7 +7,7 @@ import { daysUntil } from '../hooks/useNextElection'
 import { SLICE_COPY } from '../lib/sliceCopy'
 import { geoidToDisplayName } from '../lib/geoidToWiki'
 import { POPULATION_SOURCE } from '../lib/geoNames'
-import { creditParts } from '../lib/banners'
+import { creditParts, resolveImageFocus } from '../lib/banners'
 import { Emoji } from './Emoji'
 
 interface HeroBannerProps {
@@ -57,6 +57,12 @@ interface HeroBannerProps {
    * breakpoint, or a colour too faint to read.
    */
   credit?: string | null
+  /**
+   * object-position for `photoUrl` — where the visible band sits inside the 1700x540 asset,
+   * from Essentials' registry. Null or absent means centre, which is what every banner
+   * showed before this prop existed. Rendered through resolveImageFocus.
+   */
+  photoFocus?: string | null
 }
 
 // Chips sit on an arbitrary photo, so they carry their own dark ground rather than
@@ -267,6 +273,7 @@ export function HeroBanner({
   weather,
   photoUrl,
   credit,
+  photoFocus,
 }: HeroBannerProps) {
   const copy = SLICE_COPY[sliceType]
   // The volunteer community is a team, not a place: branded, titled for the team.
@@ -330,8 +337,11 @@ export function HeroBanner({
           <img
             src={resolvedPhoto}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700"
-            style={{ opacity: 0 }}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+            // objectPosition carries the banner's focus (default centre). It replaced the
+            // object-center class: a class would lose to nothing here, but one source for
+            // the position is easier to reason about than a class and a style that agree.
+            style={{ opacity: 0, objectPosition: resolveImageFocus(photoFocus) }}
             onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = '1' }}
           />
         )}
